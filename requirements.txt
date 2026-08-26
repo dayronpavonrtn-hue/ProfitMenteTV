@@ -1,0 +1,5 @@
+moviepy==1.0.3
+edge-tts==7.2.3
+Pillow>=10.0
+imageio-ffmpeg>=0.5
+numpy<2
