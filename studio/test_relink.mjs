@@ -1,0 +1,10 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);const ProfitMenteRelinkEngine=require('./relink-engine.js');const r=new ProfitMenteRelinkEngine();
+const project={assets:[{id:'v1',name:'Hook Final.mp4',type:'video',size:1000},{id:'a1',name:'voice-over.wav',type:'audio',size:2000},{id:'ok',name:'present.jpg',type:'image'}],clips:[{id:'c1',asset:'v1'},{id:'c2',asset:'a1'},{id:'c3',asset:'ok'},{id:'c4',asset:'v1'}]};
+const assets=[{id:'ok',name:'present.jpg',type:'image'}];
+assert.deepEqual(r.missing(project,assets).map(x=>x.id),['v1','a1']);
+const files=[{name:'hook-final.MP4',type:'video/mp4',size:1002},{name:'voice over.wav',type:'audio/wav',size:2000},{name:'random.mp3',type:'audio/mpeg',size:999}];
+const matched=r.match(project,assets,files);assert.equal(matched.matches.length,2);assert.equal(matched.matches.find(x=>x.expected.id==='v1').file.name,'hook-final.MP4');assert.equal(matched.matches.find(x=>x.expected.id==='a1').file.name,'voice over.wav');assert.equal(matched.unmatchedMissing.length,0);assert.equal(matched.unusedFiles.length,1);
+const wrong=r.match({assets:[{id:'x',name:'special-video.mp4',type:'video'}],clips:[{asset:'x'}]},[],[{name:'totally-different.mp3',type:'audio/mpeg',size:5}]);assert.equal(wrong.matches.length,0);assert.equal(wrong.unmatchedMissing.length,1);
+console.log('Relink engine OK');
