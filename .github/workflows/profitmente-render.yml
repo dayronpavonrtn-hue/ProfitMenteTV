@@ -21,6 +21,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       - name: Verify FFmpeg
         run: |
           ffmpeg -version | head -1
@@ -42,6 +46,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       - name: Validate project
         run: python studio/validate_project.py "${{ inputs.project }}" studio/assets
       - name: Render MP4
