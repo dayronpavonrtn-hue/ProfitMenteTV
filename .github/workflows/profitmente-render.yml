@@ -85,7 +85,7 @@ jobs:
         run: node --check studio/waveform-engine.js
       - name: Validate Python render tools
         run: |
-          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/smoke_test.py studio/test_source_offset.py studio/test_speed.py
+          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/smoke_test.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py
       - name: Ensure FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
@@ -100,6 +100,8 @@ jobs:
         run: python studio/test_source_offset.py
       - name: Test clip playback speed
         run: python studio/test_speed.py
+      - name: Test visual clip transforms
+        run: python studio/test_visual_transform.py
       - name: End-to-end Studio smoke test
         run: python studio/smoke_test.py "$RUNNER_TEMP/profitmente-smoke"
       - name: Upload smoke-test MP4
