@@ -19,8 +19,8 @@
     const c=clipById(selectedId);if(!c)return;
     const t=+$('#playhead').value||0,end=c.start+c.duration;
     if(t<=c.start+.05||t>=end-.05){status('Coloca el cursor dentro del clip para cortarlo');return}
-    const right=structuredClone(c);right.id=crypto.randomUUID();right.start=t;right.duration=end-t;right.name=(c.name||'Clip')+' · 2';
-    c.duration=t-c.start;c.name=(c.name||'Clip').replace(/ · [12]$/,'')+' · 1';project.clips.push(right);selectedId=right.id;commit(`Clip cortado en ${t.toFixed(2)}s`);
+    const cutOffset=t-c.start,right=structuredClone(c);right.id=crypto.randomUUID();right.start=t;right.duration=end-t;right.sourceOffset=Math.max(0,Number(c.sourceOffset)||0)+cutOffset;right.name=(c.name||'Clip')+' · 2';
+    c.duration=cutOffset;c.name=(c.name||'Clip').replace(/ · [12]$/,'')+' · 1';project.clips.push(right);selectedId=right.id;commit(`Clip cortado en ${t.toFixed(2)}s · in-point ${right.sourceOffset.toFixed(2)}s`);
   }
   function duplicate(){
     const c=clipById(selectedId);if(!c)return;
