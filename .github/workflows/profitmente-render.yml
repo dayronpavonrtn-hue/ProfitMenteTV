@@ -27,6 +27,8 @@ jobs:
         run: node studio/test_bundle.mjs
       - name: Test multi-project library
         run: node studio/test_project_library.mjs
+      - name: Test missing media relink
+        run: node studio/test_relink.mjs
       - name: Test Studio integration integrity
         run: node studio/test_studio_integrity.mjs
       - name: Test timeline filmstrips
@@ -57,6 +59,8 @@ jobs:
         run: node --check studio/project-library.js
       - name: Check qa-engine.js
         run: node --check studio/qa-engine.js
+      - name: Check relink-engine.js
+        run: node --check studio/relink-engine.js
       - name: Check timeline-magnet.js
         run: node --check studio/timeline-magnet.js
       - name: Check waveform-engine.js
