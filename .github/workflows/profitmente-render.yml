@@ -9,6 +9,9 @@ on:
         default: studio/example-project.json
   push:
     paths:
+      - 'studio/generator-engine.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_generator.mjs'
       - 'studio/render_mp4.py'
       - 'studio/validate_project.py'
       - 'studio/smoke_test.py'
@@ -21,6 +24,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Test automatic generator
+        run: node studio/test_generator.mjs
       - name: Install FFmpeg
         run: |
           sudo apt-get update
