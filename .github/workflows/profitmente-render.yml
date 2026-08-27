@@ -85,7 +85,9 @@ jobs:
         run: node --check studio/waveform-engine.js
       - name: Validate Python render tools
         run: |
-          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py
+          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_server_api.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py
+      - name: Test local render API security
+        run: python studio/test_server_api.py
       - name: Test local Studio server readiness
         run: |
           python studio/studio_server.py --port 8099 > "$RUNNER_TEMP/studio-server.log" 2>&1 &
@@ -102,7 +104,8 @@ jobs:
           p=pathlib.Path(os.environ['RUNNER_TEMP'])/'studio-health.json'
           data=json.loads(p.read_text())
           assert data['ok'] is True
-          assert 'render_ready' in data
+          assert 'ffmpeg' in data and 'ffprobe' in data and 'render_ready' in data
+          assert data['render_ready'] == bool(data['ffmpeg'] and data['ffprobe'])
           print('Studio local server ready:', data)
           PY
       - name: Ensure FFmpeg
