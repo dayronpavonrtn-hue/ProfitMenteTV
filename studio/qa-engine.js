@@ -5,8 +5,12 @@ class ProfitMenteQAEngine{
     for(const c of project.clips||[]){
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
       if(c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
-      const a=c.asset&&assets.find(x=>x.id===c.asset),sourceOffset=Math.max(0,Number(c.sourceOffset)||0);
-      if(a?.duration&&['video','audio'].includes(a.type)&&sourceOffset+c.duration>a.duration+.15) warnings.push(`Recorte supera el final del archivo fuente: ${c.name||a.name}`);
+      const a=c.asset&&assets.find(x=>x.id===c.asset),sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
+      if(a?.duration&&['video','audio'].includes(a.type)){
+        const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;
+        if(sourceOffset>a.duration+.01) issues.push(`Punto de entrada fuera del archivo fuente: ${c.name||a.name}`);
+        else if(sourceOffset+sourceNeeded>a.duration+.15) warnings.push(`Recorte supera el final del archivo fuente: ${c.name||a.name} · requiere ${(sourceOffset+sourceNeeded).toFixed(2)}s de ${Number(a.duration).toFixed(2)}s`);
+      }
     }
     const visuals=(project.clips||[]).filter(c=>[0,1].includes(c.track)&&c.asset);
     if(!visuals.length) warnings.push('No hay video o imagen asignado a las pistas visuales.');
