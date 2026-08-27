@@ -24,25 +24,25 @@
   function cover(source){const sw=source.videoWidth||source.naturalWidth||source.width,sh=source.videoHeight||source.naturalHeight||source.height;if(!sw||!sh)return null;const s=Math.max(canvas.width/sw,canvas.height/sh);return {w:sw*s,h:sh*s}}
   function transformFor(c,t){
     const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12));
-    let alpha=1,x=0,scale=1;
-    if(transition==='fade'&&c.start>0)alpha=clamp(local/td,0,1);
-    if(transition==='slide'&&c.start>0)x=canvas.width*(1-clamp(local/td,0,1));
+    let alpha=clamp(Number(c.opacity??1),0,1),x=canvas.width*clamp(Number(c.positionX||0),-100,100)/100,y=canvas.height*clamp(Number(c.positionY||0),-100,100)/100,scale=clamp(Number(c.scale||1),.25,3),rotation=clamp(Number(c.rotation||0),-180,180)*Math.PI/180;
+    if(transition==='fade'&&c.start>0)alpha*=clamp(local/td,0,1);
+    if(transition==='slide'&&c.start>0)x+=canvas.width*(1-clamp(local/td,0,1));
     if(transition==='zoom'&&c.start>0)scale*=1+.025*(1-clamp(local/td,0,1));
     const p=clamp(local/duration,0,1);if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p;
-    return {alpha,x,scale};
+    return {alpha,x,y,scale,rotation};
   }
   async function drawClip(c,t){
     const a=assetById(c.asset);if(!a||!['image','video'].includes(a.type))return;
     let entry;try{entry=cachedMedia(a);await entry.ready}catch{return}const source=entry.el;
     if(a.type==='video'){const speed=clamp(Number(c.speed)||1,.25,4),sourceTime=Math.max(0,(Number(c.sourceOffset)||0)+(t-Number(c.start||0))*speed);await seekVideo(source,sourceTime)}
-    const size=cover(source);if(!size)return;const tr=transformFor(c,t);ctx.save();ctx.globalAlpha=tr.alpha;ctx.translate(canvas.width/2+tr.x,canvas.height/2);ctx.scale(tr.scale,tr.scale);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
+    const size=cover(source);if(!size)return;const tr=transformFor(c,t);ctx.save();ctx.globalAlpha=tr.alpha;ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale,tr.scale);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
   }
   function drawCaption(t){
     const cap=project.clips.find(c=>c.track===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));if(!cap)return;
     const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
     if(anim==='pop')y-=9*Math.exp(-10*Math.max(0,t-start))*Math.cos(28*Math.max(0,t-start));if(anim==='word-pulse')y-=3*Math.sin(8*Math.max(0,t-start));
-    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const text=String(cap.name||'');const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size, m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const text=String(cap.name||'');const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size,m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
   }
   renderAt=async function(t){
     ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
