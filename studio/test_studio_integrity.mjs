@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const root=path.resolve('studio');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const scripts=[...html.matchAll(/<script\s+src="([^"]+)"/g)].map(m=>m[1]);
+const missing=scripts.filter(s=>!fs.existsSync(path.join(root,s)));
+if(missing.length) throw new Error('Scripts faltantes: '+missing.join(', '));
+const dup=scripts.filter((s,i)=>scripts.indexOf(s)!==i);
+if(dup.length) throw new Error('Scripts duplicados en index.html: '+[...new Set(dup)].join(', '));
+const requiredControls=['autoBtn','manualBtn','playBtn','qaBtn','exportBtn','bundleBtn','renderBtn','uploadBtn','importBundleBtn','saveBtn'];
+for(const id of requiredControls) if(!html.includes(`id="${id}"`)) throw new Error(`Control requerido ausente: ${id}`);
+const inspector=fs.readFileSync(path.join(root,'clip-inspector.js'),'utf8');
+if(inspector.includes("projectLibraryScript")||inspector.includes("project-library.js';document.body.appendChild")) throw new Error('clip-inspector.js vuelve a cargar project-library.js');
+for(const token of ['hook-pop','dynamic','word-pulse','cut','fade','slide','zoom']) if(!inspector.includes(token)) throw new Error('Inspector no expone opción compatible con renderer: '+token);
+console.log(`Studio integrity OK: ${scripts.length} scripts, ${requiredControls.length} controles críticos`);
