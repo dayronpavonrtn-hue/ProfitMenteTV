@@ -53,14 +53,19 @@ def bounded(clip,key,default,low,high):
 
 def visual_chain(idx,asset,start,d,clip,label):
     frames=max(1,int(math.ceil(d*30)))
-    motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'
-    if motion in ('slow-zoom','push-in'):
+    motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
+    if fit not in ('cover','contain'):fit='cover'
+    if fit=='contain':
+        chain=f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=30'
+    elif motion in ('slow-zoom','push-in'):
         step='.0018' if motion=='push-in' else '.0008'
         chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps=30"
     else:
         chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
     else: chain=f'trim=start={source_offset}:duration={d*speed},setpts=(PTS-STARTPTS)/{speed},'+chain
+    if clip.get('flipX'): chain+=',hflip'
+    if clip.get('flipY'): chain+=',vflip'
     td=min(.28,max(.08,d*.12))
     if trans in ('fade','zoom','slide') and start>0: chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
     if trans=='zoom': chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
