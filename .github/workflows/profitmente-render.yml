@@ -23,6 +23,8 @@ jobs:
         run: node studio/test_generator.mjs
       - name: Test undo redo history
         run: node studio/test_history.mjs
+      - name: Test timeline ripple editing
+        run: node studio/test_timeline_operations.mjs
       - name: Test self-contained render bundle
         run: node studio/test_bundle.mjs
       - name: Test multi-project library
@@ -63,6 +65,8 @@ jobs:
         run: node --check studio/relink-engine.js
       - name: Check timeline-magnet.js
         run: node --check studio/timeline-magnet.js
+      - name: Check timeline-operations.js
+        run: node --check studio/timeline-operations.js
       - name: Check transport-engine.js
         run: node --check studio/transport-engine.js
       - name: Check track-controls.js
