@@ -15,7 +15,7 @@ jobs:
       - name: Buscar videos reales para las escenas
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: python broll.py
+        run: python fetch_broll.py
       - name: Crear video final
         run: python generate.py
       - uses: actions/upload-artifact@v4
@@ -23,5 +23,5 @@ jobs:
           name: ProfitMenteTV-video
           path: |
             output/ProfitMenteTV.mp4
-            assets/broll/credits.json
+            output/pexels_credits.json
           retention-days: 7
