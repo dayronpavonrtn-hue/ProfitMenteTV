@@ -17,6 +17,9 @@ on:
       - 'studio/bundle-engine.js'
       - 'studio/test_bundle.mjs'
       - 'studio/timeline-magnet.js'
+      - 'studio/media-inspector.js'
+      - 'studio/qa-engine.js'
+      - 'studio/style.css'
       - 'studio/render_bundle.py'
       - 'studio/index.html'
       - 'studio/render_mp4.py'
@@ -39,6 +42,10 @@ jobs:
         run: node studio/test_bundle.mjs
       - name: Validate timeline enhancement JavaScript
         run: node --check studio/timeline-magnet.js
+      - name: Validate media inspector and QA JavaScript
+        run: |
+          node --check studio/media-inspector.js
+          node --check studio/qa-engine.js
       - name: Ensure FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
