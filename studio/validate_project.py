@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Validate a ProfitMente Studio project before MP4 rendering."""
+import json,sys,pathlib
+
+if len(sys.argv) not in (2,3):
+    raise SystemExit('Usage: validate_project.py project.json [assets_dir]')
+p=pathlib.Path(sys.argv[1]); project=json.loads(p.read_text(encoding='utf-8')); assets_dir=pathlib.Path(sys.argv[2]) if len(sys.argv)==3 else None
+errors=[]; warnings=[]
+fmt=project.get('format','9:16'); duration=float(project.get('duration',0) or 0); clips=project.get('clips',[]); assets=project.get('assets',[]); amap={a.get('id'):a for a in assets if a.get('id')}
+if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
+if duration<=0: errors.append('La duración debe ser mayor que 0')
+ids=set()
+for i,c in enumerate(clips):
+    cid=c.get('id'); start=float(c.get('start',0) or 0); d=float(c.get('duration',0) or 0); track=c.get('track')
+    if cid in ids: errors.append(f'Clip duplicado: {cid}')
+    if cid: ids.add(cid)
+    if track not in range(7): errors.append(f'Clip {i}: track inválido {track}')
+    if start<0: errors.append(f'Clip {i}: inicio negativo')
+    if d<=0: errors.append(f'Clip {i}: duración inválida')
+    if start+d>duration+.05: warnings.append(f'Clip {i} excede la duración del proyecto y será recortado')
+    aid=c.get('asset')
+    if aid:
+        a=amap.get(aid)
+        if not a: errors.append(f'Clip {i}: asset no declarado {aid}')
+        elif assets_dir and not (assets_dir/a.get('name','')).exists(): errors.append(f'Falta archivo: {a.get("name")}')
+if not any(c.get('track') in (0,1) and c.get('asset') for c in clips): warnings.append('No hay medios visuales; el render usará fondo negro')
+if not any(c.get('track') in (4,5,6) and c.get('asset') for c in clips): warnings.append('No hay audio en el proyecto')
+print(json.dumps({'ok':not errors,'errors':errors,'warnings':warnings,'clips':len(clips),'assets':len(assets)},ensure_ascii=False,indent=2))
+if errors: raise SystemExit(2)
