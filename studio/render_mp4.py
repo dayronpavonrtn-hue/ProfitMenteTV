@@ -47,6 +47,7 @@ def visual_chain(idx,asset,start,d,clip,label):
     frames=max(1,int(math.ceil(d*30)))
     motion=clip.get('motion','')
     trans=clip.get('transition','cut')
+    source_offset=max(0,float(clip.get('sourceOffset',0) or 0))
     src=f'[{idx}:v]'
     if motion in ('slow-zoom','push-in'):
         step='.0018' if motion=='push-in' else '.0008'
@@ -54,7 +55,7 @@ def visual_chain(idx,asset,start,d,clip,label):
     else:
         chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
-    else: chain=f'trim=start=0:duration={d},setpts=PTS-STARTPTS,'+chain
+    else: chain=f'trim=start={source_offset}:duration={d},setpts=PTS-STARTPTS,'+chain
     td=min(.28,max(.08,d*.12))
     if trans in ('fade','zoom','slide') and start>0:
         chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
@@ -81,8 +82,6 @@ for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('
         filters.append(f"{base}{vin}overlay=0:0:eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     base=nxt
 
-# Captions: if the editor supplies absolute wordTimings, render one emphasized word at a time,
-# matching the browser preview. Otherwise fall back to the full timed caption.
 capn=0
 for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
     start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1))))
@@ -108,8 +107,6 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
     filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size}:borderw=6:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
     base=nxt; capn+=1
 
-# Preserve original sound from visual video clips unless a clip is explicitly muted.
-# sourceVolume controls it independently from music/voice/SFX (default 1.0).
 source_audio=[]
 for c in visual:
     if c.get('muted') or amap.get(c.get('asset'),{}).get('type')!='video':continue
@@ -117,14 +114,14 @@ for c in visual:
 
 aouts=[]
 def append_audio_filter(c,n,source=False):
-    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start))
+    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); source_offset=max(0,float(c.get('sourceOffset',0) or 0))
     if source:
         vol=max(0,min(2,float(c.get('sourceVolume',1.0))))
     else:
         track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(2,float(c.get('volume',default))))
         if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
     fade=min(.18,d/3); fadeout=max(0,d-min(.25,d/3)); delay=int(round(start*1000)); label=f'[a{n}]'
-    filters.append(f'[{idx}:a]atrim=start=0:duration={d},asetpts=PTS-STARTPTS,volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
+    filters.append(f'[{idx}:a]atrim=start={source_offset}:duration={d},asetpts=PTS-STARTPTS,volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
     aouts.append(label)
 
 for c in audio:append_audio_filter(c,len(aouts),False)
