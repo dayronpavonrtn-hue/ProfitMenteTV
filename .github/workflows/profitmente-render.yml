@@ -35,6 +35,8 @@ jobs:
         run: node studio/test_studio_integrity.mjs
       - name: Test timeline filmstrips
         run: node studio/test_filmstrip.mjs
+      - name: Test source trim QA
+        run: node studio/test_source_trim_qa.mjs
       - name: Check app.js
         run: node --check studio/app.js
       - name: Check audio-engine.js
