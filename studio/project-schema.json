@@ -1,0 +1,8 @@
+{
+  "version":"1.0",
+  "project":{"name":"ProfitMente video","mode":"automatic|manual","format":{"width":1080,"height":1920,"fps":30},"duration":45},
+  "tracks":["video","overlay","motion","captions","sfx","music","voice"],
+  "clip":{"id":"uuid","track":0,"name":"Scene","source":"asset-or-generated","start":0,"duration":5,"transform":{"x":0,"y":0,"scale":1,"rotation":0,"opacity":1},"transition":"cut","effects":[]},
+  "automation":{"script":true,"voice":true,"storyboard":true,"assets":true,"captions":true,"music":true,"quality_check":true},
+  "manual":{"editable_after_automation":true,"upload_media":true,"timeline":true,"trim":true,"transform":true,"captions":true,"audio":true}
+}
