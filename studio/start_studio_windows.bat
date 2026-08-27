@@ -26,10 +26,18 @@ set "PORT=8080"
 echo Abriendo ProfitMente Studio en http://127.0.0.1:%PORT%/studio/
 start "" "http://127.0.0.1:%PORT%/studio/"
 echo.
+where ffmpeg >nul 2>&1
+if %errorlevel%==0 (
+  echo MP4 directo: LISTO
+) else (
+  echo MP4 directo: FFmpeg no detectado. Studio seguira funcionando sin esa opcion.
+  echo Para instalarlo gratis: winget install Gyan.FFmpeg
+)
+echo.
 echo El servidor quedara activo mientras esta ventana permanezca abierta.
 echo Para cerrar Studio, cierra esta ventana o presiona Ctrl+C.
 echo.
-%PY% -m http.server %PORT% --bind 127.0.0.1
+%PY% studio\studio_server.py --port %PORT%
 
 if errorlevel 1 (
   echo.
