@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
-import crypto from 'node:crypto';
+import { webcrypto } from 'node:crypto';
 globalThis.window=globalThis;
-globalThis.crypto=crypto;
+if(!globalThis.crypto)Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
 vm.runInThisContext(fs.readFileSync(new URL('./generator-engine.js',import.meta.url),'utf8'));
 const engine=new ProfitMenteGeneratorEngine();
 const a=engine.generate('inversiones con inteligencia artificial',45);
