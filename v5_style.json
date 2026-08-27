@@ -1,0 +1,36 @@
+{
+  "version": "v5",
+  "goal": "professional_ai_business_short",
+  "format": "9:16",
+  "editing": {
+    "target_cut_seconds": 1.35,
+    "hook_cut_seconds": 0.85,
+    "hook_window_seconds": 4.0,
+    "caption_words": 2,
+    "caption_safe_y": 930,
+    "dynamic_zoom": true,
+    "progress_bar": true,
+    "pattern_interrupt_seconds": 4.5,
+    "avoid_static_frames": true
+  },
+  "story": {
+    "hook_first": true,
+    "show_value_immediately": true,
+    "visual_change_on_key_idea": true,
+    "cta_last": true
+  },
+  "visual_layers": [
+    "real_broll",
+    "kinetic_captions",
+    "keyword_cards",
+    "numbers_and_icons",
+    "progress_bar",
+    "brand_bug"
+  ],
+  "quality": {
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "bitrate": "8000k"
+  }
+}
