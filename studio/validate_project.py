@@ -12,11 +12,14 @@ if duration<=0: errors.append('La duración debe ser mayor que 0')
 ids=set()
 for i,c in enumerate(clips):
     cid=c.get('id'); start=float(c.get('start',0) or 0); d=float(c.get('duration',0) or 0); track=c.get('track')
+    try: speed=float(c.get('speed',1) or 1)
+    except (TypeError,ValueError): speed=0
     if cid in ids: errors.append(f'Clip duplicado: {cid}')
     if cid: ids.add(cid)
     if track not in range(7): errors.append(f'Clip {i}: track inválido {track}')
     if start<0: errors.append(f'Clip {i}: inicio negativo')
     if d<=0: errors.append(f'Clip {i}: duración inválida')
+    if speed<.25 or speed>4: errors.append(f'Clip {i}: velocidad inválida {speed}; usa 0.25x–4x')
     if start+d>duration+.05: warnings.append(f'Clip {i} excede la duración del proyecto y será recortado')
     aid=c.get('asset')
     if aid:
