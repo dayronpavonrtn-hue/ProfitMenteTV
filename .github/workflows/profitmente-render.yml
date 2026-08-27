@@ -85,7 +85,7 @@ jobs:
         run: node --check studio/waveform-engine.js
       - name: Validate Python render tools
         run: |
-          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_server_api.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py
+          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_server_api.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py studio/test_keyframes.py
       - name: Test local render API security
         run: python studio/test_server_api.py
       - name: Test local Studio server readiness
@@ -126,6 +126,8 @@ jobs:
         run: python studio/test_visual_transform.py
       - name: Test clip fit and flip render
         run: python studio/test_fit_flip.py
+      - name: Test transform keyframe render
+        run: python studio/test_keyframes.py
       - name: End-to-end Studio smoke test
         run: python studio/smoke_test.py "$RUNNER_TEMP/profitmente-smoke"
       - name: Upload smoke-test MP4
