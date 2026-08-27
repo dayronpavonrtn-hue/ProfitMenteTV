@@ -3,7 +3,7 @@
 Usage: python studio/render_mp4.py project.json assets_dir output.mp4
 Requires FFmpeg/ffprobe available on PATH.
 """
-import json,sys,subprocess,pathlib,shlex
+import json,sys,subprocess,pathlib,shlex,math
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
@@ -32,6 +32,31 @@ def overlap(a,b):
     a0=float(a.get('start',0)); a1=a0+float(a.get('duration',0)); b0=float(b.get('start',0)); b1=b0+float(b.get('duration',0))
     return a0 < b1 and b0 < a1
 
+def esc_text(value):
+    return str(value).replace('\\','\\\\').replace(':','\\:').replace("'","\\'").replace('%','\\%').replace(',','\\,')
+
+def visual_chain(idx,asset,start,d,clip,label):
+    frames=max(1,int(math.ceil(d*30)))
+    motion=clip.get('motion','')
+    trans=clip.get('transition','cut')
+    src=f'[{idx}:v]'
+    # A small Ken Burns move gives static images and ordinary B-roll visible motion without paid services.
+    if motion in ('slow-zoom','push-in'):
+        step='.0018' if motion=='push-in' else '.0008'
+        chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps=30"
+    else:
+        chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
+    if asset.get('type')=='image': chain+=f',trim=duration={d}'
+    else: chain=f'trim=start=0:duration={d},setpts=PTS-STARTPTS,'+chain
+    # Generated transition metadata becomes a short alpha transition at scene boundaries.
+    td=min(.28,max(.08,d*.12))
+    if trans in ('fade','zoom','slide') and start>0:
+        chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
+    if trans=='zoom':
+        chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
+    chain+=f',setpts=PTS-STARTPTS+{start}/TB{label}'
+    filters.append(src+chain)
+
 visual=[c for c in clips if c.get('track') in (0,1) and c.get('asset')]
 audio=[c for c in clips if c.get('track') in (4,5,6) and c.get('asset')]
 voice=[c for c in audio if int(c.get('track',-1))==6]
@@ -39,20 +64,28 @@ for c in visual+audio:add_input(c['asset'])
 
 base_input=len(input_index); inputs.extend(['-f','lavfi','-i',f'color=c=0x090b10:s={w}x{h}:r=30:d={duration}'])
 filters.append(f'[{base_input}:v]setpts=PTS-STARTPTS[vbase0]'); base='[vbase0]'
-for n,c in enumerate(sorted(visual,key=lambda x:(x.get('track',0),float(x.get('start',0))))):
+for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('track',0)))):
     idx=input_index[c['asset']]; a=amap[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); end=start+d
-    vin=f'[vis{n}]'; nxt=f'[vbase{n+1}]'
-    if a.get('type')=='image':
-        filters.append(f'[{idx}:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30,trim=duration={d},setpts=PTS-STARTPTS+{start}/TB{vin}')
+    vin=f'[vis{n}]'; nxt=f'[vbase{n+1}]'; visual_chain(idx,a,start,d,c,vin)
+    trans=c.get('transition','cut')
+    if trans=='slide' and start>0:
+        td=min(.28,max(.08,d*.12)); x=f"if(lt(t,{start+td}),w*(1-(t-{start})/{td}),0)"
+        filters.append(f"{base}{vin}overlay=x='{x}':y=0:eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     else:
-        filters.append(f'[{idx}:v]trim=start=0:duration={d},setpts=PTS-STARTPTS,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30,setpts=PTS+{start}/TB{vin}')
-    filters.append(f"{base}{vin}overlay=0:0:eof_action=pass:enable='between(t,{start},{end})'{nxt}"); base=nxt
+        filters.append(f"{base}{vin}overlay=0:0:eof_action=pass:enable='between(t,{start},{end})'{nxt}")
+    base=nxt
 
+# Captions honor generator style metadata. Hook captions are larger/yellow and enter with a small pop;
+# regular captions pulse vertically to avoid looking like static burned-in text.
 capn=0
 for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
-    text=str(c['name']).replace('\\','\\\\').replace(':','\\:').replace("'","\\'").replace('%','\\%')
-    start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1)))); nxt=f'[cap{capn}]'
-    filters.append(f"{base}drawtext=text='{text}':fontcolor=white:fontsize=64:borderw=6:bordercolor=black@0.9:box=1:boxcolor=black@0.35:boxborderw=24:x=(w-text_w)/2:y=h*0.72:enable='between(t,{start},{end})'{nxt}")
+    text=esc_text(c['name']); start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1)))); nxt=f'[cap{capn}]'
+    style=c.get('style','dynamic'); anim=c.get('animation','')
+    if style=='hook-pop':
+        color='0xFFE66D'; size=76; box='black@0.48'; y=f"h*0.69-18*exp(-10*(t-{start}))*cos(28*(t-{start}))" if anim=='pop' else 'h*0.69'
+    else:
+        color='white'; size=60; box='black@0.36'; y=f"h*0.72-6*sin(8*(t-{start}))" if anim=='word-pulse' else 'h*0.72'
+    filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size}:borderw=6:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
     base=nxt; capn+=1
 
 # Audio timeline. Music automatically ducks when a voice clip overlaps, matching browser preview behavior.
