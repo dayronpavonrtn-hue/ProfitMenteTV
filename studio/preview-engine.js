@@ -21,7 +21,10 @@
       v.addEventListener('seeked',finish,{once:true});try{v.currentTime=target}catch{finish()}setTimeout(finish,220);
     });
   }
-  function cover(source){const sw=source.videoWidth||source.naturalWidth||source.width,sh=source.videoHeight||source.naturalHeight||source.height;if(!sw||!sh)return null;const s=Math.max(canvas.width/sw,canvas.height/sh);return {w:sw*s,h:sh*s}}
+  function fitted(source,mode='cover'){
+    const sw=source.videoWidth||source.naturalWidth||source.width,sh=source.videoHeight||source.naturalHeight||source.height;if(!sw||!sh)return null;
+    const contain=mode==='contain',s=(contain?Math.min:Math.max)(canvas.width/sw,canvas.height/sh);return {w:sw*s,h:sh*s};
+  }
   function transformFor(c,t){
     const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12));
     let alpha=clamp(Number(c.opacity??1),0,1),x=canvas.width*clamp(Number(c.positionX||0),-100,100)/100,y=canvas.height*clamp(Number(c.positionY||0),-100,100)/100,scale=clamp(Number(c.scale||1),.25,3),rotation=clamp(Number(c.rotation||0),-180,180)*Math.PI/180;
@@ -35,7 +38,8 @@
     const a=assetById(c.asset);if(!a||!['image','video'].includes(a.type))return;
     let entry;try{entry=cachedMedia(a);await entry.ready}catch{return}const source=entry.el;
     if(a.type==='video'){const speed=clamp(Number(c.speed)||1,.25,4),sourceTime=Math.max(0,(Number(c.sourceOffset)||0)+(t-Number(c.start||0))*speed);await seekVideo(source,sourceTime)}
-    const size=cover(source);if(!size)return;const tr=transformFor(c,t);ctx.save();ctx.globalAlpha=tr.alpha;ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale,tr.scale);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
+    const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size)return;const tr=transformFor(c,t),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
+    ctx.save();ctx.globalAlpha=tr.alpha;ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
   }
   function drawCaption(t){
     const cap=project.clips.find(c=>c.track===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));if(!cap)return;
