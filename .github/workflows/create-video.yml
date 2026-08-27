@@ -9,7 +9,7 @@ concurrency:
 jobs:
   video:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,28 +22,40 @@ jobs:
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python preflight.py
-      - name: Buscar videos reales para las escenas
+      - name: Buscar B-roll vertical Full HD
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python broll.py
-      - name: Mostrar B-roll descargado
+      - name: Validar B-roll antes de editar
         run: |
-          echo '--- B-ROLL ---'
-          find assets/broll -maxdepth 1 -type f -printf '%f %k KB\n' | sort || true
-      - name: Crear video final
+          set -e
+          for n in 1 2 3 4 5 6; do
+            test -s "assets/broll/scene_${n}.mp4"
+            ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of default=nw=1 "assets/broll/scene_${n}.mp4"
+          done
+      - name: Renderizar ProfitMenteTV v4 profesional
         run: python generate.py
-      - name: Verificar MP4 final
+      - name: Control de calidad MP4
         run: |
+          set -e
           test -s output/ProfitMenteTV.mp4
           ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate -of json output/ProfitMenteTV.mp4 | tee output/render_report.json
-      - name: Subir video y diagnóstico
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/ProfitMenteTV.mp4 | grep -q '720,1280'
+      - name: Crear paquete de revisión
+        if: success()
+        run: |
+          cp video.json output/video_used.json
+          cp scenes.json output/scenes_used.json
+      - name: Subir video final y diagnóstico
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ProfitMenteTV-video
+          name: ProfitMenteTV-v4-review
           path: |
             output/ProfitMenteTV.mp4
             output/render_report.json
+            output/video_used.json
+            output/scenes_used.json
             assets/broll/credits.json
           if-no-files-found: warn
           retention-days: 7
