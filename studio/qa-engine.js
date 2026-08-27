@@ -2,10 +2,16 @@ class ProfitMenteQAEngine{
   inspect(project,assets){
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>a.id));
     if(!project.clips?.length) issues.push('El timeline está vacío.');
+    const checkKeyframe=(c,k,label)=>{
+      if(!k||typeof k!=='object'){issues.push(`Keyframe ${label} inválido: ${c.name||c.id}`);return}
+      const ranges={positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};
+      for(const [field,[lo,hi]] of Object.entries(ranges)){const v=Number(k[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`Keyframe ${label} ${field} fuera de rango: ${c.name||c.id}`)}
+    };
     for(const c of project.clips||[]){
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
       if(c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
       if([0,1,2].includes(Number(c.track))&&c.fitMode!=null&&!['cover','contain'].includes(c.fitMode)) issues.push(`Encuadre inválido: ${c.name||c.id}`);
+      if(c.keyframes!=null){if(!c.keyframes.start||!c.keyframes.end)issues.push(`Keyframes incompletos: ${c.name||c.id}`);else{checkKeyframe(c,c.keyframes.start,'inicio');checkKeyframe(c,c.keyframes.end,'fin')}}
       const a=c.asset&&assets.find(x=>x.id===c.asset),sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
       if(a?.duration&&['video','audio'].includes(a.type)){
         const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;
