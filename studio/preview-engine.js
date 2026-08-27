@@ -39,7 +39,8 @@
   }
   function transformFor(c,t){
     const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12)),p=clamp(local/duration,0,1),kf=keyframed(c,p);
-    let alpha=clamp(Number(kf?.opacity??c.opacity??1),0,1),x=canvas.width*clamp(Number(kf?.positionX??c.positionX||0),-100,100)/100,y=canvas.height*clamp(Number(kf?.positionY??c.positionY||0),-100,100)/100,scale=clamp(Number(kf?.scale??c.scale||1),.25,3),rotation=clamp(Number(kf?.rotation??c.rotation||0),-180,180)*Math.PI/180;
+    const rawX=kf? kf.positionX : Number(c.positionX||0),rawY=kf? kf.positionY : Number(c.positionY||0),rawScale=kf? kf.scale : Number(c.scale||1),rawRot=kf? kf.rotation : Number(c.rotation||0),rawOpacity=kf? kf.opacity : Number(c.opacity??1);
+    let alpha=clamp(rawOpacity,0,1),x=canvas.width*clamp(rawX,-100,100)/100,y=canvas.height*clamp(rawY,-100,100)/100,scale=clamp(rawScale,.25,3),rotation=clamp(rawRot,-180,180)*Math.PI/180;
     if(transition==='fade'&&c.start>0)alpha*=clamp(local/td,0,1);
     if(transition==='slide'&&c.start>0)x+=canvas.width*(1-clamp(local/td,0,1));
     if(transition==='zoom'&&c.start>0)scale*=1+.025*(1-clamp(local/td,0,1));
