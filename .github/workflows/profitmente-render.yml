@@ -9,25 +9,7 @@ on:
         default: studio/example-project.json
   push:
     paths:
-      - 'studio/generator-engine.js'
-      - 'studio/generator-integration.js'
-      - 'studio/test_generator.mjs'
-      - 'studio/history-engine.js'
-      - 'studio/test_history.mjs'
-      - 'studio/bundle-engine.js'
-      - 'studio/test_bundle.mjs'
-      - 'studio/timeline-magnet.js'
-      - 'studio/media-inspector.js'
-      - 'studio/clip-inspector.js'
-      - 'studio/project-library.js'
-      - 'studio/test_project_library.mjs'
-      - 'studio/qa-engine.js'
-      - 'studio/style.css'
-      - 'studio/render_bundle.py'
-      - 'studio/index.html'
-      - 'studio/render_mp4.py'
-      - 'studio/validate_project.py'
-      - 'studio/smoke_test.py'
+      - 'studio/**'
       - '.github/workflows/profitmente-render.yml'
 
 jobs:
@@ -45,14 +27,27 @@ jobs:
         run: node studio/test_bundle.mjs
       - name: Test multi-project library
         run: node studio/test_project_library.mjs
-      - name: Validate timeline enhancement JavaScript
-        run: node --check studio/timeline-magnet.js
-      - name: Validate editor enhancement JavaScript
+      - name: Test Studio integration integrity
+        run: node studio/test_studio_integrity.mjs
+      - name: Validate core Studio JavaScript
         run: |
+          node --check studio/app.js
+          node --check studio/audio-engine.js
+          node --check studio/bundle-engine.js
+          node --check studio/caption-preview.js
+          node --check studio/edit-tools.js
+          node --check studio/generator-engine.js
+          node --check studio/generator-integration.js
+          node --check studio/history-engine.js
           node --check studio/media-inspector.js
           node --check studio/clip-inspector.js
           node --check studio/project-library.js
           node --check studio/qa-engine.js
+          node --check studio/timeline-magnet.js
+          node --check studio/waveform-engine.js
+      - name: Validate Python render tools
+        run: |
+          python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/smoke_test.py
       - name: Ensure FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
