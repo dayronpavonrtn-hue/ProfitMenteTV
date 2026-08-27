@@ -1,0 +1,24 @@
+(()=>{
+  const $=s=>document.querySelector(s);
+  const props=$('.props'); if(!props)return;
+  const panel=document.createElement('section'); panel.className='clipInspector'; panel.innerHTML=`<hr><h3>Clip seleccionado</h3><div id="clipInspectorEmpty" class="clipEmpty">Selecciona un clip en el timeline.</div><div id="clipInspectorForm" hidden>
+  <label>Nombre<input id="ciName"></label><div class="ciGrid"><label>Inicio<input id="ciStart" type="number" min="0" step="0.05"></label><label>Duración<input id="ciDuration" type="number" min="0.25" step="0.05"></label></div>
+  <label id="ciVolumeWrap">Volumen<input id="ciVolume" type="range" min="0" max="2" step="0.01"><small id="ciVolumeValue"></small></label>
+  <label id="ciTransitionWrap">Transición<select id="ciTransition"><option value="none">Ninguna</option><option value="fade">Fade</option><option value="slide">Slide</option><option value="zoom">Zoom</option></select></label>
+  <label id="ciMotionWrap">Movimiento<select id="ciMotion"><option value="none">Ninguno</option><option value="slow-zoom">Slow zoom</option><option value="push-in">Push in</option></select></label>
+  <label id="ciStyleWrap">Estilo caption<select id="ciStyle"><option value="normal">Normal</option><option value="hook">Hook</option></select></label>
+  <label id="ciAnimationWrap">Animación caption<select id="ciAnimation"><option value="none">Ninguna</option><option value="pop">Pop</option><option value="rise">Rise</option></select></label>
+  <div class="ciActions"><button id="ciToCursor">Inicio = cursor</button><button id="ciFit">Ajustar al medio</button></div></div>`; props.appendChild(panel);
+  const byId=id=>(project.clips||[]).find(c=>c.id===id); let renderedId=null,editing=false;
+  function selected(){return window.ProfitMenteEditTools?.selectedId||null}
+  function val(id,v){const el=$('#'+id);if(el&&document.activeElement!==el)el.value=v??''}
+  function render(){const c=byId(selected()),form=$('#clipInspectorForm'),empty=$('#clipInspectorEmpty');if(!c){form.hidden=true;empty.hidden=false;renderedId=null;return}form.hidden=false;empty.hidden=true;renderedId=c.id;val('ciName',c.name||'');val('ciStart',Number(c.start||0).toFixed(2));val('ciDuration',Number(c.duration||0).toFixed(2));const audio=[4,5,6].includes(c.track),visual=[0,1,2].includes(c.track),caption=c.track===3;$('#ciVolumeWrap').hidden=!audio;$('#ciTransitionWrap').hidden=!visual;$('#ciMotionWrap').hidden=!visual;$('#ciStyleWrap').hidden=!caption;$('#ciAnimationWrap').hidden=!caption;if(audio){const v=c.volume??(c.track===5?.22:1);val('ciVolume',v);$('#ciVolumeValue').textContent=`${Math.round(v*100)}%`}if(visual){val('ciTransition',c.transition||'none');val('ciMotion',c.motion||'none')}if(caption){val('ciStyle',c.style||'normal');val('ciAnimation',c.animation||'none')}}
+  function commit(field,value,message){const c=byId(selected());if(!c)return;if(field==='start')value=Math.max(0,Math.min(project.duration-.25,+value||0));if(field==='duration')value=Math.max(.25,Math.min(project.duration-c.start,+value||.25));if(field==='volume')value=Math.max(0,Math.min(2,+value||0));c[field]=value;if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead').value||0);if(typeof setStatus==='function')setStatus(message||'Clip actualizado');requestAnimationFrame(render)}
+  const map={ciName:'name',ciStart:'start',ciDuration:'duration',ciVolume:'volume',ciTransition:'transition',ciMotion:'motion',ciStyle:'style',ciAnimation:'animation'};
+  Object.entries(map).forEach(([id,field])=>{const el=$('#'+id);const event=id==='ciVolume'?'input':'change';el.addEventListener(event,()=>{if(id==='ciVolume')$('#ciVolumeValue').textContent=`${Math.round(+el.value*100)}%`;commit(field,el.value,`${field} actualizado`)})});
+  $('#ciToCursor').onclick=()=>commit('start',+$('#playhead').value||0,'Clip alineado al cursor');
+  $('#ciFit').onclick=()=>{const c=byId(selected());if(!c||!c.asset)return;const a=assets.find(x=>x.id===c.asset);if(!a?.duration){setStatus?.('Este medio no tiene duración detectable');return}commit('duration',Math.min(a.duration,project.duration-c.start),'Duración ajustada al medio')};
+  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(render)},true);document.addEventListener('keydown',()=>requestAnimationFrame(render));
+  const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(render)};
+  setInterval(()=>{if(selected()!==renderedId&&!editing)render()},500);render();
+})();
