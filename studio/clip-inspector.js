@@ -22,3 +22,4 @@
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(render)};
   setInterval(()=>{if(selected()!==renderedId&&!editing)render()},500);render();
 })();
+const projectLibraryScript=document.createElement('script');projectLibraryScript.src='project-library.js';document.body.appendChild(projectLibraryScript);
