@@ -1,0 +1,11 @@
+(()=>{
+ const style=document.createElement('style');style.textContent=`.markerLane{height:30px;margin:0 0 8px 95px;position:relative;background:#151a23;border-radius:5px;border-bottom:1px solid #2e3542}.timelineMarker{position:absolute;top:1px;transform:translateX(-8px);border:0;background:transparent;color:#ffd166;padding:0;cursor:pointer;font-size:15px;z-index:8}.timelineMarker span{display:none;position:absolute;top:18px;left:8px;background:#11141b;border:1px solid #3b4352;border-radius:5px;padding:3px 6px;color:#fff;font-size:10px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}.timelineMarker:hover span{display:block}.markerToolbar{display:flex;gap:6px;align-items:center}.markerToolbar button{padding:7px 9px}`;document.head.appendChild(style);
+ const timeline=document.querySelector('.timeline');if(!timeline||typeof ProfitMenteMarkerEngine==='undefined')return;
+ const setTime=t=>{const p=document.querySelector('#playhead');p.value=Math.max(0,Math.min(+project.duration||0,t));syncForm();renderAt(+p.value)};
+ const engine=new ProfitMenteMarkerEngine({getProject:()=>project,persist:()=>persist(),getTime:()=>+document.querySelector('#playhead').value||0,setTime,container:timeline});
+ window.markerEngine=engine;
+ const head=document.querySelector('.timelineHead');const tools=document.createElement('div');tools.className='markerToolbar';tools.innerHTML='<button id="prevMarkerBtn" title="Shift+M">◀ ◆</button><button id="addMarkerBtn" title="M">＋ Marcador</button><button id="nextMarkerBtn" title="Alt+M">◆ ▶</button>';head.appendChild(tools);
+ document.querySelector('#addMarkerBtn').onclick=()=>engine.add(+document.querySelector('#playhead').value||0,'Marcador');document.querySelector('#prevMarkerBtn').onclick=()=>engine.next(-1);document.querySelector('#nextMarkerBtn').onclick=()=>engine.next(1);
+ const oldDraw=drawTimeline;drawTimeline=function(){oldDraw();engine.render()};engine.render();
+ document.addEventListener('keydown',e=>{if(e.key.toLowerCase()!=='m'||e.ctrlKey||e.metaKey)return;if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;e.preventDefault();if(e.shiftKey)engine.next(-1);else if(e.altKey)engine.next(1);else engine.add(+document.querySelector('#playhead').value||0,'Marcador')});
+})();
