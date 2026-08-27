@@ -10,13 +10,15 @@
     project.duration=duration;
     project.name=result.title||'Video automático';
     project.script=result.script;
+    project.generatorSeed=result.seed;
     project.clips=result.clips;
     const assigned=engine.assignAssets(project,assets);
     document.querySelector('#mode').value='Automático';
     document.querySelector('#projectName').value=project.name;
     document.querySelector('#playhead').value=0;
     save();
-    setStatus(`Video automático creado: 5 escenas, subtítulos y guion. ${assigned} escena(s) vinculadas a medios.`);
+    const media=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${media}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 })();
