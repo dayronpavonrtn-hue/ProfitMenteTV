@@ -1,30 +1,27 @@
-name: Crear Video ProfitMenteTV
+name: Crear Video ProfitMenteTV v5
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 14 * * *'
 concurrency:
-  group: profitmentetv-video
+  group: profitmentetv-video-v5
   cancel-in-progress: false
 jobs:
   video:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      - name: Instalar FFmpeg y ffprobe
+      - name: Instalar FFmpeg y motor
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          ffmpeg -version
-          ffprobe -version
-      - name: Instalar motor de video
-        run: pip install -r requirements.txt
-      - name: Verificar configuración v4
+          pip install -r requirements.txt
+      - name: Verificar configuración
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python preflight.py
@@ -32,36 +29,31 @@ jobs:
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python broll.py
-      - name: Validar B-roll antes de editar
-        run: |
-          set -e
-          for n in 1 2 3 4 5 6; do
-            test -s "assets/broll/scene_${n}.mp4"
-            ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of default=nw=1 "assets/broll/scene_${n}.mp4"
-          done
-      - name: Renderizar ProfitMenteTV v4 profesional
+      - name: Construir timeline y edición v5
+        run: python build_v5_plan.py
+      - name: Render base y audio
         run: python generate.py
-      - name: Control de calidad MP4
+      - name: Convertir master a 1080x1920
+        run: |
+          ffmpeg -y -i output/ProfitMenteTV.mp4 -vf "scale=1080:1920:flags=lanczos" -r 30 -c:v libx264 -preset medium -b:v 8000k -c:a aac -b:a 192k -movflags +faststart output/ProfitMenteTV-v5.mp4
+      - name: Control de calidad v5
         run: |
           set -e
-          test -s output/ProfitMenteTV.mp4
-          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate -of json output/ProfitMenteTV.mp4 | tee output/render_report.json
-          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/ProfitMenteTV.mp4 | grep -q '720,1280'
-      - name: Crear paquete de revisión
-        if: success()
-        run: |
-          cp video.json output/video_used.json
-          cp scenes.json output/scenes_used.json
-      - name: Subir video final y diagnóstico
+          test -s output/ProfitMenteTV-v5.mp4
+          test -s output/timeline_v5.json
+          test -s output/edit_plan_v5.json
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate -of json output/ProfitMenteTV-v5.mp4 | tee output/render_report_v5.json
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 output/ProfitMenteTV-v5.mp4 | grep -q '1080,1920'
+      - name: Subir revisión v5
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ProfitMenteTV-v4-review
+          name: ProfitMenteTV-v5-review
           path: |
-            output/ProfitMenteTV.mp4
-            output/render_report.json
-            output/video_used.json
-            output/scenes_used.json
+            output/ProfitMenteTV-v5.mp4
+            output/render_report_v5.json
+            output/timeline_v5.json
+            output/edit_plan_v5.json
             assets/broll/credits.json
           if-no-files-found: warn
           retention-days: 7
