@@ -1,0 +1,5 @@
+import fs from 'node:fs';import vm from 'node:vm';
+globalThis.window=globalThis;globalThis.structuredClone=structuredClone;
+vm.runInThisContext(fs.readFileSync(new URL('./bundle-engine.js',import.meta.url),'utf8'));
+const blob=new Blob([new TextEncoder().encode('fake-media')],{type:'video/mp4'});const engine=new ProfitMenteBundleEngine();const project={name:'QA Bundle',duration:4,format:'9:16',clips:[{id:'c1',track:0,asset:'asset-123',start:0,duration:4}]};const out=await engine.build(project,[{id:'asset-123',name:'my video.mp4',type:'video',mime:'video/mp4',blob}]);
+if(out.size<2048)throw new Error('bundle too small');const bytes=new Uint8Array(await out.arrayBuffer()),text=new TextDecoder().decode(bytes);if(!text.includes('project.json'))throw new Error('project.json missing');if(!text.includes('assets/asset-12-my_video.mp4'))throw new Error('asset path missing');if(!text.includes('"version": "1.4"'))throw new Error('manifest version missing');console.log('Bundle exporter QA OK',out.size);
