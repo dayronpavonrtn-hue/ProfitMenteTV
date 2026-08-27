@@ -43,10 +43,15 @@ def overlap(a,b):
 def esc_text(value):
     return str(value).replace('\\','\\\\').replace(':','\\:').replace("'","\\'").replace('%','\\%').replace(',','\\,')
 
+def clip_speed(clip):
+    try:return max(.25,min(4.0,float(clip.get('speed',1) or 1)))
+    except (TypeError,ValueError):return 1.0
+
 def visual_chain(idx,asset,start,d,clip,label):
     frames=max(1,int(math.ceil(d*30)))
     motion=clip.get('motion','')
     trans=clip.get('transition','cut')
+    speed=clip_speed(clip)
     source_offset=max(0,float(clip.get('sourceOffset',0) or 0))
     src=f'[{idx}:v]'
     if motion in ('slow-zoom','push-in'):
@@ -55,7 +60,7 @@ def visual_chain(idx,asset,start,d,clip,label):
     else:
         chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
-    else: chain=f'trim=start={source_offset}:duration={d},setpts=PTS-STARTPTS,'+chain
+    else: chain=f'trim=start={source_offset}:duration={d*speed},setpts=(PTS-STARTPTS)/{speed},'+chain
     td=min(.28,max(.08,d*.12))
     if trans in ('fade','zoom','slide') and start>0:
         chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
@@ -114,14 +119,14 @@ for c in visual:
 
 aouts=[]
 def append_audio_filter(c,n,source=False):
-    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); source_offset=max(0,float(c.get('sourceOffset',0) or 0))
+    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); speed=clip_speed(c); source_offset=max(0,float(c.get('sourceOffset',0) or 0))
     if source:
         vol=max(0,min(2,float(c.get('sourceVolume',1.0))))
     else:
         track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(2,float(c.get('volume',default))))
         if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
     fade=min(.18,d/3); fadeout=max(0,d-min(.25,d/3)); delay=int(round(start*1000)); label=f'[a{n}]'
-    filters.append(f'[{idx}:a]atrim=start={source_offset}:duration={d},asetpts=PTS-STARTPTS,volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
+    filters.append(f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS,atempo={speed},volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
     aouts.append(label)
 
 for c in audio:append_audio_filter(c,len(aouts),False)
