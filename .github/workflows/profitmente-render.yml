@@ -14,6 +14,9 @@ on:
       - 'studio/test_generator.mjs'
       - 'studio/history-engine.js'
       - 'studio/test_history.mjs'
+      - 'studio/bundle-engine.js'
+      - 'studio/test_bundle.mjs'
+      - 'studio/render_bundle.py'
       - 'studio/index.html'
       - 'studio/render_mp4.py'
       - 'studio/validate_project.py'
@@ -31,6 +34,8 @@ jobs:
         run: node studio/test_generator.mjs
       - name: Test undo redo history
         run: node studio/test_history.mjs
+      - name: Test self-contained render bundle
+        run: node studio/test_bundle.mjs
       - name: Ensure FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
