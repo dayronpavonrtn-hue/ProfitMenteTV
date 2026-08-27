@@ -20,6 +20,12 @@ for i,c in enumerate(clips):
     if start<0: errors.append(f'Clip {i}: inicio negativo')
     if d<=0: errors.append(f'Clip {i}: duración inválida')
     if speed<.25 or speed>4: errors.append(f'Clip {i}: velocidad inválida {speed}; usa 0.25x–4x')
+    if track in (0,1,2):
+        ranges={'positionX':(-100,100,0),'positionY':(-100,100,0),'scale':(.25,3,1),'rotation':(-180,180,0),'opacity':(0,1,1)}
+        for key,(lo,hi,default) in ranges.items():
+            try:value=float(c.get(key,default))
+            except (TypeError,ValueError): errors.append(f'Clip {i}: {key} no es numérico');continue
+            if value<lo or value>hi: errors.append(f'Clip {i}: {key} fuera de rango ({lo}–{hi})')
     if start+d>duration+.05: warnings.append(f'Clip {i} excede la duración del proyecto y será recortado')
     aid=c.get('asset')
     if aid:
