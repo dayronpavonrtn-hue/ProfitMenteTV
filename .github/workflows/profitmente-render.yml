@@ -1,0 +1,35 @@
+name: ProfitMente Studio MP4 Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Project JSON path committed in repository
+        required: true
+        default: studio/example-project.json
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify FFmpeg
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+      - name: Render MP4
+        run: |
+          mkdir -p output
+          python studio/render_mp4.py "${{ inputs.project }}" studio/assets output/profitmente-studio.mp4
+      - name: Validate output
+        run: |
+          test -s output/profitmente-studio.mp4
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate -of json output/profitmente-studio.mp4
+          ffprobe -v error -show_entries format=duration,size -of json output/profitmente-studio.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profitmente-studio-mp4
+          path: output/profitmente-studio.mp4
+          if-no-files-found: error
