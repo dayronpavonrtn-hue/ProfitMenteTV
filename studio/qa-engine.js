@@ -5,6 +5,7 @@ class ProfitMenteQAEngine{
     for(const c of project.clips||[]){
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
       if(c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
+      if([0,1,2].includes(Number(c.track))&&c.fitMode!=null&&!['cover','contain'].includes(c.fitMode)) issues.push(`Encuadre inválido: ${c.name||c.id}`);
       const a=c.asset&&assets.find(x=>x.id===c.asset),sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
       if(a?.duration&&['video','audio'].includes(a.type)){
         const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;
@@ -24,8 +25,9 @@ class ProfitMenteQAEngine{
         const shortSide=Math.min(a.width,a.height),longSide=Math.max(a.width,a.height);
         if(shortSide<720||longSide<1280) warnings.push(`Resolución baja para render profesional: ${a.name} (${a.width}×${a.height})`);
         const portrait=a.height>a.width,landscape=a.width>a.height;
-        if(project.format==='9:16'&&landscape&&a.width/a.height>1.5) warnings.push(`Medio horizontal requerirá recorte fuerte en 9:16: ${a.name}`);
-        if(project.format==='16:9'&&portrait&&a.height/a.width>1.5) warnings.push(`Medio vertical requerirá recorte fuerte en 16:9: ${a.name}`);
+        const usesCover=visuals.some(c=>c.asset===a.id&&(c.fitMode||'cover')==='cover');
+        if(usesCover&&project.format==='9:16'&&landscape&&a.width/a.height>1.5) warnings.push(`Medio horizontal requerirá recorte fuerte en 9:16: ${a.name}`);
+        if(usesCover&&project.format==='16:9'&&portrait&&a.height/a.width>1.5) warnings.push(`Medio vertical requerirá recorte fuerte en 16:9: ${a.name}`);
       }
     }
     for(let track=0;track<=6;track++){
