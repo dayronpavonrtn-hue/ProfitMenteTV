@@ -1,10 +1,10 @@
 {
   "scenes": [
-    {"title":"LA IA YA CAMBIÓ EL JUEGO","subtitle":"Mientras unos preguntan, otros construyen","icon":"AI","weight":1},
-    {"title":"UNA PERSONA. MUCHAS FUNCIONES.","subtitle":"Investigación · marca · anuncios · clientes","icon":"01","weight":2},
-    {"title":"AUTOMATIZA EL TRABAJO","subtitle":"Menos tareas repetitivas. Más velocidad.","icon":"AUTO","weight":2},
-    {"title":"ENCUENTRA UN PROBLEMA REAL","subtitle":"El dinero aparece cuando resuelves algo útil","icon":"$","weight":2},
-    {"title":"CONSTRUYE MÁS RÁPIDO","subtitle":"IA + una buena idea + ejecución","icon":"GO","weight":2},
-    {"title":"PROFITMENTE TV","subtitle":"Oportunidades reales con IA y negocios","icon":"PM","weight":1}
+    {"title":"LA IA YA CAMBIÓ EL JUEGO","subtitle":"Mientras unos preguntan, otros construyen","icon":"AI","weight":1,"query":"futuristic artificial intelligence computer technology vertical","cut_seconds":2.8},
+    {"title":"UNA PERSONA. MUCHAS FUNCIONES.","subtitle":"Investigación · marca · anuncios · clientes","icon":"01","weight":2,"query":"entrepreneur working laptop modern office vertical","cut_seconds":2.5},
+    {"title":"AUTOMATIZA EL TRABAJO","subtitle":"Menos tareas repetitivas. Más velocidad.","icon":"AUTO","weight":2,"query":"business automation software computer workflow vertical","cut_seconds":2.4},
+    {"title":"ENCUENTRA UN PROBLEMA REAL","subtitle":"El dinero aparece cuando resuelves algo útil","icon":"$","weight":2,"query":"entrepreneur planning business solving problem vertical","cut_seconds":2.6},
+    {"title":"CONSTRUYE MÁS RÁPIDO","subtitle":"IA + una buena idea + ejecución","icon":"GO","weight":2,"query":"startup team technology fast growth vertical","cut_seconds":2.3},
+    {"title":"PROFITMENTE TV","subtitle":"Oportunidades reales con IA y negocios","icon":"PM","weight":1,"query":"successful entrepreneur city technology vertical","cut_seconds":2.5}
   ]
 }
