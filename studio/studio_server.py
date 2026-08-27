@@ -17,10 +17,11 @@ from urllib.parse import urlparse
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STUDIO = ROOT / "studio"
 MAX_UPLOAD = 2 * 1024 * 1024 * 1024  # 2 GB safety ceiling
+ALLOWED_CONTENT_TYPES = {"application/x-tar", "application/octet-stream"}
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.1"
+    server_version = "ProfitMenteStudio/1.2"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -28,6 +29,7 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
         super().end_headers()
 
     def _json(self, status: int, payload: dict):
@@ -38,14 +40,27 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _same_local_origin(self) -> bool:
+        host = self.headers.get("Host", "")
+        if not (host.startswith("127.0.0.1:") or host.startswith("localhost:")):
+            return False
+        origin = self.headers.get("Origin")
+        if not origin:
+            return True
+        parsed = urlparse(origin)
+        return parsed.scheme == "http" and parsed.netloc == host
+
     def do_GET(self):
         if urlparse(self.path).path == "/api/health":
             ffmpeg = shutil.which("ffmpeg")
+            ffprobe = shutil.which("ffprobe")
             self._json(HTTPStatus.OK, {
                 "ok": True,
                 "python": sys.version.split()[0],
                 "ffmpeg": bool(ffmpeg),
-                "render_ready": bool(ffmpeg),
+                "ffprobe": bool(ffprobe),
+                "render_ready": bool(ffmpeg and ffprobe),
+                "server": self.server_version,
             })
             return
         super().do_GET()
@@ -54,10 +69,17 @@ class Handler(SimpleHTTPRequestHandler):
         if urlparse(self.path).path != "/api/render":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        if not shutil.which("ffmpeg"):
+        if not self._same_local_origin():
+            self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Origen local no autorizado."})
+            return
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            self._json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"ok": False, "error": "Se esperaba un paquete TAR de ProfitMente Studio."})
+            return
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             self._json(HTTPStatus.SERVICE_UNAVAILABLE, {
                 "ok": False,
-                "error": "FFmpeg no está instalado o no está disponible en PATH."
+                "error": "FFmpeg/FFprobe no están instalados o no están disponibles en PATH."
             })
             return
         try:
