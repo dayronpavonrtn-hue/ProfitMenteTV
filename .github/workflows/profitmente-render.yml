@@ -16,6 +16,7 @@ on:
       - 'studio/test_history.mjs'
       - 'studio/bundle-engine.js'
       - 'studio/test_bundle.mjs'
+      - 'studio/timeline-magnet.js'
       - 'studio/render_bundle.py'
       - 'studio/index.html'
       - 'studio/render_mp4.py'
@@ -36,6 +37,8 @@ jobs:
         run: node studio/test_history.mjs
       - name: Test self-contained render bundle
         run: node studio/test_bundle.mjs
+      - name: Validate timeline enhancement JavaScript
+        run: node --check studio/timeline-magnet.js
       - name: Ensure FFmpeg
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
