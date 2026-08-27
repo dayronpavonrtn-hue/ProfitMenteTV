@@ -51,13 +51,26 @@ def bounded(clip,key,default,low,high):
     try:return max(low,min(high,float(clip.get(key,default))))
     except (TypeError,ValueError):return default
 
+def kf_value(clip,side,key,default,low,high):
+    k=clip.get('keyframes') if isinstance(clip.get('keyframes'),dict) else None
+    obj=k.get(side) if isinstance(k,dict) and isinstance(k.get(side),dict) else None
+    if not obj:return bounded(clip,key,default,low,high)
+    try:return max(low,min(high,float(obj.get(key,default))))
+    except (TypeError,ValueError):return bounded(clip,key,default,low,high)
+
+def has_keyframes(clip):
+    k=clip.get('keyframes'); return isinstance(k,dict) and isinstance(k.get('start'),dict) and isinstance(k.get('end'),dict)
+
+def lerp_expr(a,b,d,var='t'):
+    return f'({a}+({b-a})*min(max({var}/{max(d,.001)},0),1))'
+
 def visual_chain(idx,asset,start,d,clip,label):
     frames=max(1,int(math.ceil(d*30)))
     motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
     if fit not in ('cover','contain'):fit='cover'
     if fit=='contain':
         chain=f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=30'
-    elif motion in ('slow-zoom','push-in'):
+    elif motion in ('slow-zoom','push-in') and not has_keyframes(clip):
         step='.0018' if motion=='push-in' else '.0008'
         chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps=30"
     else:
@@ -69,9 +82,17 @@ def visual_chain(idx,asset,start,d,clip,label):
     td=min(.28,max(.08,d*.12))
     if trans in ('fade','zoom','slide') and start>0: chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
     if trans=='zoom': chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
-    scale=bounded(clip,'scale',1,.25,3); rotation=bounded(clip,'rotation',0,-180,180); opacity=bounded(clip,'opacity',1,0,1)
-    chain+=f",format=rgba,scale='trunc(iw*{scale}/2)*2':'trunc(ih*{scale}/2)*2'"
-    if abs(rotation)>.001: chain+=f",rotate={math.radians(rotation)}:ow=rotw(iw):oh=roth(ih):c=black@0"
+    s0=kf_value(clip,'start','scale',1,.25,3); s1=kf_value(clip,'end','scale',1,.25,3) if has_keyframes(clip) else s0
+    r0=kf_value(clip,'start','rotation',0,-180,180); r1=kf_value(clip,'end','rotation',0,-180,180) if has_keyframes(clip) else r0
+    opacity=bounded(clip,'opacity',1,0,1)
+    if has_keyframes(clip):
+        sexpr=lerp_expr(s0,s1,d)
+        chain+=f",format=rgba,scale='trunc(iw*{sexpr}/2)*2':'trunc(ih*{sexpr}/2)*2':eval=frame"
+        rexpr=lerp_expr(math.radians(r0),math.radians(r1),d)
+        if abs(r0)>.001 or abs(r1)>.001: chain+=f",rotate='{rexpr}':ow=rotw(iw):oh=roth(ih):c=black@0"
+    else:
+        chain+=f",format=rgba,scale='trunc(iw*{s0}/2)*2':'trunc(ih*{s0}/2)*2'"
+        if abs(r0)>.001: chain+=f",rotate={math.radians(r0)}:ow=rotw(iw):oh=roth(ih):c=black@0"
     if opacity<.999: chain+=f',colorchannelmixer=aa={opacity}'
     chain+=f',setpts=PTS-STARTPTS+{start}/TB{label}'
     filters.append(src+chain)
@@ -86,8 +107,14 @@ filters.append(f'[{base_input}:v]setpts=PTS-STARTPTS[vbase0]'); base='[vbase0]'
 for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('track',0)))):
     idx=input_index[c['asset']]; a=amap[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); end=start+d
     vin=f'[vis{n}]'; nxt=f'[vbase{n+1}]'; visual_chain(idx,a,start,d,c,vin)
-    px=bounded(c,'positionX',0,-100,100); py=bounded(c,'positionY',0,-100,100)
-    xbase=f'(W-w)/2+W*{px}/100'; ybase=f'(H-h)/2+H*{py}/100'; trans=c.get('transition','cut')
+    x0=kf_value(c,'start','positionX',0,-100,100); x1=kf_value(c,'end','positionX',0,-100,100) if has_keyframes(c) else x0
+    y0=kf_value(c,'start','positionY',0,-100,100); y1=kf_value(c,'end','positionY',0,-100,100) if has_keyframes(c) else y0
+    if has_keyframes(c):
+        progress=f'min(max((t-{start})/{max(d,.001)},0),1)'
+        xbase=f'(W-w)/2+W*({x0}+({x1-x0})*{progress})/100'; ybase=f'(H-h)/2+H*({y0}+({y1-y0})*{progress})/100'
+    else:
+        xbase=f'(W-w)/2+W*{x0}/100'; ybase=f'(H-h)/2+H*{y0}/100'
+    trans=c.get('transition','cut')
     if trans=='slide' and start>0:
         td=min(.28,max(.08,d*.12)); x=f"{xbase}+if(lt(t,{start+td}),W*(1-(t-{start})/{td}),0)"
         filters.append(f"{base}{vin}overlay=x='{x}':y='{ybase}':eof_action=pass:enable='between(t,{start},{end})'{nxt}")
