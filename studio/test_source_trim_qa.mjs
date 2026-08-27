@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+const code=fs.readFileSync(new URL('./qa-engine.js',import.meta.url),'utf8');
+const context={window:{}};vm.createContext(context);vm.runInContext(code,context);
+const QA=context.window.ProfitMenteQAEngine;const qa=new QA();
+const assets=[{id:'v',name:'source.mp4',type:'video',duration:10,width:1080,height:1920}];
+const base={duration:5,format:'9:16',clips:[{id:'c',track:0,name:'clip',start:0,duration:5,asset:'v',sourceOffset:0,speed:1}]};
+let r=qa.inspect(base,assets);if(r.warnings.some(x=>x.includes('Recorte supera')))throw new Error('Valid source window incorrectly warned');
+r=qa.inspect({...base,clips:[{...base.clips[0],sourceOffset:6}]},assets);if(!r.warnings.some(x=>x.includes('Recorte supera')))throw new Error('Source overflow was not detected');
+r=qa.inspect({...base,clips:[{...base.clips[0],duration:3,sourceOffset:5,speed:2}]},assets);if(!r.warnings.some(x=>x.includes('requiere 11.00s')))throw new Error('Speed-aware source overflow was not detected');
+r=qa.inspect({...base,clips:[{...base.clips[0],duration:1,sourceOffset:11}]},assets);if(!r.issues.some(x=>x.includes('Punto de entrada fuera')))throw new Error('Invalid source offset was not blocked');
+console.log('SOURCE TRIM QA TEST: PASS');
