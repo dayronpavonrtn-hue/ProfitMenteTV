@@ -25,6 +25,8 @@ jobs:
         run: node studio/test_history.mjs
       - name: Test timeline ripple editing
         run: node studio/test_timeline_operations.mjs
+      - name: Test timeline markers
+        run: node studio/test_markers.mjs
       - name: Test self-contained render bundle
         run: node studio/test_bundle.mjs
       - name: Test multi-project library
@@ -57,6 +59,10 @@ jobs:
         run: node --check studio/history-engine.js
       - name: Check media-inspector.js
         run: node --check studio/media-inspector.js
+      - name: Check marker-engine.js
+        run: node --check studio/marker-engine.js
+      - name: Check marker-integration.js
+        run: node --check studio/marker-integration.js
       - name: Check clip-inspector.js
         run: node --check studio/clip-inspector.js
       - name: Check project-library.js
