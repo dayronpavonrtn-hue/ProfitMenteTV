@@ -41,6 +41,8 @@ jobs:
         run: node studio/test_source_trim_qa.mjs
       - name: Check app.js
         run: node --check studio/app.js
+      - name: Check preview-engine.js
+        run: node --check studio/preview-engine.js
       - name: Check audio-engine.js
         run: node --check studio/audio-engine.js
       - name: Check bundle-engine.js
