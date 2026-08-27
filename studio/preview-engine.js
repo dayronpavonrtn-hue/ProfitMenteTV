@@ -1,6 +1,7 @@
 (()=>{
   const mediaCache=new Map();
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
   function cachedMedia(a){
     if(mediaCache.has(a.id))return mediaCache.get(a.id);
@@ -25,13 +26,24 @@
     const sw=source.videoWidth||source.naturalWidth||source.width,sh=source.videoHeight||source.naturalHeight||source.height;if(!sw||!sh)return null;
     const contain=mode==='contain',s=(contain?Math.min:Math.max)(canvas.width/sw,canvas.height/sh);return {w:sw*s,h:sh*s};
   }
+  function keyframed(c,p){
+    const k=c.keyframes;if(!k?.start||!k?.end)return null;
+    const num=(obj,key,fallback)=>Number.isFinite(Number(obj?.[key]))?Number(obj[key]):fallback;
+    return {
+      positionX:lerp(num(k.start,'positionX',Number(c.positionX||0)),num(k.end,'positionX',Number(c.positionX||0)),p),
+      positionY:lerp(num(k.start,'positionY',Number(c.positionY||0)),num(k.end,'positionY',Number(c.positionY||0)),p),
+      scale:lerp(num(k.start,'scale',Number(c.scale||1)),num(k.end,'scale',Number(c.scale||1)),p),
+      rotation:lerp(num(k.start,'rotation',Number(c.rotation||0)),num(k.end,'rotation',Number(c.rotation||0)),p),
+      opacity:lerp(num(k.start,'opacity',Number(c.opacity??1)),num(k.end,'opacity',Number(c.opacity??1)),p)
+    };
+  }
   function transformFor(c,t){
-    const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12));
-    let alpha=clamp(Number(c.opacity??1),0,1),x=canvas.width*clamp(Number(c.positionX||0),-100,100)/100,y=canvas.height*clamp(Number(c.positionY||0),-100,100)/100,scale=clamp(Number(c.scale||1),.25,3),rotation=clamp(Number(c.rotation||0),-180,180)*Math.PI/180;
+    const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12)),p=clamp(local/duration,0,1),kf=keyframed(c,p);
+    let alpha=clamp(Number(kf?.opacity??c.opacity??1),0,1),x=canvas.width*clamp(Number(kf?.positionX??c.positionX||0),-100,100)/100,y=canvas.height*clamp(Number(kf?.positionY??c.positionY||0),-100,100)/100,scale=clamp(Number(kf?.scale??c.scale||1),.25,3),rotation=clamp(Number(kf?.rotation??c.rotation||0),-180,180)*Math.PI/180;
     if(transition==='fade'&&c.start>0)alpha*=clamp(local/td,0,1);
     if(transition==='slide'&&c.start>0)x+=canvas.width*(1-clamp(local/td,0,1));
     if(transition==='zoom'&&c.start>0)scale*=1+.025*(1-clamp(local/td,0,1));
-    const p=clamp(local/duration,0,1);if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p;
+    if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p;
     return {alpha,x,y,scale,rotation};
   }
   async function drawClip(c,t){
