@@ -12,7 +12,7 @@ p=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); out=pathlib.Path(
 project=json.loads(p.read_text(encoding='utf-8'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
-inputs=[]; filters=[]; input_index={}
+inputs=[]; filters=[]; input_index={}; audio_probe_cache={}
 
 def asset_path(asset_id):
     a=amap.get(asset_id)
@@ -27,6 +27,14 @@ def add_input(asset_id):
     if a.get('type')=='image': inputs.extend(['-loop','1','-i',str(f)])
     else: inputs.extend(['-i',str(f)])
     return idx
+
+def has_audio_stream(asset_id):
+    if asset_id in audio_probe_cache:return audio_probe_cache[asset_id]
+    a,f=asset_path(asset_id)
+    if a.get('type') not in ('video','audio'):
+        audio_probe_cache[asset_id]=False; return False
+    probe=subprocess.run(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',str(f)],capture_output=True,text=True)
+    ok=probe.returncode==0 and bool(probe.stdout.strip()); audio_probe_cache[asset_id]=ok; return ok
 
 def overlap(a,b):
     a0=float(a.get('start',0)); a1=a0+float(a.get('duration',0)); b0=float(b.get('start',0)); b1=b0+float(b.get('duration',0))
@@ -100,14 +108,27 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
     filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size}:borderw=6:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
     base=nxt; capn+=1
 
+# Preserve original sound from visual video clips unless a clip is explicitly muted.
+# sourceVolume controls it independently from music/voice/SFX (default 1.0).
+source_audio=[]
+for c in visual:
+    if c.get('muted') or amap.get(c.get('asset'),{}).get('type')!='video':continue
+    if has_audio_stream(c['asset']):source_audio.append(c)
+
 aouts=[]
-for n,c in enumerate(audio):
-    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); track=int(c.get('track',5))
-    default=.22 if track==5 else 1.0; vol=float(c.get('volume',default)); vol=max(0,min(2,vol))
-    if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
+def append_audio_filter(c,n,source=False):
+    idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start))
+    if source:
+        vol=max(0,min(2,float(c.get('sourceVolume',1.0))))
+    else:
+        track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(2,float(c.get('volume',default))))
+        if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
     fade=min(.18,d/3); fadeout=max(0,d-min(.25,d/3)); delay=int(round(start*1000)); label=f'[a{n}]'
     filters.append(f'[{idx}:a]atrim=start=0:duration={d},asetpts=PTS-STARTPTS,volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
     aouts.append(label)
+
+for c in audio:append_audio_filter(c,len(aouts),False)
+for c in source_audio:append_audio_filter(c,len(aouts),True)
 if aouts:
     filters.append(''.join(aouts)+f'amix=inputs={len(aouts)}:duration=longest:dropout_transition=0,atrim=duration={duration},alimiter=limit=0.95[aout]')
 
