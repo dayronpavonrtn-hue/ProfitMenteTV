@@ -12,9 +12,16 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
-      - run: python generate.py
+      - name: Buscar videos reales para las escenas
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: python broll.py
+      - name: Crear video final
+        run: python generate.py
       - uses: actions/upload-artifact@v4
         with:
           name: ProfitMenteTV-video
-          path: output/ProfitMenteTV.mp4
+          path: |
+            output/ProfitMenteTV.mp4
+            assets/broll/credits.json
           retention-days: 7
