@@ -31,23 +31,36 @@ jobs:
         run: node studio/test_studio_integrity.mjs
       - name: Test timeline filmstrips
         run: node studio/test_filmstrip.mjs
-      - name: Validate core Studio JavaScript
-        run: |
-          node --check studio/app.js
-          node --check studio/audio-engine.js
-          node --check studio/bundle-engine.js
-          node --check studio/caption-preview.js
-          node --check studio/edit-tools.js
-          node --check studio/filmstrip-engine.js
-          node --check studio/generator-engine.js
-          node --check studio/generator-integration.js
-          node --check studio/history-engine.js
-          node --check studio/media-inspector.js
-          node --check studio/clip-inspector.js
-          node --check studio/project-library.js
-          node --check studio/qa-engine.js
-          node --check studio/timeline-magnet.js
-          node --check studio/waveform-engine.js
+      - name: Check app.js
+        run: node --check studio/app.js
+      - name: Check audio-engine.js
+        run: node --check studio/audio-engine.js
+      - name: Check bundle-engine.js
+        run: node --check studio/bundle-engine.js
+      - name: Check caption-preview.js
+        run: node --check studio/caption-preview.js
+      - name: Check edit-tools.js
+        run: node --check studio/edit-tools.js
+      - name: Check filmstrip-engine.js
+        run: node --check studio/filmstrip-engine.js
+      - name: Check generator-engine.js
+        run: node --check studio/generator-engine.js
+      - name: Check generator-integration.js
+        run: node --check studio/generator-integration.js
+      - name: Check history-engine.js
+        run: node --check studio/history-engine.js
+      - name: Check media-inspector.js
+        run: node --check studio/media-inspector.js
+      - name: Check clip-inspector.js
+        run: node --check studio/clip-inspector.js
+      - name: Check project-library.js
+        run: node --check studio/project-library.js
+      - name: Check qa-engine.js
+        run: node --check studio/qa-engine.js
+      - name: Check timeline-magnet.js
+        run: node --check studio/timeline-magnet.js
+      - name: Check waveform-engine.js
+        run: node --check studio/waveform-engine.js
       - name: Validate Python render tools
         run: |
           python -m py_compile studio/render_mp4.py studio/render_bundle.py studio/validate_project.py studio/smoke_test.py
