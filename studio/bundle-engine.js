@@ -1,0 +1,9 @@
+class ProfitMenteBundleEngine{
+  sanitize(name){return String(name||'asset').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120)}
+  oct(n,len){return n.toString(8).padStart(len-1,'0')+'\0'}
+  header(name,size){const h=new Uint8Array(512),enc=new TextEncoder(),put=(s,o,l)=>h.set(enc.encode(s).slice(0,l),o);put(name,0,100);put('0000777\0',100,8);put('0000000\0',108,8);put('0000000\0',116,8);put(this.oct(size,12),124,12);put(this.oct(Math.floor(Date.now()/1000),12),136,12);for(let i=148;i<156;i++)h[i]=32;h[156]='0'.charCodeAt(0);put('ustar\0',257,6);put('00',263,2);let sum=h.reduce((a,b)=>a+b,0);put(sum.toString(8).padStart(6,'0')+'\0 ',148,8);return h}
+  async build(project,assets){const enc=new TextEncoder(),parts=[],manifest=structuredClone(project);manifest.version='1.4';manifest.assets=[];for(const a of assets){const filename=`${a.id.slice(0,8)}-${this.sanitize(a.name)}`,path=`assets/${filename}`,bytes=new Uint8Array(await a.blob.arrayBuffer());parts.push(this.header(path,bytes.length),bytes,new Uint8Array((512-bytes.length%512)%512));manifest.assets.push({id:a.id,name:filename,type:a.type,mime:a.mime||''})}const json=enc.encode(JSON.stringify(manifest,null,2));parts.unshift(this.header('project.json',json.length),json,new Uint8Array((512-json.length%512)%512));parts.push(new Uint8Array(1024));return new Blob(parts,{type:'application/x-tar'})}
+  async download(project,assets){const blob=await this.build(project,assets),a=document.createElement('a'),safe=this.sanitize(project.name||'profitmente');a.href=URL.createObjectURL(blob);a.download=`${safe}.profitmente.tar`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return blob.size}
+}
+window.ProfitMenteBundleEngine=ProfitMenteBundleEngine;
+if(typeof module!=='undefined')module.exports={ProfitMenteBundleEngine};
