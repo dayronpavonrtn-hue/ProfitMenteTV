@@ -26,10 +26,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test automatic generator
         run: node studio/test_generator.mjs
-      - name: Install FFmpeg
+      - name: Ensure FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Verify FFmpeg
         run: |
           ffmpeg -version | head -1
@@ -51,10 +53,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Install FFmpeg
+      - name: Ensure FFmpeg
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Validate project
         run: python studio/validate_project.py "${{ inputs.project }}" studio/assets
       - name: Render MP4
