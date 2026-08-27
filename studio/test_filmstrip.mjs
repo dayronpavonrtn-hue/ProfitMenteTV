@@ -1,0 +1,8 @@
+import fs from 'node:fs';
+const html=fs.readFileSync('studio/index.html','utf8');
+const js=fs.readFileSync('studio/filmstrip-engine.js','utf8');
+if(!html.includes('<script src="filmstrip-engine.js"></script>')) throw new Error('filmstrip-engine.js no está cargado por Studio');
+for(const token of ['ProfitMenteFilmstripEngine','capture(asset,count)','video.onseeked=snap','toDataURL','decorate(project,assets','requestAnimationFrame']) if(!js.includes(token)) throw new Error('Filmstrip incompleto: '+token);
+if(!js.includes("asset.type==='video'")||!js.includes("asset.type==='image'")) throw new Error('Filmstrip debe soportar video e imagen');
+if(!js.includes('this.cache=new Map()')||!js.includes('this.pending=new Map()')) throw new Error('Filmstrip sin caché/pending guard');
+console.log('Filmstrip integration OK');
