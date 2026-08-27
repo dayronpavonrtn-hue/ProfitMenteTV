@@ -40,7 +40,6 @@ def visual_chain(idx,asset,start,d,clip,label):
     motion=clip.get('motion','')
     trans=clip.get('transition','cut')
     src=f'[{idx}:v]'
-    # A small Ken Burns move gives static images and ordinary B-roll visible motion without paid services.
     if motion in ('slow-zoom','push-in'):
         step='.0018' if motion=='push-in' else '.0008'
         chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps=30"
@@ -48,7 +47,6 @@ def visual_chain(idx,asset,start,d,clip,label):
         chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
     else: chain=f'trim=start=0:duration={d},setpts=PTS-STARTPTS,'+chain
-    # Generated transition metadata becomes a short alpha transition at scene boundaries.
     td=min(.28,max(.08,d*.12))
     if trans in ('fade','zoom','slide') and start>0:
         chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
@@ -75,12 +73,26 @@ for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('
         filters.append(f"{base}{vin}overlay=0:0:eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     base=nxt
 
-# Captions honor generator style metadata. Hook captions are larger/yellow and enter with a small pop;
-# regular captions pulse vertically to avoid looking like static burned-in text.
+# Captions: if the editor supplies absolute wordTimings, render one emphasized word at a time,
+# matching the browser preview. Otherwise fall back to the full timed caption.
 capn=0
 for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
-    text=esc_text(c['name']); start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1)))); nxt=f'[cap{capn}]'
-    style=c.get('style','dynamic'); anim=c.get('animation','')
+    start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1))))
+    timings=c.get('wordTimings') if isinstance(c.get('wordTimings'),list) else []
+    valid=[]
+    for wt in timings:
+        try:
+            ws=max(start,float(wt.get('start',start))); we=min(end,float(wt.get('end',ws+.05))); word=str(wt.get('word','')).strip()
+        except (TypeError,ValueError,AttributeError):
+            continue
+        if word and we>ws: valid.append((word,ws,we))
+    if valid:
+        for word,ws,we in valid:
+            text=esc_text(word.upper()); nxt=f'[cap{capn}]'
+            filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize=78:borderw=7:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw=26:x=(w-text_w)/2:y=h*0.70:enable='between(t,{ws},{we})'{nxt}")
+            base=nxt; capn+=1
+        continue
+    text=esc_text(c['name']); nxt=f'[cap{capn}]'; style=c.get('style','dynamic'); anim=c.get('animation','')
     if style=='hook-pop':
         color='0xFFE66D'; size=76; box='black@0.48'; y=f"h*0.69-18*exp(-10*(t-{start}))*cos(28*(t-{start}))" if anim=='pop' else 'h*0.69'
     else:
@@ -88,7 +100,6 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
     filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size}:borderw=6:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
     base=nxt; capn+=1
 
-# Audio timeline. Music automatically ducks when a voice clip overlaps, matching browser preview behavior.
 aouts=[]
 for n,c in enumerate(audio):
     idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); track=int(c.get('track',5))
