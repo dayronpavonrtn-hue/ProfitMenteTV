@@ -1,0 +1,11 @@
+{
+  "engine": "ProfitMente Studio Auto Editor v5",
+  "output": {"width":1080,"height":1920,"fps":30,"bitrate":"8000k"},
+  "timeline_tracks": ["video_main","broll_overlay","motion_graphics","captions","sfx","music","voice"],
+  "motion": {"keyframes":["position","scale","rotation","opacity"],"ease":"ease_in_out","punch_zoom":true,"pan":true},
+  "captions": {"mode":"kinetic","words_per_card":2,"keyword_emphasis":true,"animated_entry":true,"animated_exit":true},
+  "transitions": {"enabled":true,"types":["push","zoom","blur","flash","whip"],"max_seconds":0.18},
+  "audio": {"voice_priority":true,"background_music":true,"music_ducking":true,"sound_effects":true,"loudness_normalization":true},
+  "visuals": {"real_broll":true,"keyword_cards":true,"icons":true,"numbers":true,"progress_bar":true,"pattern_interrupt_seconds":4.5},
+  "quality_control": {"no_static_shot_over_seconds":2.0,"hook_visual_change_under_seconds":1.0,"require_audio":true,"require_captions":true,"require_1080x1920":true}
+}
