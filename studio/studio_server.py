@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import webbrowser
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -18,7 +20,7 @@ MAX_UPLOAD = 2 * 1024 * 1024 * 1024  # 2 GB safety ceiling
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.0"
+    server_version = "ProfitMenteStudio/1.1"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -111,11 +113,21 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--open-browser", action="store_true", help="Abrir Studio después de enlazar el servidor")
     args = parser.parse_args()
     address = ("127.0.0.1", args.port)
-    print(f"ProfitMente Studio: http://127.0.0.1:{args.port}/studio/")
+    url = f"http://127.0.0.1:{args.port}/studio/"
+    httpd = ThreadingHTTPServer(address, Handler)
+    print(f"ProfitMente Studio: {url}")
     print("Servidor local únicamente. Ctrl+C para cerrar.")
-    ThreadingHTTPServer(address, Handler).serve_forever()
+    if args.open_browser:
+        threading.Timer(0.15, lambda: webbrowser.open(url, new=2)).start()
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nProfitMente Studio cerrado.")
+    finally:
+        httpd.server_close()
 
 
 if __name__ == "__main__":
