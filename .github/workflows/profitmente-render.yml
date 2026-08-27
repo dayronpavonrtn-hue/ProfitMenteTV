@@ -7,9 +7,15 @@ on:
         description: Project JSON path committed in repository
         required: true
         default: studio/example-project.json
+  push:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/validate_project.py'
+      - 'studio/smoke_test.py'
+      - '.github/workflows/profitmente-render.yml'
 
 jobs:
-  render:
+  qa:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,6 +25,25 @@ jobs:
         run: |
           ffmpeg -version | head -1
           ffprobe -version | head -1
+      - name: End-to-end Studio smoke test
+        run: python studio/smoke_test.py "$RUNNER_TEMP/profitmente-smoke"
+      - name: Upload smoke-test MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: profitmente-studio-smoke-test
+          path: ${{ runner.temp }}/profitmente-smoke/profitmente-smoke.mp4
+          if-no-files-found: error
+
+  render:
+    if: github.event_name == 'workflow_dispatch'
+    needs: qa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate project
+        run: python studio/validate_project.py "${{ inputs.project }}" studio/assets
       - name: Render MP4
         run: |
           mkdir -p output
