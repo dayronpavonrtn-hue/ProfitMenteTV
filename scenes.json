@@ -1,0 +1,10 @@
+{
+  "scenes": [
+    {"title":"LA IA YA CAMBIÓ EL JUEGO","subtitle":"Mientras unos preguntan, otros construyen","icon":"AI","weight":1},
+    {"title":"UNA PERSONA. MUCHAS FUNCIONES.","subtitle":"Investigación · marca · anuncios · clientes","icon":"01","weight":2},
+    {"title":"AUTOMATIZA EL TRABAJO","subtitle":"Menos tareas repetitivas. Más velocidad.","icon":"AUTO","weight":2},
+    {"title":"ENCUENTRA UN PROBLEMA REAL","subtitle":"El dinero aparece cuando resuelves algo útil","icon":"$","weight":2},
+    {"title":"CONSTRUYE MÁS RÁPIDO","subtitle":"IA + una buena idea + ejecución","icon":"GO","weight":2},
+    {"title":"PROFITMENTE TV","subtitle":"Oportunidades reales con IA y negocios","icon":"PM","weight":1}
+  ]
+}
