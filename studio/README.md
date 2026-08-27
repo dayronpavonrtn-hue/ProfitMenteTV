@@ -18,17 +18,25 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Exportación de paquete autocontenido `.profitmente.tar` con proyecto + medios.
 - Render MP4 H.264/AAC con FFmpeg y validación automática con ffprobe.
 - QA de render en GitHub Actions.
+- Lanzador de Windows con doble clic para abrir Studio sin escribir comandos.
 
-## Abrir el editor
+## Abrir el editor en Windows
+La forma más simple es hacer doble clic en:
+
+`studio/start_studio_windows.bat`
+
+El lanzador busca `py` o `python`, abre automáticamente el navegador en Studio y mantiene el servidor local activo mientras la ventana esté abierta. No expone el servidor a la red: escucha únicamente en `127.0.0.1`.
+
+## Abrir el editor manualmente
 Desde la raíz del repositorio:
 
 ```bash
-python -m http.server 8080
+python -m http.server 8080 --bind 127.0.0.1
 ```
 
 Luego abre:
 
-`http://localhost:8080/studio/`
+`http://127.0.0.1:8080/studio/`
 
 ## Flujo recomendado para MP4 final
 1. Crea o edita el video en Studio.
