@@ -3,15 +3,21 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 14 * * *'
+concurrency:
+  group: profitmentetv-video
+  cancel-in-progress: false
 jobs:
   video:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
+          cache: 'pip'
+      - name: Instalar motor de video
+        run: pip install -r requirements.txt
       - name: Verificar configuración v4
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -20,12 +26,24 @@ jobs:
         env:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python broll.py
+      - name: Mostrar B-roll descargado
+        run: |
+          echo '--- B-ROLL ---'
+          find assets/broll -maxdepth 1 -type f -printf '%f %k KB\n' | sort || true
       - name: Crear video final
         run: python generate.py
-      - uses: actions/upload-artifact@v4
+      - name: Verificar MP4 final
+        run: |
+          test -s output/ProfitMenteTV.mp4
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_name,width,height,r_frame_rate -of json output/ProfitMenteTV.mp4 | tee output/render_report.json
+      - name: Subir video y diagnóstico
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: ProfitMenteTV-video
           path: |
             output/ProfitMenteTV.mp4
+            output/render_report.json
             assets/broll/credits.json
+          if-no-files-found: warn
           retention-days: 7
