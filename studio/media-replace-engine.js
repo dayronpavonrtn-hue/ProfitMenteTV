@@ -1,0 +1,41 @@
+class ProfitMenteMediaReplaceEngine{
+  static trackKind(track){
+    const t=Number(track);
+    if(t===0||t===1)return 'visual';
+    if(t===4||t===5||t===6)return 'audio';
+    return 'other';
+  }
+  static assetKind(asset){
+    if(asset?.type==='video'||asset?.type==='image')return 'visual';
+    if(asset?.type==='audio')return 'audio';
+    return 'other';
+  }
+  static canReplace(clip,asset){return !!clip&&!!asset&&this.trackKind(clip.track)===this.assetKind(asset)&&this.assetKind(asset)!=='other'}
+  static maxTimelineDuration(clip,asset){
+    if(asset?.type==='image')return Infinity;
+    const native=Math.max(0,Number(asset?.duration)||0),speed=Math.max(.01,Number(clip?.speed)||1),offset=Math.max(0,Number(clip?.sourceOffset)||0);
+    return Math.max(0,(native-offset)/speed);
+  }
+  static replace(project,clipId,asset){
+    const clip=(project?.clips||[]).find(c=>c?.id===clipId);
+    if(!clip)return {ok:false,reason:'clip-missing'};
+    if(!asset?.id)return {ok:false,reason:'asset-missing'};
+    if(!this.canReplace(clip,asset))return {ok:false,reason:'incompatible'};
+    const before={asset:clip.asset,name:clip.name,duration:clip.duration,sourceOffset:clip.sourceOffset};
+    clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';
+    if(asset.type==='image')clip.sourceOffset=0;
+    else{
+      const native=Math.max(0,Number(asset.duration)||0),speed=Math.max(.01,Number(clip.speed)||1);
+      let offset=Math.max(0,Number(clip.sourceOffset)||0);
+      if(native>0)offset=Math.min(offset,Math.max(0,native-.05));
+      clip.sourceOffset=offset;
+      const maxDuration=this.maxTimelineDuration(clip,asset);
+      if(Number.isFinite(maxDuration)&&maxDuration>0&&Number(clip.duration)>maxDuration)clip.duration=Math.max(.05,maxDuration);
+    }
+    if(Number(clip.fadeIn)>Number(clip.duration))clip.fadeIn=Number(clip.duration);
+    if(Number(clip.fadeOut)>Number(clip.duration))clip.fadeOut=Number(clip.duration);
+    return {ok:true,clip,before,trimmed:Number(clip.duration)<Number(before.duration)};
+  }
+}
+if(typeof window!=='undefined')window.ProfitMenteMediaReplaceEngine=ProfitMenteMediaReplaceEngine;
+if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaReplaceEngine;
