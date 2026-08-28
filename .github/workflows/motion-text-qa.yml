@@ -1,0 +1,28 @@
+name: Motion Text QA
+on:
+  push:
+    paths:
+      - 'studio/motion-text-engine.js'
+      - 'studio/render_motion_text.py'
+      - 'studio/render_bundle.py'
+      - 'studio/generator-engine.js'
+      - 'studio/qa-engine.js'
+      - 'studio/test_motion_text.mjs'
+      - '.github/workflows/motion-text-qa.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JavaScript syntax
+        run: |
+          node --check studio/motion-text-engine.js
+          node --check studio/generator-engine.js
+          node --check studio/qa-engine.js
+      - name: Python syntax
+        run: python -m py_compile studio/render_motion_text.py studio/render_bundle.py
+      - name: Motion engine regression
+        run: node studio/test_motion_text.mjs
+      - name: FFmpeg availability
+        run: ffmpeg -version | head -1
