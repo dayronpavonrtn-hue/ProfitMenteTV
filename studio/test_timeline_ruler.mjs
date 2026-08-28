@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('./timeline-ruler.js',import.meta.url),'utf8');
+const context={globalThis:{},window:undefined,document:undefined};vm.createContext(context);vm.runInContext(source,context);
+const ruler=context.globalThis.ProfitMenteTimelineRuler;if(!ruler)throw new Error('Timeline ruler API no disponible');
+if(ruler.niceStep(45,1)!==10)throw new Error('Paso esperado para 45s a zoom 1 no coincide');
+if(ruler.niceStep(45,4)!==2)throw new Error('El zoom no aumenta el detalle temporal');
+const a=ruler.ticks(45,1);if(a.ticks[0]!==0||a.ticks.at(-1)!==45)throw new Error('La regla no cubre inicio y fin del proyecto');
+const b=ruler.ticks(2,6);if(b.step>.5||b.ticks.length<5)throw new Error('La regla no ofrece detalle suficiente en proyectos cortos con zoom');
+if(ruler.label(65)!=='1:05')throw new Error('Formato mm:ss incorrecto');
+if(ruler.label(.5)!=='0.5s')throw new Error('Formato subsegundo incorrecto');
+console.log('Timeline ruler QA OK');
