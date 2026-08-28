@@ -18,4 +18,22 @@ assert.equal(project.clips.find(c=>c.id==='c').start,9,'later clips on same trac
 assert.equal(project.clips.find(c=>c.id==='music').start,1,'other tracks must not shift during ripple delete');
 const moved=ops.closeGaps(project,0);
 assert.ok(moved>=1);const visual=project.clips.filter(c=>c.track===0).sort((a,b)=>a.start-b.start);for(let i=1;i<visual.length;i++)assert.ok(visual[i].start<=visual[i-1].start+visual[i-1].duration+.001,'gaps should be closed');
+
+const splitProject={duration:30,clips:[{id:'video',track:0,name:'Scene',start:2,duration:8,asset:'v',sourceOffset:3,speed:1.5,transition:'fade',fadeIn:.4,fadeOut:.7,keyframes:{start:{positionX:0,scale:1,opacity:1},end:{positionX:40,scale:2,opacity:.5}}}]};
+const split=ops.split(splitProject,'video',5);
+assert.ok(split,'split should succeed inside clip');
+assert.equal(split.left.duration,3);assert.equal(split.right.start,5);assert.equal(split.right.duration,5);
+assert.equal(split.right.sourceOffset,7.5,'right half must continue from the correct source time at current speed');
+assert.equal(split.left.transition,'fade');assert.equal(split.right.transition,'cut','right half must not replay the entrance transition');
+assert.equal(split.left.fadeIn,.4);assert.equal(split.left.fadeOut,0);assert.equal(split.right.fadeIn,0);assert.equal(split.right.fadeOut,.7);
+assert.equal(split.left.keyframes.end.positionX,15);assert.equal(split.right.keyframes.start.positionX,15,'keyframe transform must stay continuous at the cut');
+assert.equal(split.left.keyframes.end.scale,1.375);assert.equal(split.right.keyframes.start.scale,1.375);
+assert.equal(ops.split(splitProject,split.left.id,2.01),null,'cuts too close to a clip edge must be rejected');
+
+const captionProject={duration:10,clips:[{id:'cap',track:3,name:'uno dos tres',start:0,duration:6,wordTimings:[
+ {word:'uno',start:.2,end:1.3,duration:1.1},{word:'dos',start:2,end:3.4,duration:1.4},{word:'tres',start:4,end:5.5,duration:1.5}
+]}]};
+const capSplit=ops.split(captionProject,'cap',3);
+assert.ok(capSplit);assert.equal(capSplit.left.name,'uno dos');assert.equal(capSplit.right.name,'tres');
+assert.ok(capSplit.left.wordTimings.every(w=>w.start>=0&&w.end<=3));assert.ok(capSplit.right.wordTimings.every(w=>w.start>=3&&w.end<=6),'caption word timings must remain inside their split segment');
 console.log('timeline operations ok');
