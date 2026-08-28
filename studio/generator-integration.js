@@ -27,6 +27,9 @@
     const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;s.onload=()=>onload?.();document.body.appendChild(s);
   }
 
+  // Keep automatic projects live: newly imported media can fill scenes that were generated without visuals.
+  loadScriptOnce('generator-autofill.js','generatorAutofill');
+
   // Project portability must be active before recovery wraps the final persistence chain.
   function bootSupportModules(){
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
