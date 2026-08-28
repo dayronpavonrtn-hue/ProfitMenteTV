@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
+const NativeURL=globalThis.URL;
+const previewPath=new NativeURL('./preview-engine.js',import.meta.url);
+const captionPath=new NativeURL('./caption-preview.js',import.meta.url);
+const controlsPath=new NativeURL('./track-controls.js',import.meta.url);
+
 globalThis.window=globalThis;
 globalThis.assets=[];
 globalThis.project={
@@ -24,7 +29,7 @@ globalThis.$=selector=>selector==='#placeholder'?placeholder:null;
 globalThis.Image=class {};
 globalThis.URL={createObjectURL(){return 'blob:test'},revokeObjectURL(){}};
 
-vm.runInThisContext(fs.readFileSync(new URL('./preview-engine.js',import.meta.url),'utf8'),{filename:'preview-engine.js'});
+vm.runInThisContext(fs.readFileSync(previewPath,'utf8'),{filename:'preview-engine.js'});
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(0),true);
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(2),false);
 await globalThis.renderAt(0);
@@ -40,10 +45,10 @@ assert.ok(Math.abs(zoomMid.alpha-.5)<.001,'zoom preview must include the same en
 assert.ok(slideMid.x>0,'slide preview must still translate horizontally during entry');
 assert.ok(zoomMid.scale>1,'zoom preview must still scale during entry');
 
-vm.runInThisContext(fs.readFileSync(new URL('./caption-preview.js',import.meta.url),'utf8'),{filename:'caption-preview.js'});
+vm.runInThisContext(fs.readFileSync(captionPath,'utf8'),{filename:'caption-preview.js'});
 assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true);
 
-const controls=fs.readFileSync(new URL('./track-controls.js',import.meta.url),'utf8');
+const controls=fs.readFileSync(controlsPath,'utf8');
 assert.ok(!controls.includes('project.clips=all.filter'),'track controls must not filter by replacing project.clips during async preview');
 assert.ok(!controls.includes('project.clips=all'),'track controls must not restore a temporarily replaced clip array');
 
