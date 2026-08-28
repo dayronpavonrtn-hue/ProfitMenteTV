@@ -4,7 +4,10 @@ class ProfitMenteProjectPortability{
     const out={};for(const k of keys) if(asset[k]!==undefined&&asset[k]!==null) out[k]=asset[k];return out;
   }
   static serialize(project,assets=[]){
-    return {...project,assets:(assets||[]).map(a=>this.assetMeta(a))};
+    const merged=new Map();
+    for(const asset of project?.assets||[]){const meta=this.assetMeta(asset);if(meta.id)merged.set(meta.id,meta)}
+    for(const asset of assets||[]){const meta=this.assetMeta(asset);if(meta.id)merged.set(meta.id,{...(merged.get(meta.id)||{}),...meta})}
+    return {...project,assets:[...merged.values()]};
   }
   static normalize(raw,current={}){
     if(!raw||typeof raw!=='object'||Array.isArray(raw)) throw new Error('Proyecto JSON inválido');
