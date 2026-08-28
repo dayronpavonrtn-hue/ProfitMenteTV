@@ -29,6 +29,7 @@
 
   // Keep automatic projects live: newly imported media can fill scenes that were generated without visuals.
   loadScriptOnce('generator-autofill.js','generatorAutofill');
+  loadScriptOnce('qa-autofix.js','qaAutofix');
 
   function bootMediaReplacement(){
     if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
