@@ -1,0 +1,33 @@
+name: ProfitMente Studio Selection Arrange QA
+
+on:
+  push:
+    paths:
+      - 'studio/selection-engine.js'
+      - 'studio/selection-integration.js'
+      - 'studio/test_multi_select.mjs'
+      - 'studio/test_selection_arrange.mjs'
+      - '.github/workflows/selection-arrange-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  selection-arrange:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check selection engine syntax
+        run: node --check studio/selection-engine.js
+      - name: Check selection integration syntax
+        run: node --check studio/selection-integration.js
+      - name: Run existing multi-select regression
+        run: node studio/test_multi_select.mjs
+      - name: Run arrangement regression
+        run: node studio/test_selection_arrange.mjs
+      - name: Verify arrangement controls are integrated
+        run: |
+          grep -q 'multiAlignStart' studio/selection-integration.js
+          grep -q 'multiDistribute' studio/selection-integration.js
+          grep -q 'multiCompact' studio/selection-integration.js
