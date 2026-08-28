@@ -10,11 +10,16 @@
     const stamp=date.toISOString().replace(/[:.]/g,'-').replace('T','_').replace('Z','');
     return `voz_${stamp}.${extensionFor(mime)}`;
   }
+  function resolveDuration(metadataDuration,fallbackDuration){
+    const metadata=Number(metadataDuration),fallback=Number(fallbackDuration);
+    if(Number.isFinite(metadata)&&metadata>0)return metadata;
+    return Number.isFinite(fallback)&&fallback>0?fallback:0;
+  }
   function durationFromBlob(blob){
     return new Promise((resolve,reject)=>{
       const audio=document.createElement('audio'),url=URL.createObjectURL(blob);
       const clean=()=>URL.revokeObjectURL(url);
-      audio.preload='metadata';audio.onloadedmetadata=()=>{const d=Number.isFinite(audio.duration)?audio.duration:0;clean();resolve(d)};
+      audio.preload='metadata';audio.onloadedmetadata=()=>{const d=Number(audio.duration);clean();resolve(Number.isFinite(d)&&d>0?d:0)};
       audio.onerror=()=>{clean();reject(new Error('No se pudo leer la duración de la grabación'))};audio.src=url;
     });
   }
@@ -37,17 +42,23 @@
         rec.onerror=e=>reject(e.error||new Error('Error grabando audio'));
         rec.onstop=async()=>{
           try{
-            const blob=new Blob(this.chunks,{type:mime}),fallback=(performance.now()-this.startedAt)/1000;
-            const duration=await durationFromBlob(blob).catch(()=>fallback);
+            const blob=new Blob(this.chunks,{type:mime}),fallback=Math.max(0,(performance.now()-this.startedAt)/1000);
+            const metadata=await durationFromBlob(blob).catch(()=>0),duration=resolveDuration(metadata,fallback);
+            if(!blob.size)throw new Error('La grabación no contiene audio');
+            if(duration<=0)throw new Error('No se pudo determinar la duración de la grabación');
             resolve({blob,mime,duration,name:recordingName(new Date(),mime)});
-          }finally{this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.chunks=[]}
+          }catch(e){reject(e)}finally{this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.chunks=[]}
         };
         rec.stop();
       });
     }
-    cancel(){if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.chunks=[]}
+    cancel(){
+      const rec=this.recorder;
+      if(rec){rec.ondataavailable=null;rec.onerror=null;rec.onstop=null;if(rec.state!=='inactive')try{rec.stop()}catch{}}
+      this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.recorder=null;this.chunks=[];this.startedAt=0;
+    }
   }
-  const api={ProfitMenteVoiceRecorder,pickMime,extensionFor,recordingName};
+  const api={ProfitMenteVoiceRecorder,pickMime,extensionFor,recordingName,resolveDuration};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   Object.assign(root,api);
 })(typeof window!=='undefined'?window:globalThis);
@@ -71,7 +82,9 @@ if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',()
       const r=await rec.stop();stopClock();
       const asset={id:crypto.randomUUID(),name:r.name,type:'audio',mime:r.mime,blob:r.blob,duration:r.duration,size:r.blob.size,source:'microphone'};
       await putAsset(asset);assets.push(asset);drawLibrary();
-      const start=+document.querySelector('#playhead').value||0,duration=Math.max(.25,Math.min(r.duration||1,project.duration-start));
+      const start=+document.querySelector('#playhead').value||0,remaining=Math.max(0,project.duration-start);
+      if(remaining<.25)throw new Error('Mueve el cursor antes del final del proyecto para insertar la voz');
+      const duration=Math.max(.25,Math.min(r.duration,remaining));
       addClip(6,'Voz grabada',asset.id,start,duration);
       setStatus(`Voz añadida · ${duration.toFixed(1)} s · pista Voz`);
     }catch(e){console.error(e);setStatus('No se pudo guardar la grabación: '+e.message)}
