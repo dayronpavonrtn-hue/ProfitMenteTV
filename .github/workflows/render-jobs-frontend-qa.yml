@@ -1,0 +1,24 @@
+name: ProfitMente Studio Async Render Frontend QA
+
+on:
+  push:
+    paths:
+      - 'studio/bundle-engine.js'
+      - 'studio/test_render_jobs_frontend.mjs'
+      - '.github/workflows/render-jobs-frontend-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  async-render-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check bundle engine syntax
+        run: node --check studio/bundle-engine.js
+      - name: Run async render frontend regression
+        run: node studio/test_render_jobs_frontend.mjs
+      - name: Run bundle portability regression
+        run: node studio/test_bundle.mjs
