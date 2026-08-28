@@ -43,5 +43,5 @@
   scale.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();seekFromEvent(e);scale.setPointerCapture?.(e.pointerId);const move=x=>seekFromEvent(x),up=()=>{scale.removeEventListener('pointermove',move);scale.removeEventListener('pointerup',up);scale.removeEventListener('pointercancel',up)};scale.addEventListener('pointermove',move);scale.addEventListener('pointerup',up);scale.addEventListener('pointercancel',up)});
   $('#playhead')?.addEventListener('input',paint);
   const observer=new MutationObserver(paint);observer.observe(tracks,{childList:true});
-  window.addEventListener('resize',paint);paint();
+  window.addEventListener('profitmente:timelinezoom',paint);window.addEventListener('resize',paint);paint();
 })();
