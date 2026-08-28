@@ -51,7 +51,7 @@
   });
   applyZoom();
   window.ProfitMenteTransport={seek,prevCut,nextCut,get zoom(){return zoom},setZoom(v){zoom=Number(v);applyZoom()}};
-  if(!window.ProfitMenteTimelineRuler&&!document.querySelector('script[data-profitmente-timeline-ruler]')){
-    const s=document.createElement('script');s.src='timeline-ruler.js';s.dataset.profitmenteTimelineRuler='1';document.body.appendChild(s);
-  }
+  function loadOnce(src,key,globalName){if(globalName&&window[globalName])return;if(document.querySelector(`script[data-profitmente-${key}]`))return;const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]='1';document.body.appendChild(s)}
+  loadOnce('timeline-ruler.js','timelineRuler','ProfitMenteTimelineRuler');
+  loadOnce('project-duration.js','projectDuration','ProfitMenteProjectDuration');
 })();
