@@ -28,18 +28,19 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   if(!document.querySelector('#profitmenteMediaImportStyle')){const style=document.createElement('style');style.id='profitmenteMediaImportStyle';style.textContent='.mediaDropActive{outline:2px dashed #7ad7ff!important;outline-offset:-6px;background:rgba(122,215,255,.06)!important}.mediaDropHint{font-size:9px;color:#7f8795;text-align:center;margin:4px 0 8px}';document.head.appendChild(style)}
   if(!document.querySelector('#mediaDropHint')){const hint=document.createElement('div');hint.id='mediaDropHint';hint.className='mediaDropHint';hint.textContent='Arrastra aquí video, imagen o audio · también puedes pegar archivos con Ctrl/Cmd+V';library.insertAdjacentElement('beforebegin',hint)}
   async function importFiles(files,origin='selector'){
-    const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;
+    const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;const addedIds=[];
     for(const file of incoming){
       try{
         if(engine.findDuplicate(assets,file)){duplicates++;continue}
         const type=engine.kind(file),fingerprint=engine.signature(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceLastModified:Number(file.lastModified||0),importOrigin:origin};
-        await putAsset(asset);assets.push(asset);added++;
+        await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
     drawLibrary?.();
+    if(addedIds.length)document.dispatchEvent(new CustomEvent('profitmente:media-imported',{detail:{assetIds:addedIds,origin}}));
     const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
     setStatus?.(parts.join(' · ')||'No se encontraron medios compatibles');
-    return {added,duplicates,unsupported,failed,total:incoming.length};
+    return {added,duplicates,unsupported,failed,total:incoming.length,assetIds:addedIds};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
   const hasFiles=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
