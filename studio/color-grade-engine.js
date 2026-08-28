@@ -12,8 +12,7 @@
   function ffmpegFilter(c={}){const v=normalize(c),b=(v.brightness/100).toFixed(3),co=Math.max(.1,1+v.contrast/100).toFixed(3),s=Math.max(0,1+v.saturation/100).toFixed(3),h=v.hue.toFixed(2);return `eq=brightness=${b}:contrast=${co}:saturation=${s},hue=h=${h}`}
   function applyPreset(c,name){const p=presets[name]||presets.natural;Object.assign(c,p);return normalize(c)}
   window.ProfitMenteColorGrade={normalize,cssFilter,ffmpegFilter,applyPreset,presets};
-
-  const props=document.querySelector('.clipInspector');if(!props)return;
+  const props=document.querySelector('.clipInspector');if(!props){renderAt?.(+document.querySelector('#playhead')?.value||0);return}
   const panel=document.createElement('div');panel.id='ciColorWrap';panel.innerHTML=`<h4>Color</h4><label>Preset<select id="ciColorPreset"><option value="custom">Personalizado</option><option value="natural">Natural</option><option value="vivid">Vívido</option><option value="warm">Cálido</option><option value="cool">Frío</option><option value="mono">Blanco y negro</option></select></label><div class="ciGrid"><label>Brillo<input id="ciBrightness" type="number" min="-100" max="100" step="1"></label><label>Contraste<input id="ciContrast" type="number" min="-90" max="100" step="1"></label></div><div class="ciGrid"><label>Saturación<input id="ciSaturation" type="number" min="-100" max="200" step="1"></label><label>Tono °<input id="ciHue" type="number" min="-180" max="180" step="1"></label></div><button id="ciResetColor">Restablecer color</button>`;
   const transform=document.querySelector('#ciTransformWrap');(transform?.parentNode||props).insertBefore(panel,transform?.nextSibling||null);
   const selected=()=>window.ProfitMenteEditTools?.selectedId||null;
@@ -24,5 +23,5 @@
   for(const [id,key,lo,hi] of [['ciBrightness','brightness',-100,100],['ciContrast','contrast',-90,100],['ciSaturation','saturation',-100,200],['ciHue','hue',-180,180]])document.querySelector('#'+id).addEventListener('change',e=>{const c=clip();if(!isVisual(c))return;c[key]=clamp(e.target.value,lo,hi);document.querySelector('#ciColorPreset').value='custom';redraw('Corrección de color actualizada')});
   document.querySelector('#ciColorPreset').addEventListener('change',e=>{const c=clip();if(!isVisual(c)||e.target.value==='custom')return;applyPreset(c,e.target.value);redraw(`Preset ${e.target.options[e.target.selectedIndex].text} aplicado`)});
   document.querySelector('#ciResetColor').onclick=()=>{const c=clip();if(!isVisual(c))return;Object.assign(c,presets.natural);document.querySelector('#ciColorPreset').value='natural';redraw('Color restablecido')};
-  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(render)},true);setInterval(render,600);render();
+  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(render)},true);setInterval(render,600);render();renderAt?.(+document.querySelector('#playhead')?.value||0);
 })();
