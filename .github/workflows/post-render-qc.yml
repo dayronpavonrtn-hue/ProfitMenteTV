@@ -1,0 +1,42 @@
+name: ProfitMente Studio Post Render QC
+
+on:
+  push:
+    paths:
+      - 'studio/output_qc.py'
+      - 'studio/test_output_qc.py'
+      - 'studio/render_bundle.py'
+      - 'studio/studio_server.py'
+      - 'studio/bundle-engine.js'
+      - '.github/workflows/post-render-qc.yml'
+  workflow_dispatch:
+
+jobs:
+  post-render-qc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax
+        run: |
+          python -m py_compile studio/output_qc.py studio/render_bundle.py studio/studio_server.py
+          node --check studio/bundle-engine.js
+      - name: Test post-render quality engine
+        working-directory: studio
+        run: python test_output_qc.py
+      - name: Verify render pipeline blocks unvalidated outputs
+        run: |
+          grep -q "output_qc.py" studio/render_bundle.py
+          grep -q "post_render_qc" studio/studio_server.py
+          grep -q "state.qc" studio/bundle-engine.js
+      - name: End-to-end ffprobe smoke check
+        run: |
+          ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=1080x1920:r=30:d=0.5 -f lavfi -i anullsrc=r=48000:cl=stereo -shortest -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -t 0.5 /tmp/qc.mp4
+          printf '%s' '{"format":"9:16","duration":0.5,"clips":[{"track":5,"duration":0.5}]}' > /tmp/project.json
+          python studio/output_qc.py /tmp/project.json /tmp/qc.mp4 /tmp/qc.json
+          python -c "import json; r=json.load(open('/tmp/qc.json')); assert r['ok'] and r['metrics']['width']==1080 and r['metrics']['height']==1920"
