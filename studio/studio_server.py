@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local-only ProfitMente Studio server with a zero-cost MP4 render endpoint."""
+"""Local-only ProfitMente Studio server with zero-cost MP4 render endpoints."""
 from __future__ import annotations
 import argparse
 import json
@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
+import uuid
 import webbrowser
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -18,10 +20,70 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 STUDIO = ROOT / "studio"
 MAX_UPLOAD = 2 * 1024 * 1024 * 1024  # 2 GB safety ceiling
 ALLOWED_CONTENT_TYPES = {"application/x-tar", "application/octet-stream"}
+RENDER_JOBS = {}
+RENDER_LOCK = threading.RLock()
+
+
+def _job_snapshot(job: dict) -> dict:
+    created = float(job.get("created", time.time()))
+    return {
+        "ok": True,
+        "job_id": job["id"],
+        "status": job.get("status", "queued"),
+        "progress": int(job.get("progress", 0)),
+        "error": job.get("error"),
+        "elapsed": max(0, round(time.time() - created, 1)),
+    }
+
+
+def _cleanup_job_files(job: dict):
+    td = job.get("tempdir")
+    if td:
+        shutil.rmtree(td, ignore_errors=True)
+        job["tempdir"] = None
+
+
+def _run_render_job(job_id: str):
+    with RENDER_LOCK:
+        job = RENDER_JOBS.get(job_id)
+        if not job or job.get("cancel_requested"):
+            if job:
+                job.update(status="cancelled", progress=0)
+                _cleanup_job_files(job)
+            return
+        job.update(status="rendering", progress=35)
+        cmd = [sys.executable, str(STUDIO / "render_bundle.py"), str(job["bundle"]), str(job["output"])]
+        proc = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        job["process"] = proc
+    try:
+        stdout, stderr = proc.communicate(timeout=1800)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        with RENDER_LOCK:
+            job = RENDER_JOBS.get(job_id)
+            if job:
+                job.update(status="error", progress=100, error="El render superó 30 minutos.", process=None)
+        return
+    with RENDER_LOCK:
+        job = RENDER_JOBS.get(job_id)
+        if not job:
+            return
+        job["process"] = None
+        if job.get("cancel_requested"):
+            job.update(status="cancelled", progress=0)
+            _cleanup_job_files(job)
+            return
+        output = pathlib.Path(job["output"])
+        if proc.returncode != 0 or not output.is_file():
+            detail = (stderr or stdout or "Error desconocido de render").strip()[-4000:]
+            job.update(status="error", progress=100, error=detail)
+            return
+        job.update(status="done", progress=100, size=output.stat().st_size)
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.2"
+    server_version = "ProfitMenteStudio/1.3"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -50,53 +112,22 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(origin)
         return parsed.scheme == "http" and parsed.netloc == host
 
-    def do_GET(self):
-        if urlparse(self.path).path == "/api/health":
-            ffmpeg = shutil.which("ffmpeg")
-            ffprobe = shutil.which("ffprobe")
-            self._json(HTTPStatus.OK, {
-                "ok": True,
-                "python": sys.version.split()[0],
-                "ffmpeg": bool(ffmpeg),
-                "ffprobe": bool(ffprobe),
-                "render_ready": bool(ffmpeg and ffprobe),
-                "server": self.server_version,
-            })
-            return
-        super().do_GET()
-
-    def do_POST(self):
-        if urlparse(self.path).path != "/api/render":
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-        if not self._same_local_origin():
-            self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Origen local no autorizado."})
-            return
+    def _read_bundle(self):
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         if content_type not in ALLOWED_CONTENT_TYPES:
-            self._json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"ok": False, "error": "Se esperaba un paquete TAR de ProfitMente Studio."})
-            return
-        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
-            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {
-                "ok": False,
-                "error": "FFmpeg/FFprobe no están instalados o no están disponibles en PATH."
-            })
-            return
+            return None, (HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Se esperaba un paquete TAR de ProfitMente Studio.")
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             length = 0
         if length <= 0:
-            self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Paquete vacío."})
-            return
+            return None, (HTTPStatus.BAD_REQUEST, "Paquete vacío.")
         if length > MAX_UPLOAD:
-            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "El paquete supera 2 GB."})
-            return
-        with tempfile.TemporaryDirectory(prefix="profitmente-local-render-") as td:
-            td = pathlib.Path(td)
-            bundle = td / "project.profitmente.tar"
-            output = td / "output.mp4"
-            remaining = length
+            return None, (HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "El paquete supera 2 GB.")
+        td = pathlib.Path(tempfile.mkdtemp(prefix="profitmente-local-render-"))
+        bundle = td / "project.profitmente.tar"
+        remaining = length
+        try:
             with bundle.open("wb") as f:
                 while remaining:
                     chunk = self.rfile.read(min(1024 * 1024, remaining))
@@ -105,28 +136,124 @@ class Handler(SimpleHTTPRequestHandler):
                     f.write(chunk)
                     remaining -= len(chunk)
             if remaining:
-                self._json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Carga incompleta."})
-                return
-            try:
-                result = subprocess.run(
-                    [sys.executable, str(STUDIO / "render_bundle.py"), str(bundle), str(output)],
-                    cwd=str(ROOT), capture_output=True, text=True, timeout=1800
-                )
-            except subprocess.TimeoutExpired:
-                self._json(HTTPStatus.GATEWAY_TIMEOUT, {"ok": False, "error": "El render superó 30 minutos."})
-                return
-            if result.returncode != 0 or not output.is_file():
-                detail = (result.stderr or result.stdout or "Error desconocido de render").strip()[-4000:]
-                self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": detail})
-                return
-            size = output.stat().st_size
+                shutil.rmtree(td, ignore_errors=True)
+                return None, (HTTPStatus.BAD_REQUEST, "Carga incompleta.")
+            return (td, bundle), None
+        except Exception:
+            shutil.rmtree(td, ignore_errors=True)
+            raise
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+        if path == "/api/health":
+            ffmpeg = shutil.which("ffmpeg")
+            ffprobe = shutil.which("ffprobe")
+            self._json(HTTPStatus.OK, {
+                "ok": True,
+                "python": sys.version.split()[0],
+                "ffmpeg": bool(ffmpeg),
+                "ffprobe": bool(ffprobe),
+                "render_ready": bool(ffmpeg and ffprobe),
+                "render_jobs": True,
+                "server": self.server_version,
+            })
+            return
+        if path.startswith("/api/render/jobs/"):
+            parts = path.strip("/").split("/")
+            if len(parts) not in (4, 5):
+                self.send_error(HTTPStatus.NOT_FOUND); return
+            job_id = parts[3]
+            with RENDER_LOCK:
+                job = RENDER_JOBS.get(job_id)
+                if not job:
+                    self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Trabajo de render no encontrado."}); return
+                if len(parts) == 4:
+                    self._json(HTTPStatus.OK, _job_snapshot(job)); return
+                if parts[4] != "result":
+                    self.send_error(HTTPStatus.NOT_FOUND); return
+                if job.get("status") != "done":
+                    self._json(HTTPStatus.CONFLICT, {"ok": False, "error": "El render todavía no está terminado."}); return
+                output = pathlib.Path(job["output"])
+                if not output.is_file():
+                    self._json(HTTPStatus.GONE, {"ok": False, "error": "El archivo renderizado ya no está disponible."}); return
+                size = output.stat().st_size
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "video/mp4")
             self.send_header("Content-Disposition", 'attachment; filename="profitmente-render.mp4"')
             self.send_header("Content-Length", str(size))
             self.end_headers()
-            with output.open("rb") as f:
-                shutil.copyfileobj(f, self.wfile, length=1024 * 1024)
+            try:
+                with output.open("rb") as f:
+                    shutil.copyfileobj(f, self.wfile, length=1024 * 1024)
+            finally:
+                with RENDER_LOCK:
+                    job = RENDER_JOBS.pop(job_id, None)
+                    if job: _cleanup_job_files(job)
+            return
+        super().do_GET()
+
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        if not path.startswith("/api/render/jobs/") or not self._same_local_origin():
+            self.send_error(HTTPStatus.NOT_FOUND); return
+        parts = path.strip("/").split("/")
+        if len(parts) != 4:
+            self.send_error(HTTPStatus.NOT_FOUND); return
+        job_id = parts[3]
+        with RENDER_LOCK:
+            job = RENDER_JOBS.get(job_id)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Trabajo de render no encontrado."}); return
+            if job.get("status") == "done":
+                self._json(HTTPStatus.CONFLICT, {"ok": False, "error": "El render ya terminó."}); return
+            job["cancel_requested"] = True
+            proc = job.get("process")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            if job.get("status") == "queued":
+                job.update(status="cancelled", progress=0)
+                _cleanup_job_files(job)
+            self._json(HTTPStatus.OK, _job_snapshot(job))
+        return
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if path not in ("/api/render", "/api/render/jobs"):
+            self.send_error(HTTPStatus.NOT_FOUND); return
+        if not self._same_local_origin():
+            self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Origen local no autorizado."}); return
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "FFmpeg/FFprobe no están instalados o no están disponibles en PATH."}); return
+        payload, error = self._read_bundle()
+        if error:
+            self._json(error[0], {"ok": False, "error": error[1]}); return
+        td, bundle = payload
+        output = td / "output.mp4"
+        if path == "/api/render/jobs":
+            job_id = uuid.uuid4().hex
+            job = {"id": job_id, "status": "queued", "progress": 10, "created": time.time(), "tempdir": str(td), "bundle": str(bundle), "output": str(output), "process": None, "cancel_requested": False, "error": None}
+            with RENDER_LOCK: RENDER_JOBS[job_id] = job
+            threading.Thread(target=_run_render_job, args=(job_id,), daemon=True).start()
+            self._json(HTTPStatus.ACCEPTED, _job_snapshot(job)); return
+        try:
+            result = subprocess.run([sys.executable, str(STUDIO / "render_bundle.py"), str(bundle), str(output)], cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
+        except subprocess.TimeoutExpired:
+            shutil.rmtree(td, ignore_errors=True)
+            self._json(HTTPStatus.GATEWAY_TIMEOUT, {"ok": False, "error": "El render superó 30 minutos."}); return
+        if result.returncode != 0 or not output.is_file():
+            detail = (result.stderr or result.stdout or "Error desconocido de render").strip()[-4000:]
+            shutil.rmtree(td, ignore_errors=True)
+            self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": detail}); return
+        size = output.stat().st_size
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Disposition", 'attachment; filename="profitmente-render.mp4"')
+        self.send_header("Content-Length", str(size))
+        self.end_headers()
+        try:
+            with output.open("rb") as f: shutil.copyfileobj(f, self.wfile, length=1024 * 1024)
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
 
     def log_message(self, fmt, *args):
         print("[Studio]", fmt % args)
@@ -142,15 +269,10 @@ def main():
     httpd = ThreadingHTTPServer(address, Handler)
     print(f"ProfitMente Studio: {url}")
     print("Servidor local únicamente. Ctrl+C para cerrar.")
-    if args.open_browser:
-        threading.Timer(0.15, lambda: webbrowser.open(url, new=2)).start()
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nProfitMente Studio cerrado.")
-    finally:
-        httpd.server_close()
+    if args.open_browser: threading.Timer(0.15, lambda: webbrowser.open(url, new=2)).start()
+    try: httpd.serve_forever()
+    except KeyboardInterrupt: print("\nProfitMente Studio cerrado.")
+    finally: httpd.server_close()
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
