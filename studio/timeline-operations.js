@@ -5,6 +5,29 @@
     cloneClip(clip,start=null){const c=structuredClone(clip);c.id=crypto.randomUUID();c.name=(clip.name||'Clip')+' copia';if(start!==null)c.start=start;return c}
     copy(clip){this.clipboard=structuredClone(clip);return this.clipboard}
     paste(project,at,track=null){if(!this.clipboard)return null;const c=this.cloneClip(this.clipboard);c.track=track??c.track;c.start=Math.max(0,Math.min(Math.max(0,project.duration-c.duration),Number(at)||0));project.clips.push(c);return c}
+    interpolateFrame(a,b,p){
+      const out={};for(const key of new Set([...Object.keys(a||{}),...Object.keys(b||{})])){const x=Number(a?.[key]),y=Number(b?.[key]);if(Number.isFinite(x)&&Number.isFinite(y))out[key]=x+(y-x)*p;else if(a?.[key]!==undefined)out[key]=structuredClone(a[key]);else out[key]=structuredClone(b[key])}return out;
+    }
+    trimWords(clip,start,end){
+      if(!Array.isArray(clip.wordTimings))return;
+      const words=[];for(const timing of clip.wordTimings){if(!timing||typeof timing!=='object')continue;const ws=Number(timing.start),we=Number(timing.end);if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws||we<=start||ws>=end)continue;const item=structuredClone(timing);item.start=Math.max(start,ws);item.end=Math.min(end,we);item.duration=Math.max(0,item.end-item.start);if(item.duration>0)words.push(item)}
+      clip.wordTimings=words.map((x,index)=>({...x,index}));if(Number(clip.track)===3){const text=clip.wordTimings.map(x=>String(x.word||'').trim()).filter(Boolean).join(' ');if(text)clip.name=text}
+    }
+    trimLeft(project,id,at,minDuration=.25){
+      const c=project.clips.find(x=>x.id===id);if(!c)return null;const start=Number(c.start)||0,duration=Number(c.duration)||0,end=start+duration,target=Math.max(start,Math.min(end-minDuration,Number(at)));
+      if(!Number.isFinite(target)||target<=start+.001)return null;const original=structuredClone(c),p=duration>0?(target-start)/duration:0;c.start=target;c.duration=end-target;
+      if(original.asset){const speed=Math.max(.25,Math.min(4,Number(original.speed)||1));c.sourceOffset=Math.max(0,(Number(original.sourceOffset)||0)+(target-start)*speed)}
+      if(original.keyframes?.start&&original.keyframes?.end)c.keyframes={start:this.interpolateFrame(original.keyframes.start,original.keyframes.end,p),end:structuredClone(original.keyframes.end)};
+      if(Object.prototype.hasOwnProperty.call(original,'fadeIn'))c.fadeIn=Math.min(c.duration,Math.max(0,Number(original.fadeIn)||0));if(Object.prototype.hasOwnProperty.call(original,'fadeOut'))c.fadeOut=Math.min(c.duration,Math.max(0,Number(original.fadeOut)||0));
+      this.trimWords(c,target,end);return c;
+    }
+    trimRight(project,id,at,minDuration=.25){
+      const c=project.clips.find(x=>x.id===id);if(!c)return null;const start=Number(c.start)||0,duration=Number(c.duration)||0,end=start+duration,target=Math.min(end,Math.max(start+minDuration,Number(at)));
+      if(!Number.isFinite(target)||target>=end-.001)return null;const original=structuredClone(c),p=duration>0?(target-start)/duration:1;c.duration=target-start;
+      if(original.keyframes?.start&&original.keyframes?.end)c.keyframes={start:structuredClone(original.keyframes.start),end:this.interpolateFrame(original.keyframes.start,original.keyframes.end,p)};
+      if(Object.prototype.hasOwnProperty.call(original,'fadeIn'))c.fadeIn=Math.min(c.duration,Math.max(0,Number(original.fadeIn)||0));if(Object.prototype.hasOwnProperty.call(original,'fadeOut'))c.fadeOut=Math.min(c.duration,Math.max(0,Number(original.fadeOut)||0));
+      this.trimWords(c,start,target);return c;
+    }
     split(project,id,at,minDuration=.05){
       const c=project.clips.find(x=>x.id===id);if(!c)return null;
       const start=Number(c.start)||0,duration=Number(c.duration)||0,end=start+duration,cut=Number(at);
@@ -29,13 +52,7 @@
       }
       const k=original.keyframes;
       if(k&&typeof k==='object'&&k.start&&k.end){
-        const mid={};
-        for(const key of new Set([...Object.keys(k.start),...Object.keys(k.end)])){
-          const a=Number(k.start[key]),b=Number(k.end[key]);
-          if(Number.isFinite(a)&&Number.isFinite(b))mid[key]=a+(b-a)*p;
-          else if(k.start[key]!==undefined)mid[key]=structuredClone(k.start[key]);
-          else mid[key]=structuredClone(k.end[key]);
-        }
+        const mid=this.interpolateFrame(k.start,k.end,p);
         c.keyframes={start:structuredClone(k.start),end:structuredClone(mid)};
         right.keyframes={start:structuredClone(mid),end:structuredClone(k.end)};
       }
