@@ -16,7 +16,7 @@ jobs:
       - name: Render MP4
         run: |
           mkdir -p output
-          python studio/render_mp4.py "${{ inputs.project }}" studio/assets output/profitmente-studio.mp4
+          python studio/render_motion_text.py "${{ inputs.project }}" studio/assets output/profitmente-studio.mp4
       - name: Quality check
         run: ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate -show_entries format=duration,size -of json output/profitmente-studio.mp4
       - uses: actions/upload-artifact@v4
