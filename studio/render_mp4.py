@@ -76,6 +76,13 @@ def has_keyframes(clip):
 def lerp_expr(a,b,d,var='t'):
     return f'({a}+({b-a})*min(max({var}/{max(d,.001)},0),1))'
 
+def color_filter(clip):
+    brightness=bounded(clip,'brightness',0,-100,100)/100
+    contrast=max(.1,1+bounded(clip,'contrast',0,-90,100)/100)
+    saturation=max(0,1+bounded(clip,'saturation',0,-100,200)/100)
+    hue=bounded(clip,'hue',0,-180,180)
+    return f'eq=brightness={brightness:.3f}:contrast={contrast:.3f}:saturation={saturation:.3f},hue=h={hue:.2f}'
+
 def visual_chain(idx,asset,start,d,clip,label):
     frames=max(1,int(math.ceil(d*30)))
     motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
@@ -89,6 +96,7 @@ def visual_chain(idx,asset,start,d,clip,label):
         chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
     else: chain=f'trim=start={source_offset}:duration={d*speed},setpts=(PTS-STARTPTS)/{speed},'+chain
+    chain+=','+color_filter(clip)
     if clip.get('flipX'): chain+=',hflip'
     if clip.get('flipY'): chain+=',vflip'
     td=min(.28,max(.08,d*.12))
