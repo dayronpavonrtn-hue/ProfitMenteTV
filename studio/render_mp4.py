@@ -13,6 +13,14 @@ project=json.loads(p.read_text(encoding='utf-8'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
 inputs=[]; filters=[]; input_index={}; audio_probe_cache={}
+track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
+
+def state(track):
+    value=track_state.get(str(track),track_state.get(track,{}))
+    return value if isinstance(value,dict) else {}
+
+def track_hidden(track):return bool(state(track).get('hidden',False))
+def track_muted(track):return bool(state(track).get('muted',False))
 
 def asset_path(asset_id):
     a=amap.get(asset_id)
@@ -97,8 +105,8 @@ def visual_chain(idx,asset,start,d,clip,label):
     chain+=f',setpts=PTS-STARTPTS+{start}/TB{label}'
     filters.append(src+chain)
 
-visual=[c for c in clips if c.get('track') in (0,1) and c.get('asset')]
-audio=[c for c in clips if c.get('track') in (4,5,6) and c.get('asset')]
+visual=[c for c in clips if c.get('track') in (0,1) and c.get('asset') and not track_hidden(int(c.get('track',0)))]
+audio=[c for c in clips if c.get('track') in (4,5,6) and c.get('asset') and not c.get('muted') and not track_muted(int(c.get('track',5)))]
 voice=[c for c in audio if int(c.get('track',-1))==6]
 for c in visual+audio:add_input(c['asset'])
 
@@ -123,7 +131,7 @@ for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('
     base=nxt
 
 capn=0
-for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
+for c in [x for x in clips if x.get('track')==3 and x.get('name') and not track_hidden(3)]:
     start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1))))
     timings=c.get('wordTimings') if isinstance(c.get('wordTimings'),list) else []
     valid=[]
@@ -148,7 +156,7 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name')]:
 
 source_audio=[]
 for c in visual:
-    if c.get('muted') or amap.get(c.get('asset'),{}).get('type')!='video':continue
+    if c.get('muted') or track_muted(int(c.get('track',0))) or amap.get(c.get('asset'),{}).get('type')!='video':continue
     if has_audio_stream(c['asset']):source_audio.append(c)
 
 aouts=[]
