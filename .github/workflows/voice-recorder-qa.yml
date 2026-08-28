@@ -1,0 +1,23 @@
+name: Voice Recorder QA
+on:
+  push:
+    paths:
+      - 'studio/voice-recorder.js'
+      - 'studio/test_voice_recorder.js'
+      - 'studio/index.html'
+      - '.github/workflows/voice-recorder-qa.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check recorder
+        run: node --check studio/voice-recorder.js
+      - name: Run recorder regression test
+        run: node studio/test_voice_recorder.js
+      - name: Verify Studio loads recorder
+        run: grep -q 'voice-recorder.js' studio/index.html
