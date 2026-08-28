@@ -11,8 +11,10 @@
       if(!Number.isFinite(cut)||cut<=start+minDuration||cut>=end-minDuration)return null;
       const original=structuredClone(c),leftDuration=cut-start,rightDuration=end-cut,p=duration>0?leftDuration/duration:0;
       const right=structuredClone(original);right.id=crypto.randomUUID();right.start=cut;right.duration=rightDuration;right.name=original.name||'Clip';
-      c.duration=leftDuration;
-      if(Object.prototype.hasOwnProperty.call(original,'sourceOffset')){
+      // Asset clips must keep reading the same source position after the cut. Most clips
+      // omit sourceOffset when it is zero, so checking only for the property would make
+      // the right half restart the source from 0 after a normal split.
+      if(original.asset){
         const speed=Math.max(.25,Math.min(4,Number(original.speed)||1));
         right.sourceOffset=Math.max(0,(Number(original.sourceOffset)||0)+leftDuration*speed);
       }
@@ -50,8 +52,10 @@
         }
         c.wordTimings=leftWords;right.wordTimings=rightWords;
         if(Number(original.track)===3){
+          const normalize=list=>list.map((x,index)=>({...x,index}));
+          c.wordTimings=normalize(leftWords);right.wordTimings=normalize(rightWords);
           const text=list=>list.map(x=>String(x.word||'').trim()).filter(Boolean).join(' ');
-          const leftText=text(leftWords),rightText=text(rightWords);if(leftText)c.name=leftText;if(rightText)right.name=rightText;
+          const leftText=text(c.wordTimings),rightText=text(right.wordTimings);if(leftText)c.name=leftText;if(rightText)right.name=rightText;
         }
       }
       project.clips.push(right);return {left:c,right};
