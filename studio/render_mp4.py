@@ -51,6 +51,10 @@ def overlap(a,b):
 def esc_text(value):
     return str(value).replace('\\','\\\\').replace(':','\\:').replace("'","\\'").replace('%','\\%').replace(',','\\,')
 
+def safe_hex(value,default):
+    value=str(value or '')
+    return value if len(value)==7 and value.startswith('#') and all(ch in '0123456789abcdefABCDEF' for ch in value[1:]) else default
+
 def clip_speed(clip):
     try:return max(.25,min(4.0,float(clip.get('speed',1) or 1)))
     except (TypeError,ValueError):return 1.0
@@ -129,6 +133,29 @@ for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('
     else:
         filters.append(f"{base}{vin}overlay=x='{xbase}':y='{ybase}':eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     base=nxt
+
+# Track 2: text/titles. This layer is rendered before captions so track 3 stays on top.
+motionn=0
+for c in [x for x in clips if int(x.get('track',-1))==2 and str(x.get('name','')).strip() and not track_hidden(2)]:
+    start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1)))); d=max(.05,end-start)
+    if end<=start:continue
+    text=esc_text(str(c.get('name',''))[:180]); style=c.get('textStyle','title'); anim=c.get('textAnimation','pop')
+    if style not in ('title','label','callout'):style='title'
+    if anim not in ('none','fade','pop','slide-up'):anim='pop'
+    size=max(16,min(84,float(c.get('fontSize',40) or 40)))*2
+    tx=max(-45,min(45,float(c.get('textX',0) or 0))); ty=max(-45,min(45,float(c.get('textY',-28) or -28)))
+    text_color=safe_hex(c.get('textColor'),'#FFE66D').replace('#','0x'); box_color=safe_hex(c.get('boxColor'),'#000000').replace('#','0x'); box_op=max(0,min(1,float(c.get('boxOpacity',.55) or 0)))
+    enter=min(.28,max(.06,d*.25)); progress=f'min(max((t-{start})/{enter},0),1)'
+    alpha='1'
+    if anim in ('fade','pop','slide-up'):alpha=progress
+    ybase=f'(h-text_h)/2+h*{ty}/100'
+    if anim=='slide-up': yexpr=f'{ybase}+56*(1-{progress})'
+    elif anim=='pop': yexpr=f'{ybase}+12*(1-{progress})'
+    else:yexpr=ybase
+    border=max(4,int(round(size*.055))); pad=14 if style=='label' else (26 if style=='callout' else 20)
+    nxt=f'[motion{motionn}]'
+    filters.append(f"{base}drawtext=text='{text}':fontcolor={text_color}:fontsize={size}:borderw={border}:bordercolor=black@0.90:box=1:boxcolor={box_color}@{box_op:.3f}:boxborderw={pad}:x='(w-text_w)/2+w*{tx}/100':y='{yexpr}':alpha='{alpha}':enable='between(t,{start},{end})'{nxt}")
+    base=nxt; motionn+=1
 
 capn=0
 for c in [x for x in clips if x.get('track')==3 and x.get('name') and not track_hidden(3)]:
