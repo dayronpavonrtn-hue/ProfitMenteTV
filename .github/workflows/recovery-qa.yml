@@ -1,0 +1,24 @@
+name: ProfitMente Studio Recovery QA
+on:
+  push:
+    paths:
+      - 'studio/recovery-engine.js'
+      - 'studio/recovery-integration.js'
+      - 'studio/test_recovery.mjs'
+      - 'studio/generator-integration.js'
+      - '.github/workflows/recovery-qa.yml'
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check recovery engine syntax
+        run: node --check studio/recovery-engine.js
+      - name: Check recovery integration syntax
+        run: node --check studio/recovery-integration.js
+      - name: Check generator integration syntax
+        run: node --check studio/generator-integration.js
+      - name: Test recovery snapshots
+        run: node studio/test_recovery.mjs
