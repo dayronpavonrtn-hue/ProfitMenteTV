@@ -48,12 +48,17 @@
     if(window.ProfitMenteProjectVersionEngine){loadScriptOnce('project-version-integration.js','projectVersionIntegration');return}
     loadScriptOnce('project-version-engine.js','projectVersionEngine',()=>loadScriptOnce('project-version-integration.js','projectVersionIntegration'));
   }
+  function bootSubtitleExport(){
+    if(window.ProfitMenteSubtitleExportEngine){loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration');return}
+    loadScriptOnce('subtitle-export-engine.js','subtitleExportEngine',()=>loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration'));
+  }
 
   function bootSupportModules(){
     bootMediaReplacement();
     bootRenderJobs();
     bootVisualGaps();
     bootProjectVersions();
+    bootSubtitleExport();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
