@@ -19,7 +19,11 @@ class ProfitMenteAudioNormalizeEngine{
     const target=this.targets(track),current=Math.max(0,Number(currentVolume));
     if(!metrics||metrics.samples<=0||metrics.rms<=1e-7)return {ok:false,reason:'silence',volume:current,gain:1,target};
     const rmsGain=this.dbToLinear(target.rmsDb)/metrics.rms,peakGain=metrics.peak>0?this.dbToLinear(target.peakDb)/metrics.peak:2;
-    const gain=Math.max(.1,Math.min(2,rmsGain,peakGain)),volume=Math.max(0,Math.min(2,current*gain));
+    // Metrics are measured from the raw source window, so the target volume must be
+    // absolute. Multiplying by the clip's existing volume makes normalization drift
+    // every time it is run and leaves tracks with low defaults (music) too quiet.
+    const volume=Math.max(.1,Math.min(2,rmsGain,peakGain));
+    const gain=current>1e-9?volume/current:volume;
     return {ok:true,gain,volume,target,limitedByPeak:peakGain<rmsGain,metrics};
   }
   static analyzeBuffer(buffer,sourceOffset=0,sourceDuration=null){
