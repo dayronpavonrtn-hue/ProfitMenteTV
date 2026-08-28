@@ -3,12 +3,11 @@ class ProfitMenteMotionTextEngine{
   normalize(c={}){const color=/^#[0-9a-f]{6}$/i;return {...c,track:2,name:String(c.name||'Título').slice(0,180),textStyle:['title','label','callout'].includes(c.textStyle)?c.textStyle:'title',textAnimation:['none','fade','pop','slide-up'].includes(c.textAnimation)?c.textAnimation:'pop',textX:this.clamp(c.textX??0,-45,45),textY:this.clamp(c.textY??-28,-45,45),fontSize:this.clamp(c.fontSize??40,16,84),textColor:color.test(String(c.textColor||''))?c.textColor:'#FFE66D',boxColor:color.test(String(c.boxColor||''))?c.boxColor:'#000000',boxOpacity:this.clamp(c.boxOpacity??.55,0,1)} }
   frame(c,t){c=this.normalize(c);const start=Number(c.start)||0,d=Math.max(.05,Number(c.duration)||.05),p=this.clamp((t-start)/Math.min(.28,d*.25),0,1);let alpha=1,scale=1,dy=0;if(c.textAnimation==='fade')alpha=p;if(c.textAnimation==='pop'){alpha=p;scale=.82+.18*(1-Math.pow(1-p,3))}if(c.textAnimation==='slide-up'){alpha=p;dy=(1-p)*28}return {c,alpha,scale,dy}}
 }
-window.ProfitMenteMotionTextEngine=ProfitMenteMotionTextEngine;
+if(typeof window!=='undefined')window.ProfitMenteMotionTextEngine=ProfitMenteMotionTextEngine;
 if(typeof module!=='undefined')module.exports={ProfitMenteMotionTextEngine};
 
 if(typeof document!=='undefined')(()=>{
-  const engine=new ProfitMenteMotionTextEngine(),$=s=>document.querySelector(s);
-  const oldRender=window.renderAt;
+  const engine=new ProfitMenteMotionTextEngine(),$=s=>document.querySelector(s),oldRender=window.renderAt;
   function hidden(){const s=project.trackState?.[2]??project.trackState?.['2']??{};return !!s.hidden}
   function draw(t){if(hidden())return;for(const raw of (project.clips||[]).filter(c=>Number(c.track)===2&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0))){const {c,alpha,scale,dy}=engine.frame(raw,t),text=c.name;if(!text)continue;const x=canvas.width/2+canvas.width*c.textX/100,y=canvas.height/2+canvas.height*c.textY/100+dy;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y);ctx.scale(scale,scale);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${c.fontSize}px Arial`;const m=ctx.measureText(text),pad=c.textStyle==='label'?12:20,hh=c.fontSize*(c.textStyle==='callout'?1.65:1.45);ctx.fillStyle=c.boxColor+Math.round(c.boxOpacity*255).toString(16).padStart(2,'0');ctx.fillRect(-m.width/2-pad,-hh/2,m.width+pad*2,hh);ctx.lineWidth=Math.max(3,c.fontSize*.11);ctx.strokeStyle='rgba(0,0,0,.9)';ctx.strokeText(text,0,0);ctx.fillStyle=c.textColor;ctx.fillText(text,0,0);ctx.restore()}}
   if(typeof oldRender==='function')window.renderAt=async function(t){await oldRender(t);draw(t)};
