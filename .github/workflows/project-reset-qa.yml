@@ -1,0 +1,31 @@
+name: ProfitMente Studio Safe Project Reset QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-reset-engine.js'
+      - 'studio/project-reset-integration.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_project_reset.mjs'
+      - '.github/workflows/project-reset-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/project-reset-engine.js
+          node --check studio/project-reset-integration.js
+          node --check studio/generator-integration.js
+      - name: Safe reset regression
+        run: node studio/test_project_reset.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "project-reset-engine.js" studio/generator-integration.js
+          grep -q "project-reset-integration.js" studio/generator-integration.js
