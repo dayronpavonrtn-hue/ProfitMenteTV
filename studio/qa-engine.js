@@ -1,9 +1,13 @@
 class ProfitMenteQAEngine{
   inspect(project,assets){
+    assets=Array.isArray(assets)?assets:[];
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>a.id));
     const state=track=>{const s=project.trackState?.[track]??project.trackState?.[String(track)]??{};return s&&typeof s==='object'?s:{}};
     const hidden=track=>!!state(track).hidden,muted=track=>!!state(track).muted;
     const disabled=c=>{const track=Number(c?.track);return ([0,1,2,3].includes(track)&&hidden(track))||([4,5,6].includes(track)&&muted(track))};
+    const assetKind=a=>a?.type==='video'||a?.type==='image'?'visual':a?.type==='audio'?'audio':'other';
+    const expectedKind=track=>[0,1].includes(Number(track))?'visual':[4,5,6].includes(Number(track))?'audio':'none';
+    const usableBlob=a=>!!a?.blob&&typeof a.blob.arrayBuffer==='function'&&(a.blob.size==null||Number(a.blob.size)>0);
     if(!project.clips?.length) issues.push('El timeline está vacío.');
     const checkKeyframe=(c,k,label)=>{if(!k||typeof k!=='object'){issues.push(`Keyframe ${label} inválido: ${c.name||c.id}`);return}const ranges={positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};for(const [field,[lo,hi]] of Object.entries(ranges)){const v=Number(k[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`Keyframe ${label} ${field} fuera de rango: ${c.name||c.id}`)}};
     const checkColor=c=>{const ranges={brightness:[-100,100],contrast:[-90,100],saturation:[-100,200],hue:[-180,180]};for(const [field,[lo,hi]] of Object.entries(ranges)){if(c[field]==null)continue;const v=Number(c[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`${field} fuera de rango: ${c.name||c.id}`)}if(Math.abs(Number(c.brightness)||0)>65)warnings.push(`Brillo extremo puede perder detalle: ${c.name||c.id}`);if((Number(c.saturation)||0)>150)warnings.push(`Saturación extrema puede producir colores artificiales: ${c.name||c.id}`)};
@@ -13,13 +17,15 @@ class ProfitMenteQAEngine{
     for(const c of project.clips||[]){
       const track=Number(c.track),inactive=disabled(c);
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
+      const a=!inactive&&c.asset?assets.find(x=>x.id===c.asset):null;
       if(!inactive&&c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
+      if(a){const expected=expectedKind(track),actual=assetKind(a);if(expected!=='none'&&actual!==expected)issues.push(`Tipo de medio incompatible con la pista: ${c.name||a.name}`);if(expected!=='none'&&!usableBlob(a))issues.push(`Archivo de medio vacío o no disponible: ${c.name||a.name}`)}
       if(!inactive&&[0,1].includes(track)&&c.fitMode!=null&&!['cover','contain'].includes(c.fitMode)) issues.push(`Encuadre inválido: ${c.name||c.id}`);
       if(!inactive&&[0,1].includes(track))checkColor(c);
       if(!inactive&&c.keyframes!=null){if(!c.keyframes.start||!c.keyframes.end)issues.push(`Keyframes incompletos: ${c.name||c.id}`);else{checkKeyframe(c,c.keyframes.start,'inicio');checkKeyframe(c,c.keyframes.end,'fin')}}
       if(!inactive&&track===2)checkMotionText(c);
       if(!inactive&&track===3)checkWordTimings(c);
-      const a=!inactive&&c.asset?assets.find(x=>x.id===c.asset):null,sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
+      const sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
       if(a&&([4,5,6].includes(track)||([0,1].includes(track)&&a.type==='video')))checkEnvelope(c);
       if(a?.duration&&['video','audio'].includes(a.type)){const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;if(sourceOffset>a.duration+.01) issues.push(`Punto de entrada fuera del archivo fuente: ${c.name||a.name}`);else if(sourceOffset+sourceNeeded>a.duration+.15) warnings.push(`Recorte supera el final del archivo fuente: ${c.name||a.name} · requiere ${(sourceOffset+sourceNeeded).toFixed(2)}s de ${Number(a.duration).toFixed(2)}s`)}
     }
