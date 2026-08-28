@@ -19,12 +19,14 @@
   }
   function prevCut(){const t=current(),eps=1/FPS/2,b=boundaries().filter(x=>x<t-eps);seek(b.length?b[b.length-1]:0)}
   function nextCut(){const t=current(),eps=1/FPS/2,b=boundaries().find(x=>x>t+eps);seek(b??duration())}
+  function notifyZoom(){window.dispatchEvent(new CustomEvent('profitmente:timelinezoom',{detail:{zoom}}))}
   function applyZoom(){
     zoom=Math.max(1,Math.min(6,zoom));
     localStorage.setItem('profitmente-timeline-zoom',String(zoom));
     document.querySelectorAll('.track').forEach(el=>el.style.minWidth=`${zoom*100}%`);
     const z=$('#timelineZoom');if(z)z.value=zoom;
     const l=$('#zoomLabel');if(l)l.textContent=`${zoom.toFixed(1)}×`;
+    notifyZoom();
   }
   const originalDraw=drawTimeline;
   drawTimeline=function(){originalDraw();applyZoom()};
@@ -49,4 +51,7 @@
   });
   applyZoom();
   window.ProfitMenteTransport={seek,prevCut,nextCut,get zoom(){return zoom},setZoom(v){zoom=Number(v);applyZoom()}};
+  if(!window.ProfitMenteTimelineRuler&&!document.querySelector('script[data-profitmente-timeline-ruler]')){
+    const s=document.createElement('script');s.src='timeline-ruler.js';s.dataset.profitmenteTimelineRuler='1';document.body.appendChild(s);
+  }
 })();
