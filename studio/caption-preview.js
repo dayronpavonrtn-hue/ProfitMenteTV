@@ -1,7 +1,9 @@
 (()=>{
   const baseRender=renderAt;
+  function captionsHidden(){const state=project?.trackState||{},value=state[3]??state['3']??{};return !!(value&&typeof value==='object'&&value.hidden)}
   renderAt=async function(t){
     await baseRender(t);
+    if(captionsHidden())return;
     const cap=project.clips.find(c=>c.track===3&&Array.isArray(c.wordTimings)&&t>=c.start&&t<c.start+c.duration);
     if(!cap)return;
     const word=cap.wordTimings.find(w=>t>=w.start&&t<w.end);
@@ -15,4 +17,5 @@
     ctx.lineWidth=8;ctx.strokeStyle='rgba(0,0,0,.96)';ctx.strokeText(text,x,y);
     ctx.fillStyle='#FFE66D';ctx.fillText(text,x,y);ctx.restore();
   };
+  window.ProfitMenteCaptionPreview={captionsHidden};
 })();
