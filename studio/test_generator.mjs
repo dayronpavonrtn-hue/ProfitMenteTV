@@ -37,4 +37,16 @@ if(smart.primary!==1)throw new Error('Smart assignment did not assign the primar
 if(scene.asset==='short')throw new Error('Generator selected a video shorter than the scene');
 if(scene.asset!=='portrait')throw new Error(`Expected portrait video for 9:16, got ${scene.asset}`);
 if(!(scene.sourceOffset>=0&&scene.sourceOffset<=14.01))throw new Error(`Unsafe sourceOffset: ${scene.sourceOffset}`);
-console.log(JSON.stringify({ok:true,primary:assigned.primary,broll:assigned.broll,smartAsset:scene.asset,sourceOffset:scene.sourceOffset,clips:project.clips.length,seed:a.seed}));
+
+// Diversity regression: when several equally suitable assets exist, rotate them instead of repeating one.
+const diversityProject={name:'Diversity test',format:'9:16',clips:Array.from({length:5},(_,i)=>({id:`d${i}`,track:0,name:`Scene ${i}`,start:i*3,duration:3,asset:null,keywords:['tema']}))};
+const diversityAssets=[
+ {id:'d-a',name:'tema uno.jpg',type:'image',width:1080,height:1920},
+ {id:'d-b',name:'tema dos.jpg',type:'image',width:1080,height:1920},
+ {id:'d-c',name:'tema tres.jpg',type:'image',width:1080,height:1920}
+];
+const diversity=engine.assignAssets(diversityProject,diversityAssets);
+const counts=new Map();for(const c of diversityProject.clips.filter(c=>c.track===0))counts.set(c.asset,(counts.get(c.asset)||0)+1);
+if(diversity.unique!==3)throw new Error(`Expected all 3 suitable assets to be used, got ${diversity.unique}`);
+if(Math.max(...counts.values())>2)throw new Error(`Media repetition is too high: ${JSON.stringify([...counts])}`);
+console.log(JSON.stringify({ok:true,primary:assigned.primary,broll:assigned.broll,smartAsset:scene.asset,sourceOffset:scene.sourceOffset,diversity:[...counts],clips:project.clips.length,seed:a.seed}));
