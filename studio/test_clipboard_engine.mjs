@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import crypto from 'node:crypto';
-globalThis.crypto=crypto;
 const require=createRequire(import.meta.url);const {ProfitMenteClipboardEngine}=require('./clipboard-engine.js');
 
 const e=new ProfitMenteClipboardEngine();
