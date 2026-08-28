@@ -60,6 +60,10 @@
     if(window.ProfitMenteProjectResetEngine){loadScriptOnce('project-reset-integration.js','projectResetIntegration');return}
     loadScriptOnce('project-reset-engine.js','projectResetEngine',()=>loadScriptOnce('project-reset-integration.js','projectResetIntegration'));
   }
+  function bootAudioNormalize(){
+    if(window.ProfitMenteAudioNormalizeEngine){loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration');return}
+    loadScriptOnce('audio-normalize-engine.js','audioNormalizeEngine',()=>loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration'));
+  }
 
   function bootSupportModules(){
     bootMediaReplacement();
@@ -69,6 +73,7 @@
     bootSubtitleExport();
     bootRenderRange();
     bootProjectReset();
+    bootAudioNormalize();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
