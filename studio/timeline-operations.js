@@ -20,8 +20,8 @@
       // and make the right half a clean continuation.
       if(Object.prototype.hasOwnProperty.call(original,'transition'))right.transition='cut';
       if(original.asset&&[0,1,4,5,6].includes(Number(original.track))){
-        const originalFadeIn=Number.isFinite(Number(original.fadeIn))?Math.max(0,Number(original.fadeIn)):0;
-        const originalFadeOut=Number.isFinite(Number(original.fadeOut))?Math.max(0,Number(original.fadeOut)):0;
+        const originalFadeIn=original.fadeIn==null?.18:(Number.isFinite(Number(original.fadeIn))?Math.max(0,Number(original.fadeIn)):0);
+        const originalFadeOut=original.fadeOut==null?.25:(Number.isFinite(Number(original.fadeOut))?Math.max(0,Number(original.fadeOut)):0);
         c.fadeIn=originalFadeIn;c.fadeOut=0;right.fadeIn=0;right.fadeOut=originalFadeOut;
       }
       const k=original.keyframes;
