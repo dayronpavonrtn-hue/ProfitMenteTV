@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('./post-render-report.js',import.meta.url),'utf8');
+const context={globalThis:{},window:undefined,document:undefined,structuredClone,Date};vm.createContext(context);vm.runInContext(source,context);
+const api=context.globalThis.ProfitMentePostRenderReport;if(!api)throw new Error('API de informe QA no disponible');
+const project={name:'Demo / Final',format:'9:16',duration:12.5,mode:'Manual',clips:[{id:'1'},{id:'2'}],secret:'ignore'};
+const qc={ok:true,score:100,issues:[],warnings:[],metrics:{width:1080,height:1920,duration:12.5,video_codec:'h264',audio_codec:'aac'}};
+const report=api.buildReport(project,qc);
+if(report.schema!=='profitmente-post-render-qc/v1')throw new Error('Schema incorrecto');
+if(report.project.name!=='Demo / Final'||report.project.clips!==2)throw new Error('Resumen de proyecto incorrecto');
+if(report.project.secret!==undefined)throw new Error('El informe filtró metadata interna incorrectamente');
+if(report.qc.score!==100||report.qc.metrics.width!==1080)throw new Error('QC no preservado');
+qc.score=1;if(report.qc.score!==100)throw new Error('El informe no es una copia estable');
+if(!/^\d{4}-\d{2}-\d{2}T/.test(report.createdAt))throw new Error('Timestamp inválido');
+console.log('Post-render report QA OK');
