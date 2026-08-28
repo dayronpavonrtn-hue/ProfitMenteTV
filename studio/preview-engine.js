@@ -4,8 +4,10 @@
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
   function cachedMedia(a){
-    if(mediaCache.has(a.id))return mediaCache.get(a.id);
-    const url=URL.createObjectURL(a.blob); let entry={url,type:a.type,ready:null,el:null};
+    const cached=mediaCache.get(a.id);
+    if(cached&&cached.blob===a.blob)return cached;
+    if(cached){try{URL.revokeObjectURL(cached.url)}catch{}mediaCache.delete(a.id)}
+    const url=URL.createObjectURL(a.blob); let entry={url,type:a.type,blob:a.blob,ready:null,el:null};
     if(a.type==='image'){
       const im=new Image(); entry.el=im; entry.ready=new Promise((resolve,reject)=>{im.onload=()=>resolve(im);im.onerror=reject;im.src=url});
     }else if(a.type==='video'){
