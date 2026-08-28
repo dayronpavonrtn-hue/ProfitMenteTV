@@ -17,6 +17,23 @@ class ProfitMenteMediaImportEngine{
   static findDuplicate(assets=[],file={}){
     const exact=this.signature(file);return (assets||[]).find(asset=>asset?.sourceFingerprint===exact||this.signature(asset)===exact)||null;
   }
+  static async contentHash(file={}){
+    const blob=file?.blob instanceof Blob?file.blob:file;
+    if(!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
+    const size=Number(blob.size||0),sample=1024*1024;
+    const parts=[];
+    if(size<=sample*2)parts.push(new Uint8Array(await blob.arrayBuffer()));
+    else{
+      parts.push(new Uint8Array(await blob.slice(0,sample).arrayBuffer()));
+      parts.push(new Uint8Array(await blob.slice(size-sample,size).arrayBuffer()));
+    }
+    const total=parts.reduce((n,p)=>n+p.byteLength,0),payload=new Uint8Array(total+8);let offset=0;
+    for(const part of parts){payload.set(part,offset);offset+=part.byteLength}
+    new DataView(payload.buffer).setBigUint64(total,BigInt(size),false);
+    const digest=await globalThis.crypto.subtle.digest('SHA-256',payload);
+    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash)||null:null}
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaImportEngine=ProfitMenteMediaImportEngine;
 if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaImportEngine;
@@ -32,7 +49,9 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     for(const file of incoming){
       try{
         if(engine.findDuplicate(assets,file)){duplicates++;continue}
-        const type=engine.kind(file),fingerprint=engine.signature(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceLastModified:Number(file.lastModified||0),importOrigin:origin};
+        const contentHash=await engine.contentHash(file);
+        if(contentHash&&engine.findDuplicateHash(assets,contentHash)){duplicates++;continue}
+        const type=engine.kind(file),fingerprint=engine.signature(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),importOrigin:origin};
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
