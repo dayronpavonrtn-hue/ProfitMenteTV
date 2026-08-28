@@ -1,0 +1,27 @@
+name: ProfitMente Studio Post Render Report QA
+
+on:
+  push:
+    paths:
+      - 'studio/post-render-report.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_post_render_report.mjs'
+      - '.github/workflows/post-render-report-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  post-render-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/post-render-report.js
+          node --check studio/generator-integration.js
+      - name: Run post-render report regression
+        run: node studio/test_post_render_report.mjs
+      - name: Verify Studio loads report support
+        run: grep -q "post-render-report.js" studio/generator-integration.js
