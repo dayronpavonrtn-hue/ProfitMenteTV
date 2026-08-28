@@ -40,11 +40,16 @@
     if(window.ProfitMenteRenderJobClient){loadScriptOnce('render-job-integration.js','renderJobIntegration');return}
     loadScriptOnce('render-job-client.js','renderJobClient',()=>loadScriptOnce('render-job-integration.js','renderJobIntegration'));
   }
+  function bootVisualGaps(){
+    if(window.ProfitMenteVisualGapEngine){loadScriptOnce('visual-gap-integration.js','visualGapIntegration');return}
+    loadScriptOnce('visual-gap-engine.js','visualGapEngine',()=>loadScriptOnce('visual-gap-integration.js','visualGapIntegration'));
+  }
 
   // Project portability must be active before recovery wraps the final persistence chain.
   function bootSupportModules(){
     bootMediaReplacement();
     bootRenderJobs();
+    bootVisualGaps();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
