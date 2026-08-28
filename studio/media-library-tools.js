@@ -58,4 +58,5 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
   drawLibrary=function(){baseDraw();enhanceRows()};
   search.addEventListener('input',applyFilter);filter.addEventListener('change',applyFilter);
   enhanceRows();window.profitMenteMediaLibraryTools=tools;
+  if(!document.querySelector('script[data-profitmente-media-import]')){const s=document.createElement('script');s.src='media-import-engine.js';s.dataset.profitmenteMediaImport='1';document.body.appendChild(s)}
 })();
