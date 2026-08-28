@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('./project-duration.js',import.meta.url),'utf8');
+const context={globalThis:{},window:undefined,document:undefined,module:{exports:{}},exports:{}};vm.createContext(context);vm.runInContext(source,context);
+const D=context.module.exports||context.globalThis.ProfitMenteProjectDuration;if(!D)throw new Error('Project duration API unavailable');
+const p={duration:5,clips:[{id:'a',start:0,duration:3},{id:'b',start:7.5,duration:2.25},{id:'bad',start:-4,duration:-2}]};
+if(Math.abs(D.contentEnd(p)-9.75)>.001)throw new Error('contentEnd incorrect');
+if(D.outside(p).map(x=>x.id).join(',')!=='b')throw new Error('outside detection incorrect');
+const next=D.fit(p);if(Math.abs(next-9.75)>.001||Math.abs(p.duration-9.75)>.001)throw new Error('fit did not align duration to content');
+const empty={duration:30,clips:[]};if(D.fit(empty)!==1)throw new Error('empty project must keep safe minimum duration');
+const padded={duration:1,clips:[{start:2,duration:3}]};if(D.fit(padded,{padding:.5})!==5.5)throw new Error('padding not applied');
+console.log('Project duration QA OK');
