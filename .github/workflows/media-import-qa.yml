@@ -5,7 +5,9 @@ on:
     paths:
       - 'studio/media-import-engine.js'
       - 'studio/media-library-tools.js'
+      - 'studio/media-timeline-dnd.js'
       - 'studio/test_media_import_engine.mjs'
+      - 'studio/test_media_timeline_dnd.mjs'
       - '.github/workflows/media-import-qa.yml'
   workflow_dispatch:
 
@@ -21,7 +23,13 @@ jobs:
         run: node --check studio/media-import-engine.js
       - name: Syntax check library integration
         run: node --check studio/media-library-tools.js
+      - name: Syntax check timeline drag drop
+        run: node --check studio/media-timeline-dnd.js
       - name: Test classification and deduplication
         run: node studio/test_media_import_engine.mjs
+      - name: Test timeline media placement
+        run: node studio/test_media_timeline_dnd.mjs
       - name: Verify importer is loaded by Studio library
         run: grep -q "media-import-engine.js" studio/media-library-tools.js
+      - name: Verify timeline drag drop is loaded by importer
+        run: grep -q "media-timeline-dnd.js" studio/media-import-engine.js
