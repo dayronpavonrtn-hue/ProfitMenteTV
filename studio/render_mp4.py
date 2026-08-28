@@ -63,6 +63,12 @@ def bounded(clip,key,default,low,high):
     try:return max(low,min(high,float(clip.get(key,default))))
     except (TypeError,ValueError):return default
 
+def transition_duration(clip,d):
+    fallback=min(.28,max(.08,d*.12))
+    try:raw=float(clip.get('transitionDuration')) if clip.get('transitionDuration') is not None else fallback
+    except (TypeError,ValueError):raw=fallback
+    return max(.05,min(min(2.0,d),raw))
+
 def clip_fades(clip,d):
     try:fade_in=max(0,min(d,float(clip.get('fadeIn',.18) if clip.get('fadeIn') is not None else .18)))
     except (TypeError,ValueError):fade_in=min(.18,d)
@@ -109,7 +115,7 @@ def visual_chain(idx,asset,start,d,clip,label):
     chain+=','+color_filter(clip)
     if clip.get('flipX'): chain+=',hflip'
     if clip.get('flipY'): chain+=',vflip'
-    td=min(.28,max(.08,d*.12))
+    td=transition_duration(clip,d)
     if trans in ('fade','zoom','slide') and start>0: chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
     if trans=='zoom': chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
     s0=kf_value(clip,'start','scale',1,.25,3); s1=kf_value(clip,'end','scale',1,.25,3) if has_keyframes(clip) else s0
@@ -146,7 +152,7 @@ for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('
         xbase=f'(W-w)/2+W*{x0}/100'; ybase=f'(H-h)/2+H*{y0}/100'
     trans=c.get('transition','cut')
     if trans=='slide' and start>0:
-        td=min(.28,max(.08,d*.12)); x=f"{xbase}+if(lt(t,{start+td}),W*(1-(t-{start})/{td}),0)"
+        td=transition_duration(c,d); x=f"{xbase}+if(lt(t,{start+td}),W*(1-(t-{start})/{td}),0)"
         filters.append(f"{base}{vin}overlay=x='{x}':y='{ybase}':eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     else:
         filters.append(f"{base}{vin}overlay=x='{xbase}':y='{ybase}':eof_action=pass:enable='between(t,{start},{end})'{nxt}")
