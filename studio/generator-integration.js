@@ -30,8 +30,14 @@
   // Keep automatic projects live: newly imported media can fill scenes that were generated without visuals.
   loadScriptOnce('generator-autofill.js','generatorAutofill');
 
+  function bootMediaReplacement(){
+    if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
+    loadScriptOnce('media-replace-engine.js','mediaReplaceEngine',()=>loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration'));
+  }
+
   // Project portability must be active before recovery wraps the final persistence chain.
   function bootSupportModules(){
+    bootMediaReplacement();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
