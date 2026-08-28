@@ -52,6 +52,10 @@
     if(window.ProfitMenteSubtitleExportEngine){loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration');return}
     loadScriptOnce('subtitle-export-engine.js','subtitleExportEngine',()=>loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration'));
   }
+  function bootRenderRange(){
+    if(window.ProfitMenteRenderRangeEngine){loadScriptOnce('render-range-integration.js','renderRangeIntegration');return}
+    loadScriptOnce('render-range-engine.js','renderRangeEngine',()=>loadScriptOnce('render-range-integration.js','renderRangeIntegration'));
+  }
 
   function bootSupportModules(){
     bootMediaReplacement();
@@ -59,6 +63,7 @@
     bootVisualGaps();
     bootProjectVersions();
     bootSubtitleExport();
+    bootRenderRange();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
