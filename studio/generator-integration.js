@@ -22,6 +22,17 @@
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
+  function loadScriptOnce(src,key,onload){
+    if(document.querySelector(`script[data-profitmente-${key}]`)){onload?.();return}
+    const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;s.onload=()=>onload?.();document.body.appendChild(s);
+  }
+
+  // Project portability must be active before recovery wraps the final persistence chain.
+  function bootSupportModules(){
+    if(window.ProfitMenteProjectPortability){bootRecovery();return}
+    loadScriptOnce('project-portability.js','portability',bootRecovery);
+  }
+
   // Recovery must wrap the final persist() chain after every Studio module is loaded.
   function bootRecovery(){
     if(window.ProfitMenteRecoveryEngine||document.querySelector('script[data-profitmente-recovery]'))return;
@@ -32,5 +43,5 @@
     };
     document.body.appendChild(core);
   }
-  if(document.readyState==='complete')bootRecovery();else window.addEventListener('load',bootRecovery,{once:true});
+  if(document.readyState==='complete')bootSupportModules();else window.addEventListener('load',bootSupportModules,{once:true});
 })();
