@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Render a .profitmente.tar exported by Studio to MP4 with local FFmpeg."""
-import pathlib,sys,tarfile,tempfile,subprocess
+import json,pathlib,sys,tarfile,tempfile,subprocess
 if len(sys.argv)!=3: raise SystemExit('Usage: render_bundle.py bundle.profitmente.tar output.mp4')
 bundle=pathlib.Path(sys.argv[1]); out=pathlib.Path(sys.argv[2]); root=pathlib.Path(__file__).resolve().parent
 if not bundle.is_file(): raise FileNotFoundError(bundle)
@@ -16,4 +16,11 @@ with tempfile.TemporaryDirectory(prefix='profitmente-bundle-') as td:
     assets.mkdir(exist_ok=True)
     subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
     subprocess.run([sys.executable,str(root/'render_motion_text.py'),str(project),str(assets),str(out)],check=True)
+    report=out.with_suffix(out.suffix+'.qc.json')
+    qc=subprocess.run([sys.executable,str(root/'output_qc.py'),str(project),str(out),str(report)],capture_output=True,text=True)
+    if qc.returncode!=0:
+        detail=(qc.stdout or qc.stderr or 'Post-render QA falló').strip()
+        raise RuntimeError(detail)
+    data=json.loads(report.read_text(encoding='utf-8'))
+    print(f"Post-render QA {data.get('score',0)}/100 OK")
 print(f'Bundle render QA OK: {out}')
