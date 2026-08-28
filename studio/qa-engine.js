@@ -9,11 +9,26 @@ class ProfitMenteQAEngine{
       const ranges={positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};
       for(const [field,[lo,hi]] of Object.entries(ranges)){const v=Number(k[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`Keyframe ${label} ${field} fuera de rango: ${c.name||c.id}`)}
     };
+    const checkWordTimings=c=>{
+      if(c.wordTimings==null)return;
+      if(!Array.isArray(c.wordTimings)){issues.push(`Tiempos de palabras inválidos: ${c.name||c.id}`);return}
+      const start=Number(c.start)||0,end=start+(Number(c.duration)||0);let previous=start-.001;
+      for(let i=0;i<c.wordTimings.length;i++){
+        const w=c.wordTimings[i],ws=Number(w?.start),we=Number(w?.end),word=String(w?.word||'').trim();
+        if(!word)issues.push(`Caption con palabra vacía: ${c.name||c.id}`);
+        if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws){issues.push(`Tiempo de palabra inválido: ${c.name||c.id}`);continue}
+        if(ws<start-.03||we>end+.03)issues.push(`Palabra fuera del rango del caption: ${c.name||c.id}`);
+        if(ws<previous-.01)issues.push(`Palabras desordenadas o solapadas: ${c.name||c.id}`);
+        previous=we;
+      }
+      if(c.animation==='word-by-word'&&!c.wordTimings.length)warnings.push(`Caption word-by-word sin palabras sincronizadas: ${c.name||c.id}`);
+    };
     for(const c of project.clips||[]){
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
       if(c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
       if([0,1,2].includes(Number(c.track))&&c.fitMode!=null&&!['cover','contain'].includes(c.fitMode)) issues.push(`Encuadre inválido: ${c.name||c.id}`);
       if(c.keyframes!=null){if(!c.keyframes.start||!c.keyframes.end)issues.push(`Keyframes incompletos: ${c.name||c.id}`);else{checkKeyframe(c,c.keyframes.start,'inicio');checkKeyframe(c,c.keyframes.end,'fin')}}
+      if(Number(c.track)===3)checkWordTimings(c);
       const a=c.asset&&assets.find(x=>x.id===c.asset),sourceOffset=Math.max(0,Number(c.sourceOffset)||0),speed=Math.max(.25,Math.min(4,Number(c.speed)||1));
       if(a?.duration&&['video','audio'].includes(a.type)){
         const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;
