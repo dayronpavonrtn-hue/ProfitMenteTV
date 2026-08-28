@@ -13,7 +13,7 @@ let r=engine.align(project,'start');assert.equal(r.reason,'ok');assert.deepEqual
 project.clips[0].start=1;project.clips[1].start=5;project.clips[2].start=9;
 r=engine.align(project,'end');assert.equal(r.reason,'ok');assert.deepEqual(project.clips.map(c=>c.start),[9,10,9]);
 project.clips[0].start=1;project.clips[1].start=5;project.clips[2].start=9;
-r=engine.distribute(project);assert.equal(r.reason,'ok');assert.equal(r.gap,3);assert.deepEqual(project.clips.map(c=>c.start),[1,6,10]);
+r=engine.distribute(project);assert.equal(r.reason,'ok');assert.equal(r.gap,2.5);assert.deepEqual(project.clips.map(c=>c.start),[1,5.5,9]);
 project.clips[0].start=1;project.clips[1].start=5;project.clips[2].start=9;
 r=engine.compact(project);assert.equal(r.reason,'ok');assert.deepEqual(project.clips.map(c=>c.start),[1,3,4]);
 
