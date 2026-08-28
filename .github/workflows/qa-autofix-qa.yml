@@ -1,0 +1,27 @@
+name: ProfitMente Studio Safe QA Autofix
+
+on:
+  push:
+    paths:
+      - 'studio/qa-autofix.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_qa_autofix.mjs'
+      - '.github/workflows/qa-autofix-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  qa-autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/qa-autofix.js
+          node --check studio/generator-integration.js
+      - name: Run safe QA autofix regression
+        run: node studio/test_qa_autofix.mjs
+      - name: Verify Studio loads safe QA autofix
+        run: grep -q "qa-autofix.js" studio/generator-integration.js
