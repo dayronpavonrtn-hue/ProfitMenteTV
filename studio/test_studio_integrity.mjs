@@ -18,5 +18,7 @@ for(const token of ['Reconectar medios','missing(project,assets','match(project,
 const library=fs.readFileSync(path.join(root,'project-library.js'),'utf8');
 if(/createElement\(['"]script['"]\)[\s\S]*relink-engine\.js/.test(library)||library.includes("relink.src='relink-engine.js'")) throw new Error('project-library.js vuelve a cargar relink-engine.js dinámicamente');
 const generator=fs.readFileSync(path.join(root,'generator-integration.js'),'utf8');
-for(const token of ["window.addEventListener('load',bootRecovery",'recovery-engine.js','recovery-integration.js']) if(!generator.includes(token)) throw new Error('Recuperación no tiene carga determinista: '+token);
+for(const token of ["window.addEventListener('load',bootSupportModules",'project-portability.js','bootRecovery','recovery-engine.js','recovery-integration.js']) if(!generator.includes(token)) throw new Error('Carga de soporte/recuperación no tiene integración determinista: '+token);
+const portability=fs.readFileSync(path.join(root,'project-portability.js'),'utf8');
+for(const token of ['ProfitMenteProjectPortability','metadataVersion','duration','width','height','projectInput','exportBtn']) if(!portability.includes(token)) throw new Error('Portabilidad de proyecto incompleta: '+token);
 console.log(`Studio integrity OK: ${scripts.length} scripts, ${requiredControls.length} controles críticos`);
