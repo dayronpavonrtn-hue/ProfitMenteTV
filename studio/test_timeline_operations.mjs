@@ -45,4 +45,19 @@ const capSplit=ops.split(captionProject,'cap',3);
 assert.ok(capSplit);assert.equal(capSplit.left.name,'uno dos');assert.equal(capSplit.right.name,'tres');
 assert.ok(capSplit.left.wordTimings.every(w=>w.start>=0&&w.end<=3));assert.ok(capSplit.right.wordTimings.every(w=>w.start>=3&&w.end<=6),'caption word timings must remain inside their split segment');
 assert.deepEqual(capSplit.left.wordTimings.map(w=>w.index),[0,1]);assert.deepEqual(capSplit.right.wordTimings.map(w=>w.index),[0],'caption word indexes must be normalized inside each split segment');
+
+const trimProject={duration:20,clips:[{id:'trim',track:0,name:'Trim',start:2,duration:8,asset:'v',sourceOffset:1,speed:2,fadeIn:.5,fadeOut:.8,keyframes:{start:{positionX:0,scale:1},end:{positionX:80,scale:2}}}]};
+const leftTrim=ops.trimLeft(trimProject,'trim',4);
+assert.ok(leftTrim);assert.equal(leftTrim.start,4);assert.equal(leftTrim.duration,6);assert.equal(leftTrim.sourceOffset,5,'left trim must advance source by removed timeline duration at clip speed');
+assert.equal(leftTrim.keyframes.start.positionX,20);assert.equal(leftTrim.keyframes.start.scale,1.25,'left trim must preserve transform continuity');
+const rightTrim=ops.trimRight(trimProject,'trim',8);
+assert.ok(rightTrim);assert.equal(rightTrim.start,4);assert.equal(rightTrim.duration,4);assert.equal(rightTrim.sourceOffset,5,'right trim must not move source in-point');
+assert.ok(Math.abs(rightTrim.keyframes.end.positionX-60)<1e-9);assert.ok(Math.abs(rightTrim.keyframes.end.scale-1.75)<1e-9,'right trim must preserve transform continuity');
+assert.equal(ops.trimLeft(trimProject,'trim',7.9),null,'trim must reject changes that leave less than minimum clip duration');
+
+const trimCaptionProject={duration:10,clips:[{id:'trimcap',track:3,name:'uno dos tres',start:0,duration:6,wordTimings:[
+ {word:'uno',start:.2,end:1.3,duration:1.1,index:0},{word:'dos',start:2,end:3.4,duration:1.4,index:1},{word:'tres',start:4,end:5.5,duration:1.5,index:2}
+]}]};
+ops.trimLeft(trimCaptionProject,'trimcap',1);assert.equal(trimCaptionProject.clips[0].name,'uno dos tres');assert.equal(trimCaptionProject.clips[0].wordTimings[0].start,1);
+ops.trimRight(trimCaptionProject,'trimcap',4.8);assert.equal(trimCaptionProject.clips[0].name,'uno dos tres');assert.equal(trimCaptionProject.clips[0].wordTimings.at(-1).end,4.8);assert.deepEqual(trimCaptionProject.clips[0].wordTimings.map(w=>w.index),[0,1,2]);
 console.log('timeline operations ok');
