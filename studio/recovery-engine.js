@@ -4,14 +4,15 @@ class ProfitMenteRecoveryEngine{
   _read(){try{const rows=JSON.parse(this.storage.getItem(this.key)||'[]');return Array.isArray(rows)?rows:[]}catch{return []}}
   _write(rows){this.storage.setItem(this.key,JSON.stringify(rows.slice(0,this.limit)))}
   _fingerprint(project){const copy=structuredClone(project||{});delete copy.updatedAt;delete copy.recoveryMeta;return JSON.stringify(copy)}
+  _group(project){return project?.libraryId?`library:${project.libraryId}`:`draft:${project?.name||'Sin título'}`}
   capture(project,reason='change',now=new Date().toISOString()){
     if(!project||typeof project!=='object')return null;
-    const rows=this._read(),fingerprint=this._fingerprint(project),latest=rows[0];
+    const rows=this._read(),fingerprint=this._fingerprint(project),group=this._group(project),latest=rows.find(x=>x.group===group);
     if(latest?.fingerprint===fingerprint)return structuredClone(latest);
-    const snapshot={id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`),createdAt:now,reason,name:project.name||'Sin título',libraryId:project.libraryId||null,fingerprint,project:structuredClone(project)};
+    const snapshot={id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`),createdAt:now,reason,name:project.name||'Sin título',libraryId:project.libraryId||null,group,fingerprint,project:structuredClone(project)};
     rows.unshift(snapshot);this._write(rows);return structuredClone(snapshot)
   }
-  list(project=null){let rows=this._read();if(project?.libraryId)rows=rows.filter(x=>!x.libraryId||x.libraryId===project.libraryId);return rows.map(({fingerprint,...x})=>structuredClone(x))}
+  list(project=null){let rows=this._read();if(project)rows=rows.filter(x=>x.group===this._group(project));return rows.map(({fingerprint,...x})=>structuredClone(x))}
   latest(project=null){return this.list(project)[0]||null}
   restore(id){const row=this._read().find(x=>x.id===id);return row?structuredClone(row.project):null}
   remove(id){const rows=this._read(),next=rows.filter(x=>x.id!==id);this._write(next);return next.length!==rows.length}
