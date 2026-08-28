@@ -7,7 +7,8 @@ class ProfitMenteQAEngine{
     const disabled=c=>{const track=Number(c?.track);return ([0,1,2,3].includes(track)&&hidden(track))||([4,5,6].includes(track)&&muted(track))};
     const assetKind=a=>a?.type==='video'||a?.type==='image'?'visual':a?.type==='audio'?'audio':'other';
     const expectedKind=track=>[0,1].includes(Number(track))?'visual':[4,5,6].includes(Number(track))?'audio':'none';
-    const usableBlob=a=>!!a?.blob&&typeof a.blob.arrayBuffer==='function'&&(a.blob.size==null||Number(a.blob.size)>0);
+    const requireBlob=typeof document!=='undefined';
+    const usableBlob=a=>{if(!requireBlob&&a?.blob==null)return true;return !!a?.blob&&typeof a.blob.arrayBuffer==='function'&&(a.blob.size==null||Number(a.blob.size)>0)};
     if(!project.clips?.length) issues.push('El timeline está vacío.');
     const checkKeyframe=(c,k,label)=>{if(!k||typeof k!=='object'){issues.push(`Keyframe ${label} inválido: ${c.name||c.id}`);return}const ranges={positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};for(const [field,[lo,hi]] of Object.entries(ranges)){const v=Number(k[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`Keyframe ${label} ${field} fuera de rango: ${c.name||c.id}`)}};
     const checkColor=c=>{const ranges={brightness:[-100,100],contrast:[-90,100],saturation:[-100,200],hue:[-180,180]};for(const [field,[lo,hi]] of Object.entries(ranges)){if(c[field]==null)continue;const v=Number(c[field]);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`${field} fuera de rango: ${c.name||c.id}`)}if(Math.abs(Number(c.brightness)||0)>65)warnings.push(`Brillo extremo puede perder detalle: ${c.name||c.id}`);if((Number(c.saturation)||0)>150)warnings.push(`Saturación extrema puede producir colores artificiales: ${c.name||c.id}`)};
