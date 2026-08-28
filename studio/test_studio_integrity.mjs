@@ -25,6 +25,13 @@ const portability=fs.readFileSync(path.join(root,'project-portability.js'),'utf8
 for(const token of ['ProfitMenteProjectPortability','metadataVersion','duration','width','height','projectInput','exportBtn']) if(!portability.includes(token)) throw new Error('Portabilidad de proyecto incompleta: '+token);
 const mediaInspector=fs.readFileSync(path.join(root,'media-inspector.js'),'utf8');
 for(const token of ['media-library-tools.js','profitmenteMediaLibraryTools']) if(!mediaInspector.includes(token)) throw new Error('Herramientas de biblioteca de medios no conectadas: '+token);
+const trackControls=fs.readFileSync(path.join(root,'track-controls.js'),'utf8');
+if(trackControls.includes('project.clips=all.filter')||trackControls.includes('project.clips=all')) throw new Error('Track controls vuelve a reemplazar project.clips durante el preview asíncrono');
+for(const token of ['isVisualHidden','isAudioMuted']) if(!trackControls.includes(token)) throw new Error('Track controls no expone estado seguro de pista: '+token);
+const preview=fs.readFileSync(path.join(root,'preview-engine.js'),'utf8');
+for(const token of ['trackHidden(Number(c.track))','if(trackHidden(3))return','isTrackHidden:trackHidden']) if(!preview.includes(token)) throw new Error('Preview no respeta pistas ocultas directamente: '+token);
+const captionPreview=fs.readFileSync(path.join(root,'caption-preview.js'),'utf8');
+for(const token of ['captionsHidden()','ProfitMenteCaptionPreview']) if(!captionPreview.includes(token)) throw new Error('Preview de captions no respeta pista oculta: '+token);
 const MediaLibraryTools=require(path.join(root,'media-library-tools.js'));
 const sample=[{id:'v1',name:'Mercado Ágil.mp4',type:'video',mime:'video/mp4'},{id:'a1',name:'voz.wav',type:'audio',mime:'audio/wav'}];
 if(MediaLibraryTools.filter(sample,'mercado','video').map(x=>x.id).join(',')!=='v1') throw new Error('Filtro de biblioteca no encuentra medios por nombre/tipo');
@@ -32,4 +39,4 @@ if(MediaLibraryTools.filter(sample,'voz','video').length!==0) throw new Error('F
 const project={clips:[{id:'c1',asset:'v1'}]};if(MediaLibraryTools.usage(project,'v1').length!==1) throw new Error('Biblioteca no detecta uso de medios');
 MediaLibraryTools.preserveMeta(project,{id:'v1',name:'Mercado Ágil.mp4',type:'video',duration:4.5,width:1920,height:1080,size:1234,blob:{}});
 if(project.assets?.[0]?.width!==1920||project.assets?.[0]?.duration!==4.5||'blob' in project.assets[0]) throw new Error('Biblioteca no conserva metadata portable antes de borrar un medio usado');
-console.log(`Studio integrity OK: ${scripts.length} scripts, ${requiredControls.length} controles críticos, biblioteca de medios administrable`);
+console.log(`Studio integrity OK: ${scripts.length} scripts, ${requiredControls.length} controles críticos, biblioteca de medios administrable y preview de pistas seguro`);
