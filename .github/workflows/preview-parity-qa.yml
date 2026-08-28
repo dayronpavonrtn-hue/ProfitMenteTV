@@ -1,0 +1,21 @@
+name: ProfitMente Studio Preview Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/preview-engine.js'
+      - 'studio/test_preview_track_state.mjs'
+      - '.github/workflows/preview-parity-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  preview-parity:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check preview engine syntax
+        run: node --check studio/preview-engine.js
+      - name: Test preview track state and transition parity
+        run: node studio/test_preview_track_state.mjs
