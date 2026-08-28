@@ -1,0 +1,31 @@
+name: ProfitMente Studio Subtitle Export QA
+
+on:
+  push:
+    paths:
+      - 'studio/subtitle-export-engine.js'
+      - 'studio/subtitle-export-integration.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_subtitle_export.mjs'
+      - '.github/workflows/subtitle-export-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  subtitle-export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/subtitle-export-engine.js
+          node --check studio/subtitle-export-integration.js
+          node --check studio/generator-integration.js
+      - name: Run subtitle export regression
+        run: node studio/test_subtitle_export.mjs
+      - name: Verify Studio loads subtitle exporter
+        run: |
+          grep -q "subtitle-export-engine.js" studio/generator-integration.js
+          grep -q "subtitle-export-integration.js" studio/generator-integration.js
