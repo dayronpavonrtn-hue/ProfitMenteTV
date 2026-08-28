@@ -27,10 +27,9 @@
     const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;s.onload=()=>onload?.();document.body.appendChild(s);
   }
 
-  // Keep automatic projects live: newly imported media can fill scenes that were generated without visuals.
   loadScriptOnce('generator-autofill.js','generatorAutofill');
-  // QA autofix loads first so source-window repair extends the same safe repair action.
   loadScriptOnce('qa-autofix.js','qaAutofix',()=>loadScriptOnce('source-window-guard.js','sourceWindowGuard'));
+  loadScriptOnce('export-preflight.js','exportPreflight');
 
   function bootMediaReplacement(){
     if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
@@ -45,7 +44,6 @@
     loadScriptOnce('visual-gap-engine.js','visualGapEngine',()=>loadScriptOnce('visual-gap-integration.js','visualGapIntegration'));
   }
 
-  // Project portability must be active before recovery wraps the final persistence chain.
   function bootSupportModules(){
     bootMediaReplacement();
     bootRenderJobs();
@@ -54,7 +52,6 @@
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
 
-  // Recovery must wrap the final persist() chain after every Studio module is loaded.
   function bootRecovery(){
     if(window.ProfitMenteRecoveryEngine||document.querySelector('script[data-profitmente-recovery]'))return;
     const core=document.createElement('script');core.src='recovery-engine.js';core.dataset.profitmenteRecovery='core';
