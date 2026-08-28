@@ -12,4 +12,5 @@
   section.addEventListener('click',e=>{const open=e.target.closest('[data-version-open]');if(open){const next=engine.restore(project,open.dataset.versionOpen);if(!next)return;const currentId=project.libraryId;project=next;if(currentId&&!project.libraryId)project.libraryId=currentId;sync();render();status('Versión restaurada · puedes deshacer cambios nuevos desde aquí');return}const del=e.target.closest('[data-version-delete]');if(del&&confirm('¿Eliminar este punto de control?')){engine.remove(project,del.dataset.versionDelete);render();status('Punto de control eliminado')}});
   const basePersist=typeof persist==='function'?persist:null;if(basePersist)persist=function(){basePersist();render()};
   render();window.profitMenteProjectVersionEngine=engine;
+  if(!document.querySelector('script[data-profitmente-auto-checkpoint]')){const s=document.createElement('script');s.src='automation-checkpoint.js';s.dataset.profitmenteAutoCheckpoint='1';document.body.appendChild(s)}
 })();
