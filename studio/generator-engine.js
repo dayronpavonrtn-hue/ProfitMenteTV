@@ -17,6 +17,7 @@ class ProfitMenteGeneratorEngine{
       clips.push({id:crypto.randomUUID(),track:0,name:p[0],start,duration:d,asset:null,sceneText:p[1],transition,motion:i%2?'push-in':'slow-zoom',keywords:this.words(`${clean} ${p[1]}`).slice(0,8)});
       clips.push({id:crypto.randomUUID(),track:3,name:p[1],start:capStart,duration:capDur,asset:null,style:i===0?'hook-pop':'dynamic',animation:'word-by-word',wordTimings:this.captionWords(p[1],capStart,capDur)});
     });
+    clips.push({id:crypto.randomUUID(),track:2,name:clean,start:.2,duration:Math.max(.8,Math.min(3.6,slice-.35)),asset:null,textStyle:'title',textAnimation:this.pick(['pop','slide-up','fade'],seed,7),textX:0,textY:-28,fontSize:40,textColor:'#FFE66D',boxColor:'#000000',boxOpacity:.55});
     clips.push({id:crypto.randomUUID(),track:6,name:'Narración automática pendiente',start:0,duration,asset:null,script:parts.map(p=>p[1]).join(' '),volume:1});
     return {clips,script:parts.map(p=>p[1]).join(' '),title:clean,seed};
   }
@@ -25,48 +26,10 @@ class ProfitMenteGeneratorEngine{
     for(const k of keywords||[])if(name.includes(k))score+=3;
     if(asset.type==='video')score+=1.25;
     const width=Number(asset.width)||0,height=Number(asset.height)||0;
-    if(width&&height){
-      const portrait=height>width,landscape=width>height;
-      if(projectFormat==='9:16')score+=portrait?3:(landscape?-2:0);
-      else if(projectFormat==='16:9')score+=landscape?3:(portrait?-2:0);
-      else score+=Math.abs(width-height)/Math.max(width,height)<.25?2:.25;
-      const shortSide=Math.min(width,height),longSide=Math.max(width,height);
-      if(shortSide>=720&&longSide>=1280)score+=1.5;
-      if(shortSide<480)score-=2;
-    }
-    if(asset.type==='video'&&requiredDuration>0){
-      const duration=Number(asset.duration)||0;
-      if(duration>=requiredDuration)score+=2;
-      else if(duration>0)score-=8;
-    }
-    return score;
+    if(width&&height){const portrait=height>width,landscape=width>height;if(projectFormat==='9:16')score+=portrait?3:(landscape?-2:0);else if(projectFormat==='16:9')score+=landscape?3:(portrait?-2:0);else score+=Math.abs(width-height)/Math.max(width,height)<.25?2:.25;const shortSide=Math.min(width,height),longSide=Math.max(width,height);if(shortSide>=720&&longSide>=1280)score+=1.5;if(shortSide<480)score-=2}
+    if(asset.type==='video'&&requiredDuration>0){const duration=Number(asset.duration)||0;if(duration>=requiredDuration)score+=2;else if(duration>0)score-=8}return score
   }
-  sourceOffset(asset,clip,seed){
-    if(asset.type!=='video')return 0;
-    const available=Math.max(0,(Number(asset.duration)||0)-Math.max(.05,Number(clip.duration)||0));
-    if(available<=.05)return 0;
-    const fraction=((seed%997)+1)/998;
-    return +(available*fraction).toFixed(3);
-  }
-  assignAssets(project,assets){
-    const visual=assets.filter(a=>a.type==='video'||a.type==='image');
-    if(!visual.length)return {primary:0,broll:0,skipped:0};
-    let primary=0,broll=0,skipped=0,sequence=0;const used=new Set(),seed=this.hash(project.name||project.title||'ProfitMente');
-    for(const c of project.clips.filter(c=>c.track===0&&!c.asset)){
-      const required=Math.max(.05,Number(c.duration)||0);
-      const eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required);
-      const pool=eligible.length?eligible:visual.filter(a=>a.type==='image');
-      if(!pool.length){skipped++;continue}
-      const ranked=[...pool].sort((a,b)=>this.scoreAsset(b,c.keywords,project.format,required)-this.scoreAsset(a,c.keywords,project.format,required)||Number(used.has(a.id))-Number(used.has(b.id))||String(a.name).localeCompare(String(b.name)));
-      const chosen=ranked[0];if(!chosen){skipped++;continue}
-      c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);used.add(chosen.id);primary++;sequence++;
-      const alt=ranked.find(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=Math.min(2.4,c.duration*.38)+.05));
-      if(alt&&c.duration>=4){
-        const bd=Math.min(2.4,c.duration*.38),bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};
-        bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);broll++;sequence++
-      }
-    }
-    return {primary,broll,skipped};
-  }
+  sourceOffset(asset,clip,seed){if(asset.type!=='video')return 0;const available=Math.max(0,(Number(asset.duration)||0)-Math.max(.05,Number(clip.duration)||0));if(available<=.05)return 0;const fraction=((seed%997)+1)/998;return +(available*fraction).toFixed(3)}
+  assignAssets(project,assets){const visual=assets.filter(a=>a.type==='video'||a.type==='image');if(!visual.length)return {primary:0,broll:0,skipped:0};let primary=0,broll=0,skipped=0,sequence=0;const used=new Set(),seed=this.hash(project.name||project.title||'ProfitMente');for(const c of project.clips.filter(c=>c.track===0&&!c.asset)){const required=Math.max(.05,Number(c.duration)||0),eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required),pool=eligible.length?eligible:visual.filter(a=>a.type==='image');if(!pool.length){skipped++;continue}const ranked=[...pool].sort((a,b)=>this.scoreAsset(b,c.keywords,project.format,required)-this.scoreAsset(a,c.keywords,project.format,required)||Number(used.has(a.id))-Number(used.has(b.id))||String(a.name).localeCompare(String(b.name))),chosen=ranked[0];if(!chosen){skipped++;continue}c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);used.add(chosen.id);primary++;sequence++;const alt=ranked.find(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=Math.min(2.4,c.duration*.38)+.05));if(alt&&c.duration>=4){const bd=Math.min(2.4,c.duration*.38),bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);broll++;sequence++}}return {primary,broll,skipped}}
 }
 window.ProfitMenteGeneratorEngine=ProfitMenteGeneratorEngine;
