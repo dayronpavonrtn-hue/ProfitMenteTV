@@ -15,7 +15,7 @@
   $('#multiLeft').onclick=()=>{const r=engine.shift(project,-.1);commit(r.moved?`${r.moved} clips desplazados ${r.delta.toFixed(1)}s${r.blocked?` · ${r.blocked} bloqueado(s)`:''}`:'No se pudo desplazar la selección')};
   $('#multiRight').onclick=()=>{const r=engine.shift(project,.1);commit(r.moved?`${r.moved} clips desplazados +${r.delta.toFixed(1)}s${r.blocked?` · ${r.blocked} bloqueado(s)`:''}`:'No se pudo desplazar la selección')};
   $('#multiDuplicate').onclick=()=>{const r=engine.duplicate(project,.35);if(!r.clips.length){status('No hay clips editables en la selección');return}window.ProfitMenteEditTools?.select(r.clips[0].id);commit(`${r.clips.length} clips duplicados conservando su separación${r.blocked?` · ${r.blocked} bloqueado(s)`:''}`)};
-  $('#multiDelete').onclick=()=>{const r=engine.remove(project);if(!r.removed){status('No hay clips editables para borrar');return}if(!r.remaining.length)window.ProfitMenteEditTools?.select(null);commit(`${r.removed} clips eliminados${r.blocked?` · ${r.blocked} bloqueado(s)`:''}`)};
+  $('#multiDelete').onclick=()=>{const r=engine.remove(project);if(!r.removed){status('No hay clips editables para borrar');return}window.ProfitMenteEditTools?.select(r.remaining[0]||null);commit(`${r.removed} clips eliminados${r.blocked?` · ${r.blocked} bloqueado(s)`:''}`)};
   $('#multiClear').onclick=()=>{engine.clear();refresh();status('Selección múltiple limpiada')};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&engine.count){engine.clear();refresh();status('Selección múltiple limpiada')}});
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(refresh)};
