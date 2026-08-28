@@ -7,6 +7,8 @@
     return project.trackState;
   }
   function state(i){return ensureState()[i]}
+  function isVisualHidden(i){return VISUAL_TRACKS.has(Number(i))&&!!state(Number(i)).hidden}
+  function isAudioMuted(i){return AUDIO_TRACKS.has(Number(i))&&!!state(Number(i)).muted}
   function saveState(){ if(typeof persist==='function') persist(); if(typeof drawTimeline==='function') drawTimeline(); if(typeof renderAt==='function') renderAt(+document.querySelector('#playhead')?.value||0); }
   function button(icon,title,on,handler){
     const b=document.createElement('button'); b.type='button'; b.className='trackCtl'+(on?' active':''); b.textContent=icon; b.title=title; b.onclick=e=>{e.stopPropagation();handler()}; return b;
@@ -26,25 +28,19 @@
   }
   const baseDraw=drawTimeline;
   drawTimeline=function(){baseDraw();decorate()};
-  const baseRender=renderAt;
-  renderAt=async function(t){
-    const states=ensureState(),all=project.clips;
-    project.clips=all.filter(c=>!(VISUAL_TRACKS.has(c.track)&&states[c.track]?.hidden));
-    try{return await baseRender(t)}finally{project.clips=all}
-  };
   if(window.audio&&typeof window.audio.schedule==='function'){
     const baseSchedule=window.audio.schedule.bind(window.audio);
     window.audio.schedule=async function(p,a,from,monitor){
-      const states=ensureState(),copy={...p,clips:p.clips.filter(c=>!(AUDIO_TRACKS.has(c.track)&&states[c.track]?.muted))};
+      const states=ensureState(),copy={...p,clips:p.clips.filter(c=>!(AUDIO_TRACKS.has(Number(c.track))&&states[Number(c.track)]?.muted))};
       return baseSchedule(copy,a,from,monitor);
     };
   } else if(typeof audio!=='undefined'&&audio&&typeof audio.schedule==='function'){
     const baseSchedule=audio.schedule.bind(audio);
     audio.schedule=async function(p,a,from,monitor){
-      const states=ensureState(),copy={...p,clips:p.clips.filter(c=>!(AUDIO_TRACKS.has(c.track)&&states[c.track]?.muted))};
+      const states=ensureState(),copy={...p,clips:p.clips.filter(c=>!(AUDIO_TRACKS.has(Number(c.track))&&states[Number(c.track)]?.muted))};
       return baseSchedule(copy,a,from,monitor);
     };
   }
-  window.ProfitMenteTrackControls={ensureState,state};
+  window.ProfitMenteTrackControls={ensureState,state,isVisualHidden,isAudioMuted};
   drawTimeline();
 })();
