@@ -1,0 +1,29 @@
+name: ProfitMente Studio Project Duration QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-duration.js'
+      - 'studio/transport-engine.js'
+      - 'studio/test_project_duration.mjs'
+      - '.github/workflows/project-duration-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  project-duration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/project-duration.js
+          node --check studio/transport-engine.js
+      - name: Run project duration regression
+        run: node studio/test_project_duration.mjs
+      - name: Verify Studio loads duration tool
+        run: |
+          grep -q "project-duration.js" studio/transport-engine.js
+          grep -q "fitProjectDurationBtn" studio/project-duration.js
