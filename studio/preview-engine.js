@@ -3,6 +3,7 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
+  function trackHidden(track){const state=project?.trackState||{},value=state[track]??state[String(track)]??{};return !!(value&&typeof value==='object'&&value.hidden)}
   function cachedMedia(a){
     const cached=mediaCache.get(a.id);
     if(cached&&cached.blob===a.blob)return cached;
@@ -57,6 +58,7 @@
     ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
   }
   function drawCaption(t){
+    if(trackHidden(3))return;
     const cap=project.clips.find(c=>c.track===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));if(!cap)return;
     const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
@@ -65,9 +67,9 @@
   }
   renderAt=async function(t){
     ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>Number(a.track)-Number(b.track));
+    const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>Number(a.track)-Number(b.track));
     if(!active.length){$('#placeholder').hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}else{$('#placeholder').hidden=true;for(const c of active)await drawClip(c,t)}
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size}};
+  window.ProfitMentePreviewEngine={clearCache(){for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden};
 })();
