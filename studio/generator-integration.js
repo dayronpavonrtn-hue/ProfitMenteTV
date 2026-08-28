@@ -44,11 +44,16 @@
     if(window.ProfitMenteVisualGapEngine){loadScriptOnce('visual-gap-integration.js','visualGapIntegration');return}
     loadScriptOnce('visual-gap-engine.js','visualGapEngine',()=>loadScriptOnce('visual-gap-integration.js','visualGapIntegration'));
   }
+  function bootProjectVersions(){
+    if(window.ProfitMenteProjectVersionEngine){loadScriptOnce('project-version-integration.js','projectVersionIntegration');return}
+    loadScriptOnce('project-version-engine.js','projectVersionEngine',()=>loadScriptOnce('project-version-integration.js','projectVersionIntegration'));
+  }
 
   function bootSupportModules(){
     bootMediaReplacement();
     bootRenderJobs();
     bootVisualGaps();
+    bootProjectVersions();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
