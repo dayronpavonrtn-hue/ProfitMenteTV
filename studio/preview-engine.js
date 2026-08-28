@@ -4,6 +4,7 @@
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
   function trackHidden(track){const state=project?.trackState||{},value=state[track]??state[String(track)]??{};return !!(value&&typeof value==='object'&&value.hidden)}
+  function transitionDuration(c,duration){const fallback=Math.min(.28,Math.max(.08,duration*.12)),raw=Number(c?.transitionDuration);return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,Math.max(.05,duration)))}
   function cachedMedia(a){
     const cached=mediaCache.get(a.id);
     if(cached&&cached.blob===a.blob)return cached;
@@ -41,7 +42,7 @@
     };
   }
   function transformFor(c,t){
-    const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=Math.min(.28,Math.max(.08,duration*.12)),p=clamp(local/duration,0,1),kf=keyframed(c,p);
+    const local=clamp(t-Number(c.start||0),0,Number(c.duration||0)),duration=Math.max(.05,Number(c.duration)||.05),transition=c.transition||'cut',motion=c.motion||'none',td=transitionDuration(c,duration),p=clamp(local/duration,0,1),kf=keyframed(c,p);
     const rawX=kf? kf.positionX : Number(c.positionX||0),rawY=kf? kf.positionY : Number(c.positionY||0),rawScale=kf? kf.scale : Number(c.scale||1),rawRot=kf? kf.rotation : Number(c.rotation||0),rawOpacity=kf? kf.opacity : Number(c.opacity??1);
     let alpha=clamp(rawOpacity,0,1),x=canvas.width*clamp(rawX,-100,100)/100,y=canvas.height*clamp(rawY,-100,100)/100,scale=clamp(rawScale,.25,3),rotation=clamp(rawRot,-180,180)*Math.PI/180;
     if(transition==='fade'&&c.start>0)alpha*=clamp(local/td,0,1);
@@ -71,5 +72,5 @@
     if(!active.length){$('#placeholder').hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}else{$('#placeholder').hidden=true;for(const c of active)await drawClip(c,t)}
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden};
+  window.ProfitMentePreviewEngine={clearCache(){for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration};
 })();
