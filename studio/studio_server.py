@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STUDIO = ROOT / "studio"
-MAX_UPLOAD = 2 * 1024 * 1024 * 1024  # 2 GB safety ceiling
+MAX_UPLOAD = 2 * 1024 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {"application/x-tar", "application/octet-stream"}
 RENDER_JOBS = {}
 RENDER_LOCK = threading.RLock()
@@ -33,6 +33,7 @@ def _job_snapshot(job: dict) -> dict:
         "progress": int(job.get("progress", 0)),
         "error": job.get("error"),
         "elapsed": max(0, round(time.time() - created, 1)),
+        "qc": job.get("qc"),
     }
 
 
@@ -41,6 +42,17 @@ def _cleanup_job_files(job: dict):
     if td:
         shutil.rmtree(td, ignore_errors=True)
         job["tempdir"] = None
+
+
+def _read_qc(output: pathlib.Path):
+    report = output.with_suffix(output.suffix + ".qc.json")
+    if not report.is_file():
+        return None
+    try:
+        value = json.loads(report.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _run_render_job(job_id: str):
@@ -79,11 +91,18 @@ def _run_render_job(job_id: str):
             detail = (stderr or stdout or "Error desconocido de render").strip()[-4000:]
             job.update(status="error", progress=100, error=detail)
             return
-        job.update(status="done", progress=100, size=output.stat().st_size)
+        qc = _read_qc(output)
+        if not qc or not qc.get("ok"):
+            detail = "El MP4 terminó pero no superó el control post-render."
+            if qc and qc.get("issues"):
+                detail += " " + " ".join(str(x) for x in qc["issues"][:3])
+            job.update(status="error", progress=100, error=detail, qc=qc)
+            return
+        job.update(status="done", progress=100, size=output.stat().st_size, qc=qc)
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.3"
+    server_version = "ProfitMenteStudio/1.4"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -155,6 +174,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "ffprobe": bool(ffprobe),
                 "render_ready": bool(ffmpeg and ffprobe),
                 "render_jobs": True,
+                "post_render_qc": True,
                 "server": self.server_version,
             })
             return
@@ -231,7 +251,7 @@ class Handler(SimpleHTTPRequestHandler):
         output = td / "output.mp4"
         if path == "/api/render/jobs":
             job_id = uuid.uuid4().hex
-            job = {"id": job_id, "status": "queued", "progress": 10, "created": time.time(), "tempdir": str(td), "bundle": str(bundle), "output": str(output), "process": None, "cancel_requested": False, "error": None}
+            job = {"id": job_id, "status": "queued", "progress": 10, "created": time.time(), "tempdir": str(td), "bundle": str(bundle), "output": str(output), "process": None, "cancel_requested": False, "error": None, "qc": None}
             with RENDER_LOCK: RENDER_JOBS[job_id] = job
             threading.Thread(target=_run_render_job, args=(job_id,), daemon=True).start()
             self._json(HTTPStatus.ACCEPTED, _job_snapshot(job)); return
@@ -249,6 +269,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "video/mp4")
         self.send_header("Content-Disposition", 'attachment; filename="profitmente-render.mp4"')
         self.send_header("Content-Length", str(size))
+        self.send_header("X-ProfitMente-Post-Render-QC", "passed")
         self.end_headers()
         try:
             with output.open("rb") as f: shutil.copyfileobj(f, self.wfile, length=1024 * 1024)
