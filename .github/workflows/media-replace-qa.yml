@@ -1,0 +1,32 @@
+name: ProfitMente Studio Media Replace QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-replace-engine.js'
+      - 'studio/media-replace-integration.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_media_replace_engine.mjs'
+      - '.github/workflows/media-replace-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  media-replace-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check replacement engine
+        run: node --check studio/media-replace-engine.js
+      - name: Syntax check replacement integration
+        run: node --check studio/media-replace-integration.js
+      - name: Syntax check loader integration
+        run: node --check studio/generator-integration.js
+      - name: Test safe replacement behavior
+        run: node studio/test_media_replace_engine.mjs
+      - name: Verify replacement engine is loaded
+        run: grep -q "media-replace-engine.js" studio/generator-integration.js
+      - name: Verify replacement integration is chained
+        run: grep -q "media-replace-integration.js" studio/generator-integration.js
