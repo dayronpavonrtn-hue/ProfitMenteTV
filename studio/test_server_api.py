@@ -15,6 +15,7 @@ try:
     assert data['ok'] is True
     assert 'ffmpeg' in data and 'ffprobe' in data and 'render_ready' in data
     assert data['render_ready'] == bool(data['ffmpeg'] and data['ffprobe'])
+    assert data.get('render_jobs') is True
 
     req=urllib.request.Request(base+'/api/render',data=b'x',method='POST',headers={
         'Content-Type':'application/x-tar','Origin':'https://evil.example'
@@ -30,9 +31,18 @@ try:
     })
     try:
         urllib.request.urlopen(req,timeout=3)
-        raise AssertionError('wrong content type should be rejected')
+        raise AssertionError('invalid render request should be rejected')
     except urllib.error.HTTPError as e:
-        assert e.code==415,e.code
+        expected=415 if data['render_ready'] else 503
+        assert e.code==expected,(e.code,expected)
+
+    req=urllib.request.Request(base+'/api/render/jobs/not-a-job',method='GET')
+    try:
+        urllib.request.urlopen(req,timeout=3)
+        raise AssertionError('unknown render job should not exist')
+    except urllib.error.HTTPError as e:
+        assert e.code==404,e.code
+
     print('Studio local API QA OK',data)
 finally:
     server.shutdown();server.server_close();thread.join(timeout=3)
