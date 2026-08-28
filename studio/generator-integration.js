@@ -21,4 +21,11 @@
     setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${media}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
+
+  // Load crash-recovery support last so it wraps the final persist() chain.
+  if(!window.ProfitMenteRecoveryEngine&&!document.querySelector('script[data-profitmente-recovery]')){
+    const core=document.createElement('script');core.src='recovery-engine.js';core.dataset.profitmenteRecovery='core';
+    core.onload=()=>{const integration=document.createElement('script');integration.src='recovery-integration.js';integration.dataset.profitmenteRecovery='integration';document.body.appendChild(integration)};
+    document.body.appendChild(core);
+  }
 })();
