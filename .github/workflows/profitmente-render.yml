@@ -33,6 +33,8 @@ jobs:
         run: node studio/test_markers.mjs
       - name: Test self-contained render bundle
         run: node studio/test_bundle.mjs
+      - name: Test portable project JSON
+        run: node studio/test_project_portability.mjs
       - name: Test multi-project library
         run: node studio/test_project_library.mjs
       - name: Test missing media relink
@@ -83,6 +85,8 @@ jobs:
         run: node --check studio/clip-inspector.js
       - name: Check project-library.js
         run: node --check studio/project-library.js
+      - name: Check project-portability.js
+        run: node --check studio/project-portability.js
       - name: Check qa-engine.js
         run: node --check studio/qa-engine.js
       - name: Check relink-engine.js
