@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validate a ProfitMente Studio project before MP4 rendering."""
-import json,sys,pathlib
+import json,sys,pathlib,re
 
 if len(sys.argv) not in (2,3):
     raise SystemExit('Usage: validate_project.py project.json [assets_dir]')
@@ -9,7 +9,7 @@ errors=[]; warnings=[]
 fmt=project.get('format','9:16'); duration=float(project.get('duration',0) or 0); clips=project.get('clips',[]); assets=project.get('assets',[]); amap={a.get('id'):a for a in assets if a.get('id')}
 if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
 if duration<=0: errors.append('La duración debe ser mayor que 0')
-ids=set()
+ids=set(); color_re=re.compile(r'^#[0-9a-fA-F]{6}$')
 for i,c in enumerate(clips):
     cid=c.get('id'); start=float(c.get('start',0) or 0); d=float(c.get('duration',0) or 0); track=c.get('track')
     try: speed=float(c.get('speed',1) or 1)
@@ -20,12 +20,22 @@ for i,c in enumerate(clips):
     if start<0: errors.append(f'Clip {i}: inicio negativo')
     if d<=0: errors.append(f'Clip {i}: duración inválida')
     if speed<.25 or speed>4: errors.append(f'Clip {i}: velocidad inválida {speed}; usa 0.25x–4x')
-    if track in (0,1,2):
+    if track in (0,1):
         ranges={'positionX':(-100,100,0),'positionY':(-100,100,0),'scale':(.25,3,1),'rotation':(-180,180,0),'opacity':(0,1,1)}
         for key,(lo,hi,default) in ranges.items():
             try:value=float(c.get(key,default))
             except (TypeError,ValueError): errors.append(f'Clip {i}: {key} no es numérico');continue
             if value<lo or value>hi: errors.append(f'Clip {i}: {key} fuera de rango ({lo}–{hi})')
+    if track==2:
+        if not str(c.get('name','')).strip(): errors.append(f'Clip {i}: texto Motion vacío')
+        if c.get('textStyle','title') not in ('title','label','callout'): errors.append(f'Clip {i}: estilo Motion inválido')
+        if c.get('textAnimation','pop') not in ('none','fade','pop','slide-up'): errors.append(f'Clip {i}: animación Motion inválida')
+        for key,lo,hi,default in [('textX',-45,45,0),('textY',-45,45,-28),('fontSize',16,84,40),('boxOpacity',0,1,.55)]:
+            try:value=float(c.get(key,default))
+            except (TypeError,ValueError): errors.append(f'Clip {i}: {key} Motion no es numérico');continue
+            if value<lo or value>hi: errors.append(f'Clip {i}: {key} Motion fuera de rango ({lo}–{hi})')
+        for key,default in [('textColor','#FFE66D'),('boxColor','#000000')]:
+            if not color_re.fullmatch(str(c.get(key,default))):errors.append(f'Clip {i}: {key} Motion inválido')
     if start+d>duration+.05: warnings.append(f'Clip {i} excede la duración del proyecto y será recortado')
     aid=c.get('asset')
     if aid:
