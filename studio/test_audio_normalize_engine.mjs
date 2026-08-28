@@ -6,6 +6,9 @@ const quiet=new Float32Array(48000);for(let i=0;i<quiet.length;i++)quiet[i]=Math
 let m=Engine.analyzeChannels([quiet]);
 assert.ok(m.peak>.099&&m.peak<=.101);assert.ok(m.rms>.069&&m.rms<.072);assert.equal(m.samples,48000);
 let r=Engine.recommendation(m,4,1);assert.equal(r.ok,true);assert.ok(r.volume>1.7&&r.volume<1.9);assert.equal(r.target.rmsDb,-18);assert.equal(r.limitedByPeak,false);
+const normalizedVolume=r.volume;
+const rerun=Engine.recommendation(m,4,normalizedVolume);assert.equal(rerun.ok,true);assert.equal(rerun.volume,normalizedVolume);assert.ok(Math.abs(rerun.gain-1)<1e-9);
+const fromLowDefault=Engine.recommendation(m,4,.22);assert.equal(fromLowDefault.volume,normalizedVolume);assert.ok(fromLowDefault.gain>7);
 
 const transient=new Float32Array(1000);transient.fill(.02);transient[500]=.95;m=Engine.analyzeChannels([transient]);r=Engine.recommendation(m,4,1);assert.equal(r.ok,true);assert.equal(r.limitedByPeak,true);assert.ok(r.volume<.95&&r.volume>.93);
 
