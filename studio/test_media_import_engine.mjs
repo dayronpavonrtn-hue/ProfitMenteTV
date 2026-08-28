@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+globalThis.window=globalThis;
+vm.runInThisContext(fs.readFileSync(new URL('./media-import-engine.js',import.meta.url),'utf8'),{filename:'media-import-engine.js'});
+const E=globalThis.ProfitMenteMediaImportEngine;
+assert.ok(E,'media import engine must be exported');
+assert.equal(E.kind({name:'clip.MP4',type:''}),'video');
+assert.equal(E.kind({name:'voice.bin',type:'audio/ogg'}),'audio');
+assert.equal(E.kind({name:'cover.webp',type:''}),'image');
+assert.equal(E.kind({name:'notes.txt',type:'text/plain'}),null);
+const file={name:'Take 01.mp4',type:'video/mp4',size:12345,lastModified:42};
+const signature=E.signature(file);
+assert.equal(signature,'take 01.mp4|12345|video/mp4|42');
+assert.equal(E.compatible([file,{name:'readme.txt',type:'text/plain'}]).length,1);
+assert.equal(E.findDuplicate([{id:'a',name:'Take 01.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file)?.id,'a');
+assert.equal(E.findDuplicate([{id:'b',sourceFingerprint:signature}],file)?.id,'b');
+assert.equal(E.findDuplicate([{id:'c',name:'Take 02.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file),null);
+console.log('media import engine regression passed');
