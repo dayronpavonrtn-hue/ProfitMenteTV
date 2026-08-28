@@ -1,5 +1,6 @@
 (()=>{
   const mediaCache=new Map();
+  let renderEpoch=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
@@ -51,12 +52,19 @@
     if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p;
     return {alpha,x,y,scale,rotation};
   }
-  async function drawClip(c,t){
-    const a=assetById(c.asset);if(!a||!['image','video'].includes(a.type))return;
-    let entry;try{entry=cachedMedia(a);await entry.ready}catch{return}const source=entry.el;
-    if(a.type==='video'){const speed=clamp(Number(c.speed)||1,.25,4),sourceTime=Math.max(0,(Number(c.sourceOffset)||0)+(t-Number(c.start||0))*speed);await seekVideo(source,sourceTime)}
-    const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size)return;const tr=transformFor(c,t),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
+  async function drawClip(c,t,epoch){
+    const a=assetById(c.asset);if(!a||!['image','video'].includes(a.type))return false;
+    let entry;try{entry=cachedMedia(a);await entry.ready}catch{return false}
+    if(epoch!==renderEpoch)return false;
+    const source=entry.el;
+    if(a.type==='video'){
+      const speed=clamp(Number(c.speed)||1,.25,4),sourceTime=Math.max(0,(Number(c.sourceOffset)||0)+(t-Number(c.start||0))*speed);
+      await seekVideo(source,sourceTime);
+      if(epoch!==renderEpoch)return false;
+    }
+    const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size||epoch!==renderEpoch)return false;const tr=transformFor(c,t),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
     ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
+    return true;
   }
   function drawCaption(t){
     if(trackHidden(3))return;
@@ -67,10 +75,18 @@
     ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const text=String(cap.name||'');const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size,m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
   }
   renderAt=async function(t){
+    const epoch=++renderEpoch;
     ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
     const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>Number(a.track)-Number(b.track));
-    if(!active.length){$('#placeholder').hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}else{$('#placeholder').hidden=true;for(const c of active)await drawClip(c,t)}
+    if(!active.length){
+      if(epoch!==renderEpoch)return;
+      $('#placeholder').hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2);
+    }else{
+      $('#placeholder').hidden=true;
+      for(const c of active){await drawClip(c,t,epoch);if(epoch!==renderEpoch)return}
+    }
+    if(epoch!==renderEpoch)return;
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration,transformFor};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration,transformFor,get renderEpoch(){return renderEpoch}};
 })();
