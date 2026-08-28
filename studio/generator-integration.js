@@ -22,10 +22,15 @@
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
-  // Load crash-recovery support last so it wraps the final persist() chain.
-  if(!window.ProfitMenteRecoveryEngine&&!document.querySelector('script[data-profitmente-recovery]')){
+  // Recovery must wrap the final persist() chain after every Studio module is loaded.
+  function bootRecovery(){
+    if(window.ProfitMenteRecoveryEngine||document.querySelector('script[data-profitmente-recovery]'))return;
     const core=document.createElement('script');core.src='recovery-engine.js';core.dataset.profitmenteRecovery='core';
-    core.onload=()=>{const integration=document.createElement('script');integration.src='recovery-integration.js';integration.dataset.profitmenteRecovery='integration';document.body.appendChild(integration)};
+    core.onload=()=>{
+      if(document.querySelector('script[data-profitmente-recovery="integration"]'))return;
+      const integration=document.createElement('script');integration.src='recovery-integration.js';integration.dataset.profitmenteRecovery='integration';document.body.appendChild(integration);
+    };
     document.body.appendChild(core);
   }
+  if(document.readyState==='complete')bootRecovery();else window.addEventListener('load',bootRecovery,{once:true});
 })();
