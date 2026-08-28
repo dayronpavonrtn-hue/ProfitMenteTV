@@ -63,6 +63,16 @@ def bounded(clip,key,default,low,high):
     try:return max(low,min(high,float(clip.get(key,default))))
     except (TypeError,ValueError):return default
 
+def clip_fades(clip,d):
+    try:fade_in=max(0,min(d,float(clip.get('fadeIn',.18) if clip.get('fadeIn') is not None else .18)))
+    except (TypeError,ValueError):fade_in=min(.18,d)
+    try:fade_out=max(0,min(d,float(clip.get('fadeOut',.25) if clip.get('fadeOut') is not None else .25)))
+    except (TypeError,ValueError):fade_out=min(.25,d)
+    total=fade_in+fade_out
+    if total>d and total>0:
+        scale=d/total; fade_in*=scale; fade_out*=scale
+    return fade_in,fade_out
+
 def kf_value(clip,side,key,default,low,high):
     k=clip.get('keyframes') if isinstance(clip.get('keyframes'),dict) else None
     obj=k.get(side) if isinstance(k,dict) and isinstance(k.get(side),dict) else None
@@ -201,9 +211,12 @@ def append_audio_filter(c,n,source=False):
     else:
         track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(2,float(c.get('volume',default))))
         if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
-    fade=min(.18,d/3); fadeout=max(0,d-min(.25,d/3)); delay=int(round(start*1000)); label=f'[a{n}]'
-    filters.append(f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS,atempo={speed},volume={vol},afade=t=in:st=0:d={fade},afade=t=out:st={fadeout}:d={min(.25,d/3)},adelay={delay}|{delay}{label}')
-    aouts.append(label)
+    fade_in,fade_out=clip_fades(c,d); fadeout_start=max(0,d-fade_out); delay=int(round(start*1000)); label=f'[a{n}]'
+    chain=f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS,atempo={speed},volume={vol}'
+    if fade_in>0: chain+=f',afade=t=in:st=0:d={fade_in}'
+    if fade_out>0: chain+=f',afade=t=out:st={fadeout_start}:d={fade_out}'
+    chain+=f',adelay={delay}|{delay}{label}'
+    filters.append(chain); aouts.append(label)
 
 for c in audio:append_audio_filter(c,len(aouts),False)
 for c in source_audio:append_audio_filter(c,len(aouts),True)
