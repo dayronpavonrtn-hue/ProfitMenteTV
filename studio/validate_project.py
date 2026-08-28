@@ -41,7 +41,17 @@ for i,c in enumerate(clips):
     if aid:
         a=amap.get(aid)
         if not a: errors.append(f'Clip {i}: asset no declarado {aid}')
-        elif assets_dir and not (assets_dir/a.get('name','')).exists(): errors.append(f'Falta archivo: {a.get("name")}')
+        else:
+            if assets_dir and not (assets_dir/a.get('name','')).exists(): errors.append(f'Falta archivo: {a.get("name")}')
+            if track in (4,5,6) or (track in (0,1) and a.get('type')=='video'):
+                for key,default in [('fadeIn',.18),('fadeOut',.25)]:
+                    try:value=float(c.get(key,default) if c.get(key) is not None else default)
+                    except (TypeError,ValueError):errors.append(f'Clip {i}: {key} no es numérico');continue
+                    if value<0 or value>d+.001:errors.append(f'Clip {i}: {key} fuera de rango 0–{d:.2f}s')
+                try:
+                    fi=float(c.get('fadeIn',.18) if c.get('fadeIn') is not None else .18); fo=float(c.get('fadeOut',.25) if c.get('fadeOut') is not None else .25)
+                    if fi>=0 and fo>=0 and fi+fo>d+.001:warnings.append(f'Clip {i}: fades se solapan y serán normalizados')
+                except (TypeError,ValueError):pass
 if not any(c.get('track') in (0,1) and c.get('asset') for c in clips): warnings.append('No hay medios visuales; el render usará fondo negro')
 if not any(c.get('track') in (4,5,6) and c.get('asset') for c in clips): warnings.append('No hay audio en el proyecto')
 print(json.dumps({'ok':not errors,'errors':errors,'warnings':warnings,'clips':len(clips),'assets':len(assets)},ensure_ascii=False,indent=2))
