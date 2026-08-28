@@ -35,10 +35,15 @@
     if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
     loadScriptOnce('media-replace-engine.js','mediaReplaceEngine',()=>loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration'));
   }
+  function bootRenderJobs(){
+    if(window.ProfitMenteRenderJobClient){loadScriptOnce('render-job-integration.js','renderJobIntegration');return}
+    loadScriptOnce('render-job-client.js','renderJobClient',()=>loadScriptOnce('render-job-integration.js','renderJobIntegration'));
+  }
 
   // Project portability must be active before recovery wraps the final persistence chain.
   function bootSupportModules(){
     bootMediaReplacement();
+    bootRenderJobs();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
