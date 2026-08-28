@@ -1,0 +1,36 @@
+name: ProfitMente Studio Automation Checkpoint QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-version-engine.js'
+      - 'studio/project-version-integration.js'
+      - 'studio/automation-checkpoint.js'
+      - 'studio/test_automation_checkpoint.mjs'
+      - '.github/workflows/automation-checkpoint-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  automation-checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check checkpoint modules
+        run: |
+          node --check studio/project-version-engine.js
+          node --check studio/project-version-integration.js
+          node --check studio/automation-checkpoint.js
+      - name: Test deduplicated automatic checkpoints
+        run: node studio/test_automation_checkpoint.mjs
+      - name: Verify integration loader
+        run: grep -q "automation-checkpoint.js" studio/project-version-integration.js
+      - name: Verify destructive actions are protected
+        run: |
+          grep -q "generateBtn" studio/automation-checkpoint.js
+          grep -q "qaFixBtn" studio/automation-checkpoint.js
+          grep -q "clearBtn" studio/automation-checkpoint.js
+          grep -q "projectInput" studio/automation-checkpoint.js
+          grep -q "bundleInput" studio/automation-checkpoint.js
