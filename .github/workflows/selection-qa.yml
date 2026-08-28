@@ -1,0 +1,29 @@
+name: ProfitMente Studio Multi Select QA
+
+on:
+  push:
+    paths:
+      - 'studio/selection-engine.js'
+      - 'studio/selection-integration.js'
+      - 'studio/test_multi_select.mjs'
+      - 'studio/index.html'
+      - '.github/workflows/selection-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check selection engine syntax
+        run: node --check studio/selection-engine.js
+      - name: Check selection integration syntax
+        run: node --check studio/selection-integration.js
+      - name: Test multi-clip selection engine
+        run: node studio/test_multi_select.mjs
+      - name: Verify Studio loads multi-select tools
+        run: |
+          grep -q 'selection-engine.js' studio/index.html
+          grep -q 'selection-integration.js' studio/index.html
