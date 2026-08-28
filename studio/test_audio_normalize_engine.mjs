@@ -7,7 +7,7 @@ let m=Engine.analyzeChannels([quiet]);
 assert.ok(m.peak>.099&&m.peak<=.101);assert.ok(m.rms>.069&&m.rms<.072);assert.equal(m.samples,48000);
 let r=Engine.recommendation(m,4,1);assert.equal(r.ok,true);assert.ok(r.volume>1.7&&r.volume<1.9);assert.equal(r.target.rmsDb,-18);assert.equal(r.limitedByPeak,false);
 
-const hot=new Float32Array(1000);hot.fill(.95);m=Engine.analyzeChannels([hot]);r=Engine.recommendation(m,4,1);assert.equal(r.ok,true);assert.equal(r.limitedByPeak,true);assert.ok(r.volume<.95&&r.volume>.93);
+const transient=new Float32Array(1000);transient.fill(.02);transient[500]=.95;m=Engine.analyzeChannels([transient]);r=Engine.recommendation(m,4,1);assert.equal(r.ok,true);assert.equal(r.limitedByPeak,true);assert.ok(r.volume<.95&&r.volume>.93);
 
 const silence=new Float32Array(1000);r=Engine.recommendation(Engine.analyzeChannels([silence]),4,.8);assert.equal(r.ok,false);assert.equal(r.reason,'silence');assert.equal(r.volume,.8);
 
