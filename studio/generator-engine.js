@@ -30,6 +30,23 @@ class ProfitMenteGeneratorEngine{
     if(asset.type==='video'&&requiredDuration>0){const duration=Number(asset.duration)||0;if(duration>=requiredDuration)score+=2;else if(duration>0)score-=8}return score
   }
   sourceOffset(asset,clip,seed){if(asset.type!=='video')return 0;const available=Math.max(0,(Number(asset.duration)||0)-Math.max(.05,Number(clip.duration)||0));if(available<=.05)return 0;const fraction=((seed%997)+1)/998;return +(available*fraction).toFixed(3)}
-  assignAssets(project,assets){const visual=assets.filter(a=>a.type==='video'||a.type==='image');if(!visual.length)return {primary:0,broll:0,skipped:0};let primary=0,broll=0,skipped=0,sequence=0;const used=new Set(),seed=this.hash(project.name||project.title||'ProfitMente');for(const c of project.clips.filter(c=>c.track===0&&!c.asset)){const required=Math.max(.05,Number(c.duration)||0),eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required),pool=eligible.length?eligible:visual.filter(a=>a.type==='image');if(!pool.length){skipped++;continue}const ranked=[...pool].sort((a,b)=>this.scoreAsset(b,c.keywords,project.format,required)-this.scoreAsset(a,c.keywords,project.format,required)||Number(used.has(a.id))-Number(used.has(b.id))||String(a.name).localeCompare(String(b.name))),chosen=ranked[0];if(!chosen){skipped++;continue}c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);used.add(chosen.id);primary++;sequence++;const alt=ranked.find(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=Math.min(2.4,c.duration*.38)+.05));if(alt&&c.duration>=4){const bd=Math.min(2.4,c.duration*.38),bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);broll++;sequence++}}return {primary,broll,skipped}}
+  diversityScore(asset,keywords,format,required,usage){return this.scoreAsset(asset,keywords,format,required)-(Number(usage.get(asset.id))||0)*4.5}
+  assignAssets(project,assets){
+    const visual=assets.filter(a=>a.type==='video'||a.type==='image');if(!visual.length)return {primary:0,broll:0,skipped:0,unique:0};
+    let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project.name||project.title||'ProfitMente');
+    const mark=a=>usage.set(a.id,(usage.get(a.id)||0)+1);
+    for(const c of project.clips.filter(c=>c.track===0&&!c.asset)){
+      const required=Math.max(.05,Number(c.duration)||0),eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required),pool=eligible.length?eligible:visual.filter(a=>a.type==='image');
+      if(!pool.length){skipped++;continue}
+      const ranked=[...pool].sort((a,b)=>this.diversityScore(b,c.keywords,project.format,required,usage)-this.diversityScore(a,c.keywords,project.format,required,usage)||String(a.name).localeCompare(String(b.name)));
+      const chosen=ranked[0];if(!chosen){skipped++;continue}
+      c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);mark(chosen);primary++;sequence++;
+      if(c.duration>=4){
+        const bd=Math.min(2.4,c.duration*.38),alts=ranked.filter(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=bd+.05)).sort((a,b)=>this.diversityScore(b,c.keywords,project.format,bd,usage)-this.diversityScore(a,c.keywords,project.format,bd,usage)||String(a.name).localeCompare(String(b.name))),alt=alts[0];
+        if(alt){const bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);mark(alt);broll++;sequence++}
+      }
+    }
+    return {primary,broll,skipped,unique:usage.size};
+  }
 }
 window.ProfitMenteGeneratorEngine=ProfitMenteGeneratorEngine;
