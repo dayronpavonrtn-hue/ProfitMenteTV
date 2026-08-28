@@ -1,0 +1,27 @@
+name: ProfitMente Studio Export Preflight QA
+
+on:
+  push:
+    paths:
+      - 'studio/export-preflight.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_export_preflight.mjs'
+      - '.github/workflows/export-preflight-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  export-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/export-preflight.js
+          node --check studio/generator-integration.js
+      - name: Run export preflight regression
+        run: node studio/test_export_preflight.mjs
+      - name: Verify Studio loads preflight
+        run: grep -q "export-preflight.js" studio/generator-integration.js
