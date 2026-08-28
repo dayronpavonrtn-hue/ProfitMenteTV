@@ -1,0 +1,27 @@
+name: ProfitMente Studio Timeline Ruler QA
+
+on:
+  push:
+    paths:
+      - 'studio/timeline-ruler.js'
+      - 'studio/transport-engine.js'
+      - 'studio/test_timeline_ruler.mjs'
+      - '.github/workflows/timeline-ruler-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  timeline-ruler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/timeline-ruler.js
+          node --check studio/transport-engine.js
+      - name: Run timeline ruler regression
+        run: node studio/test_timeline_ruler.mjs
+      - name: Verify Studio transport loads ruler
+        run: grep -q "timeline-ruler.js" studio/transport-engine.js
