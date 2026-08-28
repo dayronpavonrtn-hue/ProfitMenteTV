@@ -1,6 +1,6 @@
 class ProfitMenteRenderRangeEngine{
   static normalize(project,start,end){
-    const duration=Math.max(.001,Number(project?.duration)||.001),a=Math.max(0,Math.min(duration,Number(start)||0)),b=Math.max(0,Math.min(duration,Number(end)||duration));
+    const duration=Math.max(.001,Number(project?.duration)||.001),rawStart=Number(start),rawEnd=Number(end),a=Math.max(0,Math.min(duration,Number.isFinite(rawStart)?rawStart:0)),b=Math.max(0,Math.min(duration,Number.isFinite(rawEnd)?rawEnd:duration));
     return {start:Math.min(a,b),end:Math.max(a,b),duration:Math.max(0,Math.abs(b-a))};
   }
   static valid(project,start,end,min=.25){return this.normalize(project,start,end).duration>=min}
