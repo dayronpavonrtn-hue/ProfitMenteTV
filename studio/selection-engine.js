@@ -16,6 +16,38 @@
     editable(project){return this.clips(project).filter(c=>!this.isLocked(project,c))}
     bounds(clip){const start=Math.max(0,Number(clip?.start)||0),duration=Math.max(0,Number(clip?.duration)||0);return {start,end:start+duration}}
     overlaps(a,b){const x=this.bounds(a),y=this.bounds(b);return x.start<y.end-1e-6&&y.start<x.end-1e-6}
+    arrangementSelection(project,minCount=2,{sameTrack=false}={}){
+      const clips=this.clips(project);
+      if(clips.length<minCount)return {clips:[],reason:'not-enough',blocked:0};
+      const locked=clips.filter(c=>this.isLocked(project,c));
+      if(locked.length)return {clips:[],reason:'locked-selection',blocked:locked.length};
+      if(sameTrack&&new Set(clips.map(c=>Number(c.track))).size>1)return {clips:[],reason:'mixed-tracks',blocked:0};
+      return {clips,reason:'ok',blocked:0}
+    }
+    align(project,edge='start'){
+      const pick=this.arrangementSelection(project,2);if(pick.reason!=='ok')return {changed:0,reason:pick.reason,blocked:pick.blocked};
+      const clips=pick.clips,target=edge==='end'?Math.max(...clips.map(c=>this.bounds(c).end)):Math.min(...clips.map(c=>this.bounds(c).start));let changed=0;
+      for(const c of clips){const next=edge==='end'?target-Math.max(.001,Number(c.duration)||0):target;if(Math.abs((Number(c.start)||0)-next)>1e-6){c.start=+Math.max(0,next).toFixed(3);changed++}}
+      return {changed,reason:'ok',edge,target:+target.toFixed(3)}
+    }
+    distribute(project){
+      const pick=this.arrangementSelection(project,3,{sameTrack:true});if(pick.reason!=='ok')return {changed:0,reason:pick.reason,blocked:pick.blocked,gap:0};
+      const clips=[...pick.clips].sort((a,b)=>this.bounds(a).start-this.bounds(b).start),first=this.bounds(clips[0]).start,lastEnd=this.bounds(clips[clips.length-1]).end,total=clips.reduce((s,c)=>s+Math.max(.001,Number(c.duration)||0),0),span=lastEnd-first,gap=(span-total)/(clips.length-1);
+      if(gap<-1e-6)return {changed:0,reason:'insufficient-span',blocked:0,gap:+gap.toFixed(3)};
+      let cursor=first,changed=0;for(const c of clips){if(Math.abs((Number(c.start)||0)-cursor)>1e-6){c.start=+cursor.toFixed(3);changed++}cursor+=Math.max(.001,Number(c.duration)||0)+Math.max(0,gap)}
+      return {changed,reason:'ok',blocked:0,gap:+Math.max(0,gap).toFixed(3),start:+first.toFixed(3),end:+lastEnd.toFixed(3)}
+    }
+    compact(project,gap=0){
+      const pick=this.arrangementSelection(project,2,{sameTrack:true});if(pick.reason!=='ok')return {changed:0,reason:pick.reason,blocked:pick.blocked,gap:0};
+      const clips=[...pick.clips].sort((a,b)=>this.bounds(a).start-this.bounds(b).start),safeGap=Math.max(0,Number(gap)||0),start=this.bounds(clips[0]).start,total=clips.reduce((s,c)=>s+Math.max(.001,Number(c.duration)||0),0)+safeGap*(clips.length-1),projectDuration=Math.max(0,Number(project?.duration)||0);
+      if(start+total>projectDuration+1e-6)return {changed:0,reason:'out-of-range',blocked:0,gap:safeGap};
+      let cursor=start,changed=0;for(const c of clips){if(Math.abs((Number(c.start)||0)-cursor)>1e-6){c.start=+cursor.toFixed(3);changed++}cursor+=Math.max(.001,Number(c.duration)||0)+safeGap}
+      return {changed,reason:'ok',blocked:0,gap:+safeGap.toFixed(3),start:+start.toFixed(3),end:+cursor.toFixed(3)}
+    }
+    moveTo(project,targetStart){
+      const pick=this.arrangementSelection(project,1);if(pick.reason!=='ok')return {moved:0,reason:pick.reason,blocked:pick.blocked,delta:0};
+      const minStart=Math.min(...pick.clips.map(c=>this.bounds(c).start));const result=this.shift(project,(Number(targetStart)||0)-minStart);return {...result,reason:result.moved?'ok':'boundary'}
+    }
     shift(project,requestedDelta){
       const selected=this.clips(project),clips=selected.filter(c=>!this.isLocked(project,c));
       const blocked=selected.length-clips.length;
