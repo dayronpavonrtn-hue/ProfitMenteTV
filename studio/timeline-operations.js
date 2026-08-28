@@ -11,6 +11,7 @@
       if(!Number.isFinite(cut)||cut<=start+minDuration||cut>=end-minDuration)return null;
       const original=structuredClone(c),leftDuration=cut-start,rightDuration=end-cut,p=duration>0?leftDuration/duration:0;
       const right=structuredClone(original);right.id=crypto.randomUUID();right.start=cut;right.duration=rightDuration;right.name=original.name||'Clip';
+      c.duration=leftDuration;
       // Asset clips must keep reading the same source position after the cut. Most clips
       // omit sourceOffset when it is zero, so checking only for the property would make
       // the right half restart the source from 0 after a normal split.
