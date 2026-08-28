@@ -1,0 +1,35 @@
+name: ProfitMente Studio Clipboard QA
+
+on:
+  push:
+    paths:
+      - 'studio/clipboard-engine.js'
+      - 'studio/clipboard-integration.js'
+      - 'studio/selection-integration.js'
+      - 'studio/test_clipboard_engine.mjs'
+      - '.github/workflows/clipboard-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  clipboard-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/clipboard-engine.js
+          node --check studio/clipboard-integration.js
+          node --check studio/selection-integration.js
+      - name: Run clipboard regression
+        run: node studio/test_clipboard_engine.mjs
+      - name: Verify clipboard integration is loaded
+        run: |
+          grep -q "clipboard-engine.js" studio/selection-integration.js
+          grep -q "clipboard-integration.js" studio/selection-integration.js
+      - name: Verify copy and paste shortcuts
+        run: |
+          grep -q "toLowerCase()==='c'" studio/clipboard-integration.js
+          grep -q "toLowerCase()==='v'" studio/clipboard-integration.js
