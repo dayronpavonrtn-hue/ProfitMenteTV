@@ -53,7 +53,8 @@ assert.equal(leftTrim.keyframes.start.positionX,20);assert.equal(leftTrim.keyfra
 const rightTrim=ops.trimRight(trimProject,'trim',8);
 assert.ok(rightTrim);assert.equal(rightTrim.start,4);assert.equal(rightTrim.duration,4);assert.equal(rightTrim.sourceOffset,5,'right trim must not move source in-point');
 assert.ok(Math.abs(rightTrim.keyframes.end.positionX-60)<1e-9);assert.ok(Math.abs(rightTrim.keyframes.end.scale-1.75)<1e-9,'right trim must preserve transform continuity');
-assert.equal(ops.trimLeft(trimProject,'trim',7.9),null,'trim must reject changes that leave less than minimum clip duration');
+const minimumTrim=ops.trimLeft(trimProject,'trim',7.9);assert.ok(minimumTrim);assert.equal(minimumTrim.duration,.25,'trim must clamp to the minimum clip duration');
+assert.equal(ops.trimLeft(trimProject,'trim',minimumTrim.start),null,'a no-op trim must not create a project change');
 
 const trimCaptionProject={duration:10,clips:[{id:'trimcap',track:3,name:'uno dos tres',start:0,duration:6,wordTimings:[
  {word:'uno',start:.2,end:1.3,duration:1.1,index:0},{word:'dos',start:2,end:3.4,duration:1.4,index:1},{word:'tres',start:4,end:5.5,duration:1.5,index:2}
