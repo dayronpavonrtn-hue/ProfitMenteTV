@@ -56,7 +56,7 @@ window.ProfitMenteMediaInspector=ProfitMenteMediaInspector;
       el.appendChild(card)
     }
   };
-  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}
   async function upgradeExisting(){
     let changed=0;
     for(let i=0;i<assets.length;i++)if(assets[i]?.blob&&assets[i].metadataVersion!==inspector.version){const next=await inspector.inspect(assets[i]);assets[i]=next;await basePut(next);changed++}
@@ -64,4 +64,5 @@ window.ProfitMenteMediaInspector=ProfitMenteMediaInspector;
   }
   setTimeout(upgradeExisting,50);
   window.profitMenteMediaInspector=inspector;
+  if(!document.querySelector('script[data-profitmente-media-library-tools]')){const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';document.body.appendChild(s)}
 })();
