@@ -15,4 +15,8 @@ if(inspector.includes("projectLibraryScript")||inspector.includes("project-libra
 for(const token of ['hook-pop','dynamic','word-pulse','cut','fade','slide','zoom']) if(!inspector.includes(token)) throw new Error('Inspector no expone opción compatible con renderer: '+token);
 const relink=fs.readFileSync(path.join(root,'relink-engine.js'),'utf8');
 for(const token of ['Reconectar medios','missing(project,assets','match(project,assets,files)']) if(!relink.includes(token)) throw new Error('Relink incompleto: '+token);
+const library=fs.readFileSync(path.join(root,'project-library.js'),'utf8');
+if(/createElement\(['"]script['"]\)[\s\S]*relink-engine\.js/.test(library)||library.includes("relink.src='relink-engine.js'")) throw new Error('project-library.js vuelve a cargar relink-engine.js dinámicamente');
+const generator=fs.readFileSync(path.join(root,'generator-integration.js'),'utf8');
+for(const token of ["window.addEventListener('load',bootRecovery",'recovery-engine.js','recovery-integration.js']) if(!generator.includes(token)) throw new Error('Recuperación no tiene carga determinista: '+token);
 console.log(`Studio integrity OK: ${scripts.length} scripts, ${requiredControls.length} controles críticos`);
