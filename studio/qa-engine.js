@@ -1,6 +1,8 @@
 class ProfitMenteQAEngine{
   inspect(project,assets){
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>a.id));
+    const state=track=>{const s=project.trackState?.[track]??project.trackState?.[String(track)]??{};return s&&typeof s==='object'?s:{}};
+    const hidden=track=>!!state(track).hidden,muted=track=>!!state(track).muted;
     if(!project.clips?.length) issues.push('El timeline está vacío.');
     const checkKeyframe=(c,k,label)=>{
       if(!k||typeof k!=='object'){issues.push(`Keyframe ${label} inválido: ${c.name||c.id}`);return}
@@ -19,12 +21,15 @@ class ProfitMenteQAEngine{
         else if(sourceOffset+sourceNeeded>a.duration+.15) warnings.push(`Recorte supera el final del archivo fuente: ${c.name||a.name} · requiere ${(sourceOffset+sourceNeeded).toFixed(2)}s de ${Number(a.duration).toFixed(2)}s`);
       }
     }
-    const visuals=(project.clips||[]).filter(c=>[0,1].includes(c.track)&&c.asset);
-    if(!visuals.length) warnings.push('No hay video o imagen asignado a las pistas visuales.');
-    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(c.track)&&c.asset);
-    if(!audio.length) warnings.push('No hay voz, música ni SFX asignados.');
-    const captions=(project.clips||[]).filter(c=>c.track===3&&c.name);
-    if(!captions.length) warnings.push('No hay subtítulos/captions.');
+    const visuals=(project.clips||[]).filter(c=>[0,1].includes(Number(c.track))&&c.asset&&!hidden(Number(c.track)));
+    if(!visuals.length) warnings.push('No hay video o imagen visible asignado a las pistas visuales.');
+    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&c.asset&&!c.muted&&!muted(Number(c.track)));
+    if(!audio.length) warnings.push('No hay voz, música ni SFX activos.');
+    const captions=(project.clips||[]).filter(c=>Number(c.track)===3&&c.name&&!hidden(3));
+    if(!captions.length) warnings.push('No hay subtítulos/captions visibles.');
+    const disabled=[];
+    for(let i=0;i<=6;i++){const s=state(i);if(s.hidden||s.muted)disabled.push(i)}
+    if(disabled.length) warnings.push(`Pistas desactivadas para exportación: ${disabled.join(', ')}`);
     const usedVisualIds=new Set(visuals.map(c=>c.asset));
     for(const a of assets.filter(x=>usedVisualIds.has(x.id)&&['video','image'].includes(x.type))){
       if(a.width&&a.height){
@@ -37,12 +42,12 @@ class ProfitMenteQAEngine{
       }
     }
     for(let track=0;track<=6;track++){
-      const cs=(project.clips||[]).filter(c=>c.track===track).sort((a,b)=>a.start-b.start);
+      const cs=(project.clips||[]).filter(c=>Number(c.track)===track).sort((a,b)=>a.start-b.start);
       for(let i=1;i<cs.length;i++) if(cs[i].start<cs[i-1].start+cs[i-1].duration-.01&&![1,2,3,4,5,6].includes(track)) warnings.push(`Solapamiento en ${track}: ${cs[i-1].name} / ${cs[i].name}`);
     }
-    const visualSeconds=this.coverage(visuals,project.duration),captionSeconds=this.coverage(captions,project.duration);
-    const score=Math.max(0,100-issues.length*25-warnings.length*7-Math.round(Math.max(0,.75-visualSeconds/project.duration)*30));
-    return {ok:issues.length===0,score,issues,warnings,metrics:{duration:project.duration,clips:(project.clips||[]).length,assets:assets.length,visualCoverage:+(visualSeconds/project.duration*100).toFixed(1),captionCoverage:+(captionSeconds/project.duration*100).toFixed(1)}};
+    const visualSeconds=this.coverage(visuals,project.duration),captionSeconds=this.coverage(captions,project.duration),safeDuration=Math.max(.001,Number(project.duration)||0);
+    const score=Math.max(0,100-issues.length*25-warnings.length*7-Math.round(Math.max(0,.75-visualSeconds/safeDuration)*30));
+    return {ok:issues.length===0,score,issues,warnings,metrics:{duration:project.duration,clips:(project.clips||[]).length,assets:assets.length,visualCoverage:+(visualSeconds/safeDuration*100).toFixed(1),captionCoverage:+(captionSeconds/safeDuration*100).toFixed(1),activeAudioClips:audio.length,disabledTracks:disabled}};
   }
   coverage(clips,duration){
     const ranges=clips.map(c=>[Math.max(0,c.start),Math.min(duration,c.start+c.duration)]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
