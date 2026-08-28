@@ -17,4 +17,17 @@ assert.equal(E.compatible([file,{name:'readme.txt',type:'text/plain'}]).length,1
 assert.equal(E.findDuplicate([{id:'a',name:'Take 01.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file)?.id,'a');
 assert.equal(E.findDuplicate([{id:'b',sourceFingerprint:signature}],file)?.id,'b');
 assert.equal(E.findDuplicate([{id:'c',name:'Take 02.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file),null);
+
+const original=new Blob([new TextEncoder().encode('profitmente-media-content')],{type:'video/mp4'});
+Object.defineProperty(original,'name',{value:'original.mp4'});Object.defineProperty(original,'lastModified',{value:1});
+const renamed=new Blob([new TextEncoder().encode('profitmente-media-content')],{type:'video/mp4'});
+Object.defineProperty(renamed,'name',{value:'renamed-copy.mp4'});Object.defineProperty(renamed,'lastModified',{value:999});
+const different=new Blob([new TextEncoder().encode('profitmente-media-different')],{type:'video/mp4'});
+Object.defineProperty(different,'name',{value:'different.mp4'});
+const hashA=await E.contentHash(original),hashB=await E.contentHash(renamed),hashC=await E.contentHash(different);
+assert.ok(hashA&&hashA.length===64,'content hash must be SHA-256 hex');
+assert.equal(hashA,hashB,'renamed copies with identical bytes must share a content hash');
+assert.notEqual(hashA,hashC,'different media bytes must not collide in regression fixture');
+assert.equal(E.findDuplicateHash([{id:'same',sourceContentHash:hashA}],hashB)?.id,'same');
+assert.equal(E.findDuplicateHash([{id:'other',sourceContentHash:hashC}],hashB),null);
 console.log('media import engine regression passed');
