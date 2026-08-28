@@ -14,6 +14,8 @@
     trackState(project,track){const state=project?.trackState||{};const value=state[track]??state[String(track)]??{};return value&&typeof value==='object'?value:{}}
     isLocked(project,clip){return !!this.trackState(project,Number(clip?.track)).locked}
     editable(project){return this.clips(project).filter(c=>!this.isLocked(project,c))}
+    bounds(clip){const start=Math.max(0,Number(clip?.start)||0),duration=Math.max(0,Number(clip?.duration)||0);return {start,end:start+duration}}
+    overlaps(a,b){const x=this.bounds(a),y=this.bounds(b);return x.start<y.end-1e-6&&y.start<x.end-1e-6}
     shift(project,requestedDelta){
       const selected=this.clips(project),clips=selected.filter(c=>!this.isLocked(project,c));
       const blocked=selected.length-clips.length;
@@ -37,6 +39,27 @@
       project.clips=(project.clips||[]).filter(c=>!removeIds.has(String(c.id)));
       const locked=selected.filter(c=>this.isLocked(project,c)).map(c=>c.id);this.set(locked);
       return {removed:removable.length,blocked:locked.length,remaining:this.values()}
+    }
+    rippleRemove(project){
+      const selected=this.clips(project);
+      if(!selected.length)return {removed:0,shifted:0,gap:0,blocked:0,reason:'empty'};
+      const lockedSelected=selected.filter(c=>this.isLocked(project,c));
+      if(lockedSelected.length)return {removed:0,shifted:0,gap:0,blocked:lockedSelected.length,reason:'locked-selection'};
+      const start=Math.min(...selected.map(c=>this.bounds(c).start)),end=Math.max(...selected.map(c=>this.bounds(c).end)),gap=Math.max(0,end-start);
+      if(gap<=1e-6)return {removed:0,shifted:0,gap:0,blocked:0,reason:'zero-gap'};
+      const selectedIds=new Set(selected.map(c=>String(c.id)));
+      const blockers=(project?.clips||[]).filter(c=>!selectedIds.has(String(c.id))&&this.overlaps(c,{start,duration:gap}));
+      if(blockers.length)return {removed:0,shifted:0,gap:+gap.toFixed(3),blocked:blockers.length,blockers:blockers.map(c=>c.id),reason:'overlap'};
+      const lockedAfter=(project?.clips||[]).filter(c=>!selectedIds.has(String(c.id))&&this.isLocked(project,c)&&this.bounds(c).start>=end-1e-6);
+      if(lockedAfter.length)return {removed:0,shifted:0,gap:+gap.toFixed(3),blocked:lockedAfter.length,blockers:lockedAfter.map(c=>c.id),reason:'locked-after'};
+      project.clips=(project.clips||[]).filter(c=>!selectedIds.has(String(c.id)));
+      let shifted=0;
+      for(const c of project.clips){
+        if(this.isLocked(project,c))continue;
+        const b=this.bounds(c);if(b.start>=end-1e-6){c.start=+(Math.max(0,b.start-gap)).toFixed(3);shifted++}
+      }
+      this.clear();
+      return {removed:selected.length,shifted,gap:+gap.toFixed(3),blocked:0,start:+start.toFixed(3),end:+end.toFixed(3),reason:'ok'}
     }
   }
   root.ProfitMenteSelectionEngine=ProfitMenteSelectionEngine;
