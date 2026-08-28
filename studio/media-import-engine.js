@@ -54,4 +54,5 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     const compatible=engine.compatible(files);if(!compatible.length)return;e.preventDefault();await importFiles(compatible,'clipboard');
   });
   window.ProfitMenteMediaImport={engine,importFiles};
+  if(!document.querySelector('script[data-profitmente-media-timeline-dnd]')){const s=document.createElement('script');s.src='media-timeline-dnd.js';s.dataset.profitmenteMediaTimelineDnd='1';document.body.appendChild(s)}
 })();
