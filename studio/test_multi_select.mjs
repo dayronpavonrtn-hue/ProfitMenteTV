@@ -3,7 +3,6 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {ProfitMenteSelectionEngine}=require('./selection-engine.js');
 
-global.crypto={randomUUID:(()=>{let n=0;return()=>`copy-${++n}`})()};
 const project={duration:12,trackState:{1:{locked:true}},clips:[
   {id:'a',track:0,name:'A',start:1,duration:2},
   {id:'b',track:0,name:'B',start:4,duration:2},
