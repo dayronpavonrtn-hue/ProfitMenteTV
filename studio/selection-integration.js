@@ -30,4 +30,10 @@
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&engine.count){engine.clear();refresh();status('Selección múltiple limpiada')}});
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(refresh)};
   window.ProfitMenteMultiSelect={engine,refresh};refresh();
+
+  if(!document.querySelector('script[data-profitmente-clipboard-engine]')){
+    const core=document.createElement('script');core.src='clipboard-engine.js';core.dataset.profitmenteClipboardEngine='1';
+    core.onload=()=>{if(document.querySelector('script[data-profitmente-clipboard-integration]'))return;const s=document.createElement('script');s.src='clipboard-integration.js';s.dataset.profitmenteClipboardIntegration='1';document.body.appendChild(s)};
+    document.body.appendChild(core)
+  }
 })();
