@@ -30,6 +30,16 @@ assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(2),false);
 await globalThis.renderAt(0);
 assert.strictEqual(project.clips,originalClips,'preview must never replace project.clips while rendering');
 
+const base={start:1,duration:2,transitionDuration:.4,opacity:1};
+const fadeMid=window.ProfitMentePreviewEngine.transformFor({...base,transition:'fade'},1.2);
+const slideMid=window.ProfitMentePreviewEngine.transformFor({...base,transition:'slide'},1.2);
+const zoomMid=window.ProfitMentePreviewEngine.transformFor({...base,transition:'zoom'},1.2);
+assert.ok(Math.abs(fadeMid.alpha-.5)<.001,'fade preview must match MP4 transition opacity');
+assert.ok(Math.abs(slideMid.alpha-.5)<.001,'slide preview must include the same entry fade as MP4');
+assert.ok(Math.abs(zoomMid.alpha-.5)<.001,'zoom preview must include the same entry fade as MP4');
+assert.ok(slideMid.x>0,'slide preview must still translate horizontally during entry');
+assert.ok(zoomMid.scale>1,'zoom preview must still scale during entry');
+
 vm.runInThisContext(fs.readFileSync(new URL('./caption-preview.js',import.meta.url),'utf8'),{filename:'caption-preview.js'});
 assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true);
 
@@ -37,4 +47,4 @@ const controls=fs.readFileSync(new URL('./track-controls.js',import.meta.url),'u
 assert.ok(!controls.includes('project.clips=all.filter'),'track controls must not filter by replacing project.clips during async preview');
 assert.ok(!controls.includes('project.clips=all'),'track controls must not restore a temporarily replaced clip array');
 
-console.log('Preview track-state QA OK');
+console.log('Preview track-state and transition parity QA OK');
