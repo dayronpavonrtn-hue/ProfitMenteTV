@@ -10,6 +10,7 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Arrastrar clips, trim visual, cortar, duplicar y borrar.
 - Deshacer/rehacer.
 - Preview en canvas con sourceOffset, velocidad, overlays, captions y transiciones.
+- Protección del preview contra fotogramas asíncronos obsoletos al mover rápidamente el cursor.
 - Mezcla de música, voz y SFX con volumen y fades.
 - Persistencia de múltiples proyectos en el navegador.
 - Importar/exportar proyecto JSON.
@@ -20,6 +21,9 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Importación de paquete completo con proyecto + medios.
 - Render MP4 H.264/AAC con FFmpeg y validación automática con ffprobe.
 - Render MP4 directo desde el botón del Studio cuando se abre con el servidor local incluido.
+- El render MP4 asíncrono exige QA post-render válido antes de descargar el archivo final.
+- Informe QA descargable después de un render validado.
+- Exportación local de subtítulos SRT y VTT.
 - QA de render en GitHub Actions.
 - Lanzador de Windows con doble clic para abrir Studio sin escribir comandos.
 
@@ -34,7 +38,7 @@ El lanzador busca `py` o `python`, inicia el servidor local de ProfitMente Studi
 1. Abre Studio con `studio/start_studio_windows.bat`.
 2. Crea o edita el video.
 3. Pulsa **Control de calidad** y corrige errores importantes.
-4. Pulsa **🎬 Render MP4** para generar y descargar el MP4 final directamente con FFmpeg local.
+4. Pulsa **🎬 Render MP4** para generar, validar y descargar el MP4 final directamente con FFmpeg local.
 
 Como respaldo, puedes usar **📦 Paquete MP4** para descargar un `.profitmente.tar` autocontenido y renderizarlo después con `render_bundle_windows.bat`.
 
@@ -63,6 +67,6 @@ python studio/render_bundle.py "video.profitmente.tar" "video.mp4"
 ```
 
 ## Siguiente prioridad
-- Pruebas visuales y de regresión del preview/editor.
+- Ampliar pruebas visuales y de regresión del preview/editor.
 - Mejorar aún más captions y transiciones del render final.
 - Pulir la experiencia de proyecto nuevo, recuperación y errores de render.
