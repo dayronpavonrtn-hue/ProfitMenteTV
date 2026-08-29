@@ -5,6 +5,7 @@ on:
     paths:
       - 'studio/project-history-engine.js'
       - 'studio/project-history-integration.js'
+      - 'studio/project-library.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_project_history_engine.mjs'
       - '.github/workflows/project-history-qa.yml'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'studio/project-history-engine.js'
       - 'studio/project-history-integration.js'
+      - 'studio/project-library.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_project_history_engine.mjs'
   workflow_dispatch:
@@ -28,14 +30,18 @@ jobs:
         run: |
           node --check studio/project-history-engine.js
           node --check studio/project-history-integration.js
+          node --check studio/project-library.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_project_history_engine.mjs
       - name: Project history regression
         run: node studio/test_project_history_engine.mjs
-      - name: Verify Studio integration
+      - name: Verify unified Studio integration
         run: |
           grep -q "project-history-engine.js" studio/feature-bootstrap.js
           grep -q "project-history-integration.js" studio/feature-bootstrap.js
-          grep -q "historyUndo" studio/project-history-integration.js
-          grep -q "historyRedo" studio/project-history-integration.js
+          grep -q "#undoBtn" studio/project-history-integration.js
+          grep -q "#redoBtn" studio/project-history-integration.js
+          grep -q "stopImmediatePropagation" studio/project-history-integration.js
+          grep -q "},true);" studio/project-history-integration.js
+          grep -q "ProfitMenteProjectHistory?.reset" studio/project-library.js
           grep -q "window.persist=function" studio/project-history-integration.js
