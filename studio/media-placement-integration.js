@@ -7,7 +7,7 @@
   const status=t=>typeof setStatus==='function'&&setStatus(t);
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
-  function place(asset,track,at,duration){
+  function place(asset,track,at,duration,sourceOffset=0){
     track=Number(track);if(project.trackState?.[track]?.locked){status('La pista destino está bloqueada');return false}
     const chosen=mode.value,r=engine.range(project,at,duration);
     if(chosen==='insert'){
@@ -18,6 +18,13 @@
       if(!result.ok){status('No se pudo preparar la sobrescritura');return false}
     }
     addClip(track,asset.name,asset.id,r.start,r.duration);
+    const inserted=project.clips?.[project.clips.length-1];
+    if(inserted?.asset===asset.id){
+      const maxOffset=asset.type==='image'?0:Math.max(0,(Number(asset.duration)||0)-r.duration),requested=asset.type==='image'?0:Number(sourceOffset)||0;
+      inserted.sourceOffset=Math.max(0,Math.min(maxOffset,requested));
+      if(typeof persist==='function')persist();
+      if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0);
+    }
     const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s`);return true;
   }
   library.addEventListener('click',e=>{
