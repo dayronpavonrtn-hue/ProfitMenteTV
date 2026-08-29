@@ -17,6 +17,8 @@
     ['match-frame-integration.js','ProfitMenteMatchFrame'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
+    ['audio-waveform-engine.js','ProfitMenteAudioWaveformEngine'],
+    ['audio-waveform-integration.js','ProfitMenteAudioWaveforms'],
     ['project-duration.js','ProfitMenteProjectDuration'],
     ['project-portability.js','ProfitMenteProjectPortability'],
     ['project-migration-engine.js','ProfitMenteProjectMigrationEngine'],
