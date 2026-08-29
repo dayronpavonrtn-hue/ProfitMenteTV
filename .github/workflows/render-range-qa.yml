@@ -24,7 +24,7 @@ jobs:
         run: node --check studio/render-range-integration.js
       - name: Syntax check Studio loader
         run: node --check studio/generator-integration.js
-      - name: Test range extraction and source offsets
+      - name: Test range extraction, source offsets and loop decisions
         run: node studio/test_render_range_engine.mjs
       - name: Verify range engine is loaded
         run: grep -q "render-range-engine.js" studio/generator-integration.js
@@ -32,3 +32,7 @@ jobs:
         run: grep -q "render-range-integration.js" studio/generator-integration.js
       - name: Verify MP4 range uses local renderer
         run: grep -q "bundler.renderLocal(derived,assets,status)" studio/render-range-integration.js
+      - name: Verify loop preview is wired to range engine
+        run: |
+          grep -q "loopRangeBtn" studio/render-range-integration.js
+          grep -q "E.previewDecision" studio/render-range-integration.js
