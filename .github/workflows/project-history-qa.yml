@@ -1,0 +1,41 @@
+name: ProfitMente Studio Project History QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-history-engine.js'
+      - 'studio/project-history-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_project_history_engine.mjs'
+      - '.github/workflows/project-history-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-history-engine.js'
+      - 'studio/project-history-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_project_history_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  project-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/project-history-engine.js
+          node --check studio/project-history-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_project_history_engine.mjs
+      - name: Project history regression
+        run: node studio/test_project_history_engine.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "project-history-engine.js" studio/feature-bootstrap.js
+          grep -q "project-history-integration.js" studio/feature-bootstrap.js
+          grep -q "historyUndo" studio/project-history-integration.js
+          grep -q "historyRedo" studio/project-history-integration.js
+          grep -q "window.persist=function" studio/project-history-integration.js
