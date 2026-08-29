@@ -20,9 +20,9 @@
     for(const marker of project.markers||[]){const t=Number(marker?.time);if(Number.isFinite(t))out.push(Math.max(0,Math.min(+project.duration||0,t)))}
     return out;
   }
-  function boundaries(ignoreId){
-    const out=[0,+project.duration||0,...guideTimes()];
-    for(const c of project.clips||[]){if(c.id===ignoreId)continue;out.push(+c.start||0,(+c.start||0)+(+c.duration||0))}
+  function boundaries(ignoreIds){
+    const ignored=new Set(Array.isArray(ignoreIds)?ignoreIds.map(String):ignoreIds?[String(ignoreIds)]:[]),out=[0,+project.duration||0,...guideTimes()];
+    for(const c of project.clips||[]){if(ignored.has(String(c.id)))continue;out.push(+c.start||0,(+c.start||0)+(+c.duration||0))}
     return [...new Set(out)].sort((a,b)=>a-b);
   }
   function snapTime(raw,ignoreId){
@@ -45,10 +45,11 @@
   function clearTargets(){document.querySelectorAll('.lane.dropTarget').forEach(x=>x.classList.remove('dropTarget'))}
   function begin(e,el){
     if(e.button!==0)return;const clip=(project.clips||[]).find(c=>c.id===el.dataset.id);if(!clip)return;
-    if(project.trackState?.[clip.track]?.locked){if(typeof setStatus==='function')setStatus('La pista está bloqueada');e.preventDefault();e.stopImmediatePropagation();return}
+    const groupEngine=window.ProfitMenteGroupDragEngine?new window.ProfitMenteGroupDragEngine():null,originals=groupEngine?.snapshot(project,clip)||[{id:clip.id,start:+clip.start||0,duration:+clip.duration||0,track:clip.track}];
+    if(originals.some(x=>project.trackState?.[x.track]?.locked)){if(typeof setStatus==='function')setStatus(originals.length>1?'El grupo contiene una pista bloqueada':'La pista está bloqueada');e.preventDefault();e.stopImmediatePropagation();return}
     const er=el.getBoundingClientRect(),leftEdge=e.clientX-er.left<=EDGE_PX,rightEdge=er.right-e.clientX<=EDGE_PX,mode=leftEdge?'trim-left':rightEdge?'trim-right':'move';
     const lane=el.closest('.lane'),rect=lane.getBoundingClientRect();
-    active={el,clip,mode,startX:e.clientX,originalStart:+clip.start||0,originalDuration:+clip.duration||0,originalTrack:clip.track,rect,pendingTime:null};
+    active={el,clip,mode,startX:e.clientX,originalStart:+clip.start||0,originalDuration:+clip.duration||0,originalTrack:clip.track,rect,pendingTime:null,groupEngine,originals};
     e.preventDefault();e.stopImmediatePropagation();el.classList.add('dragging');el.setPointerCapture?.(e.pointerId);
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',end,{once:true});el.addEventListener('pointercancel',end,{once:true});
   }
@@ -64,20 +65,27 @@
       active.el.style.width=`${Math.max(2,(time-active.originalStart)/project.duration*100)}%`;
       if(typeof setStatus==='function')setStatus(`${snap.snapped?'🧲 ':''}Salida · ${time.toFixed(2)}s · duración ${(time-active.originalStart).toFixed(2)}s`);return;
     }
+    clearTargets();const lane=laneAt(e.clientX,e.clientY),desiredTrack=lane?+lane.dataset.track:active.originalTrack;
+    if(active.groupEngine&&active.originals.length>1){
+      const ignored=active.originals.map(x=>x.id),plan=active.groupEngine.movePlan({duration:project.duration,originals:active.originals,anchorId:active.clip.id,desiredStart:active.originalStart+seconds,boundaries:boundaries(ignored),snapSeconds:SNAP_SECONDS,desiredTrack,canTrack:(original,next)=>{const c=project.clips.find(x=>String(x.id)===String(original.id));return !!c&&compatible(c,next)&&!project.trackState?.[next]?.locked}});
+      active.groupEngine.apply(project,plan);const anchorMove=plan?.moves?.find(x=>String(x.id)===String(active.clip.id));if(anchorMove)active.el.style.left=`${anchorMove.start/project.duration*100}%`;
+      if(lane&&plan?.trackChanged)lane.classList.add('dropTarget');
+      if(typeof setStatus==='function'&&plan)setStatus(`${plan.snapped?'🧲 ':''}Grupo · ${active.originals.length} clips · ${active.clip.start.toFixed(2)}s${plan.trackChanged?' · pistas desplazadas':''}`);return;
+    }
     const snapped=snapStart(active.originalStart+seconds,active.clip);active.clip.start=snapped.start;
     active.el.style.left=`${active.clip.start/project.duration*100}%`;
-    clearTargets();const lane=laneAt(e.clientX,e.clientY);
     if(lane){const track=+lane.dataset.track;if(compatible(active.clip,track)&&!project.trackState?.[track]?.locked){lane.classList.add('dropTarget');active.clip.track=track}}
     if(typeof setStatus==='function')setStatus(`${snapped.snapped?'🧲 ':''}${active.clip.name||'Clip'} · ${active.clip.start.toFixed(2)}s · ${names[active.clip.track]||'Pista '+active.clip.track}`);
   }
   function end(){
-    if(!active)return;const {el,clip,mode,originalStart,originalDuration,originalTrack,pendingTime}=active;
+    if(!active)return;const {el,clip,mode,originalStart,originalDuration,originalTrack,pendingTime,originals}=active;
     el.removeEventListener('pointermove',move);el.classList.remove('dragging');clearTargets();active=null;
     let changed=false,message='';
     if(mode==='trim-left'&&pendingTime!=null){const result=window.ProfitMenteTimelineOps?.trimLeft?.(project,clip.id,pendingTime,MIN_DURATION);changed=!!result;message=result?`Entrada recortada · ${result.start.toFixed(2)}s · fuente ${(Number(result.sourceOffset)||0).toFixed(2)}s`:''}
     else if(mode==='trim-right'&&pendingTime!=null){const result=window.ProfitMenteTimelineOps?.trimRight?.(project,clip.id,pendingTime,MIN_DURATION);changed=!!result;message=result?`Salida recortada · duración ${result.duration.toFixed(2)}s`:''}
+    else if(originals?.length>1)changed=originals.some(o=>{const c=project.clips.find(x=>String(x.id)===String(o.id));return c&&(Math.abs((Number(c.start)||0)-o.start)>.001||Number(c.track)!==o.track)});
     else changed=Math.abs(clip.start-originalStart)>.001||clip.track!==originalTrack;
-    if(changed){if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead').value||0);if(typeof setStatus==='function')setStatus(message||`Clip movido · ${clip.start.toFixed(2)}s · ${names[clip.track]}`)}
+    if(changed){if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead').value||0);if(typeof setStatus==='function')setStatus(message||(originals?.length>1?`Grupo movido · ${originals.length} clips`:`Clip movido · ${clip.start.toFixed(2)}s · ${names[clip.track]}`))}
     else if(mode!=='move'&&typeof drawTimeline==='function')drawTimeline();
   }
   document.addEventListener('pointerdown',e=>{const el=e.target.closest?.('.clip');if(el)begin(e,el)},true);
