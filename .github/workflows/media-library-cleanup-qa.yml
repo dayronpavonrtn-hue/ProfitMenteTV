@@ -1,0 +1,30 @@
+name: ProfitMente Studio Media Library Cleanup QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-library-tools.js'
+      - 'studio/media-inspector.js'
+      - 'studio/test_media_library_cleanup.mjs'
+      - '.github/workflows/media-library-cleanup-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check engine syntax
+        run: node --check studio/media-library-tools.js
+      - name: Check library integration syntax
+        run: node --check studio/media-inspector.js
+      - name: Test unused media cleanup
+        run: node studio/test_media_library_cleanup.mjs
+      - name: Verify Studio loads library tools
+        run: grep -q "media-library-tools.js" studio/media-inspector.js
