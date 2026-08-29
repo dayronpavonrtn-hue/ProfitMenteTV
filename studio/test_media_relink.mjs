@@ -7,8 +7,8 @@ globalThis.ProfitMenteMediaImportEngine={
   signature:file=>`${String(file.name||'').toLowerCase()}|${Number(file.size||0)}|${String(file.type||'').toLowerCase()}|${Number(file.lastModified||0)}`
 };
 const assets=[
-  {id:'v1',name:'clip.mp4',type:'video',mime:'video/mp4',size:1000,duration:10,sourceFingerprint:'clip.mp4|1000|video/mp4|1',sourceContentHash:'hash-video'},
-  {id:'a1',name:'voice.wav',type:'audio',mime:'audio/wav',size:500,duration:5}
+  {id:'v1',name:'clip.mp4',type:'video',mime:'video/mp4',size:1000,duration:10,width:1920,height:1080,thumbnail:'data:image/jpeg;base64,old',metadataVersion:1,sourceFingerprint:'clip.mp4|1000|video/mp4|1',sourceContentHash:'hash-video'},
+  {id:'a1',name:'voice.wav',type:'audio',mime:'audio/wav',size:500,duration:5,metadataVersion:1}
 ];
 const exact={name:'new-name.mp4',type:'video/mp4',size:999,lastModified:2};
 assert.equal(Engine.score(assets[0],exact,'hash-video'),100,'content hash must be strongest match');
@@ -19,6 +19,12 @@ assert.equal(Engine.bestMatch(assets,wrong,'').asset,null,'incompatible media ty
 const target={...assets[0]};
 const applied=Engine.apply(target,exact,'hash-video-2');
 assert.equal(applied.ok,true);assert.equal(target.id,'v1','relink must preserve asset id');assert.equal(target.name,'new-name.mp4');assert.equal(target.sourceContentHash,'hash-video-2');
+assert.equal(target.metadataVersion,undefined,'relink must force metadata inspection of the replacement file');
+assert.equal(target.duration,undefined,'old duration must not survive a relink');
+assert.equal(target.width,undefined,'old width must not survive a relink');
+assert.equal(target.height,undefined,'old height must not survive a relink');
+assert.equal(target.thumbnail,undefined,'old thumbnail must not survive a relink');
+assert.equal(applied.before.duration,10,'previous metadata should remain available in the relink result for diagnostics');
 const duplicated=[{id:'x1',name:'same.mp4',type:'video',size:20},{id:'x2',name:'same.mp4',type:'video',size:20}];
 const ambiguous=Engine.bestMatch(duplicated,{name:'same.mp4',type:'video/mp4',size:20},'');
 assert.equal(ambiguous.ambiguous,true);assert.equal(ambiguous.asset,null,'ambiguous matches must never relink automatically');
