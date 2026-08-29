@@ -5,7 +5,7 @@
     sourceDuration(asset){return Math.max(0,this.num(asset?.duration,0))}
     sourceTimeAt(clip,t,asset){
       if(!clip||!asset||asset.type!=='video')return {ok:false,reason:'video-required'};
-      const start=this.num(clip.start,0),duration=Math.max(.05,this.num(clip.duration,0)),local=Math.max(0,Math.min(duration, this.num(t,start)-start));
+      const start=this.num(clip.start,0),duration=Math.max(.05,this.num(clip.duration,0)),local=Math.max(0,Math.min(duration,this.num(t,start)-start));
       const raw=Math.max(0,this.num(clip.sourceOffset,0)+local*this.speed(clip));
       const sourceDuration=this.sourceDuration(asset),max=sourceDuration>0?Math.max(0,sourceDuration-.01):Infinity;
       return {ok:true,time:Math.min(raw,max),local,sourceDuration};
@@ -27,5 +27,6 @@
       clip.freezeFrameSource=next;return {ok:true,changed:Math.abs(next-old)>.001,time:next};
     }
   }
-  window.ProfitMenteFreezeFrameEngine=ProfitMenteFreezeFrameEngine;
+  if(typeof window!=='undefined')window.ProfitMenteFreezeFrameEngine=ProfitMenteFreezeFrameEngine;
+  if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteFreezeFrameEngine;
 })();
