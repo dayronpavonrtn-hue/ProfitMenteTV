@@ -1,0 +1,28 @@
+name: ProfitMente Studio Scene Detect QA
+on:
+  push:
+    paths:
+      - 'studio/scene-detect-engine.js'
+      - 'studio/scene-detect-integration.js'
+      - 'studio/marker-integration.js'
+      - 'studio/test_scene_detect_engine.mjs'
+      - '.github/workflows/scene-detect-qa.yml'
+  workflow_dispatch:
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: |
+          node --check studio/scene-detect-engine.js
+          node --check studio/scene-detect-integration.js
+          node --check studio/marker-integration.js
+      - name: Scene detection regression
+        run: node studio/test_scene_detect_engine.mjs
+      - name: Integration wiring
+        run: |
+          grep -q "detectCutsBtn" studio/scene-detect-integration.js
+          grep -q "scene-detect-engine.js" studio/marker-integration.js
+          grep -q "scene-detect-integration.js" studio/marker-integration.js
+          grep -q "timelineTime" studio/scene-detect-integration.js
