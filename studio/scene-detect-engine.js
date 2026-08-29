@@ -1,7 +1,7 @@
 class ProfitMenteSceneDetectEngine{
   static frameDistance(a,b){
     if(!a||!b||a.length!==b.length||!a.length)return 0;
-    let total=0;for(let i=0;i<a.length;i++)total+=Math.abs(Number(a[i])||0-(Number(b[i])||0));
+    let total=0;for(let i=0;i<a.length;i++)total+=Math.abs((Number(a[i])||0)-(Number(b[i])||0));
     return total/(a.length*255);
   }
   static median(values=[]){const v=values.filter(Number.isFinite).slice().sort((a,b)=>a-b);if(!v.length)return 0;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2}
@@ -23,7 +23,7 @@ class ProfitMenteSceneDetectEngine{
   }
   static timelineTime(cutSourceTime,clip={}){
     const speed=Math.max(.01,Number(clip.speed)||1),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0),start=Math.max(0,Number(clip.start)||0);
-    return start+Math.max(0,Number(cutSourceTime)-sourceOffset)/speed;
+    return start+Math.max(0,(Number(cutSourceTime)||0)-sourceOffset)/speed;
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteSceneDetectEngine=ProfitMenteSceneDetectEngine;
