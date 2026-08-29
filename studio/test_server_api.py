@@ -1,9 +1,34 @@
 #!/usr/bin/env python3
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
-from studio_server import Handler, ThreadingHTTPServer
+from studio_server import (
+    Handler,
+    ThreadingHTTPServer,
+    RENDER_JOBS,
+    RENDER_LOCK,
+    _job_snapshot,
+    _render_counts,
+)
+
+# Queue accounting is deterministic and does not require FFmpeg.
+with RENDER_LOCK:
+    previous=dict(RENDER_JOBS)
+    RENDER_JOBS.clear()
+    first={'id':'first','status':'rendering','progress':35,'created':time.time()-2,'cancel_requested':False,'qc':None,'error':None}
+    second={'id':'second','status':'queued','progress':10,'created':time.time()-1,'cancel_requested':False,'qc':None,'error':None}
+    third={'id':'third','status':'queued','progress':10,'created':time.time(),'cancel_requested':False,'qc':None,'error':None}
+    RENDER_JOBS.update(first=first,second=second,third=third)
+    assert _render_counts()==(1,2)
+    assert _job_snapshot(first)['queue_position'] is None
+    assert _job_snapshot(second)['queue_position']==1
+    assert _job_snapshot(third)['queue_position']==2
+    second['cancel_requested']=True;second['status']='cancelled'
+    assert _render_counts()==(1,1)
+    assert _job_snapshot(third)['queue_position']==1
+    RENDER_JOBS.clear();RENDER_JOBS.update(previous)
 
 server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
 port=server.server_address[1]
@@ -16,6 +41,9 @@ try:
     assert 'ffmpeg' in data and 'ffprobe' in data and 'render_ready' in data
     assert data['render_ready'] == bool(data['ffmpeg'] and data['ffprobe'])
     assert data.get('render_jobs') is True
+    assert data.get('render_concurrency') == 1
+    assert isinstance(data.get('render_active'),int)
+    assert isinstance(data.get('render_queued'),int)
 
     req=urllib.request.Request(base+'/api/render',data=b'x',method='POST',headers={
         'Content-Type':'application/x-tar','Origin':'https://evil.example'
