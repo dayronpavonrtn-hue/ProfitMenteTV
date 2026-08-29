@@ -8,4 +8,6 @@
  document.querySelector('#addMarkerBtn').onclick=()=>engine.add(+document.querySelector('#playhead').value||0,'Marcador');document.querySelector('#prevMarkerBtn').onclick=()=>engine.next(-1);document.querySelector('#nextMarkerBtn').onclick=()=>engine.next(1);
  const oldDraw=drawTimeline;drawTimeline=function(){oldDraw();engine.render()};engine.render();
  document.addEventListener('keydown',e=>{if(e.key.toLowerCase()!=='m'||e.ctrlKey||e.metaKey)return;if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;e.preventDefault();if(e.shiftKey)engine.next(-1);else if(e.altKey)engine.next(1);else engine.add(+document.querySelector('#playhead').value||0,'Marcador')});
+ const load=(src,flag)=>new Promise((resolve,reject)=>{if(document.querySelector(`script[data-${flag}]`))return resolve();const s=document.createElement('script');s.src=src;s.dataset[flag.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]='1';s.onload=resolve;s.onerror=reject;document.body.appendChild(s)});
+ load('scene-detect-engine.js','profitmente-scene-engine').then(()=>load('scene-detect-integration.js','profitmente-scene-integration')).catch(err=>console.error('No se pudo cargar detector de escenas',err));
 })();
