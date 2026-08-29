@@ -9,6 +9,8 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Deduplicación de medios por firma y contenido; la identidad del archivo se conserva también al exportar/importar paquetes completos.
 - Timeline de 7 pistas: video, overlays, motion, captions, SFX, música y voz.
 - Arrastrar clips, trim visual, cortar, duplicar y borrar.
+- Selección múltiple con desplazamiento, alineación, distribución, compactación y ripple delete seguro.
+- Slip Edit no destructivo para desplazar exactamente el contenido fuente dentro de un clip sin cambiar su posición ni duración en el timeline, incluyendo clips con velocidad modificada.
 - Deshacer/rehacer.
 - Preview en canvas con sourceOffset, velocidad, overlays, captions y transiciones.
 - Protección del preview contra fotogramas asíncronos obsoletos al mover rápidamente el cursor.
