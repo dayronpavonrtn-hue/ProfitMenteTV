@@ -1,0 +1,31 @@
+name: ProfitMente Studio Split Edit QA
+
+on:
+  push:
+    paths:
+      - 'studio/split-edit-engine.js'
+      - 'studio/edit-tools.js'
+      - 'studio/test_split_edit.js'
+      - '.github/workflows/split-edit-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/split-edit-engine.js'
+      - 'studio/edit-tools.js'
+      - 'studio/test_split_edit.js'
+      - '.github/workflows/split-edit-qa.yml'
+
+jobs:
+  split-edit-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/split-edit-engine.js
+          node --check studio/edit-tools.js
+          node --check studio/test_split_edit.js
+      - name: Split edit regression
+        run: node studio/test_split_edit.js
