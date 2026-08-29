@@ -15,6 +15,8 @@
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
     ['project-duration.js','ProfitMenteProjectDuration'],
     ['project-portability.js','ProfitMenteProjectPortability'],
+    ['project-migration-engine.js','ProfitMenteProjectMigrationEngine'],
+    ['project-migration-integration.js','ProfitMenteProjectMigration'],
     ['project-reset-engine.js','ProfitMenteProjectResetEngine'],
     ['project-reset-integration.js','ProfitMenteProjectReset'],
     ['project-version-engine.js','ProfitMenteProjectVersionEngine'],
