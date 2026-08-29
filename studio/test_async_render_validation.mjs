@@ -23,4 +23,6 @@ assert.throws(()=>api.validatePostRender({status:'done'}),/sin superar el contro
 assert.throws(()=>api.validatePostRender({status:'done',qc:{ok:false,score:80}}),/sin superar el control de calidad post-render/i);
 assert.equal(api.validatePostRender({status:'done',qc:{ok:true,score:97}}),'QA post-render 97/100');
 assert.equal(qcCalls,1,'successful async validation must flow through bundler.qcSummary so the QA report hook runs');
+assert.match(api.statusText({status:'queued',progress:10,queue_position:2}),/En cola · posición 2 · 10%/);
+assert.doesNotMatch(api.statusText({status:'rendering',progress:35,queue_position:2}),/posición/);
 console.log('Async render post-QA regression passed');
