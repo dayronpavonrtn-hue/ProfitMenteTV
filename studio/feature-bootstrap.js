@@ -22,6 +22,8 @@
     ['audio-waveform-engine.js','ProfitMenteAudioWaveformEngine'],
     ['audio-waveform-integration.js','ProfitMenteAudioWaveforms'],
     ['project-duration.js','ProfitMenteProjectDuration'],
+    ['project-history-engine.js','ProfitMenteProjectHistoryEngine'],
+    ['project-history-integration.js','ProfitMenteProjectHistory'],
     ['project-portability.js','ProfitMenteProjectPortability'],
     ['project-migration-engine.js','ProfitMenteProjectMigrationEngine'],
     ['project-migration-integration.js','ProfitMenteProjectMigration'],
