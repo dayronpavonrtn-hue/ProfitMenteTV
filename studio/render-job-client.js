@@ -1,5 +1,5 @@
 class ProfitMenteRenderJobClient{
-  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.jobId=null;this.cancelled=false}
+  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000,resultMaxAttempts=3}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.resultMaxAttempts=Math.max(1,Number(resultMaxAttempts)||3);this.jobId=null;this.cancelled=false}
   async json(url,options){
     let r;
     try{r=await this.fetchFn(url,options)}catch(error){error.retryable=true;throw error}
@@ -10,7 +10,24 @@ class ProfitMenteRenderJobClient{
   attach(jobId){const id=String(jobId||'').trim();if(!id)throw new Error('ID de render inválido');this.jobId=id;this.cancelled=false;return this.jobId}
   async start(bundle){if(!this.fetchFn)throw new Error('Fetch no disponible');this.cancelled=false;const data=await this.json('/api/render/jobs',{method:'POST',headers:{'Content-Type':'application/x-tar'},body:bundle});if(!data.job_id)throw new Error('El servidor no devolvió un trabajo de render');this.attach(data.job_id);return data}
   async status(){if(!this.jobId)throw new Error('No hay trabajo de render activo');return this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`)}
-  async result(){if(!this.jobId)throw new Error('No hay trabajo de render activo');const r=await this.fetchFn(`/api/render/jobs/${encodeURIComponent(this.jobId)}/result`);if(!r.ok){let data={};try{data=await r.json()}catch{}throw new Error(data.error||`Error HTTP ${r.status}`)}return r.blob()}
+  async result({maxAttempts=this.resultMaxAttempts,onRetry=()=>{}}={}){
+    if(!this.jobId)throw new Error('No hay trabajo de render activo');
+    const attempts=Math.max(1,Number(maxAttempts)||1);
+    for(let attempt=1;attempt<=attempts;attempt+=1){
+      try{
+        const r=await this.fetchFn(`/api/render/jobs/${encodeURIComponent(this.jobId)}/result`);
+        if(!r.ok){let data={};try{data=await r.json()}catch{}const error=new Error(data.error||`Error HTTP ${r.status}`);error.status=r.status;error.retryable=r.status===408||r.status===425||r.status===429||r.status>=500;throw error}
+        return await r.blob();
+      }catch(error){
+        const retryable=error?.retryable===true||error?.status===408||error?.status===425||error?.status===429||Number(error?.status)>=500||!Number.isFinite(Number(error?.status));
+        if(!retryable||attempt>=attempts)throw error;
+        const retryDelay=Math.min(this.maxRetryDelay,Math.max(this.interval,this.interval*(2**Math.min(attempt-1,4))));
+        onRetry({attempt,nextAttempt:attempt+1,retryDelay,error:error?.message||String(error)});
+        await new Promise(resolve=>setTimeout(resolve,retryDelay));
+      }
+    }
+    throw new Error('No se pudo descargar el render');
+  }
   async cancel(){if(!this.jobId)return {ok:true,status:'idle'};this.cancelled=true;return this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`,{method:'DELETE'})}
   async wait(onProgress=()=>{}){
     if(!this.jobId)throw new Error('No hay trabajo de render activo');
