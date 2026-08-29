@@ -1,0 +1,41 @@
+name: ProfitMente Studio Audio Silence QA
+
+on:
+  push:
+    paths:
+      - 'studio/audio-silence-engine.js'
+      - 'studio/audio-silence-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_audio_silence_engine.mjs'
+      - '.github/workflows/audio-silence-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/audio-silence-engine.js'
+      - 'studio/audio-silence-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_audio_silence_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  audio-silence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/audio-silence-engine.js
+          node --check studio/audio-silence-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_audio_silence_engine.mjs
+      - name: Audio silence regression
+        run: node studio/test_audio_silence_engine.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "audio-silence-engine.js" studio/feature-bootstrap.js
+          grep -q "audio-silence-integration.js" studio/feature-bootstrap.js
+          grep -q "audioSilenceTrimBtn" studio/audio-silence-integration.js
+          grep -q "audioSilenceAllBtn" studio/audio-silence-integration.js
+          grep -q "silenceTrim" studio/audio-silence-engine.js
