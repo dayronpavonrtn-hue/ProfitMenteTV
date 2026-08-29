@@ -37,6 +37,16 @@
       if(!groupIds.size)return [...seedIds];
       const out=new Set(seedIds);for(const clip of this.clips(project))if(groupIds.has(this.groupId(clip)))out.add(String(clip.id));return [...out]
     }
+    isolate(project,clipIds){
+      const selectedIds=new Set((clipIds||[]).filter(Boolean).map(String)),selected=this.clips(project).filter(c=>selectedIds.has(String(c.id))),byGroup=new Map();let changed=0,regrouped=0,ungrouped=0;
+      for(const clip of selected){const id=this.groupId(clip);if(!id)continue;if(!byGroup.has(id))byGroup.set(id,[]);byGroup.get(id).push(clip)}
+      for(const [oldId,members] of byGroup){
+        const hasOutside=this.members(project,oldId).some(c=>!selectedIds.has(String(c.id)));if(!hasOutside)continue;
+        if(members.length>=2){const next=this.createId();for(const clip of members){clip.groupId=next;changed++}regrouped++}
+        else{delete members[0].groupId;changed++;ungrouped++}
+      }
+      return {changed,regrouped,ungrouped,reason:changed?'ok':'unchanged'}
+    }
     validate(project){
       const groups=this.groups(project),orphans=[];
       for(const [id,members] of groups)if(members.length<2)orphans.push({groupId:id,clipId:members[0]?.id});
