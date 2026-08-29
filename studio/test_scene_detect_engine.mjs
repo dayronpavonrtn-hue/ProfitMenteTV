@@ -1,0 +1,13 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('./scene-detect-engine.js',import.meta.url),'utf8');const sandbox={module:{exports:{}},exports:{},console};sandbox.globalThis=sandbox;vm.createContext(sandbox);vm.runInContext(src,sandbox);const Engine=sandbox.module.exports;
+const frame=(time,value)=>({time,pixels:new Uint8Array(16).fill(value)});
+assert.equal(Engine.frameDistance(new Uint8Array([0,0]),new Uint8Array([255,255])),1);
+assert.equal(Engine.frameDistance(new Uint8Array([50]),new Uint8Array([50])),0);
+const frames=[frame(0,10),frame(.33,12),frame(.66,11),frame(.99,220),frame(1.32,222),frame(1.65,221),frame(1.98,25),frame(2.31,24)];
+const result=Engine.detect(frames,{floor:.08,sensitivity:3,minGap:.5});
+assert.equal(result.cuts.length,2,'debe detectar los dos cambios visuales fuertes');
+assert.ok(Math.abs(result.cuts[0].time-.99)<.001);assert.ok(Math.abs(result.cuts[1].time-1.98)<.001);
+const crowded=[frame(0,0),frame(.2,255),frame(.4,0),frame(1.1,255)];const limited=Engine.detect(crowded,{floor:.1,sensitivity:.5,minGap:.65});assert.equal(limited.cuts.length,2,'minGap debe evitar cortes demasiado cercanos');
+assert.equal(Engine.timelineTime(8,{start:10,sourceOffset:4,speed:2}),12);
+assert.equal(Engine.timelineTime(3,{start:5,sourceOffset:4,speed:1}),5,'un tiempo anterior al offset no puede quedar antes del clip');
+console.log('scene detect engine ok');
