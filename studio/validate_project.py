@@ -30,6 +30,26 @@ def asset_has_audio(asset_id):
         return probe.returncode==0 and bool(probe.stdout.strip())
     except (OSError,subprocess.SubprocessError):
         return bool(a.get('hasAudio',False))
+def asset_duration(asset):
+    try:
+        value=float(asset.get('duration',0) or 0)
+        return value if value>0 else 0
+    except (TypeError,ValueError):
+        return 0
+def validate_source_window(i,c,a,d,speed):
+    if not a or a.get('type') not in ('video','audio'): return
+    track=c.get('track')
+    if not (track in (4,5,6) or (track in (0,1) and a.get('type')=='video')): return
+    native=asset_duration(a)
+    if native<=0: return
+    try: offset=float(c.get('sourceOffset',0) or 0)
+    except (TypeError,ValueError):
+        errors.append(f'Clip {i}: sourceOffset no es numérico'); return
+    if offset<0:
+        errors.append(f'Clip {i}: sourceOffset negativo'); return
+    needed=d*speed; end=offset+needed
+    if offset>native+.01 or end>native+.15:
+        errors.append(f'Clip {i}: fuente insuficiente; necesita hasta {end:.2f}s de un archivo de {native:.2f}s')
 if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
 if duration<=0: errors.append('La duración debe ser mayor que 0')
 ids=set(); color_re=re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -71,6 +91,7 @@ for i,c in enumerate(clips):
                 expected='video/imagen' if track in (0,1) else 'audio/video con audio'
                 errors.append(f'Clip {i}: medio {asset_type or "sin tipo"} incompatible con track {track}; se espera {expected}')
             if assets_dir and not (assets_dir/a.get('name','')).exists(): errors.append(f'Falta archivo: {a.get("name")}')
+            if speed>=.25 and speed<=4: validate_source_window(i,c,a,d,speed)
             if track in (4,5,6) or (track in (0,1) and a.get('type')=='video'):
                 for key,default in [('fadeIn',.18),('fadeOut',.25)]:
                     try:value=float(c.get(key,default) if c.get(key) is not None else default)
