@@ -27,6 +27,10 @@
     const ids=engine.members(project,groupId).map(c=>String(c.id));if(ids.length<2)return;
     requestAnimationFrame(()=>{multi()?.set(ids);window.ProfitMenteMultiSelect?.refresh?.();refresh();status(`Grupo seleccionado · ${ids.length} clips vinculados`)})
   },true);
+  document.addEventListener('click',e=>{
+    if(!e.target.closest?.('#multiDuplicate'))return;
+    queueMicrotask(()=>{const r=engine.isolate(project,selectedIds());if(!r.changed)return;originalPersist?.();drawTimeline?.();requestAnimationFrame(()=>{window.ProfitMenteMultiSelect?.refresh?.();refresh()});status(`Duplicado independiente · ${r.regrouped} grupo(s) nuevo(s)${r.ungrouped?` · ${r.ungrouped} copia(s) individual(es) desvinculada(s)`:''}`)})
+  });
   window.addEventListener('profitmente:features-ready',refresh);
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(refresh)};
   const repaired=engine.repair(project);if(repaired.repaired)persist?.();
