@@ -26,17 +26,20 @@
     return [...new Set(out)].sort((a,b)=>a-b);
   }
   function snapTime(raw,ignoreId){
-    const clamped=Math.max(0,Math.min(+project.duration||0,Number(raw)||0));let best=Math.round(clamped*10)/10,bestDist=Math.abs(best-clamped),kind='grid';
-    for(const b of boundaries(ignoreId)){const d=Math.abs(b-clamped);if(d<bestDist&&d<=SNAP_SECONDS){best=b;bestDist=d;kind='edge'}}return {time:best,snapped:bestDist<=SNAP_SECONDS,kind};
+    const clamped=Math.max(0,Math.min(+project.duration||0,Number(raw)||0));let best=null,bestDist=Infinity;
+    for(const b of boundaries(ignoreId)){const d=Math.abs(b-clamped);if(d<bestDist&&d<=SNAP_SECONDS){best=b;bestDist=d}}
+    if(best!==null)return {time:best,snapped:true,kind:'edge'};
+    return {time:Math.round(clamped*10)/10,snapped:false,kind:'grid'};
   }
   function snapStart(raw,clip){
     const max=Math.max(0,project.duration-clip.duration),clamped=Math.max(0,Math.min(max,raw));
-    let best=Math.round(clamped*10)/10,bestDist=Math.abs(best-clamped),kind='grid';
+    let best=null,bestDist=Infinity,kind='grid';
     for(const b of boundaries(clip.id)){
       const d1=Math.abs(b-clamped);if(d1<bestDist&&d1<=SNAP_SECONDS){best=b;bestDist=d1;kind='start'}
       const endCandidate=b-clip.duration,d2=Math.abs(endCandidate-clamped);if(d2<bestDist&&d2<=SNAP_SECONDS){best=endCandidate;bestDist=d2;kind='end'}
     }
-    return {start:Math.max(0,Math.min(max,best)),snapped:bestDist<=SNAP_SECONDS,kind};
+    if(best!==null)return {start:Math.max(0,Math.min(max,best)),snapped:true,kind};
+    return {start:Math.max(0,Math.min(max,Math.round(clamped*10)/10)),snapped:false,kind:'grid'};
   }
   function laneAt(x,y){const el=document.elementFromPoint(x,y);return el?.closest?.('.lane')||null}
   function clearTargets(){document.querySelectorAll('.lane.dropTarget').forEach(x=>x.classList.remove('dropTarget'))}
