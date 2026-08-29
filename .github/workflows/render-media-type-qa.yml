@@ -1,0 +1,19 @@
+name: ProfitMente Studio Render Media Type QA
+
+on:
+  push:
+    paths:
+      - 'studio/validate_project.py'
+      - 'studio/test_validate_media_types.py'
+      - '.github/workflows/render-media-type-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-media-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/validate_project.py studio/test_validate_media_types.py
+      - name: Media type regression
+        run: python studio/test_validate_media_types.py
