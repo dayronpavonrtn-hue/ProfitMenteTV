@@ -1,0 +1,30 @@
+name: ProfitMente Studio Media Placement QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-placement-engine.js'
+      - 'studio/media-placement-integration.js'
+      - 'studio/test_media_placement.mjs'
+      - 'studio/timeline-operations.js'
+      - 'studio/feature-bootstrap.js'
+      - '.github/workflows/studio-media-placement-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/media-placement-engine.js
+          node --check studio/media-placement-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Placement regressions
+        run: node studio/test_media_placement.mjs
+      - name: Existing timeline regressions
+        run: node studio/test_timeline_operations.mjs
