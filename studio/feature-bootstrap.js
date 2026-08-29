@@ -9,6 +9,8 @@
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
     ['media-placement-engine.js','ProfitMenteMediaPlacementEngine'],
     ['media-placement-integration.js','ProfitMenteMediaPlacement'],
+    ['source-monitor-engine.js','ProfitMenteSourceMonitorEngine'],
+    ['source-monitor-integration.js','ProfitMenteSourceMonitor'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
     ['project-duration.js','ProfitMenteProjectDuration'],
