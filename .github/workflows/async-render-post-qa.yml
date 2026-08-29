@@ -4,7 +4,9 @@ on:
   push:
     paths:
       - 'studio/render-job-integration.js'
+      - 'studio/studio_server.py'
       - 'studio/test_async_render_validation.mjs'
+      - 'studio/test_server_api.py'
       - '.github/workflows/async-render-post-qa.yml'
   workflow_dispatch:
 
@@ -16,7 +18,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Check render integration syntax
         run: node --check studio/render-job-integration.js
-      - name: Verify async post-render QA
+      - name: Check local server syntax
+        run: python -m py_compile studio/studio_server.py studio/test_server_api.py
+      - name: Verify async post-render QA and queue UI
         run: node studio/test_async_render_validation.mjs
+      - name: Verify local render queue API
+        working-directory: studio
+        run: python test_server_api.py
