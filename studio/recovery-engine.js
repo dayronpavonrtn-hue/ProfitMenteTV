@@ -13,6 +13,15 @@ class ProfitMenteRecoveryEngine{
     rows.unshift(snapshot);this._write(rows);return structuredClone(snapshot)
   }
   list(project=null){let rows=this._read();if(project)rows=rows.filter(x=>x.group===this._group(project));return rows.map(({fingerprint,...x})=>structuredClone(x))}
+  listGroups(){
+    const groups=new Map();
+    for(const row of this._read()){
+      const current=groups.get(row.group);
+      if(current){current.count+=1;continue}
+      groups.set(row.group,{group:row.group,name:row.name||'Sin título',libraryId:row.libraryId||null,count:1,latestAt:row.createdAt||'',latestId:row.id});
+    }
+    return [...groups.values()].sort((a,b)=>(b.latestAt||'').localeCompare(a.latestAt||'')).map(x=>structuredClone(x))
+  }
   latest(project=null){return this.list(project)[0]||null}
   restore(id){const row=this._read().find(x=>x.id===id);return row?structuredClone(row.project):null}
   remove(id){const rows=this._read(),next=rows.filter(x=>x.id!==id);this._write(next);return next.length!==rows.length}
