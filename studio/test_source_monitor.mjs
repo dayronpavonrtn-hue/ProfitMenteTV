@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),Engine=require('./source-monitor-engine.js');
+const video={type:'video',duration:12};
+let r=Engine.normalizeRange(video,2.5,7.75);assert.equal(r.in,2.5);assert.equal(r.out,7.75);assert.equal(r.duration,5.25);assert.equal(r.valid,true);
+r=Engine.normalizeRange(video,-5,99);assert.equal(r.in,0);assert.equal(r.out,12);assert.equal(r.duration,12);
+r=Engine.normalizeRange(video,11.95,11.96);assert.equal(r.in,11.75);assert.equal(r.out,12);assert.ok(Math.abs(r.duration-.25)<1e-9);
+r=Engine.normalizeRange({type:'audio'},0,2);assert.equal(r.valid,false);assert.equal(r.reason,'unknown-duration');
+r=Engine.selection(video,3,8,10,20);assert.equal(r.start,10);assert.equal(r.sourceOffset,3);assert.equal(r.duration,5);assert.equal(r.out,8);assert.equal(r.valid,true);
+r=Engine.selection(video,3,8,19.9,20);assert.equal(r.valid,false);assert.equal(r.reason,'project-end');
+r=Engine.selection({type:'image',duration:99},2,3,0,20);assert.equal(r.sourceOffset,0);assert.equal(r.in,0);assert.equal(r.duration,5);
+assert.equal(Engine.time(65.5),'01:05.50');
+console.log('Source monitor engine QA OK');
