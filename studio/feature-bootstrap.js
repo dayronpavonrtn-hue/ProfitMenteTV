@@ -11,6 +11,8 @@
     ['media-placement-integration.js','ProfitMenteMediaPlacement'],
     ['source-monitor-engine.js','ProfitMenteSourceMonitorEngine'],
     ['source-monitor-integration.js','ProfitMenteSourceMonitor'],
+    ['match-frame-engine.js','ProfitMenteMatchFrameEngine'],
+    ['match-frame-integration.js','ProfitMenteMatchFrame'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
     ['project-duration.js','ProfitMenteProjectDuration'],
