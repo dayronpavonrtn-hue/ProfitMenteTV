@@ -31,6 +31,7 @@
   loadScriptOnce('qa-autofix.js','qaAutofix',()=>loadScriptOnce('source-window-guard.js','sourceWindowGuard'));
   loadScriptOnce('export-preflight.js','exportPreflight');
   loadScriptOnce('post-render-report.js','postRenderReport');
+  loadScriptOnce('render-error-engine.js','renderErrorEngine');
 
   function bootMediaReplacement(){
     if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
