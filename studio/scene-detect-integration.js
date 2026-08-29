@@ -3,14 +3,15 @@
   const host=document.querySelector('#sceneBtn')?.parentElement||document.querySelector('aside');if(!host)return;
   const btn=document.createElement('button');btn.id='detectCutsBtn';btn.textContent='✦ Detectar cortes del video';btn.title='Analiza localmente el video y crea marcadores en los cambios de escena';
   document.querySelector('#sceneBtn')?.insertAdjacentElement('afterend',btn);
-  const seek=(video,time)=>new Promise((resolve,reject)=>{const done=()=>{cleanup();resolve()};const fail=()=>{cleanup();reject(video.error||new Error('No se pudo leer el video'))};const cleanup=()=>{video.removeEventListener('seeked',done);video.removeEventListener('error',fail)};video.addEventListener('seeked',done,{once:true});video.addEventListener('error',fail,{once:true});video.currentTime=Math.max(0,Math.min(Number(video.duration)||0,time))});
+  const seek=(video,time)=>new Promise((resolve,reject)=>{const target=Math.max(0,Math.min(Number(video.duration)||0,time));if(video.readyState>=2&&Math.abs(video.currentTime-target)<.001)return resolve();const done=()=>{cleanup();resolve()};const fail=()=>{cleanup();reject(video.error||new Error('No se pudo leer el video'))};const cleanup=()=>{video.removeEventListener('seeked',done);video.removeEventListener('error',fail)};video.addEventListener('seeked',done,{once:true});video.addEventListener('error',fail,{once:true});video.currentTime=target});
   async function analyzeClip(clip,asset){
     const url=URL.createObjectURL(asset.blob),video=document.createElement('video');video.muted=true;video.preload='auto';video.src=url;
     try{
-      await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(video.error||new Error('Video no compatible'))});
-      const speed=Math.max(.01,Number(clip.speed)||1),sourceStart=Math.max(0,Number(clip.sourceOffset)||0),sourceEnd=Math.min(Number(video.duration)||Infinity,sourceStart+Math.max(.1,Number(clip.duration)||0)*speed);
-      const fps=3,step=1/fps,canvas=document.createElement('canvas');canvas.width=64;canvas.height=36;const ctx=canvas.getContext('2d',{willReadFrequently:true}),frames=[];
+      await new Promise((resolve,reject)=>{video.onloadeddata=resolve;video.onerror=()=>reject(video.error||new Error('Video no compatible'))});
+      const speed=Math.max(.01,Number(clip.speed)||1),sourceStart=Math.max(0,Number(clip.sourceOffset)||0),sourceEnd=Math.min(Number(video.duration)||Infinity,sourceStart+Math.max(.1,Number(clip.duration)||0)*speed),span=Math.max(.1,sourceEnd-sourceStart);
+      const step=Math.max(1/3,span/600),canvas=document.createElement('canvas');canvas.width=64;canvas.height=36;const ctx=canvas.getContext('2d',{willReadFrequently:true}),frames=[];
       for(let t=sourceStart;t<=sourceEnd+.0001;t+=step){await seek(video,t);ctx.drawImage(video,0,0,canvas.width,canvas.height);const rgba=ctx.getImageData(0,0,canvas.width,canvas.height).data,pixels=new Uint8Array(canvas.width*canvas.height);for(let i=0,j=0;i<rgba.length;i+=4,j++)pixels[j]=Math.round(rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114);frames.push({time:t,pixels});}
+      if(frames.at(-1)?.time<sourceEnd-.05){await seek(video,sourceEnd);ctx.drawImage(video,0,0,canvas.width,canvas.height);const rgba=ctx.getImageData(0,0,canvas.width,canvas.height).data,pixels=new Uint8Array(canvas.width*canvas.height);for(let i=0,j=0;i<rgba.length;i+=4,j++)pixels[j]=Math.round(rgba[i]*.299+rgba[i+1]*.587+rgba[i+2]*.114);frames.push({time:sourceEnd,pixels})}
       return ProfitMenteSceneDetectEngine.detect(frames,{minGap:.65,sensitivity:3.5,floor:.08});
     }finally{video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(url)}
   }
