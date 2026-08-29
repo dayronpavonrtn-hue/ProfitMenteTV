@@ -4,7 +4,7 @@ const require=createRequire(import.meta.url);
 const History=require('./project-history-engine.js');
 
 const base={version:'1.3',name:'A',duration:30,clips:[{id:'v1',track:0,start:0,duration:5}]};
-const h=new History(base,{limit:3});
+const h=new History(base,{limit:5});
 assert.equal(h.canUndo(),false);
 assert.equal(h.canRedo(),false);
 
@@ -24,12 +24,12 @@ const branch=structuredClone(p1);branch.name='Branch';
 h.commit(branch);
 assert.equal(h.canRedo(),false,'a new edit after undo must invalidate redo');
 
-for(let i=0;i<5;i++){const p=structuredClone(branch);p.duration=31+i;h.commit(p)}
-assert.equal(h.state().undo,3,'history must enforce its memory limit');
+for(let i=0;i<7;i++){const p=structuredClone(branch);p.duration=31+i;h.commit(p)}
+assert.equal(h.state().undo,5,'history must enforce its memory limit');
 
 const detached=h.undo();detached.name='mutated outside';
 assert.notEqual(h.current.name,'mutated outside','returned snapshots must be defensive clones');
 
 h.reset(base);
-assert.deepEqual(h.state(),{undo:0,redo:0,limit:3});
+assert.deepEqual(h.state(),{undo:0,redo:0,limit:5});
 console.log('project history regression: ok');
