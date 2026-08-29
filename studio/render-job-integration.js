@@ -6,7 +6,7 @@
   let cancelBtn=document.querySelector('#cancelRenderBtn');
   if(!cancelBtn){cancelBtn=document.createElement('button');cancelBtn.id='cancelRenderBtn';cancelBtn.type='button';cancelBtn.textContent='■ Cancelar render';cancelBtn.hidden=true;cancelBtn.title='Detener el render MP4 local';renderBtn.insertAdjacentElement('afterend',cancelBtn)}
   const safeName=name=>String(name||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120);
-  function statusText(s){const p=Number.isFinite(Number(s.progress))?` · ${Math.max(0,Math.min(100,Math.round(Number(s.progress))))}%`:'';const elapsed=Number(s.elapsed||0)>0?` · ${Math.round(Number(s.elapsed))}s`:'';const label=s.status==='queued'?'En cola':s.status==='rendering'?'Renderizando':s.status==='done'?'Terminado':s.status==='cancelled'?'Cancelado':'Preparando';return `${label}${p}${elapsed}`}
+  function statusText(s){const p=Number.isFinite(Number(s.progress))?` · ${Math.max(0,Math.min(100,Math.round(Number(s.progress))))}%`:'';const elapsed=Number(s.elapsed||0)>0?` · ${Math.round(Number(s.elapsed))}s`:'';const retry=s.status==='reconnecting'&&Number(s.retry)>0?` · intento ${Number(s.retry)}`:'';const label=s.status==='queued'?'En cola':s.status==='rendering'?'Renderizando':s.status==='reconnecting'?'Reconectando':s.status==='done'?'Terminado':s.status==='cancelled'?'Cancelado':'Preparando';return `${label}${p}${elapsed}${retry}`}
   function persistSession(projectName){try{localStorage.setItem(SESSION_KEY,JSON.stringify({jobId:client.jobId,projectName:String(projectName||'profitmente'),savedAt:Date.now()}))}catch{}}
   function readSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.jobId?data:null}catch{return null}}
   function clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch{}}
@@ -52,5 +52,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText};
 })();
