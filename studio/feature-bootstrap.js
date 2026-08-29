@@ -28,6 +28,7 @@
     ['project-version-engine.js','ProfitMenteProjectVersionEngine'],
     ['project-version-integration.js','ProfitMenteProjectVersions'],
     ['qa-autofix.js','ProfitMenteQAAutofix'],
+    ['qa-source-window-guard.js','ProfitMenteQASourceWindowGuard'],
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
     ['recovery-integration.js','ProfitMenteRecovery'],
     ['render-job-client.js','ProfitMenteRenderJobClient'],
