@@ -1,0 +1,27 @@
+name: ProfitMente Studio Group Split QA
+
+on:
+  push:
+    paths:
+      - 'studio/group-split-engine.js'
+      - 'studio/split-edit-engine.js'
+      - 'studio/edit-tools.js'
+      - 'studio/test_group_split.mjs'
+      - '.github/workflows/group-split-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  group-split:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: |
+          node --check studio/group-split-engine.js
+          node --check studio/split-edit-engine.js
+          node --check studio/edit-tools.js
+      - name: Linked clip split regression
+        run: node studio/test_group_split.mjs
