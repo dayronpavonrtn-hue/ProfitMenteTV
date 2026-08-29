@@ -1,13 +1,14 @@
 class ProfitMenteMediaPlacementEngine{
   static range(project,at,duration){
     const total=Math.max(.25,Number(project?.duration)||.25),start=Math.max(0,Math.min(total,Number(at)||0));
-    const length=Math.max(.25,Math.min(Math.max(0,total-start),Number(duration)||.25));
-    return {start,end:start+length,duration:length,total};
+    const requested=Math.max(.25,Number(duration)||.25),available=Math.max(0,total-start),length=Math.min(available,requested);
+    return {start,end:start+length,duration:length,total,available,valid:length>=.25-.001};
   }
   static onTrack(project,track){return (project?.clips||[]).filter(c=>Number(c?.track)===Number(track))}
   static insertSpace(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split)return {ok:false,reason:'missing-engine',shifted:0};
-    const r=this.range(project,at,duration),clips=this.onTrack(project,track),after=clips.filter(c=>(Number(c.start)||0)>=r.start-.001),crossing=clips.find(c=>(Number(c.start)||0)<r.start-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>r.start+.001);
+    const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',shifted:0,required:.25,total:r.total,available:r.available};
+    const clips=this.onTrack(project,track),after=clips.filter(c=>(Number(c.start)||0)>=r.start-.001),crossing=clips.find(c=>(Number(c.start)||0)<r.start-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>r.start+.001);
     const movable=[...after];if(crossing)movable.push(crossing);
     const maxEnd=movable.reduce((m,c)=>Math.max(m,(Number(c.start)||0)+(Number(c.duration)||0)),0);
     if(maxEnd+r.duration>r.total+.001)return {ok:false,reason:'out-of-range',shifted:0,required:maxEnd+r.duration,total:r.total};
@@ -19,7 +20,8 @@ class ProfitMenteMediaPlacementEngine{
   }
   static overwriteRange(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split||!ops?.trimLeft||!ops?.trimRight)return {ok:false,reason:'missing-engine',removed:0,trimmed:0};
-    const r=this.range(project,at,duration),ids=this.onTrack(project,track).filter(c=>{const s=Number(c.start)||0,e=s+(Number(c.duration)||0);return s<r.end-.001&&e>r.start+.001}).map(c=>c.id);
+    const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',removed:0,trimmed:0,total:r.total,available:r.available};
+    const ids=this.onTrack(project,track).filter(c=>{const s=Number(c.start)||0,e=s+(Number(c.duration)||0);return s<r.end-.001&&e>r.start+.001}).map(c=>c.id);
     let removed=0,trimmed=0,splitCount=0;
     const remove=id=>{const before=project.clips.length;project.clips=project.clips.filter(c=>c.id!==id);if(project.clips.length<before)removed++};
     for(const id of ids){
