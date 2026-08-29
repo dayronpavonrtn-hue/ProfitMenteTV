@@ -49,7 +49,9 @@
     if(['fade','slide','zoom'].includes(transition)&&c.start>0)alpha*=clamp(local/td,0,1);
     if(transition==='slide'&&c.start>0)x+=canvas.width*(1-clamp(local/td,0,1));
     if(transition==='zoom'&&c.start>0)scale*=1+.025*(1-clamp(local/td,0,1));
-    if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p;
+    // Explicit start/end keyframes own the transform curve. Do not stack canned motion
+    // on top of them, matching render_mp4.py and avoiding preview/export drift.
+    if(!kf){if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p}
     return {alpha,x,y,scale,rotation};
   }
   async function drawClip(c,t,epoch){
