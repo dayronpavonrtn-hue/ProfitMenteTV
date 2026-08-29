@@ -10,6 +10,7 @@
       captionBtn:'Antes de regenerar subtítulos',
       brollBtn:'Antes de generar B-roll',
       qaFixBtn:'Antes de reparación QA',
+      safeAreaFixBtn:'Antes de ajustar zona segura',
       visualGapFillBtn:'Antes de completar huecos',
       clearBtn:'Antes de crear proyecto nuevo'
     };
