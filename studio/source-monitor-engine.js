@@ -4,6 +4,12 @@ class ProfitMenteSourceMonitorEngine{
     if(asset?.type==='image')return 5;
     const n=Number(asset?.duration);return Number.isFinite(n)&&n>0?n:0;
   }
+  static tracks(asset){
+    if(asset?.type==='audio')return [{id:4,label:'SFX'},{id:5,label:'Música'},{id:6,label:'Voz'}];
+    if(asset?.type==='video'||asset?.type==='image')return [{id:0,label:'Video'},{id:1,label:'Overlay'}];
+    return [];
+  }
+  static defaultTrack(asset){return asset?.type==='audio'?5:0}
   static clamp(value,min,max){const n=Number(value);return Math.max(min,Math.min(max,Number.isFinite(n)?n:min))}
   static normalizeRange(asset,inPoint=0,outPoint=null,minDuration=this.minimum()){
     const total=this.duration(asset),min=Math.max(.001,Number(minDuration)||this.minimum());
