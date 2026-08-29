@@ -20,7 +20,11 @@
     }
     shift(clip,asset,timelineDelta){
       const delta=Number(timelineDelta);if(!Number.isFinite(delta))return {ok:false,changed:false,reason:'invalid-delta'};
-      const current=Math.max(0,Number(clip?.sourceOffset)||0),sourceDelta=delta*this.speed(clip);return this.setOffset(clip,asset,current+sourceDelta)
+      return this.shiftSource(clip,asset,delta*this.speed(clip))
+    }
+    shiftSource(clip,asset,sourceDelta){
+      const delta=Number(sourceDelta);if(!Number.isFinite(delta))return {ok:false,changed:false,reason:'invalid-delta'};
+      const current=Math.max(0,Number(clip?.sourceOffset)||0);return this.setOffset(clip,asset,current+delta)
     }
     sourceWindow(clip,asset){const c=this.canSlip(clip,asset),start=Math.max(0,Number(clip?.sourceOffset)||0),end=start+this.usedSourceDuration(clip);return {...c,start:+start.toFixed(6),end:+end.toFixed(6)}}
   }
