@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validate a ProfitMente Studio project before MP4 rendering."""
-import json,sys,pathlib,re
+import json,sys,pathlib,re,subprocess
 
 if len(sys.argv) not in (2,3):
     raise SystemExit('Usage: validate_project.py project.json [assets_dir]')
@@ -18,6 +18,18 @@ def expected_asset_types(track):
     if track in (0,1): return {'video','image'}
     if track in (4,5,6): return {'video','audio'}
     return None
+def asset_has_audio(asset_id):
+    a=amap.get(asset_id)
+    if not a or a.get('type') not in ('video','audio'): return False
+    if a.get('type')=='audio': return True
+    if not assets_dir: return bool(a.get('hasAudio',False))
+    f=assets_dir/a.get('name','')
+    if not f.exists(): return False
+    try:
+        probe=subprocess.run(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',str(f)],capture_output=True,text=True,timeout=8)
+        return probe.returncode==0 and bool(probe.stdout.strip())
+    except (OSError,subprocess.SubprocessError):
+        return bool(a.get('hasAudio',False))
 if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
 if duration<=0: errors.append('La duración debe ser mayor que 0')
 ids=set(); color_re=re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -69,6 +81,8 @@ for i,c in enumerate(clips):
                     if fi>=0 and fo>=0 and fi+fo>d+.001:warnings.append(f'Clip {i}: fades se solapan y serán normalizados')
                 except (TypeError,ValueError):pass
 if not any(c.get('track') in (0,1) and c.get('asset') and not track_hidden(c.get('track')) for c in clips): warnings.append('No hay medios visuales; el render usará fondo negro')
-if not any(c.get('track') in (4,5,6) and c.get('asset') and not c.get('muted') and not track_muted(c.get('track')) for c in clips): warnings.append('No hay audio en el proyecto')
+has_dedicated_audio=any(c.get('track') in (4,5,6) and c.get('asset') and not c.get('muted') and not track_muted(c.get('track')) for c in clips)
+has_source_audio=any(c.get('track') in (0,1) and c.get('asset') and not c.get('muted') and not track_hidden(c.get('track')) and asset_has_audio(c.get('asset')) for c in clips)
+if not has_dedicated_audio and not has_source_audio: warnings.append('No hay audio en el proyecto')
 print(json.dumps({'ok':not errors,'errors':errors,'warnings':warnings,'clips':len(clips),'assets':len(assets)},ensure_ascii=False,indent=2))
 if errors: raise SystemExit(2)
