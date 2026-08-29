@@ -38,7 +38,7 @@ assert.equal(e.chooseClip(clips,11,null),null,'no clip outside edit boundaries')
 
 const integration=fs.readFileSync(new URL('./match-frame-integration.js',import.meta.url),'utf8');
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
-assert.match(integration,/ProfitMenteSourceMonitor\.open\(asset\)/,'integration must open the existing source monitor');
+assert.match(integration,/monitor\.open\(asset\)/,'integration must open the existing source monitor');
 assert.match(integration,/sourceMonitorSeek/,'integration must seek the source monitor');
 assert.match(integration,/e\.key\.toLowerCase\(\)===['"]f['"]/,'F shortcut must invoke Match Frame');
 assert.match(bootstrap,/match-frame-engine\.js/,'bootstrap must load Match Frame engine');
