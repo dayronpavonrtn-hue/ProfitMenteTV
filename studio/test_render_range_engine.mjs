@@ -17,4 +17,9 @@ const image=out.clips.find(c=>c.id==='i1');assert.equal(image.start,3);assert.eq
 const audio=out.clips.find(c=>c.id==='a1');assert.equal(audio.start,0);assert.equal(audio.duration,6);assert.equal(audio.sourceOffset,1.5);
 const caption=out.clips.find(c=>c.id==='c1');assert.equal(caption.start,0);assert.equal(caption.duration,6);assert.deepEqual(caption.wordTimings,[{word:'b',start:3,end:4}]);
 assert.deepEqual(out.markers,[{id:'m2',time:2}]);assert.equal(out.workRange,undefined);assert.equal(Engine.valid(project,4,4.1),false);assert.equal(Engine.valid(project,4,4.25),true);
+let d=Engine.previewDecision(project,6,12,8,false);assert.equal(d.action,'continue');assert.equal(d.time,8);
+d=Engine.previewDecision(project,6,12,12,false);assert.equal(d.action,'stop');assert.equal(d.time,6);
+d=Engine.previewDecision(project,6,12,12,true);assert.equal(d.action,'loop');assert.equal(d.time,6);
+d=Engine.previewDecision(project,6,12,5.8,true);assert.equal(d.action,'seek-start');assert.equal(d.time,6);
+d=Engine.previewDecision(project,6,6.1,6.05,true);assert.equal(d.action,'invalid');
 console.log('render range engine ok');
