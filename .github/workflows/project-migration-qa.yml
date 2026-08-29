@@ -1,0 +1,33 @@
+name: ProfitMente Studio Project Migration QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-migration-engine.js'
+      - 'studio/project-migration-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_project_migration.mjs'
+      - '.github/workflows/project-migration-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-migration-engine.js'
+      - 'studio/project-migration-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_project_migration.mjs'
+
+jobs:
+  project-migration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/project-migration-engine.js
+          node --check studio/project-migration-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_project_migration.mjs
+      - name: Project migration regression
+        run: node studio/test_project_migration.mjs
