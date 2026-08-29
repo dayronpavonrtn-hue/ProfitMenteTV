@@ -1,0 +1,38 @@
+(()=>{
+  if(typeof document==='undefined'||!window.ProfitMenteSourceMonitorEngine||window.ProfitMenteSourceMonitor)return;
+  const Engine=window.ProfitMenteSourceMonitorEngine,$=s=>document.querySelector(s),library=$('#mediaLibrary');if(!library)return;
+  const panel=document.createElement('section');panel.id='sourceMonitor';panel.hidden=true;panel.innerHTML=`<div class="sourceMonitorHead"><b>Monitor de fuente</b><button type="button" data-sm-close title="Cerrar">×</button></div><div class="sourceMonitorName"></div><div class="sourceMonitorMedia"></div><input class="sourceMonitorSeek" type="range" min="0" max="1" step="0.01" value="0"><div class="sourceMonitorReadout"><span data-sm-now>00:00.00</span><span data-sm-range>IN 00:00.00 · OUT 00:00.00</span></div><div class="sourceMonitorActions"><button type="button" data-sm-in>⟦ Marcar IN</button><button type="button" data-sm-out>Marcar OUT ⟧</button><button type="button" data-sm-reset>Restablecer</button><button type="button" data-sm-place>Colocar selección</button></div>`;
+  library.insertAdjacentElement('afterend',panel);
+  const style=document.createElement('style');style.id='profitmenteSourceMonitorStyle';style.textContent=`#sourceMonitor{margin-top:8px;padding:8px;border:1px solid #303846;border-radius:9px;background:#111720}.sourceMonitorHead{display:flex;justify-content:space-between;align-items:center}.sourceMonitorHead button{width:auto!important;margin:0!important;padding:2px 7px!important}.sourceMonitorName{font-size:10px;color:#b7c0ce;margin:4px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sourceMonitorMedia video,.sourceMonitorMedia img{display:block;width:100%;max-height:190px;object-fit:contain;background:#05070a;border-radius:6px}.sourceMonitorMedia audio{width:100%}.sourceMonitorSeek{width:100%;margin:7px 0 2px}.sourceMonitorReadout{display:flex;justify-content:space-between;gap:6px;font-size:9px;color:#9aa5b5}.sourceMonitorActions{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}.sourceMonitorActions button{margin:0!important;padding:7px 5px!important;font-size:10px}.sourceMonitorOpen{width:30px!important;margin:0!important;padding:3px!important;font-size:14px}.mediaRow:has(.sourceMonitorOpen){grid-template-columns:1fr 30px 30px}`;document.head.appendChild(style);
+  const mediaHost=panel.querySelector('.sourceMonitorMedia'),seek=panel.querySelector('.sourceMonitorSeek'),nameEl=panel.querySelector('.sourceMonitorName'),nowEl=panel.querySelector('[data-sm-now]'),rangeEl=panel.querySelector('[data-sm-range]');
+  let asset=null,element=null,url=null,inPoint=0,outPoint=0;
+  const status=t=>typeof setStatus==='function'&&setStatus(t);
+  function release(){if(element?.pause)element.pause();element=null;mediaHost.innerHTML='';if(url){URL.revokeObjectURL(url);url=null}}
+  function range(){return Engine.normalizeRange(asset,inPoint,outPoint)}
+  function update(){const r=range(),current=Number(element?.currentTime)||Number(seek.value)||0;nowEl.textContent=Engine.time(current);rangeEl.textContent=`IN ${Engine.time(r.in)} · OUT ${Engine.time(r.out)} · ${r.duration.toFixed(2)}s`;seek.max=Math.max(.01,r.total||1);seek.value=Math.min(Number(seek.max),current)}
+  function open(next){
+    if(!next?.blob){status('Ese medio no está disponible localmente');return}release();asset=next;const total=Engine.duration(asset);inPoint=0;outPoint=total;panel.hidden=false;nameEl.textContent=asset.name||'Medio';url=URL.createObjectURL(asset.blob);
+    if(asset.type==='video'){element=document.createElement('video');element.controls=true;element.muted=false;element.playsInline=true;element.preload='metadata';element.src=url;mediaHost.appendChild(element)}
+    else if(asset.type==='audio'){element=document.createElement('audio');element.controls=true;element.preload='metadata';element.src=url;mediaHost.appendChild(element)}
+    else{element=document.createElement('img');element.src=url;element.alt=asset.name||'Imagen';mediaHost.appendChild(element)}
+    if(element&&asset.type!=='image'){element.addEventListener('timeupdate',update);element.addEventListener('seeked',update);element.addEventListener('loadedmetadata',()=>{if(!asset.duration&&Number.isFinite(element.duration))outPoint=element.duration;update()})}
+    seek.disabled=asset.type==='image';seek.value=0;update();status(`${asset.name} abierto en Monitor de fuente · marca IN/OUT antes de colocarlo`)
+  }
+  function enhanceRows(){
+    library.querySelectorAll('.mediaRow[data-asset-id]').forEach(row=>{if(row.querySelector('.sourceMonitorOpen'))return;const a=assets.find(x=>x.id===row.dataset.assetId);if(!a)return;const b=document.createElement('button');b.type='button';b.className='sourceMonitorOpen';b.textContent='◉';b.title=`Abrir ${a.name} en Monitor de fuente`;b.onclick=e=>{e.preventDefault();e.stopPropagation();open(a)};row.appendChild(b)})
+  }
+  const baseDraw=drawLibrary;drawLibrary=function(){baseDraw();enhanceRows()};enhanceRows();
+  seek.addEventListener('input',()=>{if(element&&asset?.type!=='image'){const t=Engine.clamp(seek.value,0,Engine.duration(asset));try{element.currentTime=t}catch{}nowEl.textContent=Engine.time(t)}});
+  panel.querySelector('[data-sm-in]').onclick=()=>{if(!asset)return;inPoint=asset.type==='image'?0:(Number(element?.currentTime)||Number(seek.value)||0);const r=Engine.normalizeRange(asset,inPoint,outPoint);inPoint=r.in;outPoint=r.out;update()};
+  panel.querySelector('[data-sm-out]').onclick=()=>{if(!asset)return;outPoint=asset.type==='image'?Engine.duration(asset):(Number(element?.currentTime)||Number(seek.value)||0);const r=Engine.normalizeRange(asset,inPoint,outPoint);inPoint=r.in;outPoint=r.out;update()};
+  panel.querySelector('[data-sm-reset]').onclick=()=>{if(!asset)return;inPoint=0;outPoint=Engine.duration(asset);if(element&&asset.type!=='image')element.currentTime=0;update()};
+  panel.querySelector('[data-sm-close]').onclick=()=>{release();asset=null;panel.hidden=true};
+  panel.querySelector('[data-sm-place]').onclick=()=>{
+    if(!asset)return;const at=Number($('#playhead')?.value)||0,sel=Engine.selection(asset,inPoint,outPoint,at,project.duration);
+    if(!sel.valid){status(sel.reason==='project-end'?'No queda espacio suficiente desde el cursor para colocar la selección':'No hay una selección de fuente válida');return}
+    const placement=window.ProfitMenteMediaPlacement;if(!placement?.place){status('El motor de colocación todavía no está disponible');return}
+    const track=asset.type==='audio'?5:0,ok=placement.place(asset,track,at,sel.duration,sel.sourceOffset);if(ok)status(`${asset.name} · fuente ${Engine.time(sel.in)}–${Engine.time(sel.out)} colocada en ${sel.start.toFixed(2)}s`)
+  };
+  document.addEventListener('keydown',e=>{if(panel.hidden||!asset||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;const k=e.key.toLowerCase();if(k!=='i'&&k!=='o')return;e.preventDefault();panel.querySelector(k==='i'?'[data-sm-in]':'[data-sm-out]').click()});
+  window.ProfitMenteSourceMonitor={engine:Engine,panel,open,get asset(){return asset},get range(){return range()}};status('Monitor de fuente listo · selección IN/OUT disponible');
+})();
