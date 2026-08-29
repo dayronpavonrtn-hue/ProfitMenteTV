@@ -1,0 +1,35 @@
+name: ProfitMente Studio Browser Source Window QA
+
+on:
+  push:
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-source-window-guard.js'
+      - 'studio/test-qa-source-window-guard.js'
+      - 'studio/feature-bootstrap.js'
+      - '.github/workflows/studio-source-window-browser-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-source-window-guard.js'
+      - 'studio/test-qa-source-window-guard.js'
+      - 'studio/feature-bootstrap.js'
+      - '.github/workflows/studio-source-window-browser-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  source-window-browser-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: |
+          node --check studio/qa-engine.js
+          node --check studio/qa-source-window-guard.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test-qa-source-window-guard.js
+      - name: Run source-window browser regression
+        run: node studio/test-qa-source-window-guard.js
