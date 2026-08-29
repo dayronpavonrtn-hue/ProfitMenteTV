@@ -1,0 +1,27 @@
+name: ProfitMente Studio Media Relink QA
+on:
+  push:
+    paths:
+      - 'studio/media-relink-engine.js'
+      - 'studio/media-relink-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_media_relink.mjs'
+      - '.github/workflows/media-relink-qa.yml'
+  workflow_dispatch:
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check syntax
+        run: |
+          node --check studio/media-relink-engine.js
+          node --check studio/media-relink-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Run relink regression
+        run: node studio/test_media_relink.mjs
+      - name: Verify bootstrap order
+        run: grep -q "media-import-engine.js.*ProfitMenteMediaImportEngine" studio/feature-bootstrap.js && grep -q "media-relink-engine.js.*ProfitMenteMediaRelinkEngine" studio/feature-bootstrap.js
