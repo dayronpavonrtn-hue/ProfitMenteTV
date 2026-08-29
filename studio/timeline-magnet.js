@@ -2,6 +2,7 @@
   const SNAP_SECONDS=.15,EDGE_PX=10,MIN_DURATION=.25;
   let active=null;
   const $=s=>document.querySelector(s);
+  if(!window.ProfitMenteGroupDragEngine&&!document.querySelector('script[data-profitmente-group-drag]')){const s=document.createElement('script');s.src='group-drag-engine.js';s.async=false;s.dataset.profitmenteGroupDrag='1';document.head.appendChild(s)}
   const assetFor=clip=>(assets||[]).find(a=>a.id===clip.asset);
   function groupFor(clip){
     const a=assetFor(clip);
@@ -45,6 +46,7 @@
   function clearTargets(){document.querySelectorAll('.lane.dropTarget').forEach(x=>x.classList.remove('dropTarget'))}
   function begin(e,el){
     if(e.button!==0)return;const clip=(project.clips||[]).find(c=>c.id===el.dataset.id);if(!clip)return;
+    if(clip.groupId&&!window.ProfitMenteGroupDragEngine){if(typeof setStatus==='function')setStatus('Cargando movimiento de grupos… vuelve a arrastrar');e.preventDefault();e.stopImmediatePropagation();return}
     const groupEngine=window.ProfitMenteGroupDragEngine?new window.ProfitMenteGroupDragEngine():null,originals=groupEngine?.snapshot(project,clip)||[{id:clip.id,start:+clip.start||0,duration:+clip.duration||0,track:clip.track}];
     if(originals.some(x=>project.trackState?.[x.track]?.locked)){if(typeof setStatus==='function')setStatus(originals.length>1?'El grupo contiene una pista bloqueada':'La pista está bloqueada');e.preventDefault();e.stopImmediatePropagation();return}
     const er=el.getBoundingClientRect(),leftEdge=e.clientX-er.left<=EDGE_PX,rightEdge=er.right-e.clientX<=EDGE_PX,mode=leftEdge?'trim-left':rightEdge?'trim-right':'move';
