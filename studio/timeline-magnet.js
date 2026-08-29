@@ -13,8 +13,15 @@
     const g=groupFor(clip);
     return g==='audio'?track>=4&&track<=6:g==='caption'?track===3:track>=0&&track<=2;
   }
+  function guideTimes(){
+    const out=[];
+    const playhead=Number($('#playhead')?.value);
+    if(Number.isFinite(playhead))out.push(Math.max(0,Math.min(+project.duration||0,playhead)));
+    for(const marker of project.markers||[]){const t=Number(marker?.time);if(Number.isFinite(t))out.push(Math.max(0,Math.min(+project.duration||0,t)))}
+    return out;
+  }
   function boundaries(ignoreId){
-    const out=[0,+project.duration||0];
+    const out=[0,+project.duration||0,...guideTimes()];
     for(const c of project.clips||[]){if(c.id===ignoreId)continue;out.push(+c.start||0,(+c.start||0)+(+c.duration||0))}
     return [...new Set(out)].sort((a,b)=>a-b);
   }
@@ -71,5 +78,5 @@
     else if(mode!=='move'&&typeof drawTimeline==='function')drawTimeline();
   }
   document.addEventListener('pointerdown',e=>{const el=e.target.closest?.('.clip');if(el)begin(e,el)},true);
-  window.ProfitMenteTimelineMagnet={snapStart,snapTime,compatible,boundaries};
+  window.ProfitMenteTimelineMagnet={snapStart,snapTime,compatible,boundaries,guideTimes};
 })();
