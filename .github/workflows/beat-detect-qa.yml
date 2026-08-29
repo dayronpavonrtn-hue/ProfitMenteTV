@@ -1,0 +1,40 @@
+name: ProfitMente Studio Beat Detect QA
+
+on:
+  push:
+    paths:
+      - 'studio/beat-detect-engine.js'
+      - 'studio/beat-detect-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_beat_detect_engine.mjs'
+      - '.github/workflows/beat-detect-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/beat-detect-engine.js'
+      - 'studio/beat-detect-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_beat_detect_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  beat-detect-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/beat-detect-engine.js
+          node --check studio/beat-detect-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_beat_detect_engine.mjs
+      - name: Beat detection regression
+        run: node studio/test_beat_detect_engine.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "beat-detect-engine.js" studio/feature-bootstrap.js
+          grep -q "beat-detect-integration.js" studio/feature-bootstrap.js
+          grep -q "beatDetectBtn" studio/beat-detect-integration.js
+          grep -q "autoKind:'beat:audio'" studio/beat-detect-engine.js

@@ -1,0 +1,12 @@
+import {createRequire} from 'module';const require=createRequire(import.meta.url);const Engine=require('./beat-detect-engine.js');
+const ok=(v,m)=>{if(!v)throw new Error(m)};
+const near=(a,b,e=.03)=>Math.abs(a-b)<=e;
+const engine=new Engine({windowMs:20,minGap:.22,sensitivity:1.35});
+const rate=1000,data=new Float32Array(4000);for(const center of [500,1000,1500,2200,3000])for(let i=-15;i<=15;i++){const p=center+i;if(p>=0&&p<data.length)data[p]=1-Math.abs(i)/16}
+const beats=engine.detect([data],rate);ok(beats.length===5,'Debe detectar cinco golpes definidos');[.5,1,1.5,2.2,3].forEach((t,i)=>ok(near(beats[i].time,t,.04),`Beat ${i+1} fuera de posición`));
+const stereo=engine.detect([data,data],rate);ok(stereo.length===5,'Estéreo no debe duplicar beats');
+const silence=engine.detect([new Float32Array(2000)],rate);ok(silence.length===0,'Silencio no debe crear beats');
+const mapped=engine.mapToTimeline([{time:2,strength:2},{time:3,strength:3},{time:4,strength:2}],{start:10,duration:1,speed:2,sourceOffset:2});ok(mapped.length===3,'Ventana fuente a 2x incorrecta');ok(near(mapped[1].time,10.5,.001),'Mapeo 2x incorrecto');
+const slow=engine.mapToTimeline([{time:1,strength:2},{time:1.5,strength:2},{time:2,strength:2}],{start:4,duration:2,speed:.5,sourceOffset:1});ok(near(slow[2].time,6,.001),'Mapeo 0.5x incorrecto');
+const old=[{id:'manual',time:10.5,label:'Corte manual'},{id:'oldbeat',time:9,label:'Beat 1',autoKind:'beat:audio'}];const merged=engine.mergeMarkers(old,mapped);ok(merged.removed===1,'Debe reemplazar detecciones automáticas previas');ok(merged.markers.some(m=>m.id==='manual'),'Debe conservar marcadores manuales');ok(!merged.markers.some(m=>m.autoKind==='beat:audio'&&near(m.time,10.5,.04)),'No debe solapar beat automático con marcador manual');
+console.log('beat detect regression ok');
