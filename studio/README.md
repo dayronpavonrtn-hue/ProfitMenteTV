@@ -7,6 +7,8 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Generación local de estructura, guion/escenas y captions desde un tema.
 - Biblioteca persistente de video, imagen y audio con IndexedDB.
 - Deduplicación de medios por firma y contenido; la identidad del archivo se conserva también al exportar/importar paquetes completos.
+- Monitor de fuente para previsualizar medios de la biblioteca, marcar IN/OUT y colocar solo el fragmento elegido en la timeline.
+- El Monitor de fuente permite elegir la pista destino: Video u Overlay para imagen/video, y SFX, Música o Voz para audio.
 - Timeline de 7 pistas: video, overlays, motion, captions, SFX, música y voz.
 - Arrastrar clips, trim visual, cortar, duplicar y borrar.
 - Selección múltiple con desplazamiento, alineación, distribución, compactación y ripple delete seguro.
