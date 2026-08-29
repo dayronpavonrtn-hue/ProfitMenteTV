@@ -22,6 +22,20 @@ class ProfitMenteSafeAreaEngine{
     }
     return {ok:warnings.length===0,platform,format:project?.format||'9:16',rect,warnings}
   }
+  clampClip(clip,platform='generic',format='9:16'){
+    if(Number(clip?.track)!==2||!String(clip?.name||'').trim())return {changed:false,clip};
+    const rect=this.rect(platform,format),p=this.pointForClip(clip);
+    const x=Math.max(rect.x,Math.min(rect.right,p.x)),y=Math.max(rect.y,Math.min(rect.bottom,p.y));
+    const textX=Math.max(-45,Math.min(45,(x-.5)*100)),textY=Math.max(-45,Math.min(45,(y-.5)*100));
+    const oldX=Number(clip.textX)||0,oldY=Number(clip.textY)||0,changed=Math.abs(oldX-textX)>.0001||Math.abs(oldY-textY)>.0001;
+    if(changed){clip.textX=+textX.toFixed(2);clip.textY=+textY.toFixed(2)}
+    return {changed,clip,from:{textX:oldX,textY:oldY},to:{textX:clip.textX??oldX,textY:clip.textY??oldY}}
+  }
+  clampProject(project,platform='generic'){
+    const changes=[];
+    for(const clip of project?.clips||[]){const result=this.clampClip(clip,platform,project?.format||'9:16');if(result.changed)changes.push({clipId:clip.id,name:clip.name,from:result.from,to:result.to})}
+    return {changed:changes.length>0,count:changes.length,changes,inspection:this.inspect(project,platform)}
+  }
 }
 return {ProfitMenteSafeAreaEngine};
 });
