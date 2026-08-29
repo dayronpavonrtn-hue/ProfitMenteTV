@@ -32,6 +32,8 @@
     ['slip-edit-integration.js','ProfitMenteSlipEdit'],
     ['roll-edit-engine.js','ProfitMenteRollEditEngine'],
     ['roll-edit-integration.js','ProfitMenteRollEdit'],
+    ['rate-stretch-engine.js','ProfitMenteRateStretchEngine'],
+    ['rate-stretch-integration.js','ProfitMenteRateStretch'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
