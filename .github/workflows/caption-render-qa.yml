@@ -1,0 +1,28 @@
+name: ProfitMente Studio Caption Render QA
+
+on:
+  push:
+    paths:
+      - 'studio/caption_compact.py'
+      - 'studio/render_motion_text.py'
+      - 'studio/test_caption_compact.py'
+      - '.github/workflows/caption-render-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/caption_compact.py'
+      - 'studio/render_motion_text.py'
+      - 'studio/test_caption_compact.py'
+      - '.github/workflows/caption-render-qa.yml'
+
+jobs:
+  caption-render-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/caption_compact.py studio/render_motion_text.py
+      - name: Caption compaction regression
+        run: python studio/test_caption_compact.py
