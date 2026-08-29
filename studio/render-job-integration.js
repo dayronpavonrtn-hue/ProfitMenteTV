@@ -18,11 +18,12 @@
     if(!qc?.ok)throw new Error('El servidor terminó el MP4 sin superar el control de calidad post-render.');
     return typeof bundler?.qcSummary==='function'?bundler.qcSummary(qc):`QA post-render ${Number(qc.score)||0}/100`;
   }
+  function resultRetryStatus(event){const reason=event?.code==='INVALID_RENDER_RESULT'?'respuesta MP4 inválida':'fallo de descarga';return `MP4 terminado · ${reason} · reintentando descarga ${Number(event?.nextAttempt)||2}/${client.resultMaxAttempts}`}
   async function finishActiveJob(projectName){
     const finalState=await client.wait(s=>setStatus(`MP4 local · ${statusText(s)}`));
     const qcLabel=validatePostRender(finalState);setStatus(`${qcLabel} · preparando descarga…`);
-    const mp4=await client.result();const size=await download(mp4,projectName);clearSession();
-    setStatus(`MP4 final descargado · ${(size/1048576).toFixed(1)} MB · ${qcLabel}`);
+    const mp4=await client.result({onRetry:event=>setStatus(resultRetryStatus(event))});const size=await download(mp4,projectName);clearSession();
+    setStatus(`MP4 final descargado · ${(size/1048576).toFixed(1)} MB · integridad MP4 ✓ · ${qcLabel}`);
     return finalState;
   }
   async function resumeSavedJob(){
@@ -53,5 +54,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus};
 })();
