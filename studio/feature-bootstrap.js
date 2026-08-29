@@ -36,6 +36,8 @@
     ['roll-edit-integration.js','ProfitMenteRollEdit'],
     ['rate-stretch-engine.js','ProfitMenteRateStretchEngine'],
     ['rate-stretch-integration.js','ProfitMenteRateStretch'],
+    ['freeze-frame-engine.js','ProfitMenteFreezeFrameEngine'],
+    ['freeze-frame-integration.js','ProfitMenteFreezeFrame'],
     ['clip-group-engine.js','ProfitMenteClipGroupEngine'],
     ['clip-group-integration.js','ProfitMenteClipGroups'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
