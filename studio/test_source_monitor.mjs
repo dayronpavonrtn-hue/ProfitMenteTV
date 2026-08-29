@@ -9,5 +9,10 @@ r=Engine.normalizeRange({type:'audio'},0,2);assert.equal(r.valid,false);assert.e
 r=Engine.selection(video,3,8,10,20);assert.equal(r.start,10);assert.equal(r.sourceOffset,3);assert.equal(r.duration,5);assert.equal(r.out,8);assert.equal(r.valid,true);
 r=Engine.selection(video,3,8,19.9,20);assert.equal(r.valid,false);assert.equal(r.reason,'project-end');
 r=Engine.selection({type:'image',duration:99},2,3,0,20);assert.equal(r.sourceOffset,0);assert.equal(r.in,0);assert.equal(r.duration,5);
+assert.deepEqual(Engine.tracks(video),[{id:0,label:'Video'},{id:1,label:'Overlay'}]);
+assert.deepEqual(Engine.tracks({type:'image'}),[{id:0,label:'Video'},{id:1,label:'Overlay'}]);
+assert.deepEqual(Engine.tracks({type:'audio'}),[{id:4,label:'SFX'},{id:5,label:'Música'},{id:6,label:'Voz'}]);
+assert.deepEqual(Engine.tracks({type:'text'}),[]);
+assert.equal(Engine.defaultTrack(video),0);assert.equal(Engine.defaultTrack({type:'audio'}),5);
 assert.equal(Engine.time(65.5),'01:05.50');
 console.log('Source monitor engine QA OK');
