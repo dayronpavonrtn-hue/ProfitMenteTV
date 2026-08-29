@@ -6,6 +6,7 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Modo manual y automático.
 - Generación local de estructura, guion/escenas y captions desde un tema.
 - Biblioteca persistente de video, imagen y audio con IndexedDB.
+- Deduplicación de medios por firma y contenido; la identidad del archivo se conserva también al exportar/importar paquetes completos.
 - Timeline de 7 pistas: video, overlays, motion, captions, SFX, música y voz.
 - Arrastrar clips, trim visual, cortar, duplicar y borrar.
 - Deshacer/rehacer.
@@ -45,7 +46,7 @@ Como respaldo, puedes usar **📦 Paquete MP4** para descargar un `.profitmente.
 ## Proyectos JSON y medios faltantes
 Un JSON de proyecto no contiene los archivos multimedia binarios. Si abres un JSON y faltan videos, imágenes o audios, Studio marca esos clips y muestra **🔗 Reconectar medios**. Selecciona los archivos originales; el motor intenta emparejarlos por nombre, tipo y tamaño y conserva los IDs del proyecto.
 
-Para mover un proyecto completo entre computadoras, usa preferiblemente **📦 Paquete MP4**, porque incluye proyecto y medios juntos.
+Para mover un proyecto completo entre computadoras, usa preferiblemente **📦 Paquete MP4**, porque incluye proyecto y medios juntos y conserva la identidad de contenido usada para detectar duplicados al restaurarlo.
 
 ## Requisitos para render MP4 en Windows
 - Python 3.
