@@ -21,6 +21,12 @@ assert.equal(insertProject.clips.find(c=>c.id==='music').start,1,'other tracks m
 const overflow={duration:10,clips:[{id:'tail',track:0,start:7,duration:3,asset:'tail.mp4'}]};
 const blocked=Placement.insertSpace(overflow,0,5,2,ops);assert.equal(blocked.ok,false);assert.equal(blocked.reason,'out-of-range');assert.equal(overflow.clips[0].start,7,'failed insert must not mutate project');
 
+const endRange=Placement.range({duration:10},10,2);assert.equal(endRange.duration,0,'placement at exact project end must not overflow');assert.equal(endRange.end,10);assert.equal(endRange.valid,false);
+const shortTail=Placement.range({duration:10},9.9,2);assert.ok(shortTail.duration<.25,'sub-minimum tail must remain bounded by project duration');assert.equal(shortTail.end,10);assert.equal(shortTail.valid,false);
+const exactTail=Placement.range({duration:10},9.75,2);assert.equal(exactTail.duration,.25);assert.equal(exactTail.end,10);assert.equal(exactTail.valid,true);
+const endInsert={duration:10,clips:[]};const endInsertResult=Placement.insertSpace(endInsert,0,10,2,ops);assert.equal(endInsertResult.ok,false);assert.equal(endInsertResult.reason,'out-of-range');assert.deepEqual(endInsert.clips,[],'blocked end insert must not mutate project');
+const endOverwrite={duration:10,clips:[{id:'safe-tail',track:0,start:8,duration:2,asset:'tail.mp4'}]};const endOverwriteResult=Placement.overwriteRange(endOverwrite,0,9.9,2,ops);assert.equal(endOverwriteResult.ok,false);assert.equal(endOverwriteResult.reason,'out-of-range');assert.equal(endOverwrite.clips[0].duration,2,'blocked short-tail overwrite must not mutate project');
+
 const overwrite={duration:20,clips:[{id:'long',track:0,name:'Long',start:1,duration:10,asset:'long.mp4',sourceOffset:4,speed:2,fadeIn:.3,fadeOut:.4},{id:'other',track:1,start:2,duration:10,asset:'other.mp4'}]};
 const over=Placement.overwriteRange(overwrite,0,4,3,ops);assert.equal(over.ok,true);
 const pieces=overwrite.clips.filter(c=>c.track===0).sort((a,b)=>a.start-b.start);assert.equal(pieces.length,2,'overwrite through middle must preserve both outside pieces');
