@@ -13,7 +13,7 @@ let qcCalls=0;
 const context={
   console,document,ProfitMenteRenderJobClient:Client,
   bundler:{qcSummary(qc){qcCalls++;return `QA post-render ${qc.score}/100`}},
-  window:{},project:{name:'Test'}
+  window:{},project:{name:'Test'},setTimeout(){return 0}
 };
 vm.createContext(context);
 vm.runInContext(source,context,{filename:'render-job-integration.js'});
