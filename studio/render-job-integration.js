@@ -6,6 +6,7 @@
   let cancelBtn=document.querySelector('#cancelRenderBtn');
   if(!cancelBtn){cancelBtn=document.createElement('button');cancelBtn.id='cancelRenderBtn';cancelBtn.type='button';cancelBtn.textContent='■ Cancelar render';cancelBtn.hidden=true;cancelBtn.title='Detener el render MP4 local';renderBtn.insertAdjacentElement('afterend',cancelBtn)}
   const safeName=name=>String(name||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120);
+  const renderFailure=err=>typeof ProfitMenteRenderErrorEngine!=='undefined'?ProfitMenteRenderErrorEngine.format(err):`No se pudo renderizar MP4: ${err?.message||err}`;
   function statusText(s){const p=Number.isFinite(Number(s.progress))?` · ${Math.max(0,Math.min(100,Math.round(Number(s.progress))))}%`:'';const elapsed=Number(s.elapsed||0)>0?` · ${Math.round(Number(s.elapsed))}s`:'';const retry=s.status==='reconnecting'&&Number(s.retry)>0?` · intento ${Number(s.retry)}`:'';const label=s.status==='queued'?'En cola':s.status==='rendering'?'Renderizando':s.status==='reconnecting'?'Reconectando':s.status==='done'?'Terminado':s.status==='cancelled'?'Cancelado':'Preparando';return `${label}${p}${elapsed}${retry}`}
   function persistSession(projectName){try{localStorage.setItem(SESSION_KEY,JSON.stringify({jobId:client.jobId,projectName:String(projectName||'profitmente'),savedAt:Date.now()}))}catch{}}
   function readSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.jobId?data:null}catch{return null}}
@@ -35,7 +36,7 @@
       await finishActiveJob(saved.projectName);return true;
     }catch(err){
       clearSession();
-      if(!/HTTP 404|no encontrado|not found/i.test(err?.message||'')){console.error(err);setStatus('No se pudo recuperar el render anterior: '+(err?.message||err))}
+      if(!/HTTP 404|no encontrado|not found/i.test(err?.message||'')){console.error(err);setStatus('No se pudo recuperar el render anterior. '+renderFailure(err))}
       return false;
     }finally{renderBtn.disabled=false;cancelBtn.hidden=true;client.reset()}
   }
@@ -46,11 +47,11 @@
       const health=await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
       const renderProject=projectForRender();setStatus('Empaquetando proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,assets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(project.name);
       await finishActiveJob(project.name);
-    }catch(err){clearSession();if(err?.name==='AbortError'||/cancelado/i.test(err?.message||''))setStatus('Render MP4 cancelado');else{console.error(err);setStatus('No se pudo renderizar MP4: '+(err?.message||err))}}
+    }catch(err){clearSession();if(err?.name==='AbortError'||/cancelado/i.test(err?.message||''))setStatus('Render MP4 cancelado');else{console.error(err);setStatus(renderFailure(err))}}
     finally{renderBtn.disabled=false;cancelBtn.hidden=true;client.reset()}
   };
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure};
 })();
