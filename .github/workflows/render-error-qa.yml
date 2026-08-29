@@ -1,0 +1,35 @@
+name: ProfitMente Studio Render Error QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-error-engine.js'
+      - 'studio/render-job-integration.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_render_error_engine.mjs'
+      - '.github/workflows/render-error-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render-error-engine.js'
+      - 'studio/render-job-integration.js'
+      - 'studio/generator-integration.js'
+      - 'studio/test_render_error_engine.mjs'
+
+jobs:
+  render-error-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check diagnostics
+        run: node --check studio/render-error-engine.js
+      - name: Syntax check integration
+        run: node --check studio/render-job-integration.js
+      - name: Test render failure guidance
+        run: node studio/test_render_error_engine.mjs
+      - name: Verify diagnostics are loaded and wired
+        run: |
+          grep -q "render-error-engine.js" studio/generator-integration.js
+          grep -q "ProfitMenteRenderErrorEngine.format" studio/render-job-integration.js
