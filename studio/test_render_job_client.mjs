@@ -23,4 +23,19 @@ const resumed=new Client({fetchFn,interval:1});
 assert.equal(resumed.attach('job1'),'job1');
 const resumedState=await resumed.status();assert.equal(resumedState.status,'done');assert.equal(resumed.jobId,'job1');
 assert.throws(()=>resumed.attach('   '),/inválido/i);
+
+let flakyPolls=0;
+const flakyFetch=async(url)=>{
+  if(url!=='/api/render/jobs/flaky')return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+  flakyPolls++;
+  if(flakyPolls===1)throw new TypeError('network temporarily unavailable');
+  if(flakyPolls===2)return new Response(JSON.stringify({error:'temporary server problem'}),{status:503,headers:{'content-type':'application/json'}});
+  return new Response(JSON.stringify({ok:true,job_id:'flaky',status:'done',progress:100,qc:{ok:true,score:100}}),{status:200,headers:{'content-type':'application/json'}});
+};
+const flaky=new Client({fetchFn:flakyFetch,interval:1,maxRetryDelay:2,maxConsecutiveErrors:3});flaky.attach('flaky');
+const reconnect=[];const recovered=await flaky.wait(s=>reconnect.push(s.status));
+assert.equal(recovered.status,'done');assert.deepEqual(reconnect,['reconnecting','reconnecting','done']);assert.equal(flakyPolls,3);
+
+const missing=new Client({fetchFn:async()=>new Response(JSON.stringify({error:'Trabajo de render no encontrado.'}),{status:404,headers:{'content-type':'application/json'}}),interval:1});missing.attach('missing');
+await assert.rejects(()=>missing.wait(),/no encontrado/i);
 console.log('render job client ok');
