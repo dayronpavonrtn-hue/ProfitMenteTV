@@ -113,7 +113,7 @@ jobs:
         run: node --check studio/waveform-engine.js
       - name: Validate Python render tools
         run: |
-          python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_server_api.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py studio/test_keyframes.py studio/test_track_state_render.py studio/test_motion_text_render.py studio/test_color_grade_render.py studio/test_audio_envelope_render.py
+          python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/render_bundle.py studio/validate_project.py studio/studio_server.py studio/smoke_test.py studio/test_server_api.py studio/test_source_offset.py studio/test_speed.py studio/test_visual_transform.py studio/test_fit_flip.py studio/test_keyframes.py studio/test_track_state_render.py studio/test_motion_text_render.py studio/test_color_grade_render.py studio/test_audio_envelope_render.py studio/test_caption_pop_render.py
       - name: Test local render API security
         run: python studio/test_server_api.py
       - name: Test local Studio server readiness
@@ -146,6 +146,8 @@ jobs:
         run: |
           ffmpeg -version | head -1
           ffprobe -version | head -1
+      - name: Test word caption pop in final render
+        run: python studio/test_caption_pop_render.py
       - name: Test real clip source trimming
         run: python studio/test_source_offset.py
       - name: Test clip playback speed
