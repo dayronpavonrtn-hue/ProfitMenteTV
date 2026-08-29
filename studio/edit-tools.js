@@ -1,14 +1,22 @@
 (()=>{
-  let selectedId=null,splitEnginePromise=null;
+  let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null;
   const $=s=>document.querySelector(s);
   const clipById=id=>(project.clips||[]).find(c=>c.id===id);
   const locked=c=>!!project.trackState?.[c?.track]?.locked;
   function status(t){if(typeof setStatus==='function')setStatus(t)}
+  function loadEngine(globalName,src,dataKey){
+    if(window[globalName])return Promise.resolve(window[globalName]);
+    return new Promise((resolve,reject)=>{const existing=document.querySelector(`script[${dataKey}]`);if(existing){existing.addEventListener('load',()=>window[globalName]?resolve(window[globalName]):reject(new Error(`Motor ${globalName} no disponible`)),{once:true});existing.addEventListener('error',()=>reject(new Error(`No se pudo cargar ${src}`)),{once:true});return}const s=document.createElement('script');s.src=src;s.setAttribute(dataKey,'1');s.onload=()=>window[globalName]?resolve(window[globalName]):reject(new Error(`Motor ${globalName} no disponible`));s.onerror=()=>reject(new Error(`No se pudo cargar ${src}`));document.body.appendChild(s)});
+  }
   function getSplitEngine(){
     if(window.ProfitMenteSplitEditEngine)return Promise.resolve(window.ProfitMenteSplitEditEngine);
-    if(splitEnginePromise)return splitEnginePromise;
-    splitEnginePromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='split-edit-engine.js';s.onload=()=>window.ProfitMenteSplitEditEngine?resolve(window.ProfitMenteSplitEditEngine):reject(new Error('Motor de corte no disponible'));s.onerror=()=>reject(new Error('No se pudo cargar split-edit-engine.js'));document.body.appendChild(s)});
+    if(!splitEnginePromise)splitEnginePromise=loadEngine('ProfitMenteSplitEditEngine','split-edit-engine.js','data-profitmente-split-edit');
     return splitEnginePromise;
+  }
+  function getGroupEditEngine(){
+    if(window.ProfitMenteGroupEditEngine)return Promise.resolve(window.ProfitMenteGroupEditEngine);
+    if(!groupEditEnginePromise)groupEditEnginePromise=loadEngine('ProfitMenteGroupEditEngine','group-edit-engine.js','data-profitmente-group-edit');
+    return groupEditEnginePromise;
   }
   function refresh(){
     document.querySelectorAll('.clip').forEach(el=>el.classList.toggle('selected',el.dataset.id===selectedId));
@@ -34,13 +42,24 @@
     const speedLabel=Math.abs(result.speed-1)>.001?` · ${result.speed.toFixed(2)}×`:'';
     commit(`Clip cortado en ${t.toFixed(2)}s${speedLabel} · in-point ${result.sourceCut.toFixed(2)}s`);
   }
-  function duplicate(){
+  async function duplicate(){
     const c=clipById(selectedId);if(!c)return;if(locked(c)){status('La pista está bloqueada');return}
-    const copy=structuredClone(c);copy.id=crypto.randomUUID();copy.name=(c.name||'Clip')+' copia';copy.start=Math.min(Math.max(0,project.duration-copy.duration),c.start+Math.min(.5,c.duration));project.clips.push(copy);selectedId=copy.id;commit('Clip duplicado');
+    let Engine;try{Engine=await getGroupEditEngine()}catch(err){console.error(err);status(err.message);return}
+    if(clipById(selectedId)!==c){status('El clip cambió antes de completar el duplicado');return}
+    const engine=new Engine(),members=engine.members(project,c),lockedGroup=engine.lockedMembers(project,c);
+    if(lockedGroup.length){status(members.length>1?'No se puede duplicar: el grupo contiene una pista bloqueada':'La pista está bloqueada');return}
+    const anchorIndex=Math.max(0,members.findIndex(x=>x.id===c.id)),result=engine.duplicate(project,c,{idFactory:()=>crypto.randomUUID(),offset:.5});
+    if(!result.copies.length)return;selectedId=(result.copies[anchorIndex]||result.copies[0]).id;
+    commit(result.copies.length>1?`Grupo duplicado · ${result.copies.length} clips`:'Clip duplicado');
   }
-  function remove(){
+  async function remove(){
     const c=clipById(selectedId);if(!c)return;if(locked(c)){status('La pista está bloqueada');return}
-    project.clips=project.clips.filter(x=>x.id!==selectedId);selectedId=null;commit(`Clip eliminado: ${c.name||'sin nombre'}`);
+    let Engine;try{Engine=await getGroupEditEngine()}catch(err){console.error(err);status(err.message);return}
+    if(clipById(selectedId)!==c){status('El clip cambió antes de completar el borrado');return}
+    const engine=new Engine(),members=engine.members(project,c),lockedGroup=engine.lockedMembers(project,c);
+    if(lockedGroup.length){status(members.length>1?'No se puede borrar: el grupo contiene una pista bloqueada':'La pista está bloqueada');return}
+    const removed=engine.remove(project,c);if(!removed.length)return;selectedId=null;
+    commit(removed.length>1?`Grupo eliminado · ${removed.length} clips`:`Clip eliminado: ${c.name||'sin nombre'}`);
   }
   document.addEventListener('click',e=>{const el=e.target.closest?.('.clip');if(el)select(el.dataset.id)} ,true);
   $('#splitBtn')?.addEventListener('click',split);$('#duplicateBtn')?.addEventListener('click',duplicate);$('#deleteClipBtn')?.addEventListener('click',remove);
@@ -52,6 +71,6 @@
   });
   const originalDraw=window.drawTimeline;
   if(typeof originalDraw==='function')window.drawTimeline=function(){originalDraw();requestAnimationFrame(refresh)};
-  getSplitEngine().catch(err=>console.warn(err));refresh();
+  getSplitEngine().catch(err=>console.warn(err));getGroupEditEngine().catch(err=>console.warn(err));refresh();
   window.ProfitMenteEditTools={select,split,duplicate,remove,get selectedId(){return selectedId}};
 })();
