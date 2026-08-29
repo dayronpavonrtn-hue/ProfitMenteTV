@@ -14,6 +14,10 @@ def state(track):
 def track_hidden(track): return bool(state(track).get('hidden',False))
 def track_muted(track): return bool(state(track).get('muted',False))
 def disabled(track): return (track in (0,1,2,3) and track_hidden(track)) or (track in (4,5,6) and track_muted(track))
+def expected_asset_types(track):
+    if track in (0,1): return {'video','image'}
+    if track in (4,5,6): return {'video','audio'}
+    return None
 if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
 if duration<=0: errors.append('La duración debe ser mayor que 0')
 ids=set(); color_re=re.compile(r'^#[0-9a-fA-F]{6}$')
@@ -50,6 +54,10 @@ for i,c in enumerate(clips):
         a=amap.get(aid)
         if not a: errors.append(f'Clip {i}: asset no declarado {aid}')
         else:
+            asset_type=a.get('type'); allowed=expected_asset_types(track)
+            if allowed and asset_type not in allowed:
+                expected='video/imagen' if track in (0,1) else 'audio/video con audio'
+                errors.append(f'Clip {i}: medio {asset_type or "sin tipo"} incompatible con track {track}; se espera {expected}')
             if assets_dir and not (assets_dir/a.get('name','')).exists(): errors.append(f'Falta archivo: {a.get("name")}')
             if track in (4,5,6) or (track in (0,1) and a.get('type')=='video'):
                 for key,default in [('fadeIn',.18),('fadeOut',.25)]:
