@@ -4,6 +4,8 @@
   const modules=[
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
     ['media-library-tools.js','ProfitMenteMediaLibraryTools'],
+    ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
+    ['media-relink-integration.js','ProfitMenteMediaRelink'],
     ['media-replace-engine.js','ProfitMenteMediaReplaceEngine'],
     ['media-replace-integration.js','ProfitMenteMediaReplace'],
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
