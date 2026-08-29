@@ -30,6 +30,8 @@
     ['scene-detect-integration.js','ProfitMenteSceneDetect'],
     ['slip-edit-engine.js','ProfitMenteSlipEditEngine'],
     ['slip-edit-integration.js','ProfitMenteSlipEdit'],
+    ['roll-edit-engine.js','ProfitMenteRollEditEngine'],
+    ['roll-edit-integration.js','ProfitMenteRollEdit'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
