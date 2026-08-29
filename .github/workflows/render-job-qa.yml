@@ -8,6 +8,7 @@ on:
       - 'studio/studio_server.py'
       - 'studio/generator-integration.js'
       - 'studio/test_render_job_client.mjs'
+      - 'studio/test_render_job_recovery.mjs'
       - 'studio/test_server_api.py'
       - '.github/workflows/render-job-qa.yml'
   workflow_dispatch:
@@ -28,10 +29,13 @@ jobs:
           node --check studio/render-job-client.js
           node --check studio/render-job-integration.js
           node --check studio/generator-integration.js
+          node --check studio/test_render_job_recovery.mjs
       - name: Check Python syntax
         run: python -m py_compile studio/studio_server.py
       - name: Test render job client
         run: node studio/test_render_job_client.mjs
+      - name: Test render recovery after reload
+        run: node studio/test_render_job_recovery.mjs
       - name: Test local server API
         working-directory: studio
         run: python test_server_api.py
