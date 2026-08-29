@@ -12,6 +12,7 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Deshacer/rehacer.
 - Preview en canvas con sourceOffset, velocidad, overlays, captions y transiciones.
 - Protección del preview contra fotogramas asíncronos obsoletos al mover rápidamente el cursor.
+- Guías de zona segura para TikTok, Instagram Reels y YouTube Shorts, con reparación automática de títulos fuera del área visible y checkpoint previo para poder recuperar la versión anterior.
 - Mezcla de música, voz y SFX con volumen y fades.
 - Persistencia de múltiples proyectos en el navegador.
 - Importar/exportar proyecto JSON.
@@ -38,8 +39,9 @@ El lanzador busca `py` o `python`, inicia el servidor local de ProfitMente Studi
 ## Flujo recomendado para MP4 final
 1. Abre Studio con `studio/start_studio_windows.bat`.
 2. Crea o edita el video.
-3. Pulsa **Control de calidad** y corrige errores importantes.
-4. Pulsa **🎬 Render MP4** para generar, validar y descargar el MP4 final directamente con FFmpeg local.
+3. Selecciona la plataforma en **Zona segura social** y usa **↔ Ajustar textos a zona segura** si Studio detecta títulos tapados por la interfaz de la red social.
+4. Pulsa **Control de calidad** y corrige errores importantes.
+5. Pulsa **🎬 Render MP4** para generar, validar y descargar el MP4 final directamente con FFmpeg local.
 
 Como respaldo, puedes usar **📦 Paquete MP4** para descargar un `.profitmente.tar` autocontenido y renderizarlo después con `render_bundle_windows.bat`.
 
