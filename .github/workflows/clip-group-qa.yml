@@ -1,0 +1,32 @@
+name: ProfitMente Studio Clip Group QA
+
+on:
+  push:
+    paths:
+      - 'studio/clip-group-engine.js'
+      - 'studio/clip-group-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_clip_groups.mjs'
+      - '.github/workflows/clip-group-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  clip-group-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/clip-group-engine.js
+          node --check studio/clip-group-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Run clip group regressions
+        run: node studio/test_clip_groups.mjs
+      - name: Verify clip group wiring
+        run: |
+          grep -q "clip-group-engine.js" studio/feature-bootstrap.js
+          grep -q "clip-group-integration.js" studio/feature-bootstrap.js
+          grep -q "groupId" studio/clip-group-engine.js
