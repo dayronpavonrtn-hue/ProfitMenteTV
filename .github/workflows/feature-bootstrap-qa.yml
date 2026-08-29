@@ -1,0 +1,30 @@
+name: ProfitMente Studio Feature Bootstrap QA
+
+on:
+  push:
+    paths:
+      - 'studio/feature-bootstrap.js'
+      - 'studio/transition-duration.js'
+      - 'studio/test_feature_bootstrap.mjs'
+      - '.github/workflows/feature-bootstrap-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/feature-bootstrap.js'
+      - 'studio/transition-duration.js'
+      - 'studio/test_feature_bootstrap.mjs'
+
+jobs:
+  feature-bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/feature-bootstrap.js
+          node --check studio/transition-duration.js
+          node --check studio/test_feature_bootstrap.mjs
+      - name: Bootstrap regression
+        run: node studio/test_feature_bootstrap.mjs
