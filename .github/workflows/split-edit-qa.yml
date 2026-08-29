@@ -5,13 +5,19 @@ on:
     paths:
       - 'studio/split-edit-engine.js'
       - 'studio/edit-tools.js'
+      - 'studio/timeline-operations.js'
+      - 'studio/index.html'
       - 'studio/test_split_edit.js'
+      - 'studio/test_split_ui_wiring.mjs'
       - '.github/workflows/split-edit-qa.yml'
   pull_request:
     paths:
       - 'studio/split-edit-engine.js'
       - 'studio/edit-tools.js'
+      - 'studio/timeline-operations.js'
+      - 'studio/index.html'
       - 'studio/test_split_edit.js'
+      - 'studio/test_split_ui_wiring.mjs'
       - '.github/workflows/split-edit-qa.yml'
 
 jobs:
@@ -26,6 +32,10 @@ jobs:
         run: |
           node --check studio/split-edit-engine.js
           node --check studio/edit-tools.js
+          node --check studio/timeline-operations.js
           node --check studio/test_split_edit.js
+          node --check studio/test_split_ui_wiring.mjs
       - name: Split edit regression
-        run: node studio/test_split_edit.js
+        run: |
+          node studio/test_split_edit.js
+          node studio/test_split_ui_wiring.mjs
