@@ -7,6 +7,9 @@ let r=engine.shift(clip,asset,.1);assert.equal(r.ok,true);assert.equal(r.offset,
 r=engine.shift(clip,asset,100);assert.equal(r.offset,8);assert.equal(r.clamped,true,'slip must clamp to source end');
 r=engine.shift(clip,asset,-100);assert.equal(r.offset,0);assert.equal(r.clamped,true,'slip must clamp to source start');
 const fast={id:'f',asset:'a',start:1,duration:2,sourceOffset:1,speed:2};r=engine.shift(fast,asset,.1);assert.equal(r.offset,1.2,'timeline delta must be converted by clip speed');
+r=engine.shiftSource(fast,asset,.1);assert.equal(r.offset,1.3,'source delta must remain exact regardless of clip speed');
+r=engine.shiftSource(fast,asset,-.1);assert.equal(r.offset,1.2,'source delta must be reversible and speed-independent');
+const slow={id:'s',asset:'a',start:1,duration:2,sourceOffset:1,speed:.5};r=engine.shiftSource(slow,asset,.1);assert.equal(r.offset,1.1,'source controls must also remain exact on slow clips');
 const tooLong={asset:'a',duration:7,speed:2,sourceOffset:0};r=engine.shift(tooLong,asset,.1);assert.equal(r.ok,false);assert.equal(r.reason,'source-too-short');
 const unknown={asset:'missing',duration:2,speed:1};r=engine.shift(unknown,{id:'missing'},.1);assert.equal(r.ok,false);assert.equal(r.reason,'unknown-duration');
 const window=engine.sourceWindow({asset:'a',duration:2,sourceOffset:3,speed:1.5},asset);assert.equal(window.start,3);assert.equal(window.end,6);assert.equal(window.sourceDuration,12);
