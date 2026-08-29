@@ -1,0 +1,31 @@
+name: ProfitMente Studio Match Frame QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/match-frame-engine.js'
+      - 'studio/match-frame-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_match_frame.mjs'
+      - '.github/workflows/studio-match-frame-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  match-frame:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/match-frame-engine.js
+          node --check studio/match-frame-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Match Frame regression
+        run: node studio/test_match_frame.mjs
