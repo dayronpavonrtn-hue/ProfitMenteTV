@@ -7,6 +7,8 @@
     ['media-replace-engine.js','ProfitMenteMediaReplaceEngine'],
     ['media-replace-integration.js','ProfitMenteMediaReplace'],
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
+    ['media-placement-engine.js','ProfitMenteMediaPlacementEngine'],
+    ['media-placement-integration.js','ProfitMenteMediaPlacement'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
     ['project-duration.js','ProfitMenteProjectDuration'],
