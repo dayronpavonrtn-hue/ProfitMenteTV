@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import './slip-edit-engine.js';
+const engine=new globalThis.ProfitMenteSlipEditEngine();
+const asset={id:'a',duration:12};
+const clip={id:'c',asset:'a',start:3,duration:4,sourceOffset:2,speed:1};
+let r=engine.shift(clip,asset,.1);assert.equal(r.ok,true);assert.equal(r.offset,2.1);assert.equal(clip.start,3);assert.equal(clip.duration,4,'slip must not change timeline duration');
+r=engine.shift(clip,asset,100);assert.equal(r.offset,8);assert.equal(r.clamped,true,'slip must clamp to source end');
+r=engine.shift(clip,asset,-100);assert.equal(r.offset,0);assert.equal(r.clamped,true,'slip must clamp to source start');
+const fast={id:'f',asset:'a',start:1,duration:2,sourceOffset:1,speed:2};r=engine.shift(fast,asset,.1);assert.equal(r.offset,1.2,'timeline delta must be converted by clip speed');
+const tooLong={asset:'a',duration:7,speed:2,sourceOffset:0};r=engine.shift(tooLong,asset,.1);assert.equal(r.ok,false);assert.equal(r.reason,'source-too-short');
+const unknown={asset:'missing',duration:2,speed:1};r=engine.shift(unknown,{id:'missing'},.1);assert.equal(r.ok,false);assert.equal(r.reason,'unknown-duration');
+const window=engine.sourceWindow({asset:'a',duration:2,sourceOffset:3,speed:1.5},asset);assert.equal(window.start,3);assert.equal(window.end,6);assert.equal(window.sourceDuration,12);
+console.log('ProfitMente slip edit QA passed');
