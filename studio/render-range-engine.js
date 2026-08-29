@@ -4,6 +4,14 @@ class ProfitMenteRenderRangeEngine{
     return {start:Math.min(a,b),end:Math.max(a,b),duration:Math.max(0,Math.abs(b-a))};
   }
   static valid(project,start,end,min=.25){return this.normalize(project,start,end).duration>=min}
+  static previewDecision(project,start,end,time,loop=false,tolerance=.015){
+    const range=this.normalize(project,start,end),t=Number(time),eps=Math.max(0,Number(tolerance)||0);
+    if(range.duration<.25)return {action:'invalid',range};
+    if(!Number.isFinite(t))return {action:'seek-start',time:range.start,range};
+    if(t<range.start-eps)return {action:'seek-start',time:range.start,range};
+    if(t>=range.end-eps)return loop?{action:'loop',time:range.start,range}:{action:'stop',time:range.start,range};
+    return {action:'continue',time:t,range};
+  }
   static clip(projectClip,range,assets=[]){
     const c=structuredClone(projectClip),start=Number(c.start)||0,duration=Math.max(0,Number(c.duration)||0),end=start+duration;
     const from=Math.max(start,range.start),to=Math.min(end,range.end);if(to<=from)return null;
