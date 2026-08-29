@@ -1,5 +1,5 @@
 (()=>{
-  let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null;
+  let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null,groupSplitEnginePromise=null;
   const $=s=>document.querySelector(s);
   const clipById=id=>(project.clips||[]).find(c=>c.id===id);
   const locked=c=>!!project.trackState?.[c?.track]?.locked;
@@ -18,6 +18,11 @@
     if(!groupEditEnginePromise)groupEditEnginePromise=loadEngine('ProfitMenteGroupEditEngine','group-edit-engine.js','data-profitmente-group-edit');
     return groupEditEnginePromise;
   }
+  function getGroupSplitEngine(){
+    if(window.ProfitMenteGroupSplitEngine)return Promise.resolve(window.ProfitMenteGroupSplitEngine);
+    if(!groupSplitEnginePromise)groupSplitEnginePromise=loadEngine('ProfitMenteGroupSplitEngine','group-split-engine.js','data-profitmente-group-split');
+    return groupSplitEnginePromise;
+  }
   function refresh(){
     document.querySelectorAll('.clip').forEach(el=>el.classList.toggle('selected',el.dataset.id===selectedId));
     const c=clipById(selectedId),has=!!c,editable=has&&!locked(c);
@@ -33,14 +38,18 @@
   async function split(){
     const c=clipById(selectedId);if(!c)return;
     if(locked(c)){status('La pista está bloqueada');return}
-    const t=+$('#playhead').value||0;let engine;
-    try{engine=await getSplitEngine()}catch(err){console.error(err);status(err.message);return}
-    const result=engine.split(c,t,{idFactory:()=>crypto.randomUUID()});
-    if(!result.ok){status('Coloca el cursor dentro del clip para cortarlo');return}
-    const index=project.clips.findIndex(x=>x.id===c.id);if(index<0){status('El clip cambió antes de completar el corte');return}
-    project.clips.splice(index,1,result.left,result.right);selectedId=result.right.id;
-    const speedLabel=Math.abs(result.speed-1)>.001?` · ${result.speed.toFixed(2)}×`:'';
-    commit(`Clip cortado en ${t.toFixed(2)}s${speedLabel} · in-point ${result.sourceCut.toFixed(2)}s`);
+    const t=+$('#playhead').value||0;let Split,GroupSplit;
+    try{[Split,GroupSplit]=await Promise.all([getSplitEngine(),getGroupSplitEngine()])}catch(err){console.error(err);status(err.message);return}
+    if(clipById(selectedId)!==c){status('El clip cambió antes de completar el corte');return}
+    const engine=new GroupSplit(Split),result=engine.split(project,c,t,{idFactory:()=>crypto.randomUUID(),groupIdFactory:()=>crypto.randomUUID()});
+    if(!result.ok){
+      if(result.reason==='locked'){status(result.members?.length>1?'No se puede cortar: el grupo contiene una pista bloqueada':'La pista está bloqueada');return}
+      if(result.reason==='member-outside'){status(result.members?.length>1?'No se puede cortar el grupo: todos los clips enlazados deben cruzar el cursor':'Coloca el cursor dentro del clip para cortarlo');return}
+      status('No se pudo completar el corte');return;
+    }
+    selectedId=result.rightId;
+    const anchor=result.results.find(r=>r.right.id===result.rightId)||result.results[0],speedLabel=Math.abs(anchor.speed-1)>.001?` · ${anchor.speed.toFixed(2)}×`:'';
+    commit(result.count>1?`Grupo cortado en ${t.toFixed(2)}s · ${result.count} clips enlazados${speedLabel}`:`Clip cortado en ${t.toFixed(2)}s${speedLabel} · in-point ${anchor.sourceCut.toFixed(2)}s`);
   }
   async function duplicate(){
     const c=clipById(selectedId);if(!c)return;if(locked(c)){status('La pista está bloqueada');return}
@@ -71,6 +80,6 @@
   });
   const originalDraw=window.drawTimeline;
   if(typeof originalDraw==='function')window.drawTimeline=function(){originalDraw();requestAnimationFrame(refresh)};
-  getSplitEngine().catch(err=>console.warn(err));getGroupEditEngine().catch(err=>console.warn(err));refresh();
+  getSplitEngine().catch(err=>console.warn(err));getGroupEditEngine().catch(err=>console.warn(err));getGroupSplitEngine().catch(err=>console.warn(err));refresh();
   window.ProfitMenteEditTools={select,split,duplicate,remove,get selectedId(){return selectedId}};
 })();
