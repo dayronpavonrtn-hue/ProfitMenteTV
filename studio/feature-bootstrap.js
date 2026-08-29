@@ -28,6 +28,8 @@
     ['safe-area-integration.js','ProfitMenteSafeArea'],
     ['scene-detect-engine.js','ProfitMenteSceneDetectEngine'],
     ['scene-detect-integration.js','ProfitMenteSceneDetect'],
+    ['slip-edit-engine.js','ProfitMenteSlipEditEngine'],
+    ['slip-edit-integration.js','ProfitMenteSlipEdit'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
