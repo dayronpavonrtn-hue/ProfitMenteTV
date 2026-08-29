@@ -1,8 +1,14 @@
 (()=>{
-  let selectedId=null;
+  let selectedId=null,splitEnginePromise=null;
   const $=s=>document.querySelector(s);
   const clipById=id=>(project.clips||[]).find(c=>c.id===id);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
+  function getSplitEngine(){
+    if(window.ProfitMenteSplitEditEngine)return Promise.resolve(window.ProfitMenteSplitEditEngine);
+    if(splitEnginePromise)return splitEnginePromise;
+    splitEnginePromise=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='split-edit-engine.js';s.onload=()=>window.ProfitMenteSplitEditEngine?resolve(window.ProfitMenteSplitEditEngine):reject(new Error('Motor de corte no disponible'));s.onerror=()=>reject(new Error('No se pudo cargar split-edit-engine.js'));document.body.appendChild(s)});
+    return splitEnginePromise;
+  }
   function refresh(){
     document.querySelectorAll('.clip').forEach(el=>el.classList.toggle('selected',el.dataset.id===selectedId));
     const has=!!clipById(selectedId);
@@ -15,10 +21,10 @@
     requestAnimationFrame(refresh);status(message);
   }
   function select(id){selectedId=id;refresh();const c=clipById(id);if(c)status(`Clip seleccionado: ${c.name||'sin nombre'}`)}
-  function split(){
+  async function split(){
     const c=clipById(selectedId);if(!c)return;
-    const t=+$('#playhead').value||0,engine=window.ProfitMenteSplitEditEngine;
-    if(!engine){status('Motor de corte no disponible');return}
+    const t=+$('#playhead').value||0;let engine;
+    try{engine=await getSplitEngine()}catch(err){console.error(err);status(err.message);return}
     const result=engine.split(c,t,{idFactory:()=>crypto.randomUUID()});
     if(!result.ok){status('Coloca el cursor dentro del clip para cortarlo');return}
     const index=project.clips.findIndex(x=>x.id===c.id);project.clips.splice(index,1,result.left,result.right);selectedId=result.right.id;
@@ -43,6 +49,6 @@
   });
   const originalDraw=window.drawTimeline;
   if(typeof originalDraw==='function')window.drawTimeline=function(){originalDraw();requestAnimationFrame(refresh)};
-  refresh();
+  getSplitEngine().catch(err=>console.warn(err));refresh();
   window.ProfitMenteEditTools={select,split,duplicate,remove,get selectedId(){return selectedId}};
 })();
