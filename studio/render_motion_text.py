@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """Compatibility entrypoint for ProfitMente Motion renders.
-Motion text is now composited directly by render_mp4.py, avoiding a second H.264 encode.
+Motion text is composited directly by render_mp4.py, avoiding a second H.264 encode.
+Long captions without word timings are compacted only for the render copy so the
+saved Studio project remains unchanged.
 """
-import pathlib,subprocess,sys
+import json,pathlib,subprocess,sys,tempfile
+from caption_compact import compact_project_captions
 
 if len(sys.argv)!=4:
     raise SystemExit('Usage: render_motion_text.py project.json assets_dir output.mp4')
 root=pathlib.Path(__file__).resolve().parent
-subprocess.run([sys.executable,str(root/'render_mp4.py'),sys.argv[1],sys.argv[2],sys.argv[3]],check=True)
-print(f'Motion text render integrado: {sys.argv[3]}')
+project_path=pathlib.Path(sys.argv[1])
+project=json.loads(project_path.read_text(encoding='utf-8'))
+render_project=compact_project_captions(project)
+with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
+    prepared=pathlib.Path(td)/'project.render.json'
+    prepared.write_text(json.dumps(render_project,ensure_ascii=False),encoding='utf-8')
+    subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],sys.argv[3]],check=True)
+print(f'Motion text y captions integrados: {sys.argv[3]}')
