@@ -26,9 +26,14 @@ class ProfitMenteMediaRelinkEngine{
     const best=ranked[0],ambiguous=ranked.length>1&&ranked[1].score===best.score;
     return {asset:ambiguous?null:best.asset,score:best.score,ambiguous};
   }
+  static invalidateDerivedMetadata(asset={}){
+    for(const key of ['metadataVersion','duration','width','height','thumbnail'])delete asset[key];
+    return asset;
+  }
   static apply(asset,file,hash=''){
     if(!this.compatible(asset,file))return {ok:false,reason:'incompatible'};
-    const before={name:asset.name,mime:asset.mime,size:this.fileSize(asset),sourceFingerprint:asset.sourceFingerprint,sourceContentHash:asset.sourceContentHash};
+    const before={name:asset.name,mime:asset.mime,size:this.fileSize(asset),sourceFingerprint:asset.sourceFingerprint,sourceContentHash:asset.sourceContentHash,duration:asset.duration,width:asset.width,height:asset.height,thumbnail:asset.thumbnail,metadataVersion:asset.metadataVersion};
+    this.invalidateDerivedMetadata(asset);
     asset.blob=file;
     asset.name=file.name||asset.name;
     asset.mime=file.type||asset.mime||'';
