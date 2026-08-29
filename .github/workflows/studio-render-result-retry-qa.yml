@@ -1,0 +1,26 @@
+name: ProfitMente Studio Render Result Retry QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-job-client.js'
+      - 'studio/test_render_result_retry.mjs'
+      - '.github/workflows/studio-render-result-retry-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render-job-client.js'
+      - 'studio/test_render_result_retry.mjs'
+      - '.github/workflows/studio-render-result-retry-qa.yml'
+
+jobs:
+  render-result-retry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check client syntax
+        run: node --check studio/render-job-client.js
+      - name: Run render result retry regression
+        run: node studio/test_render_result_retry.mjs
