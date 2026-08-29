@@ -68,6 +68,10 @@
     if(window.ProfitMenteSafeAreaEngine){loadScriptOnce('safe-area-integration.js','safeAreaIntegration');return}
     loadScriptOnce('safe-area-engine.js','safeAreaEngine',()=>loadScriptOnce('safe-area-integration.js','safeAreaIntegration'));
   }
+  function bootProjectImport(){
+    if(window.ProfitMenteProjectImportEngine){loadScriptOnce('project-import-integration.js','projectImportIntegration');return}
+    loadScriptOnce('project-import-engine.js','projectImportEngine',()=>loadScriptOnce('project-import-integration.js','projectImportIntegration'));
+  }
 
   function bootSupportModules(){
     bootMediaReplacement();
@@ -79,6 +83,7 @@
     bootProjectReset();
     bootAudioNormalize();
     bootSafeArea();
+    bootProjectImport();
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
