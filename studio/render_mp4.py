@@ -193,8 +193,9 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name') and not track_
         if word and we>ws: valid.append((word,ws,we))
     if valid:
         for word,ws,we in valid:
-            text=esc_text(word.upper()); nxt=f'[cap{capn}]'
-            filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize=78:borderw=7:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw=26:x=(w-text_w)/2:y=h*0.70:enable='between(t,{ws},{we})'{nxt}")
+            text=esc_text(word.upper()); nxt=f'[cap{capn}]'; word_d=max(.05,we-ws); progress=f'((t-{ws})/{word_d})'
+            pop=f'(1+0.16*exp(-7*{progress})*sin(PI*{progress}*2))'
+            filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize='78*{pop}':borderw=7:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw=26:x=(w-text_w)/2:y='h*0.73-text_h/2':enable='between(t,{ws},{we})'{nxt}")
             base=nxt; capn+=1
         continue
     text=esc_text(c['name']); nxt=f'[cap{capn}]'; style=c.get('style','dynamic'); anim=c.get('animation','')
