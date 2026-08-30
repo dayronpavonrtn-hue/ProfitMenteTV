@@ -1,0 +1,22 @@
+name: ProfitMente Studio Track Solo QA
+
+on:
+  push:
+    paths:
+      - 'studio/track-controls.js'
+      - 'studio/test_track_solo.mjs'
+      - '.github/workflows/track-solo-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  track-solo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: node --check studio/track-controls.js
+      - name: Track Solo regression
+        run: node studio/test_track_solo.mjs
