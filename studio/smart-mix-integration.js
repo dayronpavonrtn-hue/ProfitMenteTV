@@ -11,8 +11,12 @@
     busy=true;label();
     try{
       status('Mezcla inteligente · normalizando audio localmente…');
-      if(window.ProfitMenteAudioNormalize?.normalizeAll)await window.ProfitMenteAudioNormalize.normalizeAll();
-      const r=Engine.apply(project,{duckRatio:.4});refresh();
+      if(window.ProfitMenteAudioNormalize?.normalizeAll){
+        const normalized=await window.ProfitMenteAudioNormalize.normalizeAll({deferPersist:true,quiet:true});
+        if(normalized?.reason==='busy'){status('Mezcla inteligente: espera a que termine la normalización de audio actual');return}
+      }
+      const r=Engine.apply(project,{duckRatio:.4});
+      refresh();
       const after=Engine.inspect(project),detail=r.changed?`${r.changed} clip(s) de música ajustados`:'ducking ya estaba en nivel seguro';
       status(`Mezcla inteligente lista · ${detail} · ${after.overlapping} música/voz con ducking · $0 local`);
     }catch(err){console.error(err);status('No se pudo completar la mezcla inteligente: '+(err?.message||err))}
