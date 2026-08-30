@@ -219,7 +219,7 @@ def append_audio_filter(c,n,source=False):
     idx=input_index[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); speed=clip_speed(c); source_offset=max(0,float(c.get('sourceOffset',0) or 0))
     if source: vol=max(0,min(2,float(c.get('sourceVolume',1.0))))
     else:
-        track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(2,float(c.get('volume',default))))
+        track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(4,float(c.get('volume',default))))
         if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
     fade_in,fade_out=clip_fades(c,d); fadeout_start=max(0,d-fade_out); delay=int(round(start*1000)); label=f'[a{n}]'
     chain=f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS,atempo={speed},volume={vol}'
