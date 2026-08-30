@@ -9,6 +9,7 @@ class ProfitMenteProjectLibrary{
   load(id){const row=this._read().find(x=>x.id===id);return row?structuredClone(row.project):null}
   duplicate(id){const items=this._read(),source=items.find(x=>x.id===id);if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   remove(id){const before=this._read(),after=before.filter(x=>x.id!==id);this._write(after);return after.length!==before.length}
+  static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}}
 }
 return {ProfitMenteProjectLibrary};
 });
@@ -28,6 +29,7 @@ if(typeof document!=='undefined')(()=>{
   }
   function flushCurrentProject(){
     try{
+      if(window.ProfitMenteProjectAutosave?.flush)window.ProfitMenteProjectAutosave.flush('cambio de proyecto');
       const name=$('#projectName'),duration=$('#duration'),format=$('#format');
       if(name)project.name=name.value||'Nuevo video';
       if(duration)project.duration=Math.max(1,+duration.value||45);
@@ -41,7 +43,17 @@ if(typeof document!=='undefined')(()=>{
   function resetHistory(){if(window.ProfitMenteProjectHistory?.reset)window.ProfitMenteProjectHistory.reset();else if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project)}
   async function openProject(id){const next=lib.load(id);if(!next)return;stopPlayback();if(!flushCurrentProject())return;project=next;await syncAll();resetHistory();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título'}}));status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
   async function duplicateProject(id){if(!flushCurrentProject())return;const next=lib.duplicate(id);if(!next){status('No se pudo duplicar el proyecto');return}stopPlayback();project=next;await syncAll();resetHistory();render();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',duplicated:true}}));status(`Proyecto duplicado y abierto: ${project.name}`)}
+  async function newProject(){
+    stopPlayback();if(!flushCurrentProject())return false;
+    project=ProfitMenteProjectLibrary.blank();
+    const qa=$('#qaReport');if(qa){qa.hidden=true;qa.innerHTML=''}
+    await syncAll();resetHistory();render();
+    window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:null,name:project.name,newProject:true}}));
+    status('Proyecto nuevo listo · el proyecto anterior quedó guardado');return true;
+  }
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
-  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});render();window.profitMenteProjectLibrary=lib;
+  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
+  const clearBtn=$('#clearBtn');if(clearBtn)clearBtn.onclick=()=>{if(confirm('¿Crear proyecto nuevo?'))void newProject()};
+  render();window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};
 })();
