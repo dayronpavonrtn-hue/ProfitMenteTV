@@ -12,6 +12,9 @@ p=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); out=pathlib.Path(
 project=json.loads(p.read_text(encoding='utf-8'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
+try: fps=int(round(float(project.get('fps',30) or 30)))
+except (TypeError,ValueError): fps=30
+fps=fps if fps in (24,30,60) else 30
 inputs=[]; filters=[]; input_index={}; audio_probe_cache={}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 
@@ -100,16 +103,16 @@ def color_filter(clip):
     return f'eq=brightness={brightness:.3f}:contrast={contrast:.3f}:saturation={saturation:.3f},hue=h={hue:.2f}'
 
 def visual_chain(idx,asset,start,d,clip,label):
-    frames=max(1,int(math.ceil(d*30)))
+    frames=max(1,int(math.ceil(d*fps)))
     motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
     if fit not in ('cover','contain'):fit='cover'
     if fit=='contain':
-        chain=f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps=30'
+        chain=f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps={fps}'
     elif motion in ('slow-zoom','push-in') and not has_keyframes(clip):
         step='.0018' if motion=='push-in' else '.0008'
-        chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps=30"
+        chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={fps}"
     else:
-        chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps=30'
+        chain=f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},fps={fps}'
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
     else: chain=f'trim=start={source_offset}:duration={d*speed},setpts=(PTS-STARTPTS)/{speed},'+chain
     chain+=','+color_filter(clip)
@@ -138,7 +141,7 @@ audio=[c for c in clips if c.get('track') in (4,5,6) and c.get('asset') and not 
 voice=[c for c in audio if int(c.get('track',-1))==6]
 for c in visual+audio:add_input(c['asset'])
 
-base_input=len(input_index); inputs.extend(['-f','lavfi','-i',f'color=c=0x090b10:s={w}x{h}:r=30:d={duration}'])
+base_input=len(input_index); inputs.extend(['-f','lavfi','-i',f'color=c=0x090b10:s={w}x{h}:r={fps}:d={duration}'])
 filters.append(f'[{base_input}:v]setpts=PTS-STARTPTS[vbase0]'); base='[vbase0]'
 for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('track',0)))):
     idx=input_index[c['asset']]; a=amap[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); end=start+d
@@ -232,13 +235,21 @@ if aouts: filters.append(''.join(aouts)+f'amix=inputs={len(aouts)}:duration=long
 out.parent.mkdir(parents=True,exist_ok=True)
 cmd=['ffmpeg','-hide_banner','-y',*inputs,'-filter_complex',';'.join(filters),'-map',base]
 if aouts: cmd+=['-map','[aout]','-c:a','aac','-b:a','192k']
-cmd+=['-t',str(duration),'-r','30','-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(out)]
+cmd+=['-t',str(duration),'-r',str(fps),'-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(out)]
 print('Rendering:', ' '.join(shlex.quote(x) for x in cmd)); subprocess.run(cmd,check=True)
 probe=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,codec_name,width,height,r_frame_rate','-show_entries','format=duration,size','-of','json',str(out)],check=True,capture_output=True,text=True)
 info=json.loads(probe.stdout); streams=info.get('streams',[]); video_stream=next((s for s in streams if s.get('codec_type')=='video'),None)
 if not video_stream: raise RuntimeError('Control de calidad: el MP4 no contiene video')
 if int(video_stream.get('width',0))!=w or int(video_stream.get('height',0))!=h: raise RuntimeError(f'Control de calidad: resolución inesperada {video_stream.get("width")}x{video_stream.get("height")}')
 if aouts and not any(s.get('codec_type')=='audio' for s in streams): raise RuntimeError('Control de calidad: faltó la pista de audio')
+def rate_value(value):
+    try:
+        if '/' in str(value):
+            num,den=str(value).split('/',1); return float(num)/float(den)
+        return float(value)
+    except (TypeError,ValueError,ZeroDivisionError): return 0.0
+actual_fps=rate_value(video_stream.get('r_frame_rate'))
+if abs(actual_fps-fps)>.5: raise RuntimeError(f'Control de calidad: FPS inesperados {actual_fps:.2f} vs {fps}')
 actual=float(info.get('format',{}).get('duration',0) or 0)
 if abs(actual-duration)>1.0: raise RuntimeError(f'Control de calidad: duración inesperada {actual:.2f}s vs {duration:.2f}s')
-print(json.dumps(info,indent=2)); print(f'QA OK: {out}')
+print(json.dumps(info,indent=2)); print(f'QA OK: {out} · {fps} FPS')
