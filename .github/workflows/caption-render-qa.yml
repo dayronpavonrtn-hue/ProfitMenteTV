@@ -4,14 +4,20 @@ on:
   push:
     paths:
       - 'studio/caption_compact.py'
+      - 'studio/caption_layout.py'
       - 'studio/render_motion_text.py'
+      - 'studio/render_mp4.py'
       - 'studio/test_caption_compact.py'
+      - 'studio/test_caption_layout_render.py'
       - '.github/workflows/caption-render-qa.yml'
   pull_request:
     paths:
       - 'studio/caption_compact.py'
+      - 'studio/caption_layout.py'
       - 'studio/render_motion_text.py'
+      - 'studio/render_mp4.py'
       - 'studio/test_caption_compact.py'
+      - 'studio/test_caption_layout_render.py'
       - '.github/workflows/caption-render-qa.yml'
 
 jobs:
@@ -23,6 +29,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Syntax check
-        run: python -m py_compile studio/caption_compact.py studio/render_motion_text.py
+        run: python -m py_compile studio/caption_compact.py studio/caption_layout.py studio/render_motion_text.py studio/render_mp4.py studio/test_caption_layout_render.py
       - name: Caption compaction regression
         run: python studio/test_caption_compact.py
+      - name: Long caption MP4 regression
+        run: python studio/test_caption_layout_render.py
