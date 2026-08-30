@@ -1,0 +1,32 @@
+name: ProfitMente Studio Smart Mix QA
+
+on:
+  push:
+    paths:
+      - 'studio/smart-mix-engine.js'
+      - 'studio/smart-mix-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_smart_mix_engine.mjs'
+      - '.github/workflows/smart-mix-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  smart-mix-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/smart-mix-engine.js
+          node --check studio/smart-mix-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Run smart mix regression
+        run: node studio/test_smart_mix_engine.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "smart-mix-engine.js" studio/feature-bootstrap.js
+          grep -q "smart-mix-integration.js" studio/feature-bootstrap.js
+          grep -q "ProfitMenteAudioNormalize" studio/smart-mix-integration.js
