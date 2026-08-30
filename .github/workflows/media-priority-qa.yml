@@ -1,0 +1,30 @@
+name: ProfitMente Studio Media Priority QA
+on:
+  push:
+    paths:
+      - 'studio/media-priority-engine.js'
+      - 'studio/media-priority-integration.js'
+      - 'studio/generator-engine.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_media_priority.mjs'
+      - '.github/workflows/media-priority-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/media-priority-engine.js'
+      - 'studio/media-priority-integration.js'
+      - 'studio/generator-engine.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_media_priority.mjs'
+      - '.github/workflows/media-priority-qa.yml'
+jobs:
+  media-priority:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: |
+          node --check studio/media-priority-engine.js
+          node --check studio/media-priority-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Media priority regression
+        run: node studio/test_media_priority.mjs
