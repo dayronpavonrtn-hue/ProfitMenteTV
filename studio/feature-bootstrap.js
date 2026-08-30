@@ -74,6 +74,8 @@
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
     ['visual-gap-integration.js','ProfitMenteVisualGap'],
+    ['auto-finish-engine.js','ProfitMenteAutoFinishEngine'],
+    ['auto-finish-integration.js','ProfitMenteAutoFinish'],
     ['automation-checkpoint.js','ProfitMenteAutomationCheckpoint'],
     ['export-preflight.js','ProfitMenteExportPreflight']
   ];
