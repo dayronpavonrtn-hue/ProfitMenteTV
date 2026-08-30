@@ -5,13 +5,14 @@
   const btn=document.createElement('button');btn.id='beatDetectBtn';btn.title='Detecta golpes rítmicos localmente y crea marcadores para editar al ritmo';btn.textContent='♫ Beats';toolbar.appendChild(btn);
   const engine=new ProfitMenteBeatDetectEngine();
   const audioContext=()=>{const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('AudioContext no está disponible en este navegador');return new C()};
+  function trackUnavailable(c){const s=project?.trackState?.[c?.track]||project?.trackState?.[String(c?.track)]||{};return !!c?.muted||!!s?.muted||!!s?.hidden}
   function chosenClip(){
-    const selected=window.ProfitMenteEditTools?.selectedId,byId=(project.clips||[]).find(c=>c.id===selected&&[4,5,6].includes(Number(c.track))&&c.asset);
+    const selected=window.ProfitMenteEditTools?.selectedId,byId=(project.clips||[]).find(c=>c.id===selected&&[4,5,6].includes(Number(c.track))&&c.asset&&!trackUnavailable(c));
     if(byId)return byId;
-    return (project.clips||[]).filter(c=>[5,6,4].includes(Number(c.track))&&c.asset).sort((a,b)=>[5,6,4].indexOf(Number(a.track))-[5,6,4].indexOf(Number(b.track))||Number(a.start)-Number(b.start))[0]||null;
+    return (project.clips||[]).filter(c=>[5,6,4].includes(Number(c.track))&&c.asset&&!trackUnavailable(c)).sort((a,b)=>[5,6,4].indexOf(Number(a.track))-[5,6,4].indexOf(Number(b.track))||Number(a.start)-Number(b.start))[0]||null;
   }
   async function run(){
-    const clip=chosenClip();if(!clip){setStatus?.('Añade o selecciona un clip de música, voz o SFX para detectar beats');return}
+    const clip=chosenClip();if(!clip){setStatus?.('Añade o activa un clip de música, voz o SFX para detectar beats');return}
     if(project.trackState?.[clip.track]?.locked){setStatus?.('La pista de audio seleccionada está bloqueada');return}
     const asset=assets.find(a=>a.id===clip.asset);if(!asset?.blob){setStatus?.('El archivo de audio seleccionado no está disponible localmente');return}
     btn.disabled=true;setStatus?.(`Analizando ritmo localmente: ${asset.name}…`);let ctx;
