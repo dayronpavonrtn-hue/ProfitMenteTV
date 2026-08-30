@@ -12,6 +12,8 @@
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
     ['media-placement-engine.js','ProfitMenteMediaPlacementEngine'],
     ['media-placement-integration.js','ProfitMenteMediaPlacement'],
+    ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
+    ['preview-format-integration.js','ProfitMentePreviewFormat'],
     ['source-monitor-engine.js','ProfitMenteSourceMonitorEngine'],
     ['source-monitor-integration.js','ProfitMenteSourceMonitor'],
     ['match-frame-engine.js','ProfitMenteMatchFrameEngine'],
