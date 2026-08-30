@@ -18,11 +18,17 @@ if(typeof document!=='undefined')(()=>{
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
   function render(){const el=$('#projectLibraryList'),rows=lib.list();el.innerHTML=rows.length?'':'<small>Sin proyectos guardados todavía.</small>';for(const row of rows){const card=document.createElement('div');card.className='projectLibraryCard';card.innerHTML=`<button class="projectOpen" data-open="${row.id}"><b>${escapeHtml(row.name)}</b><small>${new Date(row.updatedAt).toLocaleString()}</small></button><button class="projectDelete" data-delete="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)}}
-  function syncAll(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();$('#playhead').value=0;if(typeof renderAt==='function')renderAt(0)}
-  function saveCurrent(){if(typeof save==='function')save();project=lib.save(project);syncAll();render();status('Proyecto guardado en Mis proyectos · autoguardado activo')}
+  async function syncAll(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();const ph=$('#playhead');if(ph)ph.value=0;if(typeof renderAt==='function')await renderAt(0)}
+  function stopPlayback(){
+    try{if(typeof playing!=='undefined')playing=false}catch{}
+    try{if(typeof audio!=='undefined'&&audio?.stop)audio.stop()}catch{}
+    try{if(typeof playTimer!=='undefined'&&playTimer)cancelAnimationFrame(playTimer)}catch{}
+    const playBtn=$('#playBtn');if(playBtn)playBtn.textContent='▶ Preview';
+  }
+  async function saveCurrent(){if(typeof save==='function')save();project=lib.save(project);await syncAll();render();status('Proyecto guardado en Mis proyectos · autoguardado activo')}
   function resetHistory(){if(window.ProfitMenteProjectHistory?.reset)window.ProfitMenteProjectHistory.reset();else if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project)}
-  function openProject(id){const next=lib.load(id);if(!next)return;project=next;syncAll();resetHistory();status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
+  async function openProject(id){const next=lib.load(id);if(!next)return;stopPlayback();project=next;await syncAll();resetHistory();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título'}}));status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
-  $('#librarySaveBtn').onclick=saveCurrent;$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open)return openProject(open.dataset.open);const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});render();window.profitMenteProjectLibrary=lib;
+  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});render();window.profitMenteProjectLibrary=lib;
 })();
