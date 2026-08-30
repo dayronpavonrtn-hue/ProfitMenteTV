@@ -24,6 +24,8 @@
     ['audio-waveform-integration.js','ProfitMenteAudioWaveforms'],
     ['beat-detect-engine.js','ProfitMenteBeatDetectEngine'],
     ['beat-detect-integration.js','ProfitMenteBeatDetect'],
+    ['beat-sync-engine.js','ProfitMenteBeatSyncEngine'],
+    ['beat-sync-integration.js','ProfitMenteBeatSync'],
     ['project-duration.js','ProfitMenteProjectDuration'],
     ['project-history-engine.js','ProfitMenteProjectHistoryEngine'],
     ['project-history-integration.js','ProfitMenteProjectHistory'],
