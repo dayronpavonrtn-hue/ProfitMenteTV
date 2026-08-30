@@ -19,6 +19,8 @@
     ['project-frame-rate-integration.js','ProfitMenteProjectFrameRate'],
     ['frame-grid-engine.js','ProfitMenteFrameGridEngine'],
     ['frame-grid-integration.js','ProfitMenteFrameGrid'],
+    ['timeline-snap-engine.js','ProfitMenteTimelineSnapEngine'],
+    ['timeline-snap-integration.js','ProfitMenteTimelineSnap'],
     ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
     ['preview-format-integration.js','ProfitMentePreviewFormat'],
     ['webm-render-engine.js','ProfitMenteWebMRenderEngine'],
