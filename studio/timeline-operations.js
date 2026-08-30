@@ -35,15 +35,10 @@
       const original=structuredClone(c),leftDuration=cut-start,rightDuration=end-cut,p=duration>0?leftDuration/duration:0;
       const right=structuredClone(original);right.id=crypto.randomUUID();right.start=cut;right.duration=rightDuration;right.name=original.name||'Clip';
       c.duration=leftDuration;
-      // Asset clips must keep reading the same source position after the cut. Most clips
-      // omit sourceOffset when it is zero, so checking only for the property would make
-      // the right half restart the source from 0 after a normal split.
       if(original.asset){
         const speed=Math.max(.25,Math.min(4,Number(original.speed)||1));
         right.sourceOffset=Math.max(0,(Number(original.sourceOffset)||0)+leftDuration*speed);
       }
-      // A split is not a new editorial entrance. Keep the original entrance on the left
-      // and make the right half a clean continuation.
       if(Object.prototype.hasOwnProperty.call(original,'transition'))right.transition='cut';
       if(original.asset&&[0,1,4,5,6].includes(Number(original.track))){
         const originalFadeIn=original.fadeIn==null?.18:(Number.isFinite(Number(original.fadeIn))?Math.max(0,Number(original.fadeIn)):0);
@@ -80,6 +75,17 @@
     }
     rippleDelete(project,id){const c=project.clips.find(x=>x.id===id);if(!c)return null;const shift=c.duration,end=c.start+c.duration,track=c.track;project.clips=project.clips.filter(x=>x.id!==id);for(const x of project.clips){if(x.track===track&&x.start>=end-.001)x.start=Math.max(c.start,x.start-shift)}return c}
     closeGaps(project,track){const clips=project.clips.filter(c=>c.track===track).sort((a,b)=>a.start-b.start);if(!clips.length)return 0;let cursor=0,moved=0;for(const c of clips){if(c.start>cursor+.001){c.start=cursor;moved++}cursor=Math.max(cursor,c.start+c.duration)}return moved}
+    insertGap(project,track,at,gap=1){
+      const t=Math.max(0,Number(at)||0),amount=Math.max(.05,Number(gap)||1),clips=(project.clips||[]).filter(c=>c.track===track),locked=!!project.trackState?.[track]?.locked;
+      if(locked)return {ok:false,reason:'locked',moved:0,gap:amount};
+      const crossing=clips.find(c=>(Number(c.start)||0)<t-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>t+.001);
+      if(crossing)return {ok:false,reason:'crossing',clip:crossing,moved:0,gap:amount};
+      let moved=0,maxEnd=0;
+      for(const c of clips){if((Number(c.start)||0)>=t-.001){c.start=(Number(c.start)||0)+amount;moved++}maxEnd=Math.max(maxEnd,(Number(c.start)||0)+(Number(c.duration)||0))}
+      if(!moved)return {ok:false,reason:'empty',moved:0,gap:amount};
+      project.duration=Math.max(Number(project.duration)||0,maxEnd);
+      return {ok:true,moved,gap:amount,track,at:t,duration:project.duration};
+    }
   }
   root.ProfitMenteTimelineOperations=ProfitMenteTimelineOperations;
   if(typeof document==='undefined')return;
@@ -89,23 +95,25 @@
   const locked=c=>!!project.trackState?.[c?.track]?.locked;
   const playhead=()=>+$('#playhead')?.value||0;
   function status(t){if(typeof setStatus==='function')setStatus(t)}
-  function commit(t){if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(playhead());status(t)}
+  function commit(t){if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof syncForm==='function')syncForm();if(typeof renderAt==='function')renderAt(playhead());status(t)}
   function addButton(id,text,title,after){if($('#'+id))return;const b=document.createElement('button');b.id=id;b.textContent=text;b.title=title;const ref=$(after);ref?.parentNode?.insertBefore(b,ref.nextSibling);return b}
   const splitBtn=addButton('splitClipBtn','✂ Dividir','Dividir clip en el cursor (S)','#duplicateBtn');
   const copyBtn=addButton('copyClipBtn','⧉ Copiar','Ctrl/Cmd+C','#splitClipBtn');
   const pasteBtn=addButton('pasteClipBtn','📋 Pegar','Ctrl/Cmd+V','#copyClipBtn');
   const rippleBtn=addButton('rippleDeleteBtn','⇤ Borrar ripple','Shift+Delete','#deleteClipBtn');
   const gapBtn=addButton('closeGapsBtn','⇥ Cerrar huecos','G','#rippleDeleteBtn');
+  const insertGapBtn=addButton('insertGapBtn','＋ 1s','Abrir 1 segundo en la pista desde el cursor (Shift+G)','#closeGapsBtn');
   function canSplit(c=clip()){const t=playhead();return !!c&&!locked(c)&&t>Number(c.start)+.05&&t<Number(c.start)+Number(c.duration)-.05}
-  function update(){const c=clip();if(splitBtn)splitBtn.disabled=!canSplit(c);if(copyBtn)copyBtn.disabled=!c;if(pasteBtn)pasteBtn.disabled=!ops.clipboard;if(rippleBtn)rippleBtn.disabled=!c||locked(c);if(gapBtn)gapBtn.disabled=!c||locked(c)}
+  function update(){const c=clip();if(splitBtn)splitBtn.disabled=!canSplit(c);if(copyBtn)copyBtn.disabled=!c;if(pasteBtn)pasteBtn.disabled=!ops.clipboard;if(rippleBtn)rippleBtn.disabled=!c||locked(c);if(gapBtn)gapBtn.disabled=!c||locked(c);if(insertGapBtn)insertGapBtn.disabled=!c||locked(c)}
   function splitSelected(){const c=clip();if(!c){status('Selecciona un clip para dividir');return}if(locked(c)){status('La pista está bloqueada');return}const result=ops.split(project,c.id,playhead());if(!result){status('Coloca el cursor dentro del clip, lejos de sus bordes');return}root.ProfitMenteEditTools?.select(result.right.id);commit(`Clip dividido en ${playhead().toFixed(2)}s`);update()}
   function copySelected(){const c=clip();if(!c)return;ops.copy(c);status(`Clip copiado: ${c.name||'sin nombre'}`);update()}
   function paste(){if(!ops.clipboard)return;const target=clip(),track=target?.track??ops.clipboard.track;if(project.trackState?.[track]?.locked){status('La pista destino está bloqueada');return}const c=ops.paste(project,playhead(),track);root.ProfitMenteEditTools?.select(c.id);commit(`Clip pegado en ${c.start.toFixed(2)}s`);update()}
   function ripple(){const c=clip();if(!c||locked(c))return;const name=c.name||'clip';ops.rippleDelete(project,c.id);root.ProfitMenteEditTools?.select(null);commit(`Borrado ripple: ${name}`);update()}
   function gaps(){const c=clip();if(!c||locked(c))return;const n=ops.closeGaps(project,c.track);commit(n?`${n} hueco(s) cerrado(s) en la pista`:'La pista ya está compacta');update()}
-  splitBtn?.addEventListener('click',splitSelected);copyBtn?.addEventListener('click',copySelected);pasteBtn?.addEventListener('click',paste);rippleBtn?.addEventListener('click',ripple);gapBtn?.addEventListener('click',gaps);
+  function insertGap(){const c=clip();if(!c){status('Selecciona un clip de la pista donde quieres abrir espacio');return}const r=ops.insertGap(project,c.track,playhead(),1);if(!r.ok){if(r.reason==='locked')status('La pista está bloqueada');else if(r.reason==='crossing')status('No se puede abrir espacio: hay un clip cruzando el cursor');else status('No hay clips después del cursor en esa pista');return}commit(`Espacio de 1.00s insertado · ${r.moved} clip(s) desplazados`);update()}
+  splitBtn?.addEventListener('click',splitSelected);copyBtn?.addEventListener('click',copySelected);pasteBtn?.addEventListener('click',paste);rippleBtn?.addEventListener('click',ripple);gapBtn?.addEventListener('click',gaps);insertGapBtn?.addEventListener('click',insertGap);
   $('#playhead')?.addEventListener('input',update);
   document.addEventListener('click',()=>requestAnimationFrame(update),true);
-  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='c'&&clip()){e.preventDefault();copySelected()}else if(mod&&e.key.toLowerCase()==='v'&&ops.clipboard){e.preventDefault();paste()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='s'&&clip()){e.preventDefault();splitSelected()}else if(e.shiftKey&&e.key==='Delete'&&clip()){e.preventDefault();ripple()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();gaps()}});
+  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable)return;const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='c'&&clip()){e.preventDefault();copySelected()}else if(mod&&e.key.toLowerCase()==='v'&&ops.clipboard){e.preventDefault();paste()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='s'&&clip()){e.preventDefault();splitSelected()}else if(e.shiftKey&&e.key==='Delete'&&clip()){e.preventDefault();ripple()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();gaps()}else if(!mod&&!e.altKey&&e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();insertGap()}});
   update();root.ProfitMenteTimelineOps=ops;
 })();
