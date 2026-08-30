@@ -40,7 +40,7 @@ async function runScenario({resultError=null}={}){
   vm.runInContext(fs.readFileSync(new URL('./render-job-integration.js',import.meta.url),'utf8'),context);
   await new Promise(resolve=>setImmediate(resolve));
   await renderBtn.onclick();
-  return {store,statuses,downloadName,capturedProject,switched,project:context.project};
+  return {store,statuses,downloadName,capturedProject,switched,project:context.project,validation:context.window.ProfitMenteAsyncRenderValidation};
 }
 
 const success=await runScenario();
@@ -50,6 +50,22 @@ assert.equal(success.capturedProject.name,'Proyecto A','render bundle must keep 
 assert.equal(success.capturedProject.libraryId,'lib-a');
 assert.equal(success.downloadName,'Proyecto_A.mp4','completed MP4 must keep the original project name');
 assert.equal(success.store.has(SESSION_KEY),false,'successful download clears recovery state');
+assert.ok(success.statuses.some(v=>/proyecto abierto ahora es otro/.test(v)),'project switch must be visible on the completed result');
+
+const {renderFingerprint,evaluateRenderFreshness,normalizeRenderContext}=success.validation;
+const original={name:'Proyecto A',libraryId:'lib-a',format:{width:1080,height:1920,fps:30},clips:[{id:'c1',track:0,start:0,duration:4,source:'asset-1'}]};
+const sameContent={...structuredClone(original),name:'Renombrado',libraryId:'lib-a'};
+const edited=structuredClone(original);edited.clips[0].duration=5;
+const other=structuredClone(original);other.libraryId='lib-b';
+const fingerprint=renderFingerprint(original);
+assert.equal(fingerprint,renderFingerprint(sameContent),'project display name must not invalidate render content');
+assert.notEqual(fingerprint,renderFingerprint(edited),'render-affecting edits must change the fingerprint');
+const identity=normalizeRenderContext({projectName:'Proyecto A',libraryId:'lib-a',renderFingerprint:fingerprint});
+assert.equal(evaluateRenderFreshness(identity,original).status,'current');
+assert.equal(evaluateRenderFreshness(identity,sameContent).status,'current');
+assert.equal(evaluateRenderFreshness(identity,edited).status,'stale');
+assert.equal(evaluateRenderFreshness(identity,other).status,'different-project');
+assert.equal(evaluateRenderFreshness({projectName:'Legacy',libraryId:'lib-a'},original).status,'unknown','legacy sessions without fingerprint must remain recoverable without being called current');
 
 const networkError=Object.assign(new Error('network download failed'),{retryable:true});
 const failed=await runScenario({resultError:networkError});
@@ -57,6 +73,7 @@ const saved=JSON.parse(failed.store.get(SESSION_KEY));
 assert.equal(saved.jobId,'job-original');
 assert.equal(saved.projectName,'Proyecto A','recovery session must keep original render project name');
 assert.equal(saved.libraryId,'lib-a','recovery session must keep original project identity');
+assert.ok(saved.renderFingerprint,'recovery session must preserve the exact render snapshot fingerprint');
 assert.ok(failed.statuses.some(v=>/se conserva para recuperación/.test(v)));
 
-console.log('render project identity ok');
+console.log('render project identity and stale-result guard ok');
