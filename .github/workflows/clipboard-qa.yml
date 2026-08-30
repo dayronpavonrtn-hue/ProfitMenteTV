@@ -23,13 +23,19 @@ jobs:
           node --check studio/clipboard-engine.js
           node --check studio/clipboard-integration.js
           node --check studio/selection-integration.js
-      - name: Run clipboard regression
+      - name: Run clipboard and duplicate regression
         run: node studio/test_clipboard_engine.mjs
       - name: Verify clipboard integration is loaded
         run: |
           grep -q "clipboard-engine.js" studio/selection-integration.js
           grep -q "clipboard-integration.js" studio/selection-integration.js
-      - name: Verify copy and paste shortcuts
+      - name: Verify copy paste and duplicate shortcuts
         run: |
           grep -q "toLowerCase()==='c'" studio/clipboard-integration.js
           grep -q "toLowerCase()==='v'" studio/clipboard-integration.js
+          grep -q "toLowerCase()==='d'" studio/clipboard-integration.js
+          grep -q "isContentEditable" studio/clipboard-integration.js
+      - name: Verify group isolation guard
+        run: |
+          grep -q "remapGroups" studio/clipboard-engine.js
+          grep -q "reason:'no-space'" studio/clipboard-engine.js
