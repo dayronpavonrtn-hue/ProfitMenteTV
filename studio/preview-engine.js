@@ -74,7 +74,8 @@
     const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
     if(anim==='pop')y-=9*Math.exp(-10*Math.max(0,t-start))*Math.cos(28*Math.max(0,t-start));if(anim==='word-pulse')y-=3*Math.sin(8*Math.max(0,t-start));
-    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const text=String(cap.name||'');const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size,m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
+    const compact=window.ProfitMenteCaptionCompactEngine?new window.ProfitMenteCaptionCompactEngine():null,text=compact?compact.textAtTime(cap,t):String(cap.name||'');
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size,m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
   }
   renderAt=async function(t){
     const epoch=++renderEpoch;
