@@ -38,6 +38,28 @@
     if(freshness?.status==='unknown')return ' · resultado recuperado de una sesión anterior';
     return ' · versión actual ✓';
   }
+  async function renderPreflight(){
+    if(typeof window.ProfitMenteExportPreflightRun==='function'){
+      const preflight=await window.ProfitMenteExportPreflightRun();
+      return {ok:!!preflight?.canRender,preflight,qa:null};
+    }
+    const report=qa.inspect(project,assets);
+    return {ok:!(report.issues||[]).length,preflight:null,qa:report};
+  }
+  function reportPreflightBlock(gate){
+    const p=gate?.preflight;
+    if(p?.state==='blocked'){
+      setStatus('Render MP4 bloqueado por Preflight: corrige primero los errores de QA');
+      document.querySelector('#qaBtn')?.click();
+      return;
+    }
+    if(p?.canPackage){
+      setStatus(p?.health?.ok?'Preflight: MP4 directo no disponible. Puedes exportar el paquete $0.':'Preflight: abre Studio con el servidor local para MP4 directo; el paquete $0 sigue disponible.');
+      return;
+    }
+    setStatus('Render MP4 bloqueado: corrige primero los errores de QA');
+    document.querySelector('#qaBtn')?.click();
+  }
   function persistSession(context){try{const identity=normalizeRenderContext(context);localStorage.setItem(SESSION_KEY,JSON.stringify({jobId:client.jobId,...identity,savedAt:Date.now()}))}catch{}}
   function readSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.jobId?data:null}catch{return null}}
   function clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch{}}
@@ -76,11 +98,14 @@
     }finally{renderBtn.disabled=false;cancelBtn.hidden=true;client.reset()}
   }
   renderBtn.onclick=async()=>{
-    save();const r=qa.inspect(project,assets);if(r.issues.length){setStatus('Render MP4 bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
+    save();
+    let gate;
+    try{gate=await renderPreflight()}catch(err){console.error(err);setStatus('No se pudo completar el Preflight de exportación: '+(err?.message||err));return}
+    if(!gate.ok){reportPreflightBlock(gate);return}
     const renderProject=projectForRender(),renderContext=captureRenderContext(renderProject);
     renderBtn.disabled=true;cancelBtn.hidden=false;client.reset();clearSession();
     try{
-      const health=await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
+      const health=gate.preflight?.health||await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
       setStatus('Empaquetando proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,assets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(renderContext);
       await finishActiveJob(renderContext);
     }catch(err){
@@ -93,5 +118,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,evaluateRenderFreshness,freshnessLabel};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
 })();
