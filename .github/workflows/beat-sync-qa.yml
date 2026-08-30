@@ -1,0 +1,32 @@
+name: ProfitMente Studio Beat Sync QA
+
+on:
+  push:
+    paths:
+      - 'studio/beat-sync-engine.js'
+      - 'studio/beat-sync-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_beat_sync_engine.mjs'
+      - '.github/workflows/beat-sync-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  beat-sync-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/beat-sync-engine.js
+          node --check studio/beat-sync-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Beat sync regression
+        run: node studio/test_beat_sync_engine.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "beat-sync-engine.js" studio/feature-bootstrap.js
+          grep -q "beat-sync-integration.js" studio/feature-bootstrap.js
+          grep -q "ProfitMenteBeatSync" studio/beat-sync-integration.js
