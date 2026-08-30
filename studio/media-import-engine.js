@@ -52,6 +52,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
         const contentHash=await engine.contentHash(file);
         if(contentHash&&engine.findDuplicateHash(assets,contentHash)){duplicates++;continue}
         const type=engine.kind(file),fingerprint=engine.signature(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),importOrigin:origin};
+        const metadataEngine=window.ProfitMenteMediaMetadataEngine;
+        if(metadataEngine){try{metadataEngine.apply(asset,await metadataEngine.probe(file,type))}catch(err){asset.metadataError=String(err?.message||err);console.warn('Metadatos no disponibles',file?.name,err)}}
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
