@@ -13,6 +13,9 @@ TARGETS = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080)}
 BLACK_RE = re.compile(r"black_start:(?P<start>[0-9.]+)\s+black_end:(?P<end>[0-9.]+)\s+black_duration:(?P<duration>[0-9.]+)")
 SILENCE_START_RE = re.compile(r"silence_start:\s*(?P<start>[0-9.]+)")
 SILENCE_END_RE = re.compile(r"silence_end:\s*(?P<end>[0-9.]+)\s*\|\s*silence_duration:\s*(?P<duration>[0-9.]+)")
+FREEZE_START_RE = re.compile(r"freeze_start:\s*(?P<start>[0-9.]+)")
+FREEZE_DURATION_RE = re.compile(r"freeze_duration:\s*(?P<duration>[0-9.]+)")
+FREEZE_END_RE = re.compile(r"freeze_end:\s*(?P<end>[0-9.]+)")
 
 
 def _num(value, default=0.0):
@@ -141,16 +144,42 @@ def parse_silencedetect(log: str, total_duration: float = 0.0) -> list[dict]:
     return events
 
 
+def parse_freezedetect(log: str, total_duration: float = 0.0) -> list[dict]:
+    events, pending_start, pending_duration = [], None, None
+    for line in (log or "").splitlines():
+        start_match = FREEZE_START_RE.search(line)
+        if start_match:
+            pending_start = _num(start_match.group("start"))
+            pending_duration = None
+        duration_match = FREEZE_DURATION_RE.search(line)
+        if duration_match:
+            pending_duration = _num(duration_match.group("duration"))
+        end_match = FREEZE_END_RE.search(line)
+        if end_match:
+            end = _num(end_match.group("end"))
+            duration = pending_duration if pending_duration is not None else max(0.0, end - _num(pending_start))
+            start = pending_start if pending_start is not None else max(0.0, end - duration)
+            events.append({"start": start, "end": end, "duration": duration})
+            pending_start, pending_duration = None, None
+    if pending_start is not None and total_duration > pending_start:
+        end = total_duration
+        duration = pending_duration if pending_duration is not None else end - pending_start
+        events.append({"start": pending_start, "end": end, "duration": duration})
+    return events
+
+
 def _signal_summary(events: list[dict]) -> tuple[float, float]:
     total = sum(max(0.0, _num(x.get("duration"))) for x in events)
     longest = max([_num(x.get("duration")) for x in events] or [0.0])
     return total, longest
 
 
-def analyze_signals(project: dict, duration: float, black_events: list[dict], silence_events: list[dict]) -> dict:
+def analyze_signals(project: dict, duration: float, black_events: list[dict], silence_events: list[dict], freeze_events: list[dict] | None = None) -> dict:
     duration = max(0.25, _num(duration, _num(project.get("duration"), 45)))
+    freeze_events = freeze_events or []
     black_total, black_longest = _signal_summary(black_events)
     silence_total, silence_longest = _signal_summary(silence_events)
+    freeze_total, freeze_longest = _signal_summary(freeze_events)
     issues, warnings = [], []
 
     severe_black = max(3.0, duration * 0.40)
@@ -159,6 +188,13 @@ def analyze_signals(project: dict, duration: float, black_events: list[dict], si
         issues.append(f"El render contiene una pantalla negra continua de {black_longest:.2f}s.")
     elif black_longest >= warn_black:
         warnings.append(f"Se detectó una pantalla negra continua de {black_longest:.2f}s; conviene revisarla.")
+
+    severe_freeze = max(5.0, duration * 0.50)
+    warn_freeze = max(2.0, duration * 0.20)
+    if freeze_longest >= severe_freeze or freeze_total >= duration * 0.80:
+        issues.append(f"El render parece congelado durante {freeze_total:.2f}s (tramo máximo {freeze_longest:.2f}s).")
+    elif freeze_longest >= warn_freeze:
+        warnings.append(f"Se detectó imagen congelada durante {freeze_longest:.2f}s; conviene revisar ese tramo.")
 
     if project_expects_audio(project):
         severe_silence = max(4.0, duration * 0.60)
@@ -174,6 +210,8 @@ def analyze_signals(project: dict, duration: float, black_events: list[dict], si
         "metrics": {
             "black_seconds": round(black_total, 3),
             "longest_black": round(black_longest, 3),
+            "freeze_seconds": round(freeze_total, 3),
+            "longest_freeze": round(freeze_longest, 3),
             "silence_seconds": round(silence_total, 3),
             "longest_silence": round(silence_longest, 3),
         },
@@ -189,9 +227,9 @@ def probe_file(mp4: pathlib.Path) -> dict:
     return json.loads(result.stdout or "{}")
 
 
-def scan_output(mp4: pathlib.Path, duration: float, scan_audio: bool) -> tuple[list[dict], list[dict], list[str]]:
+def scan_output(mp4: pathlib.Path, duration: float, scan_audio: bool) -> tuple[list[dict], list[dict], list[dict], list[str]]:
     warnings = []
-    black_events, silence_events = [], []
+    black_events, silence_events, freeze_events = [], [], []
     black = subprocess.run([
         "ffmpeg", "-hide_banner", "-nostats", "-i", str(mp4),
         "-vf", "blackdetect=d=0.75:pix_th=0.10", "-an", "-f", "null", "-"
@@ -200,6 +238,15 @@ def scan_output(mp4: pathlib.Path, duration: float, scan_audio: bool) -> tuple[l
         black_events = parse_blackdetect(black.stderr)
     else:
         warnings.append("No se pudo ejecutar la detección local de pantallas negras.")
+
+    freeze = subprocess.run([
+        "ffmpeg", "-hide_banner", "-nostats", "-i", str(mp4),
+        "-vf", "freezedetect=n=-60dB:d=1.5", "-an", "-f", "null", "-"
+    ], capture_output=True, text=True)
+    if freeze.returncode == 0:
+        freeze_events = parse_freezedetect(freeze.stderr, duration)
+    else:
+        warnings.append("No se pudo ejecutar la detección local de imagen congelada.")
 
     if scan_audio:
         silence = subprocess.run([
@@ -210,7 +257,7 @@ def scan_output(mp4: pathlib.Path, duration: float, scan_audio: bool) -> tuple[l
             silence_events = parse_silencedetect(silence.stderr, duration)
         else:
             warnings.append("No se pudo ejecutar la detección local de silencio.")
-    return black_events, silence_events, warnings
+    return black_events, silence_events, freeze_events, warnings
 
 
 def inspect_output(project_path: pathlib.Path, mp4_path: pathlib.Path) -> dict:
@@ -220,10 +267,10 @@ def inspect_output(project_path: pathlib.Path, mp4_path: pathlib.Path) -> dict:
     probe = probe_file(mp4_path)
     report = analyze_probe(project, probe)
     duration = _num(report.get("metrics", {}).get("duration"), _num(project.get("duration"), 45))
-    black_events, silence_events, scan_warnings = scan_output(
+    black_events, silence_events, freeze_events, scan_warnings = scan_output(
         mp4_path, duration, bool(report.get("metrics", {}).get("has_audio")) and project_expects_audio(project)
     )
-    signal = analyze_signals(project, duration, black_events, silence_events)
+    signal = analyze_signals(project, duration, black_events, silence_events, freeze_events)
     report["issues"].extend(signal["issues"])
     report["warnings"].extend(signal["warnings"])
     report["warnings"].extend(scan_warnings)
