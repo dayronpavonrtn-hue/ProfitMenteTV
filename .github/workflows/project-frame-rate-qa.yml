@@ -1,0 +1,40 @@
+name: ProfitMente Studio Project Frame Rate QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-frame-rate-engine.js'
+      - 'studio/project-frame-rate-integration.js'
+      - 'studio/transport-engine.js'
+      - 'studio/webm-render-integration.js'
+      - 'studio/render_mp4.py'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_project_frame_rate.mjs'
+      - '.github/workflows/project-frame-rate-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  frame-rate-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: |
+          node --check studio/project-frame-rate-engine.js
+          node --check studio/project-frame-rate-integration.js
+          node --check studio/transport-engine.js
+          node --check studio/webm-render-integration.js
+          python -m py_compile studio/render_mp4.py
+      - name: Frame rate regression
+        run: node studio/test_project_frame_rate.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "project-frame-rate-engine.js" studio/feature-bootstrap.js
+          grep -q "project-frame-rate-integration.js" studio/feature-bootstrap.js
+          grep -q "actual_fps=rate_value" studio/render_mp4.py
