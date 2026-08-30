@@ -43,9 +43,11 @@
     try{
       if(typeof playing!=='undefined'&&playing)document.querySelector('#playBtn')?.click();
       const playhead=document.querySelector('#playhead');if(playhead)playhead.value=0;
-      const videoStream=canvas.captureStream(plan.fps);await audio.schedule(project,assets,0,false);engine.assert(session);
-      const mixedStream=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]),recorder=new MediaRecorder(mixedStream,{mimeType:mime}),chunks=[],done=recorderDone(recorder,chunks);
-      resources={videoStream,mixedStream,recorder};recorder.start(1000);setStatus?.('Render WebM · 0%');
+      const videoStream=canvas.captureStream(plan.fps);resources={videoStream,mixedStream:null,recorder:null};
+      await audio.schedule(project,assets,0,false);engine.assert(session);
+      const mixedStream=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]);resources.mixedStream=mixedStream;
+      const recorder=new MediaRecorder(mixedStream,{mimeType:mime}),chunks=[],done=recorderDone(recorder,chunks);resources.recorder=recorder;
+      recorder.start(1000);setStatus?.('Render WebM · 0%');
       for(let frame=0;frame<plan.totalFrames;frame++){
         engine.assert(session);const started=performance.now(),time=plan.timeAt(frame);if(playhead)playhead.value=time;await renderAt(time);engine.assert(session);
         if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM · ${progress}%`)}
