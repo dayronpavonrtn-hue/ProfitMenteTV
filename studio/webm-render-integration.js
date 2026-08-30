@@ -19,16 +19,18 @@
     recorder.addEventListener('stop',()=>resolve(new Blob(chunks,{type:'video/webm'})),{once:true});
     recorder.addEventListener('error',event=>reject(event.error||new Error('Falló MediaRecorder')),{once:true});
   })}
-  function download(blob){
+  function download(blob,projectName){
     if(!blob?.size)throw new Error('El render WebM terminó vacío');
-    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${String(project?.name||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_')}-mix.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return blob.size;
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${String(projectName||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_')}-mix.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return blob.size;
   }
-  async function cleanup(previousTime,monitorQuality){
+  async function cleanup(previousTime,monitorQuality,renderProject){
     safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
     resources=null;engine.reset();cancelBtn.hidden=true;cancelBtn.disabled=false;renderBtn.disabled=false;
     applyQuality(monitorQuality);
-    const playhead=document.querySelector('#playhead');if(playhead)playhead.value=Math.max(0,Math.min(Number(project?.duration)||0,previousTime));
-    try{syncForm?.()}catch{}try{await renderAt?.(previousTime)}catch{}
+    const playhead=document.querySelector('#playhead');
+    const restoreTime=project===renderProject?previousTime:Number(playhead?.value||0);
+    if(playhead)playhead.value=Math.max(0,Math.min(Number(project?.duration)||0,restoreTime));
+    try{syncForm?.()}catch{}try{await renderAt?.(Number(playhead?.value||0))}catch{}
   }
   async function run(){
     if(engine.active)return;
@@ -37,27 +39,31 @@
     if(typeof qa!=='undefined'){
       const report=qa.inspect(project,assets);if(report.issues?.length){setStatus?.('Render WebM bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
     }
-    const previousTime=Number(document.querySelector('#playhead')?.value||0),monitorQuality=currentQuality(),plan=ProfitMenteWebMRenderEngine.framePlan(project?.duration,30),mime=ProfitMenteWebMRenderEngine.mimeType(window.MediaRecorder);
+    const renderProject=project,renderState=ProfitMenteWebMRenderEngine.captureState(renderProject,assets),renderName=String(renderProject?.name||'profitmente');
+    const previousTime=Number(document.querySelector('#playhead')?.value||0),monitorQuality=currentQuality(),plan=ProfitMenteWebMRenderEngine.framePlan(renderProject?.duration,30),mime=ProfitMenteWebMRenderEngine.mimeType(window.MediaRecorder);
     if(!mime){setStatus?.('No hay un códec WebM compatible en este navegador');return}
-    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps});renderBtn.disabled=true;cancelBtn.hidden=false;applyQuality('full');
+    const assertRenderState=()=>{engine.assert(session);ProfitMenteWebMRenderEngine.assertState(renderState,project,assets)};
+    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName});renderBtn.disabled=true;cancelBtn.hidden=false;applyQuality('full');
     try{
       if(typeof playing!=='undefined'&&playing)document.querySelector('#playBtn')?.click();
+      assertRenderState();
       const playhead=document.querySelector('#playhead');if(playhead)playhead.value=0;
       const videoStream=canvas.captureStream(plan.fps);resources={videoStream,mixedStream:null,recorder:null};
-      await audio.schedule(project,assets,0,false);engine.assert(session);
+      await audio.schedule(renderProject,assets,0,false);assertRenderState();
       const mixedStream=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]);resources.mixedStream=mixedStream;
       const recorder=new MediaRecorder(mixedStream,{mimeType:mime}),chunks=[],done=recorderDone(recorder,chunks);resources.recorder=recorder;
       recorder.start(1000);setStatus?.('Render WebM · 0%');
       for(let frame=0;frame<plan.totalFrames;frame++){
-        engine.assert(session);const started=performance.now(),time=plan.timeAt(frame);if(playhead)playhead.value=time;await renderAt(time);engine.assert(session);
+        assertRenderState();const started=performance.now(),time=plan.timeAt(frame);if(playhead)playhead.value=time;await renderAt(time);assertRenderState();
         if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM · ${progress}%`)}
         const elapsed=performance.now()-started,remaining=Math.max(0,plan.frameDuration*1000-elapsed);if(remaining)await wait(remaining);
       }
-      engine.assert(session);safeStopRecorder(recorder);const blob=await done;engine.assert(session);engine.finish(session);const size=download(blob);setStatus?.(`Render WebM listo · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
+      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
     }catch(err){
-      if(err?.name==='AbortError'||engine.cancelled)setStatus?.('Render WebM cancelado · recursos liberados');
+      if(err?.code==='WEBM_STATE_CHANGED'){setStatus?.('Render WebM detenido: el proyecto o sus medios cambiaron. Vuelve a exportar para evitar un archivo inconsistente')}
+      else if(err?.name==='AbortError'||engine.cancelled)setStatus?.('Render WebM cancelado · recursos liberados');
       else{console.error(err);setStatus?.(`No se pudo renderizar WebM: ${err?.message||err}`)}
-    }finally{await cleanup(previousTime,monitorQuality)}
+    }finally{await cleanup(previousTime,monitorQuality,renderProject)}
   }
   renderBtn.onclick=run;
   cancelBtn.onclick=()=>{
