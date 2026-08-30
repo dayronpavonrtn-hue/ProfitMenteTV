@@ -3,8 +3,8 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 vm.runInThisContext(fs.readFileSync(new URL('./range-edit-engine.js',import.meta.url),'utf8'));
-let n=0;
-const engine=new globalThis.ProfitMenteRangeEditEngine({idFactory:()=>`new-${++n}`});
+let n=0,g=0;
+const engine=new globalThis.ProfitMenteRangeEditEngine({idFactory:()=>`new-${++n}`,groupIdFactory:()=>`group-new-${++g}`});
 
 const base=()=>({
   duration:12,
@@ -61,5 +61,43 @@ assert.equal(captions.length,2);
 assert.equal(captions[1].start,2);
 assert.equal(captions[1].wordTimings[0].start,2);
 assert.equal(captions[1].name,'three');
+
+const grouped=()=>({
+  duration:10,trackState:{},markers:[],workRange:null,
+  clips:[
+    {id:'gv',groupId:'linked-1',track:0,start:0,duration:8,asset:'video.mp4',sourceOffset:0},
+    {id:'ga',groupId:'linked-1',track:2,start:0,duration:8,asset:'audio.wav',sourceOffset:0}
+  ]
+});
+
+project=grouped();
+engine.extract(project,3,5);
+const extractLeft=project.clips.filter(x=>x.start===0).sort((a,b)=>a.track-b.track);
+const extractRight=project.clips.filter(x=>x.start===3).sort((a,b)=>a.track-b.track);
+assert.equal(extractLeft.length,2);
+assert.equal(extractRight.length,2);
+assert.equal(extractLeft[0].groupId,'linked-1');
+assert.equal(extractLeft[1].groupId,'linked-1');
+assert.equal(extractRight[0].groupId,extractRight[1].groupId);
+assert.notEqual(extractRight[0].groupId,'linked-1');
+
+project=grouped();
+engine.insert(project,3,2);
+const insertLeft=project.clips.filter(x=>x.start===0).sort((a,b)=>a.track-b.track);
+const insertRight=project.clips.filter(x=>x.start===5).sort((a,b)=>a.track-b.track);
+assert.equal(insertLeft.length,2);
+assert.equal(insertRight.length,2);
+assert.equal(insertLeft[0].groupId,'linked-1');
+assert.equal(insertLeft[1].groupId,'linked-1');
+assert.equal(insertRight[0].groupId,insertRight[1].groupId);
+assert.notEqual(insertRight[0].groupId,'linked-1');
+
+project={duration:10,trackState:{},clips:[
+  {id:'only-left',groupId:'broken',track:0,start:0,duration:2,asset:'a.mp4'},
+  {id:'removed',groupId:'broken',track:2,start:3,duration:2,asset:'a.wav'}
+]};
+engine.extract(project,2.5,5.5);
+assert.equal(project.clips.length,1);
+assert.equal(project.clips[0].groupId,undefined);
 
 console.log('range edit regression ok');
