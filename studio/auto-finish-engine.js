@@ -7,12 +7,14 @@
       const visual=clips.filter(c=>[0,1].includes(Number(c.track))&&c.asset&&!project?.trackState?.[Number(c.track)]?.hidden);
       const generated=clips.filter(c=>Number(c.track)===0&&String(c.sceneText||'').trim());
       const beats=(project?.markers||[]).filter(m=>/^Beat\b/i.test(String(m?.label||'')));
-      return {visual:visual.length,generated:generated.length,voice:active(6).length,music:active(5).length,sfx:active(4).length,beats:beats.length,assets:(assets||[]).length};
+      const autoTransitions=generated.filter(c=>c.autoTransition).length;
+      return {visual:visual.length,generated:generated.length,voice:active(6).length,music:active(5).length,sfx:active(4).length,beats:beats.length,autoTransitions,assets:(assets||[]).length};
     }
     static plan(project,assets=[]){
       const s=this.inspect(project,assets),steps=['repair'];
       if(s.voice&&s.music)steps.push('smart-mix');
       if(s.music||s.voice||s.sfx){if(!s.beats)steps.push('detect-beats');if(s.generated>1)steps.push('sync-beats')}
+      if(s.generated>1)steps.push('auto-transitions');
       steps.push('qa');
       return {steps,summary:s};
     }
