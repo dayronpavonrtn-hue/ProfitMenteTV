@@ -78,9 +78,9 @@
     ['auto-transition-engine.js','ProfitMenteAutoTransitionEngine'],
     ['auto-transition-integration.js','ProfitMenteAutoTransitions'],
     ['auto-finish-engine.js','ProfitMenteAutoFinishEngine'],
+    ['export-preflight.js','ProfitMenteExportPreflight'],
     ['auto-finish-integration.js','ProfitMenteAutoFinish'],
-    ['automation-checkpoint.js','ProfitMenteAutomationCheckpoint'],
-    ['export-preflight.js','ProfitMenteExportPreflight']
+    ['automation-checkpoint.js','ProfitMenteAutomationCheckpoint']
   ];
   function load([src,guard,dataKey]){
     if(guard&&window[guard])return Promise.resolve();
