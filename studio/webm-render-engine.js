@@ -13,6 +13,33 @@ class ProfitMenteWebMRenderEngine{
     if(typeof MediaRecorderCtor.isTypeSupported!=='function')return 'video/webm';
     return candidates.find(type=>MediaRecorderCtor.isTypeSupported(type))||'';
   }
+  static _assetDescriptor(asset){
+    const blob=asset?.blob;
+    return {
+      id:asset?.id??null,
+      name:asset?.name??'',
+      type:asset?.type??'',
+      mime:asset?.mime??blob?.type??'',
+      size:Number(blob?.size)||0,
+      lastModified:Number(blob?.lastModified)||0
+    };
+  }
+  static stateSignature(project,assets=[]){
+    const safeAssets=Array.isArray(assets)?assets.map(asset=>this._assetDescriptor(asset)).sort((a,b)=>String(a.id).localeCompare(String(b.id))):[];
+    try{return JSON.stringify({project,assets:safeAssets})}
+    catch{return ''}
+  }
+  static captureState(project,assets=[]){
+    return {projectRef:project,signature:this.stateSignature(project,assets)};
+  }
+  static assertState(snapshot,project,assets=[]){
+    const changed=!snapshot||snapshot.projectRef!==project||!snapshot.signature||snapshot.signature!==this.stateSignature(project,assets);
+    if(changed){
+      const error=new Error('El proyecto o sus medios cambiaron durante el render');
+      error.name='InvalidStateError';error.code='WEBM_STATE_CHANGED';throw error;
+    }
+    return true;
+  }
   get active(){return !!this._session&&!this._session.done}
   get cancelled(){return !!this._session?.cancelled}
   begin(meta={}){
