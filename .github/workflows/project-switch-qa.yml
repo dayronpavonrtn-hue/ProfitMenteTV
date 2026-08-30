@@ -1,0 +1,29 @@
+name: ProfitMente Studio Project Switch QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/test_project_library.mjs'
+      - 'studio/test_project_switch_wiring.mjs'
+      - '.github/workflows/project-switch-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/test_project_library.mjs'
+      - 'studio/test_project_switch_wiring.mjs'
+
+jobs:
+  project-switch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check studio/project-library.js
+      - name: Project library regression
+        run: node studio/test_project_library.mjs
+      - name: Safe switch wiring regression
+        run: node studio/test_project_switch_wiring.mjs
