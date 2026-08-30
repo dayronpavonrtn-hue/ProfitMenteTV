@@ -1,0 +1,38 @@
+name: ProfitMente Studio Caption Preview Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/caption-compact-engine.js'
+      - 'studio/preview-engine.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_caption_preview_compact.mjs'
+      - '.github/workflows/caption-preview-parity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/caption-compact-engine.js'
+      - 'studio/preview-engine.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_caption_preview_compact.mjs'
+  workflow_dispatch:
+
+jobs:
+  caption-preview-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/caption-compact-engine.js
+          node --check studio/preview-engine.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_caption_preview_compact.mjs
+      - name: Caption preview regression
+        run: node studio/test_caption_preview_compact.mjs
+      - name: Verify Studio integration
+        run: |
+          grep -q "caption-compact-engine.js" studio/feature-bootstrap.js
+          grep -q "ProfitMenteCaptionCompactEngine" studio/preview-engine.js
