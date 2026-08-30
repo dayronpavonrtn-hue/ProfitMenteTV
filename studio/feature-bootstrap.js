@@ -18,6 +18,8 @@
     ['match-frame-integration.js','ProfitMenteMatchFrame'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
+    ['smart-mix-engine.js','ProfitMenteSmartMixEngine'],
+    ['smart-mix-integration.js','ProfitMenteSmartMix'],
     ['audio-silence-engine.js','ProfitMenteAudioSilenceEngine'],
     ['audio-silence-integration.js','ProfitMenteAudioSilence'],
     ['audio-waveform-engine.js','ProfitMenteAudioWaveformEngine'],
