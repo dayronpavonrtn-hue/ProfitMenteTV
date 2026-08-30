@@ -47,7 +47,10 @@
       const list=(clips||[]).filter(Boolean),previousBuffer=structuredClone(this.buffer),previousAnchor=this.anchor;
       if(!list.length)return {ok:false,reason:'empty-selection',clips:[]};
       this.copy(list);
-      const anchor=Math.min(...list.map(c=>Math.max(0,Number(c.start)||0))),at=anchor+this.span();
+      const check=this.canPaste(project);
+      if(!check.ok){this.buffer=previousBuffer;this.anchor=previousAnchor;return {...check,clips:[],duplicate:true}}
+      const anchor=Math.min(...list.map(c=>Math.max(0,Number(c.start)||0))),at=anchor+this.span(),maxStart=Math.max(0,check.duration-check.span);
+      if(at>maxStart+1e-6){this.buffer=previousBuffer;this.anchor=previousAnchor;return {ok:false,reason:'no-space',requested:+at.toFixed(3),maxStart:+maxStart.toFixed(3),clips:[],duplicate:true}}
       const result=this.paste(project,at);
       this.buffer=previousBuffer;this.anchor=previousAnchor;
       return {...result,duplicate:true}
