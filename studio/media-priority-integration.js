@@ -1,12 +1,23 @@
 (function(){
   if(typeof document==='undefined'||typeof assets==='undefined'||typeof drawLibrary!=='function'||typeof ProfitMenteMediaPriorityEngine==='undefined')return;
   const engine=ProfitMenteMediaPriorityEngine;
+  if(typeof ProfitMenteGeneratorEngine!=='undefined'&&!ProfitMenteGeneratorEngine.prototype.__profitmenteMediaPriority){
+    const baseScore=ProfitMenteGeneratorEngine.prototype.scoreAsset;
+    ProfitMenteGeneratorEngine.prototype.scoreAsset=function(asset,keywords,projectFormat,requiredDuration){return baseScore.call(this,asset,keywords,projectFormat,requiredDuration)+engine.bonus(asset)};
+    Object.defineProperty(ProfitMenteGeneratorEngine.prototype,'__profitmenteMediaPriority',{value:true,configurable:false});
+  }
   if(!document.querySelector('#profitmenteMediaPriorityStyle')){
     const style=document.createElement('style');style.id='profitmenteMediaPriorityStyle';style.textContent='.mediaRow{grid-template-columns:30px minmax(0,1fr) 30px!important}.mediaPriorityStar{width:30px!important;margin:0!important;padding:3px!important;font-size:16px;background:#171b24;border-color:#343b49}.mediaPriorityStar.active{background:#332b12;border-color:#8a7428}.mediaCard.mediaPreferred{outline:1px solid rgba(255,230,109,.45);outline-offset:-1px}';document.head.appendChild(style);
   }
+  function syncProjectMeta(asset){
+    if(!project||!asset?.id)return;
+    const list=Array.isArray(project.assets)?project.assets:[];let meta=list.find(a=>a?.id===asset.id);
+    if(!meta){meta={id:asset.id,name:asset.name,type:asset.type,mime:asset.mime||''};list.push(meta)}
+    meta.preferred=engine.isPreferred(asset);project.assets=list;
+  }
   async function toggle(asset,button,card){
     const value=engine.toggle(asset);button.classList.toggle('active',value);button.textContent=value?'★':'☆';button.title=value?'Quitar prioridad automática':'Priorizar este medio en el generador automático';card?.classList.toggle('mediaPreferred',value);
-    try{if(typeof putAsset==='function')await putAsset(asset);if(window.ProfitMenteMediaLibraryTools?.preserveMeta){window.ProfitMenteMediaLibraryTools.preserveMeta(project,asset)}persist?.();setStatus?.(value?`${asset.name} tendrá prioridad en la selección automática`:`Prioridad automática quitada de ${asset.name}`)}catch(err){engine.setPreferred(asset,!value);console.error(err);setStatus?.('No se pudo guardar la prioridad del medio')}
+    try{if(typeof putAsset==='function')await putAsset(asset);if(window.ProfitMenteMediaLibraryTools?.preserveMeta)window.ProfitMenteMediaLibraryTools.preserveMeta(project,asset);syncProjectMeta(asset);persist?.();setStatus?.(value?`${asset.name} tendrá prioridad en la selección automática`:`Prioridad automática quitada de ${asset.name}`)}catch(err){engine.setPreferred(asset,!value);console.error(err);setStatus?.('No se pudo guardar la prioridad del medio')}
   }
   function decorate(){
     const library=document.querySelector('#mediaLibrary');if(!library)return;
