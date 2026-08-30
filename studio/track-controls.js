@@ -46,6 +46,14 @@
   }
   const baseDraw=drawTimeline;
   drawTimeline=function(){baseDraw();decorate()};
+  if(typeof renderAt==='function'){
+    const baseRenderAt=renderAt;
+    renderAt=async function(t){
+      const originalClips=project.clips;
+      project.clips=engine.filterRenderableClips(originalClips,ensureState());
+      try{return await baseRenderAt(t)}finally{project.clips=originalClips}
+    };
+  }
   if(window.audio&&typeof window.audio.schedule==='function'){
     const baseSchedule=window.audio.schedule.bind(window.audio);
     window.audio.schedule=async function(p,a,from,monitor){
@@ -97,6 +105,10 @@
     static toggleMuted(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!AUDIO_TRACKS.includes(Number(track)))return false;const next=!this.baseMuted(s);if(s._soloAudioActive)s._soloMutedBase=next;else s.muted=next;this.applyGroup(states,AUDIO_TRACKS);return next}
     static isVisualHidden(trackState,track){const s=this.state(trackState,track);return VISUAL_TRACKS.includes(Number(track))?!!s.hidden:false}
     static isAudioMuted(trackState,track){const s=this.state(trackState,track);return AUDIO_TRACKS.includes(Number(track))?!!s.muted:false}
+    static filterRenderableClips(clips,trackState){
+      const states=this.apply(this.ensure(trackState));
+      return (Array.isArray(clips)?clips:[]).filter(c=>!VISUAL_TRACKS.includes(Number(c?.track))||!this.isVisualHidden(states,Number(c.track)));
+    }
   }
   return {ProfitMenteTrackSoloEngine,VISUAL_TRACKS,AUDIO_TRACKS};
 });
