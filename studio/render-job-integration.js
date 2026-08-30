@@ -9,11 +9,13 @@
   const renderFailure=err=>typeof ProfitMenteRenderErrorEngine!=='undefined'?ProfitMenteRenderErrorEngine.format(err):`No se pudo renderizar MP4: ${err?.message||err}`;
   const shouldPreserveSession=err=>!!client.jobId&&err?.name!=='AbortError'&&!/cancelado/i.test(err?.message||'')&&(err?.retryable===true||err?.code==='INVALID_RENDER_RESULT'||err?.status===408||err?.status===425||err?.status===429||Number(err?.status)>=500||(!Number.isFinite(Number(err?.status))&&/fetch|network|conexi|descarg|truncad/i.test(err?.message||'')));
   function statusText(s){const p=Number.isFinite(Number(s.progress))?` · ${Math.max(0,Math.min(100,Math.round(Number(s.progress))))}%`:'';const elapsed=Number(s.elapsed||0)>0?` · ${Math.round(Number(s.elapsed))}s`:'';const retry=s.status==='reconnecting'&&Number(s.retry)>0?` · intento ${Number(s.retry)}`:'';const queue=s.status==='queued'&&Number(s.queue_position)>0?` · posición ${Number(s.queue_position)}`:'';const label=s.status==='queued'?'En cola':s.status==='rendering'?'Renderizando':s.status==='reconnecting'?'Reconectando':s.status==='done'?'Terminado':s.status==='cancelled'?'Cancelado':'Preparando';return `${label}${queue}${p}${elapsed}${retry}`}
-  function persistSession(projectName){try{localStorage.setItem(SESSION_KEY,JSON.stringify({jobId:client.jobId,projectName:String(projectName||'profitmente'),savedAt:Date.now()}))}catch{}}
+  function normalizeRenderContext(value){const data=value&&typeof value==='object'?value:{projectName:value};return {projectName:String(data?.projectName||'profitmente'),libraryId:data?.libraryId||null}}
+  function captureRenderContext(){return normalizeRenderContext({projectName:project?.name||'profitmente',libraryId:project?.libraryId||null})}
+  function persistSession(context){try{const identity=normalizeRenderContext(context);localStorage.setItem(SESSION_KEY,JSON.stringify({jobId:client.jobId,...identity,savedAt:Date.now()}))}catch{}}
   function readSession(){try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.jobId?data:null}catch{return null}}
   function clearSession(){try{localStorage.removeItem(SESSION_KEY)}catch{}}
-  async function download(blob,name=project?.name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${safeName(name)}.mp4`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return blob.size}
-  function projectForRender(){return typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project}
+  async function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${safeName(name||'profitmente')}.mp4`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return blob.size}
+  function projectForRender(){const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project;return structuredClone(prepared)}
   function validatePostRender(state){
     const qc=state?.qc;
     if(!qc?.ok)throw new Error('El servidor terminó el MP4 sin superar el control de calidad post-render.');
@@ -38,7 +40,7 @@
       await finishActiveJob(saved.projectName);return true;
     }catch(err){
       if(shouldPreserveSession(err)){
-        persistSession(saved.projectName);
+        persistSession(saved);
         console.warn(err);setStatus('El render se conserva para recuperación. Recarga Studio para reintentar la descarga sin volver a renderizar.');
       }else{
         clearSession();
@@ -49,14 +51,15 @@
   }
   renderBtn.onclick=async()=>{
     save();const r=qa.inspect(project,assets);if(r.issues.length){setStatus('Render MP4 bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
+    const renderContext=captureRenderContext(),renderProject=projectForRender();
     renderBtn.disabled=true;cancelBtn.hidden=false;client.reset();clearSession();
     try{
       const health=await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
-      const renderProject=projectForRender();setStatus('Empaquetando proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,assets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(project.name);
-      await finishActiveJob(project.name);
+      setStatus('Empaquetando proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,assets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(renderContext);
+      await finishActiveJob(renderContext.projectName);
     }catch(err){
       if(err?.name==='AbortError'||/cancelado/i.test(err?.message||'')){clearSession();setStatus('Render MP4 cancelado')}
-      else if(shouldPreserveSession(err)){persistSession(project.name);console.warn(err);setStatus('El render se conserva para recuperación. Recarga Studio para reintentar la descarga sin volver a renderizar.')}
+      else if(shouldPreserveSession(err)){persistSession(renderContext);console.warn(err);setStatus('El render se conserva para recuperación. Recarga Studio para reintentar la descarga sin volver a renderizar.')}
       else{clearSession();console.error(err);setStatus(renderFailure(err))}
     }
     finally{renderBtn.disabled=false;cancelBtn.hidden=true;client.reset()}
@@ -64,5 +67,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext};
 })();
