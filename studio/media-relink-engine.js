@@ -27,12 +27,12 @@ class ProfitMenteMediaRelinkEngine{
     return {asset:ambiguous?null:best.asset,score:best.score,ambiguous};
   }
   static invalidateDerivedMetadata(asset={}){
-    for(const key of ['metadataVersion','duration','width','height','thumbnail'])delete asset[key];
+    for(const key of ['metadataVersion','duration','width','height','thumbnail','mediaReadable','mediaError'])delete asset[key];
     return asset;
   }
   static apply(asset,file,hash=''){
     if(!this.compatible(asset,file))return {ok:false,reason:'incompatible'};
-    const before={name:asset.name,mime:asset.mime,size:this.fileSize(asset),sourceFingerprint:asset.sourceFingerprint,sourceContentHash:asset.sourceContentHash,duration:asset.duration,width:asset.width,height:asset.height,thumbnail:asset.thumbnail,metadataVersion:asset.metadataVersion};
+    const before={name:asset.name,mime:asset.mime,size:this.fileSize(asset),sourceFingerprint:asset.sourceFingerprint,sourceContentHash:asset.sourceContentHash,duration:asset.duration,width:asset.width,height:asset.height,thumbnail:asset.thumbnail,metadataVersion:asset.metadataVersion,mediaReadable:asset.mediaReadable,mediaError:asset.mediaError};
     this.invalidateDerivedMetadata(asset);
     asset.blob=file;
     asset.name=file.name||asset.name;
