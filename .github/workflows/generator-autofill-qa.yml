@@ -8,6 +8,7 @@ on:
       - 'studio/media-import-engine.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_generator_autofill.mjs'
+      - 'studio/test_generator_autofill_wiring.mjs'
       - 'studio/test_feature_bootstrap.mjs'
       - '.github/workflows/generator-autofill-qa.yml'
   workflow_dispatch:
@@ -24,7 +25,10 @@ jobs:
         run: |
           node --check studio/generator-autofill.js
           node --check studio/feature-bootstrap.js
+          node --check studio/test_generator_autofill_wiring.mjs
       - name: Generator auto fill regression
         run: node studio/test_generator_autofill.mjs
+      - name: Verify media import wiring
+        run: node studio/test_generator_autofill_wiring.mjs
       - name: Verify bootstrap integration
         run: node studio/test_feature_bootstrap.mjs
