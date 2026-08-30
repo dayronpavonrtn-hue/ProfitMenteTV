@@ -8,11 +8,11 @@
     const id=selectedId();if(!id){setStatus?.('Selecciona un clip para mover por fotogramas');return null}
     const result=E.apply(project,id,frames);
     if(!result.ok){
-      const msg=result.reason==='locked'?'La pista o un miembro del grupo está bloqueado':result.reason==='boundary'?'El clip ya está en el límite del proyecto':'No se pudo mover el clip';
+      const msg=result.reason==='locked'?'La pista o un miembro del grupo está bloqueado':result.reason==='boundary'?'No cabe otro fotograma completo dentro del proyecto':'No se pudo mover el clip';
       setStatus?.(msg);return result;
     }
     refresh();
-    const dir=result.delta<0?'izquierda':'derecha',framesMoved=Math.round(Math.abs(result.delta)/E.frame(project));
+    const dir=result.delta<0?'izquierda':'derecha',framesMoved=Math.abs(result.appliedFrames??Math.round(result.delta/E.frame(project)));
     setStatus?.(`${result.changed>1?'Grupo':'Clip'} movido ${framesMoved} fotograma(s) a la ${dir}`);
     return result;
   }
