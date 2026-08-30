@@ -1,4 +1,5 @@
 (()=>{
+  if(!document.querySelector('script[data-profitmente-feature-bootstrap]')){const s=document.createElement('script');s.src='feature-bootstrap.js';s.dataset.profitmenteFeatureBootstrap='1';document.body.appendChild(s)}
   const $=s=>document.querySelector(s);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function selectedClip(){const id=window.ProfitMenteEditTools?.selectedId;return (project?.clips||[]).find(c=>c.id===id)||null}
@@ -16,5 +17,4 @@
   setInterval(()=>{if((window.ProfitMenteEditTools?.selectedId||null)!==currentId)render()},400);
   const QA=window.ProfitMenteQAEngine;if(QA&&!QA.prototype.__transitionDurationPatched){const oldInspect=QA.prototype.inspect;QA.prototype.inspect=function(p,a){const r=oldInspect.call(this,p,a);let added=0;for(const c of p?.clips||[]){if(![0,1].includes(Number(c.track))||!['fade','slide','zoom'].includes(c.transition||'cut')||c.transitionDuration==null)continue;const v=Number(c.transitionDuration),d=Math.max(.05,Number(c.duration)||.05);if(!Number.isFinite(v)||v<.05||v>Math.min(2,d)+.001){r.issues.push(`Duración de transición fuera de rango: ${c.name||c.id}`);added++}}if(added){r.ok=false;r.score=Math.max(0,Number(r.score||0)-25*added)}return r};QA.prototype.__transitionDurationPatched=true}
   window.ProfitMenteTransitionDuration={normalize,applicable};render();
-  if(!document.querySelector('script[data-profitmente-feature-bootstrap]')){const s=document.createElement('script');s.src='feature-bootstrap.js';s.dataset.profitmenteFeatureBootstrap='1';document.body.appendChild(s)}
 })();
