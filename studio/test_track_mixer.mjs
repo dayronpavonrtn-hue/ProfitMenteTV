@@ -44,11 +44,17 @@ await new Bundle().renderLocal(project,[],()=>{});
 assert.equal(bundleCalls.length,1);
 close(bundleCalls[0].project.clips[1].volume,.44,'patched MP4 render must receive baked levels');
 
+const hot={trackState:{6:{gain:2}},clips:[{id:'voice-hot',track:6,volume:2}]};
+const hotBaked=context.window.ProfitMenteTrackMixerRender.bake(hot);
+assert.equal(hotBaked.clips[0].volume,4,'mixer baking must preserve the full 200% clip × 200% track range');
+
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
 const audio=fs.readFileSync(new URL('./audio-engine.js',import.meta.url),'utf8');
+const renderer=fs.readFileSync(new URL('./render_mp4.py',import.meta.url),'utf8');
 assert.ok(bootstrap.indexOf('track-mixer-engine.js')<bootstrap.indexOf('track-mixer-integration.js'));
 assert.ok(bootstrap.indexOf('track-mixer-integration.js')<bootstrap.indexOf('track-mixer-render-integration.js'));
 assert.match(audio,/syncTrackGains\(project\)/);
 assert.match(audio,/duck\.connect\(this\.trackGains/);
 assert.match(audio,/setTrackGain\(track,value\)/);
+assert.match(renderer,/vol=max\(0,min\(4,float\(c\.get\('volume',default\)\)\)\)/,'MP4 renderer must not truncate baked mixer gain back to 200%');
 console.log('track mixer tests passed');
