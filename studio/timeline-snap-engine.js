@@ -25,9 +25,9 @@ class ProfitMenteTimelineSnapEngine{
     return {...chosen,value:this.clamp(chosen.value,0,Math.max(0,duration-clipDuration))};
   }
   static trim(project={},clip={},candidateDuration=.25,{playhead=null,tolerance=.15,minDuration=.25}={}){
-    const duration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,duration),min=Math.max(.001,Number(minDuration)||.25),rawDuration=this.clamp(candidateDuration,min,Math.max(min,duration-start)),rawEnd=start+rawDuration;
-    const snap=this.nearest(rawEnd,this.points(project,clip.id,playhead),tolerance);
-    return {...snap,value:this.clamp(snap.value-start,min,Math.max(min,duration-start)),target:snap.snapped?snap.target:null};
+    const duration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,duration),available=Math.max(.001,duration-start),requestedMin=Math.max(.001,Number(minDuration)||.25),min=Math.min(requestedMin,available),rawDuration=this.clamp(candidateDuration,min,available),rawEnd=start+rawDuration;
+    const snap=this.nearest(rawEnd,this.points(project,clip.id,playhead),tolerance),snappedDuration=snap.value-start;
+    return {...snap,value:this.clamp(snappedDuration,min,available),target:snap.snapped?snap.target:null};
   }
 }
 return {ProfitMenteTimelineSnapEngine};
