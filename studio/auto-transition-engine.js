@@ -16,28 +16,31 @@
       return clamp(frame(target,fps),1/fps,frame(max,fps));
     }
     static inspect(project){
-      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let eligible=0,manual=0,invalid=0;
+      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let eligible=0,manual=0,invalid=0,stale=0;
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],gap=Number(c.start||0)-(Number(prev.start||0)+Number(prev.duration||0));
-        if(Math.abs(gap)<=tol)eligible++;
+        if(Math.abs(gap)<=tol)eligible++;else if(c.autoTransition&&c.transition!=='cut')stale++;
         if(c.transition&&!c.autoTransition)manual++;
-        if(c.autoTransition&&(!TYPES.includes(c.transition)||!Number.isFinite(Number(c.transitionDuration))||Number(c.transitionDuration)<1/fps-.0001||Number(c.transitionDuration)>Math.min(2,Number(c.duration||0))+.0001))invalid++;
+        if(c.autoTransition&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||!Number.isFinite(Number(c.transitionDuration))||Number(c.transitionDuration)<1/fps-.0001||Number(c.transitionDuration)>Math.min(2,Number(c.duration||0))+.0001))invalid++;
       }
-      return {generated:clips.length,eligible,manual,invalid,fps};
+      return {generated:clips.length,eligible,manual,invalid,stale,fps};
     }
     static apply(project,{force=false}={}){
-      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let changed=0,preserved=0,skipped=0;
-      if(!clips.length)return {changed,preserved,skipped,generated:0};
+      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let changed=0,preserved=0,skipped=0,cleared=0;
+      if(!clips.length)return {changed,preserved,skipped,cleared,generated:0};
       const first=clips[0];
-      if(force||first.autoTransition||!first.transition){if(first.transition!=='cut'||first.autoTransition){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
+      if(force||first.autoTransition||!first.transition){if(first.transition!=='cut'||first.transitionDuration!=null||!first.autoTransition){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],gap=Number(c.start||0)-(Number(prev.start||0)+Number(prev.duration||0));
-        if(Math.abs(gap)>tol){skipped++;continue}
+        if(Math.abs(gap)>tol){
+          if(c.autoTransition&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
+          skipped++;continue
+        }
         if(c.transition&&!c.autoTransition&&!force){preserved++;continue}
         const type=this.preferred(c,i),duration=this.durationFor(project,c),same=c.transition===type&&Math.abs(Number(c.transitionDuration||0)-duration)<1e-6&&c.autoTransition===true;
         c.transition=type;c.transitionDuration=duration;c.autoTransition=true;if(!same)changed++;
       }
-      return {changed,preserved,skipped,generated:clips.length};
+      return {changed,preserved,skipped,cleared,generated:clips.length};
     }
   }
   return {ProfitMenteAutoTransitionEngine};
