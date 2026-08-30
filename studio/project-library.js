@@ -25,9 +25,20 @@ if(typeof document!=='undefined')(()=>{
     try{if(typeof playTimer!=='undefined'&&playTimer)cancelAnimationFrame(playTimer)}catch{}
     const playBtn=$('#playBtn');if(playBtn)playBtn.textContent='▶ Preview';
   }
+  function flushCurrentProject(){
+    try{
+      const name=$('#projectName'),duration=$('#duration'),format=$('#format');
+      if(name)project.name=name.value||'Nuevo video';
+      if(duration)project.duration=Math.max(1,+duration.value||45);
+      if(format)project.format=format.value;
+      if(typeof mode!=='undefined'&&mode)project.mode=mode.value;
+      if(typeof persist==='function')persist();
+      return true;
+    }catch(err){console.error('ProfitMente project flush failed',err);status('No se pudo guardar el proyecto actual; cambio cancelado');return false}
+  }
   async function saveCurrent(){if(typeof save==='function')save();project=lib.save(project);await syncAll();render();status('Proyecto guardado en Mis proyectos · autoguardado activo')}
   function resetHistory(){if(window.ProfitMenteProjectHistory?.reset)window.ProfitMenteProjectHistory.reset();else if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project)}
-  async function openProject(id){const next=lib.load(id);if(!next)return;stopPlayback();project=next;await syncAll();resetHistory();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título'}}));status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
+  async function openProject(id){const next=lib.load(id);if(!next)return;stopPlayback();if(!flushCurrentProject())return;project=next;await syncAll();resetHistory();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título'}}));status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
   $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});render();window.profitMenteProjectLibrary=lib;
