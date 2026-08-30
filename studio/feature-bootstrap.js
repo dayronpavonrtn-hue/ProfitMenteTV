@@ -4,6 +4,7 @@
   const modules=[
     ['caption-compact-engine.js','ProfitMenteCaptionCompactEngine'],
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
+    ['generator-autofill.js','ProfitMenteGeneratorAutoFillIntegration'],
     ['media-library-tools.js','ProfitMenteMediaLibraryTools'],
     ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
     ['media-relink-integration.js','ProfitMenteMediaRelink'],
