@@ -4,6 +4,7 @@ Usage: python studio/render_mp4.py project.json assets_dir output.mp4
 Requires FFmpeg/ffprobe available on PATH.
 """
 import json,sys,subprocess,pathlib,shlex,math
+from caption_layout import layout_caption
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
@@ -201,13 +202,20 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name') and not track_
             filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize='78*{pop}':borderw=7:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw=26:x=(w-text_w)/2:y='h*0.73-text_h/2':enable='between(t,{ws},{we})'{nxt}")
             base=nxt; capn+=1
         continue
-    text=esc_text(c['name']); nxt=f'[cap{capn}]'; style=c.get('style','dynamic'); anim=c.get('animation','')
+    style=c.get('style','dynamic'); anim=c.get('animation','')
     if style=='hook-pop':
-        color='0xFFE66D'; size=76; box='black@0.48'; y=f"h*0.69-18*exp(-10*(t-{start}))*cos(28*(t-{start}))" if anim=='pop' else 'h*0.69'
+        color='0xFFE66D'; base_size=76; box='black@0.48'; anchor=f"h*0.69-18*exp(-10*(t-{start}))*cos(28*(t-{start}))" if anim=='pop' else 'h*0.69'
     else:
-        color='white'; size=60; box='black@0.36'; y=f"h*0.72-6*sin(8*(t-{start}))" if anim=='word-pulse' else 'h*0.72'
-    filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size}:borderw=6:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
-    base=nxt; capn+=1
+        color='white'; base_size=60; box='black@0.36'; anchor=f"h*0.72-6*sin(8*(t-{start}))" if anim=='word-pulse' else 'h*0.72'
+    layout=layout_caption(c['name'],base_size,w)
+    lines=layout.get('lines') or []
+    size=float(layout.get('size',base_size)); line_height=max(1,int(layout.get('line_height',round(size*1.16))))
+    block_height=line_height*max(1,len(lines)); border=max(4,int(round(size*.10)))
+    for line_index,line in enumerate(lines):
+        text=esc_text(line); nxt=f'[cap{capn}]'; offset=-block_height/2+line_index*line_height
+        y=f"({anchor}){offset:+.2f}"
+        filters.append(f"{base}drawtext=text='{text}':fontcolor={color}:fontsize={size:.2f}:borderw={border}:bordercolor=black@0.92:box=1:boxcolor={box}:boxborderw=24:x=(w-text_w)/2:y='{y}':enable='between(t,{start},{end})'{nxt}")
+        base=nxt; capn+=1
 
 source_audio=[]
 for c in visual:
