@@ -1,0 +1,32 @@
+name: ProfitMente Studio Output Signal QA
+
+on:
+  push:
+    paths:
+      - 'studio/output_qc.py'
+      - 'studio/test_output_qc.py'
+      - 'studio/test_output_signal_qc.py'
+      - '.github/workflows/output-signal-qc.yml'
+  pull_request:
+    paths:
+      - 'studio/output_qc.py'
+      - 'studio/test_output_qc.py'
+      - 'studio/test_output_signal_qc.py'
+      - '.github/workflows/output-signal-qc.yml'
+
+jobs:
+  output-signal-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/output_qc.py studio/test_output_qc.py studio/test_output_signal_qc.py
+      - name: Metadata regression
+        working-directory: studio
+        run: python test_output_qc.py
+      - name: Signal regression
+        working-directory: studio
+        run: python test_output_signal_qc.py
