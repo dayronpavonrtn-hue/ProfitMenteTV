@@ -46,6 +46,8 @@
     ['render-job-integration.js','ProfitMenteRenderJobs'],
     ['render-range-engine.js','ProfitMenteRenderRangeEngine'],
     ['render-range-integration.js','ProfitMenteRenderRange'],
+    ['range-edit-engine.js','ProfitMenteRangeEditEngine'],
+    ['range-edit-integration.js','ProfitMenteRangeEdit'],
     ['safe-area-engine.js','ProfitMenteSafeAreaEngine'],
     ['safe-area-integration.js','ProfitMenteSafeArea'],
     ['scene-detect-engine.js','ProfitMenteSceneDetectEngine'],
