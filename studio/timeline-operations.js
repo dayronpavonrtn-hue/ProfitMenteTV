@@ -86,6 +86,19 @@
       project.duration=Math.max(Number(project.duration)||0,maxEnd);
       return {ok:true,moved,gap:amount,track,at:t,duration:project.duration};
     }
+    insertTime(project,at,gap=1){
+      const t=Math.max(0,Number(at)||0),amount=Math.max(.05,Number(gap)||1),clips=project.clips||[],states=project.trackState||{};
+      const affected=clips.filter(c=>(Number(c.start)||0)>=t-.001);
+      if(!affected.length)return {ok:false,reason:'empty',moved:0,gap:amount};
+      const locked=affected.find(c=>!!states?.[c.track]?.locked);
+      if(locked)return {ok:false,reason:'locked',track:locked.track,clip:locked,moved:0,gap:amount};
+      const crossing=clips.find(c=>(Number(c.start)||0)<t-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>t+.001);
+      if(crossing)return {ok:false,reason:'crossing',track:crossing.track,clip:crossing,moved:0,gap:amount};
+      for(const c of affected)c.start=(Number(c.start)||0)+amount;
+      const oldDuration=Math.max(0,Number(project.duration)||0),maxEnd=clips.reduce((m,c)=>Math.max(m,(Number(c.start)||0)+(Number(c.duration)||0)),0);
+      project.duration=Math.max(oldDuration+amount,maxEnd);
+      return {ok:true,moved:affected.length,gap:amount,at:t,duration:project.duration,tracks:[...new Set(affected.map(c=>c.track))]};
+    }
   }
   root.ProfitMenteTimelineOperations=ProfitMenteTimelineOperations;
   if(typeof document==='undefined')return;
@@ -103,17 +116,19 @@
   const rippleBtn=addButton('rippleDeleteBtn','⇤ Borrar ripple','Shift+Delete','#deleteClipBtn');
   const gapBtn=addButton('closeGapsBtn','⇥ Cerrar huecos','G','#rippleDeleteBtn');
   const insertGapBtn=addButton('insertGapBtn','＋ 1s','Abrir 1 segundo en la pista desde el cursor (Shift+G)','#closeGapsBtn');
+  const insertTimeBtn=addButton('insertTimeBtn','＋ Tiempo','Abrir 1 segundo sincronizado en todas las pistas (Ctrl/Cmd+Shift+G)','#insertGapBtn');
   function canSplit(c=clip()){const t=playhead();return !!c&&!locked(c)&&t>Number(c.start)+.05&&t<Number(c.start)+Number(c.duration)-.05}
-  function update(){const c=clip();if(splitBtn)splitBtn.disabled=!canSplit(c);if(copyBtn)copyBtn.disabled=!c;if(pasteBtn)pasteBtn.disabled=!ops.clipboard;if(rippleBtn)rippleBtn.disabled=!c||locked(c);if(gapBtn)gapBtn.disabled=!c||locked(c);if(insertGapBtn)insertGapBtn.disabled=!c||locked(c)}
+  function update(){const c=clip();if(splitBtn)splitBtn.disabled=!canSplit(c);if(copyBtn)copyBtn.disabled=!c;if(pasteBtn)pasteBtn.disabled=!ops.clipboard;if(rippleBtn)rippleBtn.disabled=!c||locked(c);if(gapBtn)gapBtn.disabled=!c||locked(c);if(insertGapBtn)insertGapBtn.disabled=!c||locked(c);if(insertTimeBtn)insertTimeBtn.disabled=!(project.clips||[]).some(x=>(Number(x.start)||0)>=playhead()-.001)}
   function splitSelected(){const c=clip();if(!c){status('Selecciona un clip para dividir');return}if(locked(c)){status('La pista está bloqueada');return}const result=ops.split(project,c.id,playhead());if(!result){status('Coloca el cursor dentro del clip, lejos de sus bordes');return}root.ProfitMenteEditTools?.select(result.right.id);commit(`Clip dividido en ${playhead().toFixed(2)}s`);update()}
   function copySelected(){const c=clip();if(!c)return;ops.copy(c);status(`Clip copiado: ${c.name||'sin nombre'}`);update()}
   function paste(){if(!ops.clipboard)return;const target=clip(),track=target?.track??ops.clipboard.track;if(project.trackState?.[track]?.locked){status('La pista destino está bloqueada');return}const c=ops.paste(project,playhead(),track);root.ProfitMenteEditTools?.select(c.id);commit(`Clip pegado en ${c.start.toFixed(2)}s`);update()}
   function ripple(){const c=clip();if(!c||locked(c))return;const name=c.name||'clip';ops.rippleDelete(project,c.id);root.ProfitMenteEditTools?.select(null);commit(`Borrado ripple: ${name}`);update()}
   function gaps(){const c=clip();if(!c||locked(c))return;const n=ops.closeGaps(project,c.track);commit(n?`${n} hueco(s) cerrado(s) en la pista`:'La pista ya está compacta');update()}
   function insertGap(){const c=clip();if(!c){status('Selecciona un clip de la pista donde quieres abrir espacio');return}const r=ops.insertGap(project,c.track,playhead(),1);if(!r.ok){if(r.reason==='locked')status('La pista está bloqueada');else if(r.reason==='crossing')status('No se puede abrir espacio: hay un clip cruzando el cursor');else status('No hay clips después del cursor en esa pista');return}commit(`Espacio de 1.00s insertado · ${r.moved} clip(s) desplazados`);update()}
-  splitBtn?.addEventListener('click',splitSelected);copyBtn?.addEventListener('click',copySelected);pasteBtn?.addEventListener('click',paste);rippleBtn?.addEventListener('click',ripple);gapBtn?.addEventListener('click',gaps);insertGapBtn?.addEventListener('click',insertGap);
+  function insertTime(){const r=ops.insertTime(project,playhead(),1);if(!r.ok){if(r.reason==='locked')status(`No se puede insertar tiempo: la pista ${Number(r.track)+1} está bloqueada`);else if(r.reason==='crossing')status(`No se puede insertar tiempo: un clip de la pista ${Number(r.track)+1} cruza el cursor`);else status('No hay clips después del cursor');return}commit(`Tiempo global +1.00s · ${r.moved} clip(s) en ${r.tracks.length} pista(s)`);update()}
+  splitBtn?.addEventListener('click',splitSelected);copyBtn?.addEventListener('click',copySelected);pasteBtn?.addEventListener('click',paste);rippleBtn?.addEventListener('click',ripple);gapBtn?.addEventListener('click',gaps);insertGapBtn?.addEventListener('click',insertGap);insertTimeBtn?.addEventListener('click',insertTime);
   $('#playhead')?.addEventListener('input',update);
   document.addEventListener('click',()=>requestAnimationFrame(update),true);
-  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable)return;const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==='c'&&clip()){e.preventDefault();copySelected()}else if(mod&&e.key.toLowerCase()==='v'&&ops.clipboard){e.preventDefault();paste()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='s'&&clip()){e.preventDefault();splitSelected()}else if(e.shiftKey&&e.key==='Delete'&&clip()){e.preventDefault();ripple()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();gaps()}else if(!mod&&!e.altKey&&e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();insertGap()}});
+  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable)return;const mod=e.ctrlKey||e.metaKey;if(mod&&e.shiftKey&&e.key.toLowerCase()==='g'){e.preventDefault();insertTime()}else if(mod&&e.key.toLowerCase()==='c'&&clip()){e.preventDefault();copySelected()}else if(mod&&e.key.toLowerCase()==='v'&&ops.clipboard){e.preventDefault();paste()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='s'&&clip()){e.preventDefault();splitSelected()}else if(e.shiftKey&&e.key==='Delete'&&clip()){e.preventDefault();ripple()}else if(!mod&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();gaps()}else if(!mod&&!e.altKey&&e.shiftKey&&e.key.toLowerCase()==='g'&&clip()){e.preventDefault();insertGap()}});
   update();root.ProfitMenteTimelineOps=ops;
 })();
