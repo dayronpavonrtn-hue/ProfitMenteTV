@@ -14,4 +14,7 @@ assert.ok(bootstrap.includes('document.scripts'),'debe evitar cargar scripts exi
 assert.ok(bootstrap.includes('profitmenteMediaImport'),'debe marcar media-import para evitar la autocarga duplicada de media-library-tools');
 assert.ok(transition.includes("s.src='feature-bootstrap.js'"),'la UI principal debe arrancar el bootstrap desde un script ya cargado');
 assert.ok(transition.includes('data-profitmente-feature-bootstrap')||transition.includes('profitmenteFeatureBootstrap'),'debe impedir inyectar dos bootstrap');
+const bootstrapStart=transition.indexOf("s.src='feature-bootstrap.js'");
+const propsGuard=transition.indexOf("const props=$('.props');if(!props)return;");
+assert.ok(bootstrapStart>=0&&propsGuard>=0&&bootstrapStart<propsGuard,'el bootstrap debe arrancar antes de cualquier guard de UI que pueda abortar transition-duration');
 console.log('Feature bootstrap regression OK');
