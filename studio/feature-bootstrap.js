@@ -14,6 +14,8 @@
     ['media-placement-integration.js','ProfitMenteMediaPlacement'],
     ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
     ['preview-format-integration.js','ProfitMentePreviewFormat'],
+    ['webm-render-engine.js','ProfitMenteWebMRenderEngine'],
+    ['webm-render-integration.js','ProfitMenteWebMRender'],
     ['source-monitor-engine.js','ProfitMenteSourceMonitorEngine'],
     ['source-monitor-integration.js','ProfitMenteSourceMonitor'],
     ['match-frame-engine.js','ProfitMenteMatchFrameEngine'],
