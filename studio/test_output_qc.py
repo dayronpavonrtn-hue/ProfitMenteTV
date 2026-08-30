@@ -29,6 +29,12 @@ assert not project_expects_audio(silent)
 muted={'format':'16:9','duration':20,'trackState':{'5':{'muted':True}},'clips':[{'track':5,'duration':20}]}
 assert not project_expects_audio(muted)
 r=analyze_probe(muted,probe(width=1920,height=1080,duration='20',acodec='opus',fps='120/1'))
-assert r['ok'] and len(r['warnings'])>=2
+assert not r['ok'], r
+assert any('Frame rate' in issue for issue in r['issues'])
+assert any('Codec de audio' in warning for warning in r['warnings'])
+
+sixty={'format':'16:9','duration':20,'fps':60,'trackState':{'5':{'muted':True}},'clips':[{'track':5,'duration':20}]}
+r=analyze_probe(sixty,probe(width=1920,height=1080,duration='20',acodec='aac',fps='60/1'))
+assert r['ok'], r
 
 print('output qc engine ok')
