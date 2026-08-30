@@ -11,13 +11,29 @@ class ProfitMenteMediaRelinkEngine{
     return !hasBlob&&!asset.objectUrl&&!asset.url&&!asset.src;
   }
   static compatible(asset,file){return !!asset&&!!file&&asset.type===this.kind(file)}
-  static score(asset,file,hash=''){
-    if(!this.compatible(asset,file))return -1;
-    if(hash&&asset.sourceContentHash&&hash===asset.sourceContentHash)return 100;
+  static identity(asset,file,hash=''){
+    if(!this.compatible(asset,file))return {ok:false,reason:'incompatible',confidence:'none'};
+    const storedHash=String(asset?.sourceContentHash||''),incomingHash=String(hash||'');
+    if(storedHash&&incomingHash){
+      if(storedHash!==incomingHash)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
+      return {ok:true,reason:'content-hash-match',confidence:'strong'};
+    }
+    if(asset?.sourceFingerprint&&typeof ProfitMenteMediaImportEngine!=='undefined'){
+      const fingerprint=ProfitMenteMediaImportEngine.signature(file);
+      if(fingerprint===asset.sourceFingerprint)return {ok:true,reason:'fingerprint-match',confidence:'high'};
+    }
     const name=this.normalizedName(file),assetName=this.normalizedName(asset),size=this.fileSize(file),assetSize=this.fileSize(asset);
-    if(asset.sourceFingerprint&&typeof ProfitMenteMediaImportEngine!=='undefined'&&ProfitMenteMediaImportEngine.signature(file)===asset.sourceFingerprint)return 90;
-    if(name&&name===assetName&&size&&assetSize&&size===assetSize)return 80;
-    if(name&&name===assetName)return 60;
+    if(name&&name===assetName&&size&&assetSize&&size===assetSize)return {ok:true,reason:'name-size-match',confidence:'legacy'};
+    if(name&&name===assetName)return {ok:true,reason:'name-match',confidence:'legacy'};
+    return {ok:false,reason:'no-match',confidence:'none'};
+  }
+  static score(asset,file,hash=''){
+    const identity=this.identity(asset,file,hash);
+    if(!identity.ok)return -1;
+    if(identity.reason==='content-hash-match')return 100;
+    if(identity.reason==='fingerprint-match')return 90;
+    if(identity.reason==='name-size-match')return 80;
+    if(identity.reason==='name-match')return 60;
     return -1;
   }
   static bestMatch(assets=[],file={},hash=''){
@@ -31,7 +47,8 @@ class ProfitMenteMediaRelinkEngine{
     return asset;
   }
   static apply(asset,file,hash=''){
-    if(!this.compatible(asset,file))return {ok:false,reason:'incompatible'};
+    const identity=this.identity(asset,file,hash);
+    if(!identity.ok)return {ok:false,reason:identity.reason,confidence:identity.confidence};
     const before={name:asset.name,mime:asset.mime,size:this.fileSize(asset),sourceFingerprint:asset.sourceFingerprint,sourceContentHash:asset.sourceContentHash,duration:asset.duration,width:asset.width,height:asset.height,thumbnail:asset.thumbnail,metadataVersion:asset.metadataVersion,mediaReadable:asset.mediaReadable,mediaError:asset.mediaError};
     this.invalidateDerivedMetadata(asset);
     asset.blob=file;
@@ -42,7 +59,8 @@ class ProfitMenteMediaRelinkEngine{
     asset.sourceFingerprint=typeof ProfitMenteMediaImportEngine!=='undefined'?ProfitMenteMediaImportEngine.signature(file):asset.sourceFingerprint;
     if(hash)asset.sourceContentHash=hash;
     asset.relinkedAt=new Date().toISOString();
-    return {ok:true,asset,before};
+    asset.relinkConfidence=identity.confidence;
+    return {ok:true,asset,before,identity};
   }
   static sourceWindowIssues(project={},assets=[]){
     const map=new Map((assets||[]).map(a=>[a.id,a])),issues=[];
