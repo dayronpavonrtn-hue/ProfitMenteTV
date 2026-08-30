@@ -19,7 +19,7 @@ assert.equal(project.clips[2].autoTransition,undefined);
 assert.equal(project.clips[3].transition,'cut','stale automatic transition across a gap must be cleared');
 assert.equal(project.clips[3].transitionDuration,undefined);
 assert.equal(project.clips[4].transition,'slide','manual clip must never be touched');
-assert.ok(r.preserved>=2);assert.equal(r.cleared,1);
+assert.equal(r.preserved,1,'only non-first generated manual transitions are counted');assert.equal(r.cleared,1);
 assert.equal((project.clips[1].transitionDuration*24)%1,0,'transition duration must align to project frames');
 assert.equal(Engine.inspect(project).stale,0);
 
