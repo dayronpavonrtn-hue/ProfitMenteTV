@@ -14,7 +14,7 @@ const ops=new Ops();
   const project={duration:10,clips:[
     {id:'a',track:0,start:0,duration:2},
     {id:'b',track:0,start:4,duration:2},
-    {id:'c',track:0,start:7,duration:2},
+    {id:'c',track:0,start:8,duration:2},
     {id:'audio',track:4,start:4,duration:2}
   ],trackState:{}};
   const r=ops.insertGap(project,0,4,1);
@@ -22,7 +22,7 @@ const ops=new Ops();
   assert.equal(r.moved,2);
   assert.equal(project.clips.find(c=>c.id==='a').start,0);
   assert.equal(project.clips.find(c=>c.id==='b').start,5);
-  assert.equal(project.clips.find(c=>c.id==='c').start,8);
+  assert.equal(project.clips.find(c=>c.id==='c').start,9);
   assert.equal(project.clips.find(c=>c.id==='audio').start,4,'other tracks must not move');
   assert.equal(project.duration,11,'project duration must extend when shifted clips exceed the old boundary');
 }
