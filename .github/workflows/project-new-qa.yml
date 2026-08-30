@@ -1,0 +1,26 @@
+name: ProfitMente Studio Safe New Project QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/project-new-regression.test.js'
+      - '.github/workflows/project-new-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/project-new-regression.test.js'
+      - '.github/workflows/project-new-qa.yml'
+
+jobs:
+  safe-new-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: node --check studio/project-library.js && node --check studio/project-new-regression.test.js
+      - name: Safe new project regression
+        run: node studio/project-new-regression.test.js
