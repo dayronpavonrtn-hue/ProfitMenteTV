@@ -32,5 +32,11 @@ jobs:
         run: python -m py_compile studio/caption_compact.py studio/caption_layout.py studio/render_motion_text.py studio/render_mp4.py studio/test_caption_layout_render.py
       - name: Caption compaction regression
         run: python studio/test_caption_compact.py
+      - name: Ensure FFmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Long caption MP4 regression
         run: python studio/test_caption_layout_render.py
