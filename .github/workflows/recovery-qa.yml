@@ -5,6 +5,7 @@ on:
       - 'studio/recovery-engine.js'
       - 'studio/recovery-integration.js'
       - 'studio/test_recovery.mjs'
+      - 'studio/test_recovery_project_switch.mjs'
       - 'studio/generator-integration.js'
       - '.github/workflows/recovery-qa.yml'
 jobs:
@@ -22,3 +23,5 @@ jobs:
         run: node --check studio/generator-integration.js
       - name: Test recovery snapshots
         run: node studio/test_recovery.mjs
+      - name: Test recovery project switching
+        run: node studio/test_recovery_project_switch.mjs
