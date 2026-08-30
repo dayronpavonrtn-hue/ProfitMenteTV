@@ -27,6 +27,7 @@
     ['match-frame-integration.js','ProfitMenteMatchFrame'],
     ['track-mixer-engine.js','ProfitMenteTrackMixerEngine'],
     ['track-mixer-integration.js','ProfitMenteTrackMixer'],
+    ['track-mixer-render-integration.js','ProfitMenteTrackMixerRender'],
     ['audio-normalize-engine.js','ProfitMenteAudioNormalizeEngine'],
     ['audio-normalize-integration.js','ProfitMenteAudioNormalize'],
     ['smart-mix-engine.js','ProfitMenteSmartMixEngine'],
