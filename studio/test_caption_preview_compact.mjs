@@ -1,0 +1,10 @@
+import {createRequire} from 'module';
+const require=createRequire(import.meta.url);const Engine=require('./caption-compact-engine.js');
+const ok=(v,m)=>{if(!v)throw new Error(m)};const near=(a,b,e=.001)=>Math.abs(a-b)<=e;const e=new Engine();
+const clip={id:'cap',track:3,name:'Esta es una frase bastante larga que debe dividirse de forma segura para el preview final',start:2,duration:4};
+const seg=e.segments(clip);ok(seg.length>1,'Caption largo debe compactarse');ok(near(seg[0].start,2),'Inicio incorrecto');ok(near(seg.reduce((s,x)=>s+x.duration,0),4,.002),'Duración total debe conservarse');ok(seg.every(x=>x.text.length<=28||x.text.split(' ').length===1),'Segmento demasiado largo');
+ok(e.textAtTime(clip,2.01)===seg[0].text,'Texto inicial incorrecto');ok(e.textAtTime(clip,5.99)===seg.at(-1).text,'Texto final incorrecto');
+const timed={...clip,wordTimings:[{word:'Esta',start:2,end:2.3}]};ok(e.segments(timed).length===1,'Word timings no deben compactarse');
+const short={...clip,name:'Texto corto'};ok(e.segments(short).length===1,'Texto corto no debe dividirse');
+const flash={...clip,duration:.2};ok(e.segments(flash).length===1,'Clip muy corto no debe fragmentarse');
+console.log('caption preview compact regression ok');
