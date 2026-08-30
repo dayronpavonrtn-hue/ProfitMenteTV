@@ -56,6 +56,7 @@
     ['qa-source-window-guard.js','ProfitMenteQASourceWindowGuard'],
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
     ['recovery-integration.js','ProfitMenteRecovery'],
+    ['export-preflight.js','ProfitMenteExportPreflight'],
     ['render-job-client.js','ProfitMenteRenderJobClient'],
     ['render-job-integration.js','ProfitMenteRenderJobs'],
     ['render-range-engine.js','ProfitMenteRenderRangeEngine'],
@@ -85,7 +86,6 @@
     ['auto-transition-engine.js','ProfitMenteAutoTransitionEngine'],
     ['auto-transition-integration.js','ProfitMenteAutoTransitions'],
     ['auto-finish-engine.js','ProfitMenteAutoFinishEngine'],
-    ['export-preflight.js','ProfitMenteExportPreflight'],
     ['auto-finish-integration.js','ProfitMenteAutoFinish'],
     ['automation-checkpoint.js','ProfitMenteAutomationCheckpoint']
   ];
