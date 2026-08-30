@@ -80,4 +80,21 @@ const fresh=()=>Solo.ensure({});
   assert.equal(restored[5].muted,false);
 }
 
+{
+  const s=fresh();
+  const clips=[
+    {id:'video',track:0},
+    {id:'overlay',track:1},
+    {id:'motion',track:2},
+    {id:'caption',track:3},
+    {id:'music',track:5}
+  ];
+  Solo.toggleSolo(s,0);
+  assert.deepEqual(Solo.filterRenderableClips(clips,s).map(c=>c.id),['video','music'],'el Preview/render debe excluir todas las pistas visuales fuera de Solo sin eliminar audio');
+  Solo.toggleSolo(s,0);
+  Solo.toggleHidden(s,1);
+  assert.deepEqual(Solo.filterRenderableClips(clips,s).map(c=>c.id),['video','motion','caption','music'],'Ocultar debe excluir la pista visual tanto del Preview como del render');
+  assert.deepEqual(clips.map(c=>c.id),['video','overlay','motion','caption','music'],'el filtrado no debe mutar la lista original de clips');
+}
+
 console.log('Track Solo regression OK');
