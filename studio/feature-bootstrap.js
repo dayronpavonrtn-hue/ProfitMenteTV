@@ -56,6 +56,7 @@
     ['qa-source-window-guard.js','ProfitMenteQASourceWindowGuard'],
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
     ['recovery-integration.js','ProfitMenteRecovery'],
+    ['project-autosave.js','ProfitMenteProjectAutosaveEngine','ProfitMenteProjectAutosave'],
     ['export-preflight.js','ProfitMenteExportPreflight'],
     ['render-job-client.js','ProfitMenteRenderJobClient'],
     ['render-job-integration.js','ProfitMenteRenderJobs'],
