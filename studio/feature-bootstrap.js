@@ -3,9 +3,7 @@
   window.__profitmenteFeatureBootstrap=true;
   const modules=[
     ['caption-compact-engine.js','ProfitMenteCaptionCompactEngine'],
-    ['media-metadata-engine.js','ProfitMenteMediaMetadataEngine'],
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
-    ['media-metadata-integration.js','ProfitMenteMediaMetadata'],
     ['media-library-tools.js','ProfitMenteMediaLibraryTools'],
     ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
     ['media-relink-integration.js','ProfitMenteMediaRelink'],
