@@ -68,6 +68,32 @@
     ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
     return true;
   }
+  function wrapCaptionWords(text,maxWidth,maxLines){
+    const words=String(text||'').trim().split(/\s+/).filter(Boolean);if(!words.length)return [];
+    const lines=[];let line='';
+    for(const word of words){
+      const candidate=line?`${line} ${word}`:word;
+      if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate;
+    }
+    if(line)lines.push(line);
+    if(lines.length>maxLines)return null;
+    return lines;
+  }
+  function captionLayout(text,baseSize){
+    const maxWidth=canvas.width*.88,maxLines=3,minSize=Math.max(18,Math.round(baseSize*.62));
+    for(let size=baseSize;size>=minSize;size-=2){
+      ctx.font=`900 ${size}px Arial`;
+      const lines=wrapCaptionWords(text,maxWidth,maxLines);
+      if(lines&&lines.every(line=>ctx.measureText(line).width<=maxWidth))return {size,lines,lineHeight:Math.round(size*1.16)};
+    }
+    ctx.font=`900 ${minSize}px Arial`;
+    const hard=[];for(const word of String(text||'').trim().split(/\s+/).filter(Boolean)){
+      if(ctx.measureText(word).width<=maxWidth){hard.push(word);continue}
+      let part='';for(const ch of word){const candidate=part+ch;if(part&&ctx.measureText(candidate).width>maxWidth){hard.push(part);part=ch}else part=candidate}if(part)hard.push(part);
+    }
+    const lines=[];let line='';for(const word of hard){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);
+    return {size:minSize,lines:lines.slice(0,maxLines),lineHeight:Math.round(minSize*1.16)};
+  }
   function drawCaption(t){
     if(trackHidden(3))return;
     const cap=project.clips.find(c=>c.track===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));if(!cap)return;
@@ -75,7 +101,7 @@
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
     if(anim==='pop')y-=9*Math.exp(-10*Math.max(0,t-start))*Math.cos(28*Math.max(0,t-start));if(anim==='word-pulse')y-=3*Math.sin(8*Math.max(0,t-start));
     const compact=window.ProfitMenteCaptionCompactEngine?new window.ProfitMenteCaptionCompactEngine():null,text=compact?compact.textAtTime(cap,t):String(cap.name||'');
-    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`900 ${size}px Arial`;const m=ctx.measureText(text),pad=18;ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-m.width/2-pad,y-size,m.width+pad*2,size*2);ctx.lineWidth=6;ctx.strokeStyle='rgba(0,0,0,.92)';ctx.strokeText(text,canvas.width/2,y);ctx.fillStyle=hook?'#FFE66D':'#fff';ctx.fillText(text,canvas.width/2,y);ctx.restore();
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const layout=captionLayout(text,size),padX=18,padY=Math.max(8,Math.round(layout.size*.24)),blockHeight=layout.lineHeight*layout.lines.length+padY*2,top=y-blockHeight/2;ctx.font=`900 ${layout.size}px Arial`;const maxLine=Math.max(0,...layout.lines.map(line=>ctx.measureText(line).width));ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-maxLine/2-padX,top,maxLine+padX*2,blockHeight);ctx.lineWidth=Math.max(4,Math.round(layout.size*.2));ctx.strokeStyle='rgba(0,0,0,.92)';ctx.fillStyle=hook?'#FFE66D':'#fff';layout.lines.forEach((line,i)=>{const ly=top+padY+layout.lineHeight*(i+.5);ctx.strokeText(line,canvas.width/2,ly);ctx.fillText(line,canvas.width/2,ly)});ctx.restore();
   }
   renderAt=async function(t){
     const epoch=++renderEpoch;
@@ -91,5 +117,5 @@
     if(epoch!==renderEpoch)return;
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration,transformFor,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,get renderEpoch(){return renderEpoch}};
 })();
