@@ -6,6 +6,8 @@
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
     ['generator-autofill.js','ProfitMenteGeneratorAutoFillIntegration'],
     ['media-library-tools.js','ProfitMenteMediaLibraryTools'],
+    ['media-priority-engine.js','ProfitMenteMediaPriorityEngine'],
+    ['media-priority-integration.js','ProfitMenteMediaPriority'],
     ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
     ['media-relink-integration.js','ProfitMenteMediaRelink'],
     ['media-replace-engine.js','ProfitMenteMediaReplaceEngine'],
