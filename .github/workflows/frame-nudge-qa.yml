@@ -1,0 +1,29 @@
+name: ProfitMente Studio Frame Nudge QA
+on:
+  push:
+    paths:
+      - 'studio/frame-nudge-engine.js'
+      - 'studio/frame-nudge-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_frame_nudge.mjs'
+      - '.github/workflows/frame-nudge-qa.yml'
+  workflow_dispatch:
+jobs:
+  frame-nudge-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/frame-nudge-engine.js
+          node --check studio/frame-nudge-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Frame nudge regression
+        run: node studio/test_frame_nudge.mjs
+      - name: Verify Studio wiring
+        run: |
+          grep -q "frame-nudge-engine.js" studio/feature-bootstrap.js
+          grep -q "frame-nudge-integration.js" studio/feature-bootstrap.js
