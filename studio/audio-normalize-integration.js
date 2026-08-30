@@ -17,7 +17,20 @@
   }
   function refresh(){persist?.();drawTimeline?.();renderAt?.(+$('#playhead')?.value||0)}
   async function runOne(){if(busy)return;const clip=selected();if(!clip||![4,5,6].includes(Number(clip.track))){status('Selecciona un clip de voz, música o efectos');return}busy=true;updateButtons();try{const r=await normalizeClip(clip);if(!r.ok){status(r.reason==='silence'?'No se normalizó: el tramo seleccionado está en silencio':'No se pudo analizar el audio seleccionado');return}refresh();status(`Audio normalizado · ${r.target.label} · ${r.metrics.rmsDb.toFixed(1)} dB RMS → objetivo ${r.target.rmsDb} dB${r.limitedByPeak?' · limitado por pico':''}`)}catch(e){console.error(e);status('No se pudo normalizar el audio: '+(e?.message||e))}finally{busy=false;updateButtons()}}
-  async function runAll(){if(busy)return;const clips=(project?.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&c.asset);if(!clips.length){status('No hay clips de audio para normalizar');return}busy=true;updateButtons();const cache=new Map();let changed=0,skipped=0;try{status(`Analizando ${clips.length} clip(s) de audio localmente…`);for(const clip of clips){try{const r=await normalizeClip(clip,cache);r.ok?changed++:skipped++}catch{skipped++}}if(changed)refresh();status(`Normalización terminada · ${changed} clip(s) ajustados${skipped?` · ${skipped} omitidos`:''}`)}finally{busy=false;updateButtons()}}
+  async function runAll(options={}){
+    const {deferPersist=false,quiet=false}=options&&typeof options==='object'?options:{};
+    if(busy)return {ok:false,reason:'busy',changed:0,skipped:0};
+    const clips=(project?.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&c.asset);
+    if(!clips.length){if(!quiet)status('No hay clips de audio para normalizar');return {ok:false,reason:'empty',changed:0,skipped:0}}
+    busy=true;updateButtons();const cache=new Map();let changed=0,skipped=0;
+    try{
+      if(!quiet)status(`Analizando ${clips.length} clip(s) de audio localmente…`);
+      for(const clip of clips){try{const r=await normalizeClip(clip,cache);r.ok?changed++:skipped++}catch{skipped++}}
+      if(changed&&!deferPersist)refresh();
+      if(!quiet)status(`Normalización terminada · ${changed} clip(s) ajustados${skipped?` · ${skipped} omitidos`:''}`);
+      return {ok:true,changed,skipped,deferred:!!deferPersist};
+    }finally{busy=false;updateButtons()}
+  }
   function updateButtons(){const c=selected(),ok=c&&[4,5,6].includes(Number(c.track));if(oneBtn){oneBtn.disabled=busy||!ok;oneBtn.textContent=busy?'Analizando…':'⚖ Normalizar clip'}if(allBtn){allBtn.disabled=busy;allBtn.textContent=busy?'Analizando mezcla…':'⚖ Normalizar mezcla'}}
   let oneBtn=null,allBtn=null;
   function install(){
