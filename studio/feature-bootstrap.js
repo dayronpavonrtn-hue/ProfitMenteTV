@@ -74,6 +74,8 @@
     ['freeze-frame-integration.js','ProfitMenteFreezeFrame'],
     ['clip-group-engine.js','ProfitMenteClipGroupEngine'],
     ['clip-group-integration.js','ProfitMenteClipGroups'],
+    ['frame-nudge-engine.js','ProfitMenteFrameNudgeEngine'],
+    ['frame-nudge-integration.js','ProfitMenteFrameNudge'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
