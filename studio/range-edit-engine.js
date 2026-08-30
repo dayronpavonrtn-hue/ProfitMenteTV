@@ -1,7 +1,10 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   class ProfitMenteRangeEditEngine{
-    constructor(options={}){this.idFactory=options.idFactory||(()=>globalThis.crypto?.randomUUID?.()||`range-${Date.now()}-${Math.random().toString(16).slice(2)}`)}
+    constructor(options={}){
+      this.idFactory=options.idFactory||(()=>globalThis.crypto?.randomUUID?.()||`range-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      this.groupIdFactory=options.groupIdFactory||(()=>globalThis.crypto?.randomUUID?.()||`group-${Date.now()}-${Math.random().toString(16).slice(2)}`)
+    }
     num(v,f=0){v=Number(v);return Number.isFinite(v)?v:f}
     speed(c){return Math.max(.25,Math.min(4,this.num(c?.speed,1)||1))}
     clone(v){return structuredClone(v)}
@@ -24,6 +27,19 @@
       if(!leftEdge&&Object.prototype.hasOwnProperty.call(original,'transition'))c.transition='cut';
       this.shiftWords(c,ss,se,newStart-ss);return c
     }
+    groupId(clip){return clip?.groupId==null?'':String(clip.groupId).trim()}
+    collectGroupSide(buckets,original,side,clip){
+      const id=this.groupId(original);if(!id||!clip)return;
+      if(!buckets.has(id))buckets.set(id,new Map());const sides=buckets.get(id);if(!sides.has(side))sides.set(side,[]);sides.get(side).push(clip)
+    }
+    finalizeGroupSides(buckets){
+      for(const [oldId,sides] of buckets){let keptOriginal=false;
+        for(const members of sides.values()){
+          if(members.length<2){for(const clip of members)delete clip.groupId;continue}
+          const id=keptOriginal?this.groupIdFactory():oldId;keptOriginal=true;for(const clip of members)clip.groupId=id
+        }
+      }
+    }
     lockedBlockers(project,from){
       const states=project?.trackState||{};return (project?.clips||[]).filter(c=>states?.[c.track]?.locked&&this.end(c)>from+.001)
     }
@@ -37,24 +53,24 @@
     extract(project,start,end){
       start=Math.max(0,this.num(start));end=Math.min(this.num(project?.duration),this.num(end));if(!(end-start>=.05))throw new Error('El rango debe durar al menos 0.05s');
       const blockers=this.lockedBlockers(project,start);if(blockers.length)throw new Error(`Desbloquea las pistas afectadas antes de extraer el rango (${blockers.length} clip${blockers.length===1?'':'s'})`);
-      const delta=end-start,next=[];let removed=0,trimmed=0,moved=0,split=0;
-      for(const original of project.clips||[]){const os=this.num(original.start),oe=this.end(original);if(oe<=start+.000001){next.push(original);continue}if(os>=end-.000001){const c=this.clone(original);c.start=os-delta;this.shiftWords(c,os,oe,-delta);next.push(c);moved++;continue}
+      const delta=end-start,next=[],groupSides=new Map();let removed=0,trimmed=0,moved=0,split=0;
+      for(const original of project.clips||[]){const os=this.num(original.start),oe=this.end(original);if(oe<=start+.000001){next.push(original);this.collectGroupSide(groupSides,original,'left',original);continue}if(os>=end-.000001){const c=this.clone(original);c.start=os-delta;this.shiftWords(c,os,oe,-delta);next.push(c);this.collectGroupSide(groupSides,original,'right',c);moved++;continue}
         const hasLeft=os<start-.000001,hasRight=oe>end+.000001;if(!hasLeft&&!hasRight){removed++;continue}
-        if(hasLeft){const left=this.segment(original,os,start,os,{keepId:true,leftEdge:true,rightEdge:false});if(left)next.push(left)}
-        if(hasRight){const right=this.segment(original,end,oe,end-delta,{keepId:!hasLeft,leftEdge:false,rightEdge:true});if(right)next.push(right)}
+        if(hasLeft){const left=this.segment(original,os,start,os,{keepId:true,leftEdge:true,rightEdge:false});if(left){next.push(left);this.collectGroupSide(groupSides,original,'left',left)}}
+        if(hasRight){const right=this.segment(original,end,oe,end-delta,{keepId:!hasLeft,leftEdge:false,rightEdge:true});if(right){next.push(right);this.collectGroupSide(groupSides,original,'right',right)}}
         if(hasLeft&&hasRight)split++;else trimmed++;
       }
-      project.clips=next;project.duration=Math.max(.05,this.num(project.duration)-delta);this.remapMarkers(project,t=>this.mapTimeExtract(t,start,end),{dropStart:start,dropEnd:end});this.remapWorkRange(project,t=>this.mapTimeExtract(t,start,end));
+      this.finalizeGroupSides(groupSides);project.clips=next;project.duration=Math.max(.05,this.num(project.duration)-delta);this.remapMarkers(project,t=>this.mapTimeExtract(t,start,end),{dropStart:start,dropEnd:end});this.remapWorkRange(project,t=>this.mapTimeExtract(t,start,end));
       return {start,end,duration:delta,removed,trimmed,moved,split,newDuration:project.duration}
     }
     insert(project,at,duration){
       at=Math.max(0,Math.min(this.num(project?.duration),this.num(at)));duration=Math.max(.05,this.num(duration));if(duration>3600)throw new Error('El hueco no puede superar 3600s');
       const blockers=this.lockedBlockers(project,at);if(blockers.length)throw new Error(`Desbloquea las pistas afectadas antes de insertar tiempo (${blockers.length} clip${blockers.length===1?'':'s'})`);
-      const next=[];let moved=0,split=0;
-      for(const original of project.clips||[]){const os=this.num(original.start),oe=this.end(original);if(oe<=at+.000001){next.push(original);continue}if(os>=at-.000001){const c=this.clone(original);c.start=os+duration;this.shiftWords(c,os,oe,duration);next.push(c);moved++;continue}
-        const left=this.segment(original,os,at,os,{keepId:true,leftEdge:true,rightEdge:false});const right=this.segment(original,at,oe,at+duration,{keepId:false,leftEdge:false,rightEdge:true});if(left)next.push(left);if(right)next.push(right);split++
+      const next=[],groupSides=new Map();let moved=0,split=0;
+      for(const original of project.clips||[]){const os=this.num(original.start),oe=this.end(original);if(oe<=at+.000001){next.push(original);this.collectGroupSide(groupSides,original,'left',original);continue}if(os>=at-.000001){const c=this.clone(original);c.start=os+duration;this.shiftWords(c,os,oe,duration);next.push(c);this.collectGroupSide(groupSides,original,'right',c);moved++;continue}
+        const left=this.segment(original,os,at,os,{keepId:true,leftEdge:true,rightEdge:false});const right=this.segment(original,at,oe,at+duration,{keepId:false,leftEdge:false,rightEdge:true});if(left){next.push(left);this.collectGroupSide(groupSides,original,'left',left)}if(right){next.push(right);this.collectGroupSide(groupSides,original,'right',right)}split++
       }
-      project.clips=next;project.duration=this.num(project.duration)+duration;this.remapMarkers(project,t=>this.mapTimeInsert(t,at,duration));this.remapWorkRange(project,t=>this.mapTimeInsert(t,at,duration));return {at,duration,moved,split,newDuration:project.duration}
+      this.finalizeGroupSides(groupSides);project.clips=next;project.duration=this.num(project.duration)+duration;this.remapMarkers(project,t=>this.mapTimeInsert(t,at,duration));this.remapWorkRange(project,t=>this.mapTimeInsert(t,at,duration));return {at,duration,moved,split,newDuration:project.duration}
     }
   }
   root.ProfitMenteRangeEditEngine=ProfitMenteRangeEditEngine;
