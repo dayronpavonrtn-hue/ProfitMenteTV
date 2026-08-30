@@ -20,7 +20,7 @@ class ProfitMenteQAEngine{
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
       const a=!inactive&&c.asset?assets.find(x=>x.id===c.asset):null;
       if(!inactive&&c.asset&&!ids.has(c.asset)) issues.push(`Medio faltante: ${c.name||c.id}`);
-      if(a){const expected=expectedKind(track),actual=assetKind(a);if(expected!=='none'&&actual!==expected)issues.push(`Tipo de medio incompatible con la pista: ${c.name||a.name}`);if(expected!=='none'&&!usableBlob(a))issues.push(`Archivo de medio vacío o no disponible: ${c.name||a.name}`)}
+      if(a){const expected=expectedKind(track),actual=assetKind(a);if(expected!=='none'&&actual!==expected)issues.push(`Tipo de medio incompatible con la pista: ${c.name||a.name}`);if(expected!=='none'&&!usableBlob(a))issues.push(`Archivo de medio vacío o no disponible: ${c.name||a.name}`);if(expected!=='none'&&a.mediaReadable===false)issues.push(`Medio no decodificable: ${c.name||a.name}${a.mediaError?' · '+a.mediaError:''}`)}
       if(!inactive&&[0,1].includes(track)&&c.fitMode!=null&&!['cover','contain'].includes(c.fitMode)) issues.push(`Encuadre inválido: ${c.name||c.id}`);
       if(!inactive&&[0,1].includes(track))checkColor(c);
       if(!inactive&&c.keyframes!=null){if(!c.keyframes.start||!c.keyframes.end)issues.push(`Keyframes incompletos: ${c.name||c.id}`);else{checkKeyframe(c,c.keyframes.start,'inicio');checkKeyframe(c,c.keyframes.end,'fin')}}
