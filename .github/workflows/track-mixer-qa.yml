@@ -7,6 +7,7 @@ on:
       - 'studio/track-mixer-integration.js'
       - 'studio/track-mixer-render-integration.js'
       - 'studio/audio-engine.js'
+      - 'studio/render_mp4.py'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_track_mixer.mjs'
       - '.github/workflows/track-mixer-qa.yml'
@@ -20,11 +21,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Syntax check
         run: |
           node --check studio/track-mixer-engine.js
           node --check studio/track-mixer-integration.js
           node --check studio/track-mixer-render-integration.js
           node --check studio/audio-engine.js
+          python -m py_compile studio/render_mp4.py
       - name: Track mixer regression
         run: node studio/test_track_mixer.mjs
