@@ -9,6 +9,7 @@
   function stopTracks(stream){for(const track of stream?.getTracks?.()||[]){try{track.stop()}catch{}}}
   function safeStopRecorder(recorder){try{if(recorder&&recorder.state!=='inactive')recorder.stop()}catch{}}
   function currentQuality(){return window.ProfitMentePreviewFormat?.quality||localStorage.getItem('profitmente-preview-quality')||'full'}
+  function projectFps(target=project){return ProfitMenteWebMRenderEngine.normalizeFps(target?.fps||30)}
   function applyQuality(quality){
     if(!window.ProfitMentePreviewFormatEngine)return;
     const format=document.querySelector('#format')?.value||project?.format||'9:16';
@@ -40,7 +41,7 @@
       const report=qa.inspect(project,assets);if(report.issues?.length){setStatus?.('Render WebM bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
     }
     const renderProject=project,renderState=ProfitMenteWebMRenderEngine.captureState(renderProject,assets),renderName=String(renderProject?.name||'profitmente');
-    const previousTime=Number(document.querySelector('#playhead')?.value||0),monitorQuality=currentQuality(),plan=ProfitMenteWebMRenderEngine.framePlan(renderProject?.duration,30),mime=ProfitMenteWebMRenderEngine.mimeType(window.MediaRecorder);
+    const previousTime=Number(document.querySelector('#playhead')?.value||0),monitorQuality=currentQuality(),plan=ProfitMenteWebMRenderEngine.framePlan(renderProject?.duration,projectFps(renderProject)),mime=ProfitMenteWebMRenderEngine.mimeType(window.MediaRecorder);
     if(!mime){setStatus?.('No hay un códec WebM compatible en este navegador');return}
     const assertRenderState=()=>{engine.assert(session);ProfitMenteWebMRenderEngine.assertState(renderState,project,assets)};
     const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName});renderBtn.disabled=true;cancelBtn.hidden=false;applyQuality('full');
@@ -52,13 +53,13 @@
       await audio.schedule(renderProject,assets,0,false);assertRenderState();
       const mixedStream=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]);resources.mixedStream=mixedStream;
       const recorder=new MediaRecorder(mixedStream,{mimeType:mime}),chunks=[],done=recorderDone(recorder,chunks);resources.recorder=recorder;
-      recorder.start(1000);setStatus?.('Render WebM · 0%');
+      recorder.start(1000);setStatus?.(`Render WebM ${plan.fps} FPS · 0%`);
       for(let frame=0;frame<plan.totalFrames;frame++){
         assertRenderState();const started=performance.now(),time=plan.timeAt(frame);if(playhead)playhead.value=time;await renderAt(time);assertRenderState();
-        if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM · ${progress}%`)}
+        if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM ${plan.fps} FPS · ${progress}%`)}
         const elapsed=performance.now()-started,remaining=Math.max(0,plan.frameDuration*1000-elapsed);if(remaining)await wait(remaining);
       }
-      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
+      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${plan.fps} FPS · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
     }catch(err){
       if(err?.code==='WEBM_STATE_CHANGED'){setStatus?.('Render WebM detenido: el proyecto o sus medios cambiaron. Vuelve a exportar para evitar un archivo inconsistente')}
       else if(err?.name==='AbortError'||engine.cancelled)setStatus?.('Render WebM cancelado · recursos liberados');
@@ -69,5 +70,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),get active(){return engine.active}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,get active(){return engine.active}};
 })();
