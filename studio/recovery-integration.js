@@ -17,6 +17,10 @@
     }
   }
   function capture(reason='change'){const snap=engine.capture(project,reason);if(snap)render();return snap}
+  function ensureCurrentProjectRecovery(){
+    showAll=false;
+    if(!engine.latest(project))capture('inicio');else render();
+  }
   function restore(id){
     const next=engine.restore(id);if(!next)return;
     capture('antes de restaurar');project=next;
@@ -31,7 +35,7 @@
   $('#recoveryRefreshBtn').onclick=render;
   $('#recoveryAllBtn').onclick=()=>{showAll=!showAll;render();status(showAll?'Mostrando recuperación de todos los proyectos':'Mostrando recuperación del proyecto actual')};
   section.addEventListener('click',e=>{const open=e.target.closest('[data-recover]');if(open)return restore(open.dataset.recover);const drop=e.target.closest('[data-drop]');if(drop){engine.remove(drop.dataset.drop);render();status('Punto de recuperación eliminado')}});
+  window.addEventListener('profitmente:project-opened',ensureCurrentProjectRecovery);
   window.addEventListener('beforeunload',()=>{try{capture('cierre')}catch{}});
-  if(!engine.latest(project))capture('inicio');
-  render();window.profitMenteRecovery=engine;
+  ensureCurrentProjectRecovery();window.profitMenteRecovery=engine;
 })();
