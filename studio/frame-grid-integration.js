@@ -24,10 +24,12 @@
     if(!$('#profitmenteFrameGridStyle')){const style=document.createElement('style');style.id='profitmenteFrameGridStyle';style.textContent='.frameGridControls{display:grid;gap:4px;margin:4px 0 8px}.frameGridControls button{font-size:11px}.frameGridControls small{font-size:10px;color:#aeb7c8}.frameGridControls small[data-ok="false"]{color:#ffd166}';document.head.appendChild(style)}
     mounted=true;refresh();
   }
-  window.addEventListener('profitmente:framerate',()=>requestAnimationFrame(refresh));
-  window.addEventListener('profitmente:project-restored',()=>requestAnimationFrame(refresh));
-  window.addEventListener('profitmente:features-ready',()=>requestAnimationFrame(refresh));
-  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(refresh)},true);
+  const refreshSoon=()=>requestAnimationFrame(refresh);
+  window.addEventListener('profitmente:framerate',refreshSoon);
+  window.addEventListener('profitmente:project-restored',refreshSoon);
+  window.addEventListener('profitmente:project-opened',refreshSoon);
+  window.addEventListener('profitmente:features-ready',refreshSoon);
+  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))refreshSoon()},true);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
   window.ProfitMenteFrameGrid={engine:E,audit,conform,refresh,get fps(){return fps()}};
 })();
