@@ -5,6 +5,7 @@ on:
     paths:
       - 'studio/auto-finish-engine.js'
       - 'studio/auto-finish-integration.js'
+      - 'studio/export-preflight.js'
       - 'studio/beat-detect-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_auto_finish_engine.mjs'
@@ -24,7 +25,9 @@ jobs:
         run: |
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
+          node --check studio/export-preflight.js
           node --check studio/beat-detect-integration.js
+          node --check studio/feature-bootstrap.js
       - name: Auto Finish regression
         run: node studio/test_auto_finish_engine.mjs
       - name: Verify Studio wiring
