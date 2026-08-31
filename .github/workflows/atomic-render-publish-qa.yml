@@ -1,0 +1,27 @@
+name: ProfitMente Studio Atomic Render Publish QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_bundle.py'
+      - 'studio/test_atomic_render_publish.py'
+      - '.github/workflows/atomic-render-publish-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  atomic-render-publish-qa:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check renderer syntax
+        run: python -m py_compile studio/render_bundle.py studio/test_atomic_render_publish.py
+      - name: Verify atomic post-QA publication
+        working-directory: studio
+        run: python test_atomic_render_publish.py
