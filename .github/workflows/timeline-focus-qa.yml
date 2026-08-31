@@ -1,0 +1,32 @@
+name: ProfitMente Studio Timeline Focus QA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'studio/timeline-focus-engine.js'
+      - 'studio/timeline-focus-integration.js'
+      - 'studio/transport-engine.js'
+      - 'studio/test_timeline_focus.mjs'
+      - '.github/workflows/timeline-focus-qa.yml'
+
+jobs:
+  timeline-focus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/timeline-focus-engine.js
+          node --check studio/timeline-focus-integration.js
+          node --check studio/transport-engine.js
+      - name: Timeline focus regression
+        run: node studio/test_timeline_focus.mjs
+      - name: Verify transport wiring
+        run: |
+          grep -q "timeline-focus-engine.js" studio/transport-engine.js
+          grep -q "timeline-focus-integration.js" studio/timeline-focus-engine.js
+          grep -q "fitSelectionBtn" studio/timeline-focus-integration.js
