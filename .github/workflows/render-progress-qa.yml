@@ -1,0 +1,33 @@
+name: ProfitMente Studio Render Progress QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_progress.py'
+      - 'studio/render_bundle.py'
+      - 'studio/render_motion_text.py'
+      - 'studio/studio_server.py'
+      - 'studio/render-job-integration.js'
+      - 'studio/test_render_progress.py'
+      - '.github/workflows/render-progress-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  render-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax
+        run: python -m py_compile studio/render_progress.py studio/render_bundle.py studio/render_motion_text.py studio/studio_server.py studio/test_render_progress.py
+      - name: Render progress regression
+        run: python studio/test_render_progress.py
+      - name: Frontend syntax
+        run: node --check studio/render-job-integration.js
+      - name: Progress wiring guard
+        run: |
+          grep -q 'PROFITMENTE_PROGRESS_FILE' studio/render_progress.py
+          grep -q 'render_progress_phases' studio/studio_server.py
+          grep -q 's.phase' studio/render-job-integration.js
