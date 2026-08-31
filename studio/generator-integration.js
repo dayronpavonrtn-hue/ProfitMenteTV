@@ -18,9 +18,10 @@
     document.querySelector('#playhead').value=0;
     save();
     const visual=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
+    const narration=assigned.narration?' Narración local conectada automáticamente.':'';
     const soundtrack=assigned.music?' Música local añadida automáticamente con ducking para voz.':'';
     const sfx=assigned.sfx?` ${assigned.sfx} efecto(s) local(es) colocado(s) en transiciones.`:'';
-    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${soundtrack}${sfx}`);
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${narration}${soundtrack}${sfx}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
