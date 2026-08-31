@@ -58,16 +58,49 @@ def project_expects_audio(project: dict) -> bool:
     return False
 
 
+def expected_audio_duration(project: dict) -> float:
+    """Return the latest timeline end that should contain active rendered audio.
+
+    The renderer mixes only through the end of the last audible clip, so audio is not required
+    to span the full project. This mirrors the renderer while still catching a prematurely
+    truncated AAC stream hidden by a complete video/container duration.
+    """
+    project_duration=max(.25,_num(project.get('duration'),45))
+    assets={str(a.get('id')):a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id') is not None}
+    latest=0.0
+    for clip in project.get('clips',[]):
+        if not isinstance(clip,dict): continue
+        d=_num(clip.get('duration'))
+        if d<=0: continue
+        try: track=int(clip.get('track',0))
+        except (TypeError,ValueError): track=0
+        state=_track_state(project,track)
+        if state.get('muted') or clip.get('muted'): continue
+        audible=False
+        if track >= 4:
+            audible=True
+        elif track in (0,1) and not state.get('hidden') and _num(clip.get('sourceVolume',1),1) > 0:
+            asset=assets.get(str(clip.get('asset')))
+            audible=bool(asset and asset.get('type')=='video')
+        if not audible: continue
+        start=max(0.0,_num(clip.get('start')))
+        if start>=project_duration: continue
+        latest=max(latest,min(project_duration,start+d))
+    return latest
+
+
 def analyze_probe(project: dict, probe: dict) -> dict:
     streams=probe.get('streams') if isinstance(probe.get('streams'),list) else []
     fmt=probe.get('format') if isinstance(probe.get('format'),dict) else {}
     videos=[s for s in streams if s.get('codec_type')=='video']; audios=[s for s in streams if s.get('codec_type')=='audio']
-    issues,warnings=[],[]; video=videos[0] if videos else {}
+    issues,warnings=[],[]; video=videos[0] if videos else {}; audio=audios[0] if audios else {}
     expected_w,expected_h=TARGETS.get(project.get('format','9:16'),TARGETS['9:16'])
     expected_duration=max(.25,_num(project.get('duration'),45)); duration=_num(fmt.get('duration'),_num(video.get('duration')))
     video_duration=_finite(video.get('duration')) if videos else None
+    audio_duration=_finite(audio.get('duration')) if audios else None
+    expected_audio=expected_audio_duration(project)
     width,height=int(_num(video.get('width'))),int(_num(video.get('height'))); fps=_fps(video.get('avg_frame_rate') or video.get('r_frame_rate'))
-    vcodec=str(video.get('codec_name') or ''); acodec=str(audios[0].get('codec_name') or '') if audios else ''; pix_fmt=str(video.get('pix_fmt') or '')
+    vcodec=str(video.get('codec_name') or ''); acodec=str(audio.get('codec_name') or '') if audios else ''; pix_fmt=str(video.get('pix_fmt') or '')
     tolerance=max(.75,expected_duration*.03)
     if not videos: issues.append('El archivo final no contiene una pista de video.')
     else:
@@ -85,11 +118,15 @@ def analyze_probe(project: dict, probe: dict) -> dict:
     elif abs(duration-expected_duration)>tolerance: issues.append(f'Duración final {duration:.2f}s fuera de tolerancia; proyecto {expected_duration:.2f}s.')
     wants_audio=project_expects_audio(project)
     if wants_audio and not audios: issues.append('El proyecto contiene audio activo pero el MP4 final no tiene pista de audio.')
-    elif audios and acodec!='aac': warnings.append(f'Codec de audio inesperado: {acodec}; se recomienda AAC.')
+    elif audios:
+        if acodec!='aac': warnings.append(f'Codec de audio inesperado: {acodec}; se recomienda AAC.')
+        audio_tolerance=max(.75,expected_audio*.03)
+        if wants_audio and expected_audio>0 and audio_duration is not None and audio_duration>0 and audio_duration < expected_audio-audio_tolerance:
+            issues.append(f'La pista de audio dura {audio_duration:.2f}s; el contenido activo requiere al menos {expected_audio:.2f}s.')
     size=int(_num(fmt.get('size')))
     if size<=0: issues.append('El MP4 final está vacío o ffprobe no informó su tamaño.')
     elif size<10000: warnings.append('El MP4 final es anormalmente pequeño; conviene revisarlo visualmente.')
-    return {'ok':not issues,'score':max(0,100-25*len(issues)-5*len(warnings)),'issues':issues,'warnings':warnings,'metrics':{'width':width,'height':height,'duration':round(duration,3),'video_duration':round(video_duration,3) if video_duration is not None else None,'expected_duration':expected_duration,'fps':round(fps,3),'video_codec':vcodec,'audio_codec':acodec or None,'pixel_format':pix_fmt or None,'size':size,'has_audio':bool(audios)}}
+    return {'ok':not issues,'score':max(0,100-25*len(issues)-5*len(warnings)),'issues':issues,'warnings':warnings,'metrics':{'width':width,'height':height,'duration':round(duration,3),'video_duration':round(video_duration,3) if video_duration is not None else None,'audio_duration':round(audio_duration,3) if audio_duration is not None else None,'expected_audio_duration':round(expected_audio,3),'expected_duration':expected_duration,'fps':round(fps,3),'video_codec':vcodec,'audio_codec':acodec or None,'pixel_format':pix_fmt or None,'size':size,'has_audio':bool(audios)}}
 
 
 def parse_blackdetect(log): return [{'start':_num(m.group('start')),'end':_num(m.group('end')),'duration':_num(m.group('duration'))} for m in BLACK_RE.finditer(log or '')]
