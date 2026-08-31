@@ -1,5 +1,5 @@
 class ProfitMenteRenderJobClient{
-  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000,resultMaxAttempts=3,minResultBytes=24}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.resultMaxAttempts=Math.max(1,Number(resultMaxAttempts)||3);this.minResultBytes=Math.max(16,Number(minResultBytes)||24);this.jobId=null;this.cancelled=false}
+  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000,resultMaxAttempts=3,minResultBytes=24,staleProgressMs=300000}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.resultMaxAttempts=Math.max(1,Number(resultMaxAttempts)||3);this.minResultBytes=Math.max(16,Number(minResultBytes)||24);this.staleProgressMs=Math.max(1,Number(staleProgressMs)||300000);this.jobId=null;this.cancelled=false}
   async json(url,options){
     let r;
     try{r=await this.fetchFn(url,options)}catch(error){error.retryable=true;throw error}
@@ -47,7 +47,7 @@ class ProfitMenteRenderJobClient{
   async cancel(){if(!this.jobId)return {ok:true,status:'idle'};this.cancelled=true;return this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`,{method:'DELETE'})}
   async wait(onProgress=()=>{}){
     if(!this.jobId)throw new Error('No hay trabajo de render activo');
-    let failures=0;
+    let failures=0,lastSignature=null,lastAdvanceAt=Date.now();
     for(;;){
       let s;
       try{s=await this.status();failures=0}
@@ -60,6 +60,15 @@ class ProfitMenteRenderJobClient{
         await new Promise(resolve=>setTimeout(resolve,retryDelay));
         continue;
       }
+      if(s.status==='rendering'){
+        const signature=`${Number.isFinite(Number(s.progress))?Number(s.progress):''}|${String(s.phase||'')}`;
+        const now=Date.now();
+        if(signature!==lastSignature){lastSignature=signature;lastAdvanceAt=now}
+        else{
+          const staleFor=Math.max(0,now-lastAdvanceAt);
+          if(staleFor>=this.staleProgressMs)s={...s,progress_stale:true,progress_stale_seconds:Math.max(1,Math.round(staleFor/1000))};
+        }
+      }else{lastSignature=null;lastAdvanceAt=Date.now()}
       onProgress(s);
       if(s.status==='done')return s;
       if(s.status==='error')throw new Error(s.error||'Falló el render');
