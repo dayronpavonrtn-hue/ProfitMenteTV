@@ -5,6 +5,7 @@ Requires FFmpeg/ffprobe available on PATH.
 """
 import json,sys,subprocess,pathlib,shlex,math
 from caption_layout import layout_caption
+from caption_word_layout import fit_word_caption
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
@@ -199,7 +200,9 @@ for c in [x for x in clips if x.get('track')==3 and x.get('name') and not track_
         for word,ws,we in valid:
             text=esc_text(word.upper()); nxt=f'[cap{capn}]'; word_d=max(.05,we-ws); progress=f'min(max((t-{ws})/{word_d},0),1)'
             pop=f'(1+0.16*exp(-7*{progress})*sin(PI*{progress}*2))'
-            filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize='78*{pop}':borderw=7:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw=26:x=(w-text_w)/2:y='h*0.73-text_h/2':enable='between(t,{ws},{we})'{nxt}")
+            word_layout=fit_word_caption(word,78,w); size_cap=float(word_layout['size_cap']); border=float(word_layout['border']); pad=float(word_layout['box_padding'])
+            font_expr=f'min(78*{pop},{size_cap:.3f})'
+            filters.append(f"{base}drawtext=text='{text}':fontcolor=0xFFE66D:fontsize='{font_expr}':borderw={border:.2f}:bordercolor=black@0.96:box=1:boxcolor=black@0.72:boxborderw={pad:.2f}:x=(w-text_w)/2:y='h*0.73-text_h/2':enable='between(t,{ws},{we})'{nxt}")
             base=nxt; capn+=1
         continue
     style=c.get('style','dynamic'); anim=c.get('animation','')
