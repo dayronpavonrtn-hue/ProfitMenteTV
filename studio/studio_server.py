@@ -147,6 +147,20 @@ def _cleanup_job_files(job: dict):
         job["tempdir"] = None
 
 
+def _mark_job_error(job: dict, error, *, phase: str = "Error", qc=None):
+    """Keep error metadata available to the UI while releasing large temp files."""
+    job.update(
+        status="error",
+        progress=100,
+        phase=phase,
+        error=str(error),
+        process=None,
+    )
+    if qc is not None:
+        job["qc"] = qc
+    _cleanup_job_files(job)
+
+
 def _read_qc(output: pathlib.Path):
     report = output.with_suffix(output.suffix + ".qc.json")
     if not report.is_file():
@@ -220,7 +234,7 @@ def _run_render_job(job_id: str):
                     with RENDER_LOCK:
                         job = RENDER_JOBS.get(job_id)
                         if job:
-                            job.update(status="error", progress=100, phase="Error", error="El render superó 30 minutos.", process=None)
+                            _mark_job_error(job, "El render superó 30 minutos.")
                     return
         _sync_render_progress(job_id, progress_file)
         with RENDER_LOCK:
@@ -235,27 +249,27 @@ def _run_render_job(job_id: str):
             output = pathlib.Path(job["output"])
             if proc.returncode != 0 or not output.is_file():
                 detail = (stderr or stdout or "Error desconocido de render").strip()[-4000:]
-                job.update(status="error", progress=100, phase="Error", error=detail)
+                _mark_job_error(job, detail)
                 return
             qc = _read_qc(output)
             if not qc or not qc.get("ok"):
                 detail = "El MP4 terminó pero no superó el control post-render."
                 if qc and qc.get("issues"):
                     detail += " " + " ".join(str(x) for x in qc["issues"][:3])
-                job.update(status="error", progress=100, phase="Control de calidad fallido", error=detail, qc=qc)
+                _mark_job_error(job, detail, phase="Control de calidad fallido", qc=qc)
                 return
             job.update(status="done", progress=100, phase="Completado", size=output.stat().st_size, qc=qc)
     except Exception as exc:
         with RENDER_LOCK:
             job = RENDER_JOBS.get(job_id)
             if job and job.get("status") not in ("cancelled", "done"):
-                job.update(status="error", progress=100, phase="Error", error=str(exc), process=None)
+                _mark_job_error(job, exc)
     finally:
         RENDER_SLOT.release()
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.7"
+    server_version = "ProfitMenteStudio/1.8"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -334,6 +348,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "render_queued": queued,
                 "render_progress_phases": True,
                 "render_process_tree_cancel": True,
+                "render_failure_cleanup": True,
                 "post_render_qc": True,
                 "server": self.server_version,
             })
