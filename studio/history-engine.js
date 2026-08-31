@@ -1,3 +1,19 @@
+(()=>{
+  if(typeof window==='undefined'||typeof localStorage==='undefined')return;
+  const key='profitmente-project',backupKey='profitmente-project-corrupt-backup';
+  const raw=localStorage.getItem(key);if(raw==null)return;
+  try{
+    const value=JSON.parse(raw);
+    if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('invalid project root');
+    if(value.clips!=null&&!Array.isArray(value.clips))throw new Error('invalid clips');
+  }catch(err){
+    try{localStorage.removeItem(key)}catch{}
+    try{localStorage.setItem(backupKey,raw)}catch{}
+    window.__profitmenteStartupRecovered={reason:'corrupt-project-storage',backupKey};
+    console.warn('ProfitMente Studio isolated a corrupt startup project and preserved a backup.',err);
+  }
+})();
+
 class ProfitMenteHistoryEngine{
   constructor(limit=60){this.limit=limit;this.undoStack=[];this.redoStack=[];this.locked=false;this.last=null}
   snapshot(project){return JSON.stringify(project)}
