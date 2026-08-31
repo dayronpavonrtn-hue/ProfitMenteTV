@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const ProfitMenteGeneratorAutoFill=require('./generator-autofill.js');
 
+const trackLocked=(project,track)=>!!(project?.trackState?.[track]?.locked??project?.trackState?.[String(track)]?.locked);
 const fakeEngine={
-  assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset)){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset).length}},
-  assignNarration(project,assets){const voice=assets.find(a=>a.type==='audio'&&/voice|voz|narr/i.test(a.name||''));if(!voice)return 0;let count=0;for(const clip of project.clips.filter(c=>Number(c.track)===6&&!c.asset)){clip.asset=voice.id;count++}return count},
+  assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset&&!c.locked&&!trackLocked(project,c.track))){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset&&!c.locked&&!trackLocked(project,c.track)).length}},
+  assignNarration(project,assets){if(trackLocked(project,6))return 0;const voice=assets.find(a=>a.type==='audio'&&/voice|voz|narr/i.test(a.name||''));if(!voice)return 0;let count=0;for(const clip of project.clips.filter(c=>Number(c.track)===6&&!c.asset&&!c.locked)){clip.asset=voice.id;count++}return count},
   assignSoundtrack(){return 0},
   assignTransitionSfx(){return 0}
 };
@@ -51,7 +52,7 @@ const protectedOnly={mode:'Automático',clips:[
   {id:'locked-voice',track:6,asset:null,locked:true}
 ]};
 const protectedResult=helper.fill(protectedOnly,[...visuals,...voice],[...visuals,...voice]);
-assert.equal(protectedResult.changed,false,'locked placeholders must not trigger automatic mutation');
+assert.equal(protectedResult.changed,false,'locked placeholders must not be mutated by automatic fill');
 assert.equal(protectedResult.before,0,'locked visual placeholders are not editable automation work');
 assert.equal(protectedOnly.clips[0].asset,null,'locked primary clip must remain untouched');
 assert.equal(protectedOnly.clips[1].asset,null,'locked narration clip must remain untouched');
