@@ -6,4 +6,11 @@ let c=e.normalize({name:'Hola',textAnimation:'bad',textX:99,fontSize:5,textColor
 assert.equal(c.track,2);assert.equal(c.textAnimation,'pop');assert.equal(c.textX,45);assert.equal(c.fontSize,16);assert.equal(c.textColor,'#FFE66D');assert.equal(c.boxOpacity,1);
 let f=e.frame({...c,start:1,duration:2,textAnimation:'slide-up'},1.05);assert.ok(f.alpha>0&&f.alpha<1);assert.ok(f.dy>0);
 f=e.frame({...c,start:1,duration:2,textAnimation:'pop'},1.5);assert.ok(f.scale>.99&&f.scale<=1);assert.equal(f.alpha,1);
+const measure=(text,size)=>String(text).length*size*.62;
+let layout=e.layout({name:'INTELIGENCIA ARTIFICIAL PARA INVERTIR CON DISCIPLINA Y CONTROL DE RIESGO',fontSize:48,textX:45,textStyle:'title'},measure,540,960);
+assert.ok(layout.lines.length>=2&&layout.lines.length<=4,'el título largo debe repartirse en líneas seguras');
+assert.ok(layout.maxWidth<=layout.safeWidth,'ninguna línea debe exceder la zona segura');
+assert.ok(Math.abs(layout.textX)<45,'la posición horizontal debe limitarse cuando el bloque es ancho');
+layout=e.layout({name:'PROFITMENTE AI',fontSize:46,textX:0,textStyle:'title'},measure,540,960);
+assert.equal(layout.lines.length,1);assert.equal(layout.fontSize,46);assert.equal(layout.textX,0);
 console.log('Motion text engine QA OK');
