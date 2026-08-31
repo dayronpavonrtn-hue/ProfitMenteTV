@@ -3,7 +3,7 @@
   const $=s=>document.querySelector(s),engine=new ProfitMenteFreezeFrameEngine(),props=$('.props');if(!props)return;
   const panel=document.createElement('section');panel.className='freezeFramePanel';panel.innerHTML='<hr><h3>Freeze Frame</h3><div id="freezeFrameInfo" class="clipEmpty">Selecciona un clip de video.</div><div class="ciActions"><button id="freezeFrameSet">❄ Congelar en cursor</button><button id="freezeFrameClear">Reanudar video</button></div><small>Congela todo el clip usando exactamente el fotograma situado bajo el cursor. Se crea un PNG local reutilizable por preview, proyecto y render MP4.</small>';props.appendChild(panel);
   const style=document.createElement('style');style.textContent='.freezeFramePanel .ciActions{display:flex;flex-wrap:wrap;gap:6px}.freezeFramePanel button:disabled{opacity:.45}.freezeFramePanel small{display:block;margin-top:7px;opacity:.72;line-height:1.35}';document.head.appendChild(style);
-  const selected=()=>project?.clips?.find(c=>c?.id===window.ProfitMenteEditTools?.selectedId),assetById=id=>assets?.find(a=>a.id===id),assetFor=c=>assetById(c?.asset),sourceAssetFor=c=>assetById(c?.freezeOriginalAsset)||assetFor(c),locked=c=>!!project?.trackState?.[c?.track]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t),playhead=()=>Number($('#playhead')?.value)||0;
+  const selected=()=>project?.clips?.find(c=>c?.id===window.ProfitMenteEditTools?.selectedId),assetById=id=>assets?.find(a=>a.id===id),assetFor=c=>assetById(c?.asset),sourceAssetFor=c=>assetById(c?.freezeOriginalAsset)||assetFor(c),locked=c=>window.ProfitMenteEditLockGuard?window.ProfitMenteEditLockGuard.isLocked(project,c):!!c?.locked||!!project?.trackState?.[c?.track]?.locked||!!project?.trackState?.[String(c?.track)]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t),playhead=()=>Number($('#playhead')?.value)||0;
   function usable(c){return !!c&&sourceAssetFor(c)?.type==='video'}
   async function extractFrame(asset,time){
     if(!asset?.blob)throw new Error('Fuente de video no disponible');
@@ -24,7 +24,7 @@
   function state(){
     const c=selected(),info=$('#freezeFrameInfo'),set=$('#freezeFrameSet'),clear=$('#freezeFrameClear');let canSet=false,canClear=false;
     if(!c){if(info)info.textContent='Selecciona un clip de video.'}
-    else if(locked(c)){if(info)info.textContent='La pista del clip está bloqueada.'}
+    else if(locked(c)){if(info)info.textContent='El clip o su pista está bloqueado.'}
     else if(!usable(c)){if(info)info.textContent='Freeze Frame requiere un clip de video.'}
     else{
       canSet=true;canClear=engine.frozen(c)&&!!c.freezeOriginalAsset;
@@ -43,7 +43,7 @@
     }catch(err){console.error(err);status(`Freeze Frame falló: ${err.message||err}`);state()}
   }
   function clearFreeze(){
-    const c=selected();if(!c||locked(c))return;const original=c.freezeOriginalAsset;
+    const c=selected();if(!c||locked(c)){status('El clip está bloqueado');state();return}const original=c.freezeOriginalAsset;
     if(original&&assetById(original))c.asset=original;delete c.freezeOriginalAsset;delete c.freezeFrameAsset;engine.clear(c);refresh();status('Freeze Frame desactivado · reproducción normal');
   }
   $('#freezeFrameSet').onclick=()=>setFreeze();$('#freezeFrameClear').onclick=clearFreeze;
