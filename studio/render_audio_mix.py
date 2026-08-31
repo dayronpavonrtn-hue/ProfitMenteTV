@@ -6,12 +6,14 @@ music ducking that only applies while voice clips overlap. Uses only FFmpeg.
 """
 from __future__ import annotations
 import json, pathlib, shutil, subprocess, sys, tempfile
+from render_quality import resolve_render_quality
 
 if len(sys.argv) != 5:
     raise SystemExit('Usage: render_audio_mix.py project.json assets_dir video_only.mp4 output.mp4')
 
 project_path=pathlib.Path(sys.argv[1]); assets_dir=pathlib.Path(sys.argv[2]); video_in=pathlib.Path(sys.argv[3]); out=pathlib.Path(sys.argv[4])
 project=json.loads(project_path.read_text(encoding='utf-8'))
+render_quality=resolve_render_quality(project.get('renderQuality','high'))
 duration=max(.25,float(project.get('duration',45) or 45)); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 
@@ -122,11 +124,11 @@ filters.append(''.join(labels)+f'amix=inputs={len(labels)}:duration=longest:drop
 out.parent.mkdir(parents=True,exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='profitmente-audio-mux-') as td:
     tmp=pathlib.Path(td)/'muxed.mp4'
-    cmd=['ffmpeg','-hide_banner','-y',*inputs,'-filter_complex',';'.join(filters),'-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a','192k','-t',str(duration),'-movflags','+faststart',str(tmp)]
+    cmd=['ffmpeg','-hide_banner','-y',*inputs,'-filter_complex',';'.join(filters),'-map','0:v:0','-map','[aout]','-c:v','copy','-c:a','aac','-b:a',render_quality['audio_bitrate'],'-t',str(duration),'-movflags','+faststart',str(tmp)]
     subprocess.run(cmd,check=True)
     probe=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type','-of','json',str(tmp)],check=True,capture_output=True,text=True)
     streams=json.loads(probe.stdout).get('streams',[])
     if not any(s.get('codec_type')=='video' for s in streams):raise RuntimeError('Audio mix QA: faltó video')
     if not any(s.get('codec_type')=='audio' for s in streams):raise RuntimeError('Audio mix QA: faltó audio')
     shutil.copy2(tmp,out)
-print(f'Audio mix QA OK: {out}')
+print(f"Audio mix QA OK: {out} · calidad {render_quality['id']} · AAC {render_quality['audio_bitrate']}")
