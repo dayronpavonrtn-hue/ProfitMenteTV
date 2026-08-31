@@ -125,16 +125,19 @@ def visual_chain(idx,asset,start,d,clip,label):
     if trans=='zoom' and start>0: chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
     s0=kf_value(clip,'start','scale',1,.25,3); s1=kf_value(clip,'end','scale',1,.25,3) if has_keyframes(clip) else s0
     r0=kf_value(clip,'start','rotation',0,-180,180); r1=kf_value(clip,'end','rotation',0,-180,180) if has_keyframes(clip) else r0
-    opacity=bounded(clip,'opacity',1,0,1)
+    o0=kf_value(clip,'start','opacity',1,0,1); o1=kf_value(clip,'end','opacity',1,0,1) if has_keyframes(clip) else o0
     if has_keyframes(clip):
         sexpr=lerp_expr(s0,s1,d)
         chain+=f",format=rgba,scale='trunc(iw*{sexpr}/2)*2':'trunc(ih*{sexpr}/2)*2':eval=frame"
         rexpr=lerp_expr(math.radians(r0),math.radians(r1),d)
         if abs(r0)>.001 or abs(r1)>.001: chain+=f",rotate='{rexpr}':ow=rotw(iw):oh=roth(ih):c=black@0"
+        if abs(o0-o1)>.001 or o0<.999 or o1<.999:
+            oexpr=lerp_expr(o0,o1,d,'T')
+            chain+=f",geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*{oexpr}'"
     else:
         chain+=f",format=rgba,scale='trunc(iw*{s0}/2)*2':'trunc(ih*{s0}/2)*2'"
         if abs(r0)>.001: chain+=f",rotate={math.radians(r0)}:ow=rotw(iw):oh=roth(ih):c=black@0"
-    if opacity<.999: chain+=f',colorchannelmixer=aa={opacity}'
+        if o0<.999: chain+=f',colorchannelmixer=aa={o0}'
     chain+=f',setpts=PTS-STARTPTS+{start}/TB{label}'
     filters.append(src+chain)
 
