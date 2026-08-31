@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'studio/motion-text-engine.js'
+      - 'studio/motion_text_layout.py'
       - 'studio/render_motion_text.py'
       - 'studio/render_bundle.py'
       - 'studio/generator-engine.js'
@@ -22,7 +23,7 @@ jobs:
           node --check studio/generator-engine.js
           node --check studio/qa-engine.js
       - name: Python syntax
-        run: python -m py_compile studio/render_motion_text.py studio/render_bundle.py studio/test_motion_text_render.py
+        run: python -m py_compile studio/motion_text_layout.py studio/render_motion_text.py studio/render_bundle.py studio/test_motion_text_render.py
       - name: Motion engine regression
         run: node studio/test_motion_text.mjs
       - name: FFmpeg availability
