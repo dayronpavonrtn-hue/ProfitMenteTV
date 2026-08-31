@@ -17,7 +17,11 @@ assert.ok(autoFill.includes('this.engine.assignSoundtrack?.(project,allAssets)')
 assert.ok(autoFill.includes('this.engine.assignTransitionSfx?.(project,allAssets)'),'audio importado después de generar debe poder conectar SFX');
 assert.ok(autoFill.includes('if(!result.changed)return'),'no debe guardar ni redibujar cuando el proyecto no cambia');
 assert.ok(autoFill.includes('save?.()'),'un relleno efectivo debe persistir y refrescar el proyecto');
-assert.ok(generator.includes("project.clips.filter(c=>c.track===0&&!c.asset)"),'el generador solo debe asignar escenas visuales todavía vacías');
+assert.ok(generator.includes("project.clips.filter(c=>Number(c.track)===0&&!c.asset&&!this.clipLocked(project,c))"),'el generador debe limitar la asignación a escenas visuales vacías y editables');
+assert.ok(generator.includes('!brollLocked&&c.duration>=4'),'B-roll automático debe respetar el bloqueo de su pista');
+assert.ok(generator.includes('if(this.trackLocked(project,6))return 0'),'narración automática debe respetar el bloqueo de pista');
+assert.ok(generator.includes('if(this.trackLocked(project,5)'),'música automática debe respetar el bloqueo de pista');
+assert.ok(generator.includes('if(this.trackLocked(project,4)'),'SFX automáticos deben respetar el bloqueo de pista');
 assert.ok(bootstrap.indexOf("'media-import-engine.js'")<bootstrap.indexOf("'generator-autofill.js'"),'el listener de auto-fill debe instalarse después del importador');
 
 console.log('Generator autofill wiring regression OK');
