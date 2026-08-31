@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -15,6 +16,7 @@ import webbrowser
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from render_progress import ENV_NAME as RENDER_PROGRESS_ENV, read_progress
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STUDIO = ROOT / "studio"
@@ -26,6 +28,8 @@ RENDER_LOCK = threading.RLock()
 # multiple queued clicks from exhausting CPU/RAM. Waiting jobs stay cancellable.
 RENDER_SLOT = threading.Semaphore(1)
 RENDER_QUEUE_POLL_SECONDS = 0.1
+RENDER_PROGRESS_POLL_SECONDS = 0.25
+RENDER_TIMEOUT_SECONDS = 1800
 
 
 def _render_counts() -> tuple[int, int]:
@@ -62,6 +66,7 @@ def _job_snapshot(job: dict) -> dict:
         "job_id": job["id"],
         "status": job.get("status", "queued"),
         "progress": int(job.get("progress", 0)),
+        "phase": job.get("phase"),
         "error": job.get("error"),
         "elapsed": max(0, round(time.time() - created, 1)),
         "qc": job.get("qc"),
@@ -89,6 +94,22 @@ def _read_qc(output: pathlib.Path):
         return None
 
 
+def _sync_render_progress(job_id: str, progress_file: pathlib.Path):
+    snapshot = read_progress(progress_file)
+    if not snapshot:
+        return
+    with RENDER_LOCK:
+        job = RENDER_JOBS.get(job_id)
+        if not job or job.get("status") != "rendering":
+            return
+        current = int(job.get("progress", 0))
+        incoming = int(snapshot.get("progress", 0))
+        # Never make the UI move backwards if two child stages publish close together.
+        job["progress"] = max(current, incoming)
+        if snapshot.get("phase"):
+            job["phase"] = snapshot["phase"]
+
+
 def _wait_for_render_slot(job_id: str) -> bool:
     """Wait for the single local render slot while honoring queue cancellation."""
     while True:
@@ -96,7 +117,7 @@ def _wait_for_render_slot(job_id: str) -> bool:
             job = RENDER_JOBS.get(job_id)
             if not job or job.get("cancel_requested") or job.get("status") == "cancelled":
                 if job and job.get("status") != "cancelled":
-                    job.update(status="cancelled", progress=0)
+                    job.update(status="cancelled", progress=0, phase="Cancelado")
                     _cleanup_job_files(job)
                 return False
         if RENDER_SLOT.acquire(timeout=RENDER_QUEUE_POLL_SECONDS):
@@ -112,56 +133,65 @@ def _run_render_job(job_id: str):
             job = RENDER_JOBS.get(job_id)
             if not job or job.get("cancel_requested"):
                 if job:
-                    job.update(status="cancelled", progress=0)
+                    job.update(status="cancelled", progress=0, phase="Cancelado")
                     _cleanup_job_files(job)
                 return
-            job.update(status="rendering", progress=35)
+            progress_file = pathlib.Path(job["tempdir"]) / "render-progress.json"
+            job.update(status="rendering", progress=11, phase="Preparando render", progress_file=str(progress_file))
             cmd = [sys.executable, str(STUDIO / "render_bundle.py"), str(job["bundle"]), str(job["output"])]
-            proc = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            env = os.environ.copy()
+            env[RENDER_PROGRESS_ENV] = str(progress_file)
+            proc = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
             job["process"] = proc
-        try:
-            stdout, stderr = proc.communicate(timeout=1800)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            stdout, stderr = proc.communicate()
-            with RENDER_LOCK:
-                job = RENDER_JOBS.get(job_id)
-                if job:
-                    job.update(status="error", progress=100, error="El render superó 30 minutos.", process=None)
-            return
+        started = time.monotonic()
+        while True:
+            try:
+                stdout, stderr = proc.communicate(timeout=RENDER_PROGRESS_POLL_SECONDS)
+                break
+            except subprocess.TimeoutExpired:
+                _sync_render_progress(job_id, progress_file)
+                if time.monotonic() - started > RENDER_TIMEOUT_SECONDS:
+                    proc.kill()
+                    stdout, stderr = proc.communicate()
+                    with RENDER_LOCK:
+                        job = RENDER_JOBS.get(job_id)
+                        if job:
+                            job.update(status="error", progress=100, phase="Error", error="El render superó 30 minutos.", process=None)
+                    return
+        _sync_render_progress(job_id, progress_file)
         with RENDER_LOCK:
             job = RENDER_JOBS.get(job_id)
             if not job:
                 return
             job["process"] = None
             if job.get("cancel_requested"):
-                job.update(status="cancelled", progress=0)
+                job.update(status="cancelled", progress=0, phase="Cancelado")
                 _cleanup_job_files(job)
                 return
             output = pathlib.Path(job["output"])
             if proc.returncode != 0 or not output.is_file():
                 detail = (stderr or stdout or "Error desconocido de render").strip()[-4000:]
-                job.update(status="error", progress=100, error=detail)
+                job.update(status="error", progress=100, phase="Error", error=detail)
                 return
             qc = _read_qc(output)
             if not qc or not qc.get("ok"):
                 detail = "El MP4 terminó pero no superó el control post-render."
                 if qc and qc.get("issues"):
                     detail += " " + " ".join(str(x) for x in qc["issues"][:3])
-                job.update(status="error", progress=100, error=detail, qc=qc)
+                job.update(status="error", progress=100, phase="Control de calidad fallido", error=detail, qc=qc)
                 return
-            job.update(status="done", progress=100, size=output.stat().st_size, qc=qc)
+            job.update(status="done", progress=100, phase="Completado", size=output.stat().st_size, qc=qc)
     except Exception as exc:
         with RENDER_LOCK:
             job = RENDER_JOBS.get(job_id)
             if job and job.get("status") not in ("cancelled", "done"):
-                job.update(status="error", progress=100, error=str(exc), process=None)
+                job.update(status="error", progress=100, phase="Error", error=str(exc), process=None)
     finally:
         RENDER_SLOT.release()
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.5"
+    server_version = "ProfitMenteStudio/1.6"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -238,6 +268,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "render_concurrency": 1,
                 "render_active": active,
                 "render_queued": queued,
+                "render_progress_phases": True,
                 "post_render_qc": True,
                 "server": self.server_version,
             })
@@ -295,7 +326,7 @@ class Handler(SimpleHTTPRequestHandler):
             if proc and proc.poll() is None:
                 proc.terminate()
             if job.get("status") == "queued":
-                job.update(status="cancelled", progress=0)
+                job.update(status="cancelled", progress=0, phase="Cancelado")
                 _cleanup_job_files(job)
             self._json(HTTPStatus.OK, _job_snapshot(job))
         return
@@ -315,7 +346,7 @@ class Handler(SimpleHTTPRequestHandler):
         output = td / "output.mp4"
         if path == "/api/render/jobs":
             job_id = uuid.uuid4().hex
-            job = {"id": job_id, "status": "queued", "progress": 10, "created": time.time(), "tempdir": str(td), "bundle": str(bundle), "output": str(output), "process": None, "cancel_requested": False, "error": None, "qc": None}
+            job = {"id": job_id, "status": "queued", "progress": 10, "phase": "En cola", "created": time.time(), "tempdir": str(td), "bundle": str(bundle), "output": str(output), "process": None, "progress_file": None, "cancel_requested": False, "error": None, "qc": None}
             with RENDER_LOCK: RENDER_JOBS[job_id] = job
             threading.Thread(target=_run_render_job, args=(job_id,), daemon=True).start()
             self._json(HTTPStatus.ACCEPTED, _job_snapshot(job)); return
@@ -324,7 +355,7 @@ class Handler(SimpleHTTPRequestHandler):
         RENDER_SLOT.acquire()
         try:
             try:
-                result = subprocess.run([sys.executable, str(STUDIO / "render_bundle.py"), str(bundle), str(output)], cwd=str(ROOT), capture_output=True, text=True, timeout=1800)
+                result = subprocess.run([sys.executable, str(STUDIO / "render_bundle.py"), str(bundle), str(output)], cwd=str(ROOT), capture_output=True, text=True, timeout=RENDER_TIMEOUT_SECONDS)
             except subprocess.TimeoutExpired:
                 shutil.rmtree(td, ignore_errors=True)
                 self._json(HTTPStatus.GATEWAY_TIMEOUT, {"ok": False, "error": "El render superó 30 minutos."}); return
