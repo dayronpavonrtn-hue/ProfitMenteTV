@@ -8,6 +8,7 @@ MP4 matches WebAudio preview ducking, track gain, fades and source-video audio.
 import copy,json,pathlib,subprocess,sys,tempfile
 from caption_compact import compact_project_captions
 from motion_text_layout import expand_motion_text
+from render_progress import write_progress
 
 if len(sys.argv)!=4:
     raise SystemExit('Usage: render_motion_text.py project.json assets_dir output.mp4')
@@ -27,8 +28,11 @@ for clip in video_project.get('clips',[]):
 with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
     td=pathlib.Path(td); prepared=td/'project.render.json'; video_only=td/'video-only.mp4'
     prepared.write_text(json.dumps(video_project,ensure_ascii=False),encoding='utf-8')
+    write_progress(35,'Componiendo video y gráficos')
     subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],str(video_only)],check=True)
     audio_project=td/'project.audio.json'
     audio_project.write_text(json.dumps(render_project,ensure_ascii=False),encoding='utf-8')
+    write_progress(72,'Mezclando narración, música y SFX')
     subprocess.run([sys.executable,str(root/'render_audio_mix.py'),str(audio_project),sys.argv[2],str(video_only),sys.argv[3]],check=True)
+    write_progress(82,'Video y audio integrados')
 print(f'Motion text, captions y mezcla de audio integrados: {sys.argv[3]}')
