@@ -145,7 +145,9 @@ for c in visual+audio:add_input(c['asset'])
 
 base_input=len(input_index); inputs.extend(['-f','lavfi','-i',f'color=c=0x090b10:s={w}x{h}:r={fps}:d={duration}'])
 filters.append(f'[{base_input}:v]setpts=PTS-STARTPTS[vbase0]'); base='[vbase0]'
-for n,c in enumerate(sorted(visual,key=lambda x:(float(x.get('start',0)),x.get('track',0)))):
+# Track number defines compositing depth: V1 (0) below overlays (1).
+# Within a track, later-starting clips are composited later so overlap behavior matches the timeline.
+for n,c in enumerate(sorted(visual,key=lambda x:(int(x.get('track',0)),float(x.get('start',0))))):
     idx=input_index[c['asset']]; a=amap[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); end=start+d
     vin=f'[vis{n}]'; nxt=f'[vbase{n+1}]'; visual_chain(idx,a,start,d,c,vin)
     x0=kf_value(c,'start','positionX',0,-100,100); x1=kf_value(c,'end','positionX',0,-100,100) if has_keyframes(c) else x0
