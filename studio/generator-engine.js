@@ -48,6 +48,23 @@ class ProfitMenteGeneratorEngine{
     project.clips.push({id:crypto.randomUUID(),track:5,name:`Música · ${chosen.name}`,start:0,duration:clipDuration,asset:chosen.id,sourceOffset:0,volume:.18,duckVolume:.10,ducking:true,fadeIn:Math.min(.4,clipDuration/4),fadeOut:Math.min(.8,clipDuration/3)});
     return 1;
   }
+  sfxScore(asset){
+    if(asset?.type!=='audio')return -Infinity;
+    const joined=this.words(asset.name).join(' '),sfx=['sfx','effect','efecto','impact','whoosh','swoosh','pop','click','transition','transicion','hit','riser'],exclude=['voice','voz','narration','narracion','dialogue','dialogo','speech','locucion','music','musica','song','cancion','instrumental','background','fondo','lofi','soundtrack'];
+    if(exclude.some(k=>joined.includes(k)))return -Infinity;
+    const matches=sfx.filter(k=>joined.includes(k)).length;if(!matches)return -Infinity;
+    const d=Number(asset.duration)||0;if(d>4)return matches>=2?matches*3-2:-Infinity;
+    return matches*3+(d>0&&d<=1.5?2:0);
+  }
+  assignTransitionSfx(project,assets){
+    if((project.clips||[]).some(c=>Number(c.track)===4&&c.asset))return 0;
+    const ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.sfxScore(a)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
+    if(!ranked.length)return 0;
+    const scenes=(project.clips||[]).filter(c=>Number(c.track)===0).sort((a,b)=>Number(a.start)-Number(b.start));if(scenes.length<2)return 0;
+    const targets=scenes.slice(1,Math.min(scenes.length,4));let added=0;
+    targets.forEach((scene,i)=>{const asset=ranked[i%ranked.length].a,available=Number(asset.duration)||.45,duration=Math.max(.08,Math.min(.8,available)),start=Math.max(0,(Number(scene.start)||0)-Math.min(.06,duration*.15));project.clips.push({id:crypto.randomUUID(),track:4,name:`SFX · ${asset.name}`,start,duration,asset:asset.id,sourceOffset:0,volume:.62,fadeIn:Math.min(.02,duration/4),fadeOut:Math.min(.12,duration/3)});added++});
+    return added;
+  }
   assignAssets(project,assets){
     const visual=assets.filter(a=>a.type==='video'||a.type==='image');let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project.name||project.title||'ProfitMente');
     const mark=a=>usage.set(a.id,(usage.get(a.id)||0)+1);
@@ -62,8 +79,8 @@ class ProfitMenteGeneratorEngine{
         if(alt){const bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);mark(alt);broll++;sequence++}
       }
     }
-    const music=this.assignSoundtrack(project,assets);
-    return {primary,broll,skipped,unique:usage.size,music};
+    const music=this.assignSoundtrack(project,assets),sfx=this.assignTransitionSfx(project,assets);
+    return {primary,broll,skipped,unique:usage.size,music,sfx};
   }
 }
 window.ProfitMenteGeneratorEngine=ProfitMenteGeneratorEngine;
