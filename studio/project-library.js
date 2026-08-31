@@ -10,6 +10,21 @@ class ProfitMenteProjectLibrary{
   duplicate(id){const items=this._read(),source=items.find(x=>x.id===id);if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   remove(id){const before=this._read(),after=before.filter(x=>x.id!==id);this._write(after);return after.length!==before.length}
   static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}}
+  static hasUnsavedWork(project){
+    if(!project||project.libraryId)return false;
+    const blank=this.blank(),clips=Array.isArray(project.clips)?project.clips:[];
+    if(clips.length)return true;
+    if((project.name||blank.name)!==blank.name)return true;
+    if((project.mode||blank.mode)!==blank.mode)return true;
+    if(Number(project.duration??blank.duration)!==blank.duration)return true;
+    if((project.format||blank.format)!==blank.format)return true;
+    if(project.frameRate!=null&&Number(project.frameRate)!==30)return true;
+    if(Array.isArray(project.markers)&&project.markers.length)return true;
+    if(project.trackStates&&Object.keys(project.trackStates).length)return true;
+    if(project.renderRange||project.safeAreaPlatform||project.socialPlatform)return true;
+    return false;
+  }
+  saveDraftIfNeeded(project){return ProfitMenteProjectLibrary.hasUnsavedWork(project)?this.save(project):structuredClone(project)}
 }
 return {ProfitMenteProjectLibrary};
 });
@@ -18,7 +33,7 @@ if(typeof document!=='undefined')(()=>{
   const $=s=>document.querySelector(s),aside=$('aside');if(!aside||typeof project==='undefined')return;
   const lib=new ProfitMenteProjectLibrary(localStorage),section=document.createElement('section');section.className='projectLibrary';section.innerHTML='<h3>Mis proyectos</h3><div class="projectLibraryActions"><button id="librarySaveBtn">＋ Guardar proyecto</button><button id="libraryRefreshBtn">↻ Actualizar</button></div><div id="projectLibraryList" class="projectLibraryList"></div>';aside.insertBefore(section,aside.firstChild);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]))}
   function render(){const el=$('#projectLibraryList'),rows=lib.list();el.innerHTML=rows.length?'':'<small>Sin proyectos guardados todavía.</small>';for(const row of rows){const card=document.createElement('div');card.className='projectLibraryCard';card.innerHTML=`<button class="projectOpen" data-open="${row.id}"><b>${escapeHtml(row.name)}</b><small>${new Date(row.updatedAt).toLocaleString()}</small></button><button class="projectDuplicate" data-duplicate="${row.id}" title="Duplicar proyecto">⧉</button><button class="projectDelete" data-delete="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)}}
   async function syncAll(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();const ph=$('#playhead');if(ph)ph.value=0;if(typeof renderAt==='function')await renderAt(0)}
   function stopPlayback(){
@@ -36,6 +51,11 @@ if(typeof document!=='undefined')(()=>{
       if(format)project.format=format.value;
       if(typeof mode!=='undefined'&&mode)project.mode=mode.value;
       if(typeof persist==='function')persist();
+      if(!project.libraryId&&ProfitMenteProjectLibrary.hasUnsavedWork(project)){
+        project=lib.saveDraftIfNeeded(project);
+        if(typeof originalPersist==='function')originalPersist();
+        render();
+      }
       return true;
     }catch(err){console.error('ProfitMente project flush failed',err);status('No se pudo guardar el proyecto actual; cambio cancelado');return false}
   }
