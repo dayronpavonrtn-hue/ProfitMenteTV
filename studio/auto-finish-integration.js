@@ -1,6 +1,6 @@
 (()=>{
   if(typeof document==='undefined'||!window.ProfitMenteAutoFinishEngine||window.ProfitMenteAutoFinish)return;
-  const Engine=window.ProfitMenteAutoFinishEngine,$=s=>document.querySelector(s);let busy=false,lastReport=null,lastPreflight=null;
+  const Engine=window.ProfitMenteAutoFinishEngine,$=s=>document.querySelector(s);let busy=false,renderBusy=false,lastReport=null,lastPreflight=null;
   function runQA(){
     if(!window.ProfitMenteQAEngine)return null;
     try{return new window.ProfitMenteQAEngine().inspect(project,assets)}catch(err){console.error('Auto Finish QA failed',err);return null}
@@ -50,10 +50,29 @@
     }catch(err){console.error(err);setStatus?.('Auto Finish no pudo completar todos los pasos: '+(err?.message||err));return {completed,skipped,qa:lastReport,preflight:lastPreflight,error:String(err?.message||err)}}
     finally{busy=false;if(btn){btn.disabled=false;btn.textContent='✨ Auto Finish'}}
   }
+  async function runAndRender(){
+    if(renderBusy||busy)return null;renderBusy=true;const btn=$('#autoFinishRenderBtn');if(btn){btn.disabled=true;btn.textContent='Finalizando + MP4…'}
+    try{
+      const result=await run();
+      if(!result||result.error||!result.qa?.ok)return {...(result||{}),renderStarted:false};
+      if(!result.preflight?.canRender){
+        if(result.preflight?.canPackage)setStatus?.(`Auto Finish completado · QA ${result.qa.score}/100 · MP4 directo no disponible; el paquete $0 sigue disponible`);
+        return {...result,renderStarted:false};
+      }
+      const renderBtn=$('#renderMp4Btn');
+      if(!renderBtn||renderBtn.disabled){setStatus?.('Auto Finish completado · MP4 local listo, pero el control de render está ocupado o no disponible');return {...result,renderStarted:false}}
+      setStatus?.(`Auto Finish aprobado · QA ${result.qa.score}/100 · iniciando MP4 local…`);
+      renderBtn.click();
+      window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-render-started',{detail:{qa:result.qa,preflight:result.preflight}}));
+      return {...result,renderStarted:true};
+    }finally{renderBusy=false;if(btn){btn.disabled=false;btn.textContent='✨ Auto Finish + MP4'}}
+  }
   function install(){
-    if($('#autoFinishBtn'))return;const anchor=$('#generateBtn')||$('#qaBtn');if(!anchor)return;
-    const btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, mezcla, ritmo, transiciones, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn);
+    const anchor=$('#generateBtn')||$('#qaBtn');if(!anchor)return;
+    let btn=$('#autoFinishBtn');
+    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, mezcla, ritmo, transiciones, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
+    if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
-  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
+  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,runAndRender,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
 })();
