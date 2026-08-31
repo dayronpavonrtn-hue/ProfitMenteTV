@@ -19,10 +19,16 @@ assert.match(src,/setTimeout\(\(\)=>flush\('propiedades'\),450\)/,'text/number e
 assert.match(src,/format\.addEventListener\('change',\(\)=>flush\('formato'\)\)/,'format changes must save immediately');
 assert.match(src,/modeInput\.addEventListener\('change',\(\)=>flush\('modo'\)\)/,'mode changes must save immediately');
 assert.match(src,/if\(typeof persist==='function'\)persist\(\)/,'autosave must use the wrapped project persistence path');
+assert.match(src,/nextFingerprint=JSON\.stringify\(engine\.fields\(next\)\)/,'autosave must compare against the last successfully persisted fingerprint');
+assert.match(src,/if\(last===nextFingerprint\)return false/,'failed persistence must remain dirty and eligible for retry');
+assert.match(src,/last=nextFingerprint;retryCount=0/,'successful persistence must clear retry state');
+assert.match(src,/profitmente:project-autosave-error/,'persistence failures must surface a dedicated error event');
+assert.match(src,/retryCount<3.*?setTimeout\(\(\)=>flush\('reintento'\),1500\*retryCount\)/s,'transient persistence failures must retry with bounded backoff');
+assert.match(src,/reason!==\'cierre\'.*?retryCount<3/s,'browser shutdown must not schedule background retries');
 assert.match(src,/previous\.duration!==next\.duration\|\|previous\.format!==next\.format/,'layout-affecting edits must refresh timeline geometry');
 assert.match(src,/beforeunload.*?flush\('cierre'\)/s,'pending properties must flush before browser unload');
 assert.match(src,/pagehide.*?flush\('cierre'\)/s,'pending properties must flush on page hide/mobile tab discard path');
-assert.match(src,/profitmente:project-opened.*?cancel\(\).*?last=engine\.fingerprint\(project\)/s,'switching projects must cancel a pending debounce from the previous project');
+assert.match(src,/profitmente:project-opened.*?cancel\(\);retryCount=0;last=engine\.fingerprint\(project\)/s,'switching projects must cancel pending retries from the previous project');
 
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
 const recovery=bootstrap.indexOf("['recovery-integration.js'");
