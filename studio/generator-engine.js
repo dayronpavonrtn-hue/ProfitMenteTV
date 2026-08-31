@@ -2,6 +2,8 @@ class ProfitMenteGeneratorEngine{
   hash(text){let h=2166136261;for(const ch of text){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
   pick(list,seed,offset=0){return list[(seed+offset)%list.length]}
   words(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>3)}
+  trackLocked(project,track){const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)}
+  clipLocked(project,clip){const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;return guard?.isLocked?guard.isLocked(project,clip):!!clip?.locked||this.trackLocked(project,clip?.track)}
   captionWords(text,start,duration){const raw=String(text||'').trim().split(/\s+/).filter(Boolean);if(!raw.length)return[];const weights=raw.map(w=>Math.max(1,w.replace(/[^\p{L}\p{N}]/gu,'').length*.32)),sum=weights.reduce((a,b)=>a+b,0);let cursor=start;return raw.map((word,i)=>{const d=duration*weights[i]/sum,seg={word,start:cursor,duration:d,end:cursor+d,index:i};cursor+=d;return seg})}
   generate(topic,duration=45){
     const clean=(topic||'idea de inversión con IA').trim(),seed=this.hash(clean),slice=Math.max(2,duration/5);
@@ -41,7 +43,8 @@ class ProfitMenteGeneratorEngine{
     if(joined.includes('final')||joined.includes('master'))score+=1;return score;
   }
   assignNarration(project,assets){
-    const clips=(project.clips||[]).filter(c=>Number(c.track)===6),pending=clips.filter(c=>!c.asset);if(!pending.length)return 0;
+    if(this.trackLocked(project,6))return 0;
+    const clips=(project.clips||[]).filter(c=>Number(c.track)===6),pending=clips.filter(c=>!c.asset&&!this.clipLocked(project,c));if(!pending.length)return 0;
     const duration=Math.max(.25,Number(project.duration)||Math.max(...pending.map(c=>(Number(c.start)||0)+(Number(c.duration)||0)),45)),ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.narrationScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     const chosen=ranked[0]?.a;if(!chosen)return 0;let assigned=0;
     for(const clip of pending){const available=Number(chosen.duration)||Number(clip.duration)||duration,requested=Math.max(.25,Number(clip.duration)||duration);clip.asset=chosen.id;clip.name=`Narración · ${chosen.name}`;clip.sourceOffset=0;clip.duration=Math.max(.25,Math.min(requested,available));clip.volume=Number.isFinite(Number(clip.volume))?Number(clip.volume):1;clip.fadeIn=Math.min(.08,clip.duration/4);clip.fadeOut=Math.min(.12,clip.duration/3);assigned++}
@@ -57,7 +60,7 @@ class ProfitMenteGeneratorEngine{
     let score=matches*4;if(d>=projectDuration)score+=4;else if(d>=need)score+=2;if(joined.includes('background')||joined.includes('fondo')||joined.includes('instrumental'))score+=2;return score;
   }
   assignSoundtrack(project,assets){
-    if((project.clips||[]).some(c=>Number(c.track)===5&&c.asset))return 0;
+    if(this.trackLocked(project,5)||(project.clips||[]).some(c=>Number(c.track)===5&&c.asset))return 0;
     const duration=Math.max(.25,Number(project.duration)||45),ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.soundtrackScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     const chosen=ranked[0]?.a;if(!chosen)return 0;
     const available=Number(chosen.duration)||duration,clipDuration=Math.max(.25,Math.min(duration,available));
@@ -73,7 +76,7 @@ class ProfitMenteGeneratorEngine{
     return matches*3+(d>0&&d<=1.5?2:0);
   }
   assignTransitionSfx(project,assets){
-    if((project.clips||[]).some(c=>Number(c.track)===4&&c.asset))return 0;
+    if(this.trackLocked(project,4)||(project.clips||[]).some(c=>Number(c.track)===4&&c.asset))return 0;
     const ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.sfxScore(a)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     if(!ranked.length)return 0;
     const scenes=(project.clips||[]).filter(c=>Number(c.track)===0).sort((a,b)=>Number(a.start)-Number(b.start));if(scenes.length<2)return 0;
@@ -82,15 +85,15 @@ class ProfitMenteGeneratorEngine{
     return added;
   }
   assignAssets(project,assets){
-    const visual=assets.filter(a=>a.type==='video'||a.type==='image');let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project.name||project.title||'ProfitMente');
+    const visual=assets.filter(a=>a.type==='video'||a.type==='image');let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project.name||project.title||'ProfitMente'),brollLocked=this.trackLocked(project,1);
     const mark=a=>usage.set(a.id,(usage.get(a.id)||0)+1);
-    for(const c of project.clips.filter(c=>c.track===0&&!c.asset)){
+    for(const c of project.clips.filter(c=>Number(c.track)===0&&!c.asset&&!this.clipLocked(project,c))){
       const required=Math.max(.05,Number(c.duration)||0),eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required),pool=eligible.length?eligible:visual.filter(a=>a.type==='image');
       if(!pool.length){skipped++;continue}
       const ranked=[...pool].sort((a,b)=>this.diversityScore(b,c.keywords,project.format,required,usage)-this.diversityScore(a,c.keywords,project.format,required,usage)||String(a.name).localeCompare(String(b.name)));
       const chosen=ranked[0];if(!chosen){skipped++;continue}
       c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);mark(chosen);primary++;sequence++;
-      if(c.duration>=4){
+      if(!brollLocked&&c.duration>=4){
         const bd=Math.min(2.4,c.duration*.38),alts=ranked.filter(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=bd+.05)).sort((a,b)=>this.diversityScore(b,c.keywords,project.format,bd,usage)-this.diversityScore(a,c.keywords,project.format,bd,usage)||String(a.name).localeCompare(String(b.name))),alt=alts[0];
         if(alt){const bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);mark(alt);broll++;sequence++}
       }
