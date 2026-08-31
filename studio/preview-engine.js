@@ -6,11 +6,12 @@
   function assetById(id){return assets.find(a=>a.id===id)}
   function trackHidden(track){const state=project?.trackState||{},value=state[track]??state[String(track)]??{};return !!(value&&typeof value==='object'&&value.hidden)}
   function transitionDuration(c,duration){const fallback=Math.min(.28,Math.max(.08,duration*.12)),raw=Number(c?.transitionDuration);return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,Math.max(.05,duration)))}
+  function previewBlobFor(a){return a?.type==='video'&&a.previewBlob instanceof Blob&&a.previewBlob.size?a.previewBlob:a?.blob}
   function cachedMedia(a){
-    const cached=mediaCache.get(a.id);
-    if(cached&&cached.blob===a.blob)return cached;
+    const blob=previewBlobFor(a),cached=mediaCache.get(a.id);
+    if(cached&&cached.blob===blob)return cached;
     if(cached){try{URL.revokeObjectURL(cached.url)}catch{}mediaCache.delete(a.id)}
-    const url=URL.createObjectURL(a.blob); let entry={url,type:a.type,blob:a.blob,ready:null,el:null};
+    const url=URL.createObjectURL(blob); let entry={url,type:a.type,blob,usingProxy:blob!==a.blob,ready:null,el:null};
     if(a.type==='image'){
       const im=new Image(); entry.el=im; entry.ready=new Promise((resolve,reject)=>{im.onload=()=>resolve(im);im.onerror=reject;im.src=url});
     }else if(a.type==='video'){
@@ -117,5 +118,5 @@
     if(epoch!==renderEpoch)return;
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,get renderEpoch(){return renderEpoch}};
 })();
