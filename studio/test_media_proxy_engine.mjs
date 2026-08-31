@@ -8,6 +8,12 @@ assert.equal(ProxyEngine.shouldProxy(tinyMp4),false,'small compatible MP4 should
 
 const mov={id:'mov',name:'camera.MOV',type:'video',mime:'video/quicktime',blob:new Blob([new Uint8Array(2048)]),sourceFingerprint:'mov-v1'};
 assert.equal(ProxyEngine.shouldProxy(mov),true,'MOV should get browser-friendly proxy');
+const disabledMov={...mov,id:'disabled',blob:mov.blob,proxyAutoDisabled:true};
+assert.equal(ProxyEngine.shouldProxy(disabledMov),false,'manual cache cleanup must suppress automatic proxy recreation');
+let suppressedFetch=false;
+const suppressed=await ProxyEngine.createProxy(disabledMov,async()=>{suppressedFetch=true;throw new Error('must not fetch')});
+assert.equal(suppressed,null);
+assert.equal(suppressedFetch,false,'suppressed proxy must not contact local encoder');
 
 const highRes={id:'hi',name:'hi.mp4',type:'video',mime:'video/mp4',width:3840,height:2160,blob:new Blob([new Uint8Array(2048)]),sourceFingerprint:'hi-v1'};
 assert.equal(ProxyEngine.shouldProxy(highRes),true,'high-resolution MP4 should get proxy');
@@ -20,6 +26,8 @@ const fetchImpl=async(url,options)=>{
   assert.equal(options.body,original,'proxy upload must use original source blob');
   return {ok:true,status:200,blob:async()=>new Blob([new Uint8Array(333)],{type:'video/mp4'})};
 };
+mov.proxyAutoDisabled=true;
+delete mov.proxyAutoDisabled;
 const changed=await ProxyEngine.prepare(mov,{fetchImpl,persist:async asset=>{persisted=asset}});
 assert.equal(changed,true);
 assert.equal(mov.blob,original,'original asset blob must never be replaced by proxy');
@@ -27,6 +35,7 @@ assert.ok(mov.previewBlob instanceof Blob);
 assert.equal(mov.previewBlob.size,333);
 assert.equal(mov.previewMime,'video/mp4');
 assert.equal(mov.proxySourceFingerprint,'mov-v1');
+assert.equal(mov.proxyAutoDisabled,undefined,'successful regeneration must leave automatic proxy mode enabled');
 assert.equal(persisted,mov);
 assert.equal(ProxyEngine.proxyCurrent(mov),true);
 
