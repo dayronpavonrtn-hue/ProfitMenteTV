@@ -6,11 +6,13 @@ on:
       - 'studio/generator-autofill.js'
       - 'studio/generator-engine.js'
       - 'studio/generator-integration.js'
+      - 'studio/edit-lock-guard.js'
       - 'studio/media-import-engine.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_generator.mjs'
       - 'studio/test_generator_autofill.mjs'
       - 'studio/test_generator_voice_asset.mjs'
+      - 'studio/test_generator_lock_guard.mjs'
       - 'studio/test_generator_autofill_wiring.mjs'
       - 'studio/test_feature_bootstrap.mjs'
       - '.github/workflows/generator-autofill-qa.yml'
@@ -29,10 +31,12 @@ jobs:
           node --check studio/generator-engine.js
           node --check studio/generator-integration.js
           node --check studio/generator-autofill.js
+          node --check studio/edit-lock-guard.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_generator.mjs
           node --check studio/test_generator_autofill.mjs
           node --check studio/test_generator_voice_asset.mjs
+          node --check studio/test_generator_lock_guard.mjs
           node --check studio/test_generator_autofill_wiring.mjs
       - name: Generator regression
         run: node studio/test_generator.mjs
@@ -40,6 +44,8 @@ jobs:
         run: node studio/test_generator_autofill.mjs
       - name: Local narration assignment regression
         run: node studio/test_generator_voice_asset.mjs
+      - name: Generator edit lock regression
+        run: node studio/test_generator_lock_guard.mjs
       - name: Verify media import wiring
         run: node studio/test_generator_autofill_wiring.mjs
       - name: Verify bootstrap integration
