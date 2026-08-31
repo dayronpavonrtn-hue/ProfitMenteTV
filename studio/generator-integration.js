@@ -19,7 +19,8 @@
     save();
     const visual=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
     const soundtrack=assigned.music?' Música local añadida automáticamente con ducking para voz.':'';
-    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${soundtrack}`);
+    const sfx=assigned.sfx?` ${assigned.sfx} efecto(s) local(es) colocado(s) en transiciones.`:'';
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${soundtrack}${sfx}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
