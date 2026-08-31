@@ -109,7 +109,10 @@ def visual_chain(idx,asset,start,d,clip,label):
     motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
     if fit not in ('cover','contain'):fit='cover'
     if fit=='contain':
-        chain=f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,fps={fps}'
+        # Keep letterbox/pillarbox pixels transparent so an overlay on V2 does
+        # not paint black over lower visual tracks. V1 still resolves against
+        # the black project base, matching the browser preview in both cases.
+        chain=f'format=rgba,scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black@0,fps={fps}'
     elif motion in ('slow-zoom','push-in') and not has_keyframes(clip):
         step='.0018' if motion=='push-in' else '.0008'
         chain=f"scale={int(w*1.12)}:{int(h*1.12)}:force_original_aspect_ratio=increase,crop={int(w*1.12)}:{int(h*1.12)},zoompan=z='min(zoom+{step},1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={fps}"
@@ -183,9 +186,6 @@ for c in [x for x in clips if int(x.get('track',-1))==2 and str(x.get('name','')
     alpha='1'; font_expr=f'{size:.3f}'
     if anim in ('fade','pop','slide-up'):alpha=progress
     if anim=='pop':
-        # Browser preview scales around the text center from 82% to 100% using
-        # cubic ease-out during the same entrance window. Dynamic fontsize keeps
-        # drawtext, its box and centering in sync without a second video encode.
         scale_expr=f'(.82+.18*(1-pow(1-{progress},3)))'
         font_expr=f'{size:.3f}*{scale_expr}'
     ybase=f'(h-text_h)/2+h*{ty}/100'
