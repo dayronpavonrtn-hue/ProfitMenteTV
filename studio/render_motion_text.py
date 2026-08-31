@@ -2,9 +2,10 @@
 """Compatibility entrypoint for ProfitMente Motion renders.
 Motion text is composited directly by render_mp4.py, avoiding a second H.264 encode.
 Long captions and Motion titles are normalized only for the render copy so the
-saved Studio project remains unchanged.
+saved Studio project remains unchanged. Final audio is mixed separately so the
+MP4 matches WebAudio preview ducking, track gain, fades and source-video audio.
 """
-import json,pathlib,subprocess,sys,tempfile
+import copy,json,pathlib,subprocess,sys,tempfile
 from caption_compact import compact_project_captions
 from motion_text_layout import expand_motion_text
 
@@ -14,8 +15,20 @@ root=pathlib.Path(__file__).resolve().parent
 project_path=pathlib.Path(sys.argv[1])
 project=json.loads(project_path.read_text(encoding='utf-8'))
 render_project=expand_motion_text(compact_project_captions(project))
+
+# render_mp4.py remains the visual compositor. Suppress every audio source in
+# its temporary copy, then create the final soundtrack once in render_audio_mix.py.
+# Visual clips are still drawn when muted; muted only disables their source audio.
+video_project=copy.deepcopy(render_project)
+for clip in video_project.get('clips',[]):
+    track=int(clip.get('track',-1))
+    if track in (0,1,4,5,6): clip['muted']=True
+
 with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
-    prepared=pathlib.Path(td)/'project.render.json'
-    prepared.write_text(json.dumps(render_project,ensure_ascii=False),encoding='utf-8')
-    subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],sys.argv[3]],check=True)
-print(f'Motion text y captions integrados: {sys.argv[3]}')
+    td=pathlib.Path(td); prepared=td/'project.render.json'; video_only=td/'video-only.mp4'
+    prepared.write_text(json.dumps(video_project,ensure_ascii=False),encoding='utf-8')
+    subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],str(video_only)],check=True)
+    audio_project=td/'project.audio.json'
+    audio_project.write_text(json.dumps(render_project,ensure_ascii=False),encoding='utf-8')
+    subprocess.run([sys.executable,str(root/'render_audio_mix.py'),str(audio_project),sys.argv[2],str(video_only),sys.argv[3]],check=True)
+print(f'Motion text, captions y mezcla de audio integrados: {sys.argv[3]}')
