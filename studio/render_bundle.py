@@ -22,6 +22,9 @@ with tempfile.TemporaryDirectory(prefix='profitmente-bundle-') as td:
     project.write_text(json.dumps(normalize_track_solo(data),ensure_ascii=False),encoding='utf-8')
     subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
     subprocess.run([sys.executable,str(root/'render_motion_text.py'),str(project),str(assets),str(out)],check=True)
+    # A complete container/metadata probe is not enough: force FFmpeg to decode the
+    # entire finished video/audio bitstream before any render can be accepted.
+    subprocess.run([sys.executable,str(root/'verify_render_decode.py'),str(out)],check=True)
     report=out.with_suffix(out.suffix+'.qc.json')
     qc=subprocess.run([sys.executable,str(root/'output_qc.py'),str(project),str(out),str(report)],capture_output=True,text=True)
     if qc.returncode!=0:
