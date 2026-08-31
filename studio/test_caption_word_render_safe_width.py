@@ -72,7 +72,8 @@ def test_real_render():
             print(proc.stderr, file=sys.stderr)
             raise SystemExit(proc.returncode)
         combined = proc.stdout + proc.stderr
-        assert "fontsize='min(78*" in combined, combined[-4000:]
+        expected_cap = f"{fit_word_caption(LONG_WORD, 78, 1080)['size_cap']:.3f}"
+        assert expected_cap in combined, combined[-4000:]
         assert output.exists() and output.stat().st_size > 1024, output
 
         probe = subprocess.run([
