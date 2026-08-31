@@ -70,7 +70,9 @@ class ProfitMenteProjectMigrationEngine{
     project.duration=duration;
     project.format=normalizeFormat(source.format);
     const sourceClips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object'):[];
+    const sourceMarkers=Array.isArray(source.markers)?source.markers.filter(m=>m&&typeof m==='object'):[];
     const repairedClipIds=countIdentityRepairs(sourceClips);
+    const repairedMarkerIds=countIdentityRepairs(sourceMarkers);
     project.clips=sourceClips.map(c=>normalizeClip(c,duration));
     ensureUniqueIds(project.clips,'clip');
     if(source.markers!=null)project.markers=normalizeMarkers(source.markers,duration);
@@ -78,7 +80,7 @@ class ProfitMenteProjectMigrationEngine{
     if(versionNumber(fromVersion)<=versionNumber(this.currentVersion))project.version=this.currentVersion;
     else project.version=fromVersion;
     const before=JSON.stringify(source),after=JSON.stringify(project);
-    return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds}};
+    return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds}};
   }
 }
 return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds,countIdentityRepairs};
