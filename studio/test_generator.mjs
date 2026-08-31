@@ -22,6 +22,7 @@ if(assigned.primary!==5)throw new Error(`Expected 5 primary assignments, got ${a
 if(assigned.broll<1)throw new Error('Expected automatic B-roll clips');
 if(!project.clips.some(c=>c.track===1&&c.asset))throw new Error('B-roll clip was not created');
 if(assigned.music!==0)throw new Error('Generator must not invent soundtrack when no music asset exists');
+if(assigned.sfx!==0)throw new Error('Generator must not invent SFX when no effect asset exists');
 
 // Media-aware assignment: reject a video that is shorter than the scene, prefer portrait media for 9:16,
 // and choose a safe source offset when a longer video is available.
@@ -69,4 +70,22 @@ if(musicClip.duration!==30)throw new Error(`Soundtrack must cover project withou
 const second=engine.assignAssets(audioProject,audioAssets);
 if(second.music!==0||audioProject.clips.filter(c=>c.track===5&&c.asset).length!==1)throw new Error('Existing soundtrack was duplicated');
 
-console.log(JSON.stringify({ok:true,primary:assigned.primary,broll:assigned.broll,smartAsset:scene.asset,sourceOffset:scene.sourceOffset,diversity:[...counts],soundtrack:musicClip.asset,clips:project.clips.length,seed:a.seed}));
+// Automatic transition SFX: use only clearly identified local effects, keep them short and conservative,
+// never classify music/voice as SFX, place at scene boundaries, and do not duplicate manual SFX.
+const sfxProject={name:'Automatic SFX',format:'9:16',duration:16,clips:Array.from({length:4},(_,i)=>({id:`s${i}`,track:0,name:`Scene ${i}`,start:i*4,duration:4,asset:null,keywords:['tema']}))};
+const sfxAssets=[
+ {id:'visual-sfx',name:'tema visual.jpg',type:'image',width:1080,height:1920},
+ {id:'whoosh',name:'whoosh transition.wav',type:'audio',duration:.55},
+ {id:'impact',name:'impact sfx.wav',type:'audio',duration:.35},
+ {id:'music-no',name:'background music.wav',type:'audio',duration:30},
+ {id:'voice-no',name:'voice narration.wav',type:'audio',duration:16}
+];
+const sfxAssigned=engine.assignAssets(sfxProject,sfxAssets),sfxClips=sfxProject.clips.filter(c=>c.track===4&&c.asset);
+if(sfxAssigned.sfx!==3||sfxClips.length!==3)throw new Error(`Expected 3 automatic transition SFX, got ${sfxAssigned.sfx}/${sfxClips.length}`);
+if(sfxClips.some(c=>!['whoosh','impact'].includes(c.asset)))throw new Error(`Music/voice was misclassified as SFX: ${JSON.stringify(sfxClips.map(c=>c.asset))}`);
+if(sfxClips.some(c=>c.duration>.8||c.volume>.62))throw new Error('Automatic SFX must use short conservative defaults');
+for(let i=0;i<sfxClips.length;i++){const boundary=(i+1)*4;if(Math.abs(sfxClips[i].start-boundary)>.07)throw new Error(`SFX ${i} is not aligned to scene boundary: ${sfxClips[i].start}`)}
+const sfxSecond=engine.assignAssets(sfxProject,sfxAssets);
+if(sfxSecond.sfx!==0||sfxProject.clips.filter(c=>c.track===4&&c.asset).length!==3)throw new Error('Existing SFX were duplicated');
+
+console.log(JSON.stringify({ok:true,primary:assigned.primary,broll:assigned.broll,smartAsset:scene.asset,sourceOffset:scene.sourceOffset,diversity:[...counts],soundtrack:musicClip.asset,sfx:sfxClips.map(c=>c.asset),clips:project.clips.length,seed:a.seed}));
