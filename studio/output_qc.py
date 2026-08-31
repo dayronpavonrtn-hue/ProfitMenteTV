@@ -65,8 +65,10 @@ def analyze_probe(project: dict, probe: dict) -> dict:
     issues,warnings=[],[]; video=videos[0] if videos else {}
     expected_w,expected_h=TARGETS.get(project.get('format','9:16'),TARGETS['9:16'])
     expected_duration=max(.25,_num(project.get('duration'),45)); duration=_num(fmt.get('duration'),_num(video.get('duration')))
+    video_duration=_finite(video.get('duration')) if videos else None
     width,height=int(_num(video.get('width'))),int(_num(video.get('height'))); fps=_fps(video.get('avg_frame_rate') or video.get('r_frame_rate'))
     vcodec=str(video.get('codec_name') or ''); acodec=str(audios[0].get('codec_name') or '') if audios else ''; pix_fmt=str(video.get('pix_fmt') or '')
+    tolerance=max(.75,expected_duration*.03)
     if not videos: issues.append('El archivo final no contiene una pista de video.')
     else:
         if (width,height)!=(expected_w,expected_h): issues.append(f'Resolución final incorrecta: {width}×{height}; esperada {expected_w}×{expected_h}.')
@@ -74,7 +76,11 @@ def analyze_probe(project: dict, probe: dict) -> dict:
         if pix_fmt and pix_fmt not in ('yuv420p','yuvj420p'): warnings.append(f'Formato de píxel {pix_fmt} puede reducir compatibilidad en redes sociales.')
         expected_fps=int(round(_num(project.get('fps'),30))); expected_fps=expected_fps if expected_fps in (24,30,60) else 30
         if fps and abs(fps-expected_fps)>.25: issues.append(f'Frame rate final {fps:.2f} FPS; esperado {expected_fps} FPS.')
-    tolerance=max(.75,expected_duration*.03)
+        # The MP4 container may keep the expected duration because audio/subtitle data continues
+        # even when the actual video stream was truncated. Validate the video stream itself when
+        # ffprobe exposes a stream duration, so QC cannot report a false success in that case.
+        if video_duration is not None and video_duration > 0 and abs(video_duration-expected_duration)>tolerance:
+            issues.append(f'La pista de video dura {video_duration:.2f}s; el proyecto requiere {expected_duration:.2f}s.')
     if duration<=0: issues.append('No se pudo verificar la duración del MP4 final.')
     elif abs(duration-expected_duration)>tolerance: issues.append(f'Duración final {duration:.2f}s fuera de tolerancia; proyecto {expected_duration:.2f}s.')
     wants_audio=project_expects_audio(project)
@@ -83,7 +89,7 @@ def analyze_probe(project: dict, probe: dict) -> dict:
     size=int(_num(fmt.get('size')))
     if size<=0: issues.append('El MP4 final está vacío o ffprobe no informó su tamaño.')
     elif size<10000: warnings.append('El MP4 final es anormalmente pequeño; conviene revisarlo visualmente.')
-    return {'ok':not issues,'score':max(0,100-25*len(issues)-5*len(warnings)),'issues':issues,'warnings':warnings,'metrics':{'width':width,'height':height,'duration':round(duration,3),'expected_duration':expected_duration,'fps':round(fps,3),'video_codec':vcodec,'audio_codec':acodec or None,'pixel_format':pix_fmt or None,'size':size,'has_audio':bool(audios)}}
+    return {'ok':not issues,'score':max(0,100-25*len(issues)-5*len(warnings)),'issues':issues,'warnings':warnings,'metrics':{'width':width,'height':height,'duration':round(duration,3),'video_duration':round(video_duration,3) if video_duration is not None else None,'expected_duration':expected_duration,'fps':round(fps,3),'video_codec':vcodec,'audio_codec':acodec or None,'pixel_format':pix_fmt or None,'size':size,'has_audio':bool(audios)}}
 
 
 def parse_blackdetect(log): return [{'start':_num(m.group('start')),'end':_num(m.group('end')),'duration':_num(m.group('duration'))} for m in BLACK_RE.finditer(log or '')]
