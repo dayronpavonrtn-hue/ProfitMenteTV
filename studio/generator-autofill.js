@@ -1,14 +1,20 @@
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
-  missing(project){return (project?.clips||[]).filter(c=>c.track===0&&!c.asset).length}
+  trackLocked(project,track){const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)}
+  locked(project,clip){
+    const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;
+    if(guard?.isLocked)return guard.isLocked(project,clip);
+    return !!clip?.locked||this.trackLocked(project,clip?.track);
+  }
+  missing(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&!c.asset&&!this.locked(project,c)).length}
   importedVisuals(importedAssets=[]){return (importedAssets||[]).filter(a=>a?.type==='video'||a?.type==='image')}
   importedAudio(importedAssets=[]){return (importedAssets||[]).filter(a=>a?.type==='audio')}
   needsAudio(project){
     const clips=project?.clips||[];
-    const narration=clips.some(c=>Number(c.track)===6&&!c.asset);
-    const music=!clips.some(c=>Number(c.track)===5&&c.asset);
+    const narration=clips.some(c=>Number(c.track)===6&&!c.asset&&!this.locked(project,c));
+    const music=!this.trackLocked(project,5)&&!clips.some(c=>Number(c.track)===5&&c.asset);
     const scenes=clips.filter(c=>Number(c.track)===0).length;
-    const sfx=scenes>1&&!clips.some(c=>Number(c.track)===4&&c.asset);
+    const sfx=!this.trackLocked(project,4)&&scenes>1&&!clips.some(c=>Number(c.track)===4&&c.asset);
     return narration||music||sfx;
   }
   shouldRun(project,importedAssets=[]){
@@ -54,7 +60,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteGenerat
     if(result.narration)parts.push('Narración local conectada automáticamente.');
     if(result.music)parts.push('Música local añadida con ducking para voz.');
     if(result.sfx)parts.push(`${result.sfx} SFX local(es) colocado(s) en transiciones.`);
-    if(result.after)parts.push(`Quedan ${result.after} escena(s) sin visual.`);else if(result.before>0)parts.push('Todas las escenas principales ya tienen visual.');
+    if(result.after)parts.push(`Quedan ${result.after} escena(s) sin visual.`);else if(result.before>0)parts.push('Todas las escenas principales editables ya tienen visual.');
     setStatus?.(`Automatización: ${parts.join(' ')}`);
   });
   window.ProfitMenteGeneratorAutoFillIntegration=helper;
