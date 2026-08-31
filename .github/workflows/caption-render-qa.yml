@@ -5,19 +5,23 @@ on:
     paths:
       - 'studio/caption_compact.py'
       - 'studio/caption_layout.py'
+      - 'studio/caption_word_layout.py'
       - 'studio/render_motion_text.py'
       - 'studio/render_mp4.py'
       - 'studio/test_caption_compact.py'
       - 'studio/test_caption_layout_render.py'
+      - 'studio/test_caption_word_render_safe_width.py'
       - '.github/workflows/caption-render-qa.yml'
   pull_request:
     paths:
       - 'studio/caption_compact.py'
       - 'studio/caption_layout.py'
+      - 'studio/caption_word_layout.py'
       - 'studio/render_motion_text.py'
       - 'studio/render_mp4.py'
       - 'studio/test_caption_compact.py'
       - 'studio/test_caption_layout_render.py'
+      - 'studio/test_caption_word_render_safe_width.py'
       - '.github/workflows/caption-render-qa.yml'
 
 jobs:
@@ -29,7 +33,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Syntax check
-        run: python -m py_compile studio/caption_compact.py studio/caption_layout.py studio/render_motion_text.py studio/render_mp4.py studio/test_caption_layout_render.py
+        run: python -m py_compile studio/caption_compact.py studio/caption_layout.py studio/caption_word_layout.py studio/render_motion_text.py studio/render_mp4.py studio/test_caption_layout_render.py studio/test_caption_word_render_safe_width.py
       - name: Caption compaction regression
         run: python studio/test_caption_compact.py
       - name: Ensure FFmpeg
@@ -40,3 +44,5 @@ jobs:
           fi
       - name: Long caption MP4 regression
         run: python studio/test_caption_layout_render.py
+      - name: Timed word safe-width MP4 regression
+        run: python studio/test_caption_word_render_safe_width.py
