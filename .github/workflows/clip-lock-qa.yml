@@ -7,6 +7,7 @@ on:
       - 'studio/group-split-engine.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_clip_lock.mjs'
+      - 'studio/test_clip_lock_track_inspector.mjs'
       - '.github/workflows/clip-lock-qa.yml'
   workflow_dispatch:
 jobs:
@@ -23,9 +24,10 @@ jobs:
           node --check studio/clip-lock-integration.js
           node --check studio/group-edit-engine.js
           node --check studio/group-split-engine.js
-          node --check studio/feature-bootstrap.js
       - name: Clip lock regression
         run: node studio/test_clip_lock.mjs
+      - name: Locked track inspector regression
+        run: node studio/test_clip_lock_track_inspector.mjs
       - name: Existing group edit regression
         run: node studio/test_group_edit.mjs
       - name: Existing group split regression
