@@ -1,0 +1,31 @@
+name: ProfitMente Studio Transition Render Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/preview-engine.js'
+      - 'studio/transition-duration.js'
+      - 'studio/test_first_clip_transition_render.py'
+      - '.github/workflows/transition-render-parity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/preview-engine.js'
+      - 'studio/transition-duration.js'
+      - 'studio/test_first_clip_transition_render.py'
+      - '.github/workflows/transition-render-parity-qa.yml'
+
+jobs:
+  transition-render-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Python syntax
+        run: python -m py_compile studio/render_mp4.py studio/test_first_clip_transition_render.py
+      - name: First clip transition render regression
+        run: python studio/test_first_clip_transition_render.py
