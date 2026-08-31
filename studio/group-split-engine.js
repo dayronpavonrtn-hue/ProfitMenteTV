@@ -1,7 +1,7 @@
 class ProfitMenteGroupSplitEngine{
   constructor(splitEngine=globalThis.ProfitMenteSplitEditEngine){this.Split=splitEngine}
   members(project,clip){const gid=String(clip?.groupId||'').trim();return gid?(project?.clips||[]).filter(c=>String(c.groupId||'').trim()===gid):clip?[clip]:[]}
-  locked(project,clip){return !!project?.trackState?.[clip?.track]?.locked||!!project?.trackState?.[String(clip?.track)]?.locked}
+  locked(project,clip){return !!clip?.locked||!!project?.trackState?.[clip?.track]?.locked||!!project?.trackState?.[String(clip?.track)]?.locked}
   id(prefix='group'){return globalThis.crypto?.randomUUID?.()||`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`}
   split(project,clip,time,{idFactory,groupIdFactory}={}){
     if(!this.Split?.split)return {ok:false,reason:'split-engine-missing'};
