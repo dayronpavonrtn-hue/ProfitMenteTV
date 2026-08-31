@@ -24,7 +24,7 @@ assert.match(src,/if\(last===nextFingerprint\)return false/,'failed persistence 
 assert.match(src,/last=nextFingerprint;retryCount=0/,'successful persistence must clear retry state');
 assert.match(src,/profitmente:project-autosave-error/,'persistence failures must surface a dedicated error event');
 assert.match(src,/retryCount<3.*?setTimeout\(\(\)=>flush\('reintento'\),1500\*retryCount\)/s,'transient persistence failures must retry with bounded backoff');
-assert.match(src,/reason!==\'cierre\'.*?retryCount<3/s,'browser shutdown must not schedule background retries');
+assert.match(src,/reason!=='cierre'.*?retryCount<3/s,'browser shutdown must not schedule background retries');
 assert.match(src,/previous\.duration!==next\.duration\|\|previous\.format!==next\.format/,'layout-affecting edits must refresh timeline geometry');
 assert.match(src,/beforeunload.*?flush\('cierre'\)/s,'pending properties must flush before browser unload');
 assert.match(src,/pagehide.*?flush\('cierre'\)/s,'pending properties must flush on page hide/mobile tab discard path');
