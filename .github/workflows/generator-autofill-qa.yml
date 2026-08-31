@@ -5,8 +5,10 @@ on:
     paths:
       - 'studio/generator-autofill.js'
       - 'studio/generator-engine.js'
+      - 'studio/generator-integration.js'
       - 'studio/media-import-engine.js'
       - 'studio/feature-bootstrap.js'
+      - 'studio/test_generator.mjs'
       - 'studio/test_generator_autofill.mjs'
       - 'studio/test_generator_autofill_wiring.mjs'
       - 'studio/test_feature_bootstrap.mjs'
@@ -23,9 +25,14 @@ jobs:
           node-version: '22'
       - name: Syntax check
         run: |
+          node --check studio/generator-engine.js
+          node --check studio/generator-integration.js
           node --check studio/generator-autofill.js
           node --check studio/feature-bootstrap.js
+          node --check studio/test_generator.mjs
           node --check studio/test_generator_autofill_wiring.mjs
+      - name: Generator regression
+        run: node studio/test_generator.mjs
       - name: Generator auto fill regression
         run: node studio/test_generator_autofill.mjs
       - name: Verify media import wiring
