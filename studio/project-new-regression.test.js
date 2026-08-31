@@ -26,11 +26,31 @@ assert.strictEqual(lib.load(original.libraryId).duration,75,'previous project du
 blank.name='Proyecto B';
 assert.strictEqual(lib.load(original.libraryId).name,'Proyecto A editado','editing the blank project must not mutate the previous project');
 
+// A draft that has never been manually added to "Mis proyectos" must survive a transition.
+const draft={version:'1.3',name:'Borrador sin guardar',mode:'Manual',duration:45,format:'9:16',clips:[{id:'draft-clip',track:0,start:0,duration:4}]};
+assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(draft),true,'edited draft must be recognized as work worth preserving');
+const preserved=lib.saveDraftIfNeeded(draft);
+assert.ok(preserved.libraryId,'unsaved draft must receive a library id before leaving it');
+assert.strictEqual(lib.load(preserved.libraryId).name,'Borrador sin guardar','unsaved draft name must remain recoverable from project library');
+assert.strictEqual(lib.load(preserved.libraryId).clips[0].id,'draft-clip','unsaved draft timeline must remain recoverable from project library');
+
+// A pristine blank should not create noisy empty entries merely by opening another project.
+const pristine=ProfitMenteProjectLibrary.blank();
+const beforeCount=lib.list().length;
+const untouched=lib.saveDraftIfNeeded(pristine);
+assert.ok(!untouched.libraryId,'pristine blank must stay transient');
+assert.strictEqual(lib.list().length,beforeCount,'pristine blank must not clutter project library');
+
+// Property-only edits are still real work even with an empty timeline.
+const propertyDraft={...ProfitMenteProjectLibrary.blank(),duration:90,frameRate:60};
+assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(propertyDraft),true,'property-only draft edits must be preserved');
+
 const source=fs.readFileSync(path.join(__dirname,'project-library.js'),'utf8');
 assert.match(source,/ProfitMenteProjectAutosave\?\.flush/,'new/open transitions must flush pending property autosave');
+assert.match(source,/saveDraftIfNeeded\(project\)/,'project transitions must promote edited drafts into the project library');
 assert.match(source,/async function newProject\(\)/,'safe new project controller must be wired');
 assert.match(source,/project=ProfitMenteProjectLibrary\.blank\(\)/,'new project must use the canonical blank project factory');
 assert.match(source,/clearBtn\.onclick=.*newProject/,'the New project button must use the safe transition');
 assert.match(source,/newProject:true/,'new project transition must emit a project-opened event for integrations');
 
-console.log('safe new project regression passed');
+console.log('safe new project + unsaved draft regression passed');
