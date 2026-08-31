@@ -10,6 +10,7 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_generator.mjs'
       - 'studio/test_generator_autofill.mjs'
+      - 'studio/test_generator_voice_asset.mjs'
       - 'studio/test_generator_autofill_wiring.mjs'
       - 'studio/test_feature_bootstrap.mjs'
       - '.github/workflows/generator-autofill-qa.yml'
@@ -30,11 +31,15 @@ jobs:
           node --check studio/generator-autofill.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_generator.mjs
+          node --check studio/test_generator_autofill.mjs
+          node --check studio/test_generator_voice_asset.mjs
           node --check studio/test_generator_autofill_wiring.mjs
       - name: Generator regression
         run: node studio/test_generator.mjs
       - name: Generator auto fill regression
         run: node studio/test_generator_autofill.mjs
+      - name: Local narration assignment regression
+        run: node studio/test_generator_voice_asset.mjs
       - name: Verify media import wiring
         run: node studio/test_generator_autofill_wiring.mjs
       - name: Verify bootstrap integration
