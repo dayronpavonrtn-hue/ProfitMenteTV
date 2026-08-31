@@ -9,9 +9,10 @@ const transitionCore=bootstrap.indexOf("['auto-transition-engine.js','ProfitMent
 const transitionUi=bootstrap.indexOf("['auto-transition-integration.js','ProfitMenteAutoTransitions']");
 const coreIndex=bootstrap.indexOf("['auto-finish-engine.js','ProfitMenteAutoFinishEngine']");
 const preflightIndex=bootstrap.indexOf("['export-preflight.js','ProfitMenteExportPreflight']");
+const renderJobIndex=bootstrap.indexOf("['render-job-integration.js','ProfitMenteRenderJobs']");
 const uiIndex=bootstrap.indexOf("['auto-finish-integration.js','ProfitMenteAutoFinish']");
 assert.ok(transitionCore>=0&&transitionUi>transitionCore&&coreIndex>transitionUi,'transition tools must load before Auto Finish');
-assert.ok(coreIndex>=0&&preflightIndex>coreIndex&&uiIndex>preflightIndex,'export preflight must load before Auto Finish integration');
+assert.ok(coreIndex>=0&&preflightIndex>coreIndex&&renderJobIndex>preflightIndex&&uiIndex>renderJobIndex,'preflight and local render integration must load before Auto Finish integration');
 assert.match(integration,/ProfitMenteQAAutofix\?\.repair/);
 assert.match(integration,/ProfitMenteSmartMix\?\.apply/);
 assert.match(integration,/ProfitMenteBeatDetect\?\.run/);
@@ -29,6 +30,14 @@ assert.match(integration,/profitmente:auto-finish-complete/,'Auto Finish must pu
 assert.match(integration,/get lastReport\(\)/,'Auto Finish must expose the latest QA report');
 assert.match(integration,/get lastPreflight\(\)/,'Auto Finish must expose the latest export preflight');
 assert.match(integration,/return \{completed,skipped,qa:lastReport,preflight:lastPreflight\}/,'Auto Finish run must return QA and preflight results');
+assert.match(integration,/async function runAndRender\(\)/,'Auto Finish must expose a one-click finish and render path');
+assert.match(integration,/result\.preflight\?\.canRender/,'one-click MP4 must respect export preflight');
+assert.match(integration,/!result\.qa\?\.ok/,'one-click MP4 must not render after blocking QA');
+assert.match(integration,/const renderBtn=\$\('#renderMp4Btn'\)/,'one-click MP4 must reuse the hardened local render control');
+assert.match(integration,/renderBtn\.click\(\)/,'one-click MP4 must start the existing local render pipeline instead of duplicating it');
+assert.match(integration,/profitmente:auto-finish-render-started/,'one-click MP4 must publish a render-started event');
+assert.match(integration,/id='autoFinishRenderBtn'|render\.id='autoFinishRenderBtn'/,'the combined Auto Finish + MP4 control must be installed');
+assert.match(integration,/runAndRender,get lastReport/,'the public integration must expose runAndRender');
 assert.match(integration,/\$0 local/);
 assert.match(integration,/No publica ni usa servicios de pago/);
 assert.match(beats,/trackUnavailable/);
