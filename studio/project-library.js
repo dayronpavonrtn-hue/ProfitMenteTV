@@ -25,13 +25,31 @@ class ProfitMenteProjectLibrary{
     return false;
   }
   saveDraftIfNeeded(project){return ProfitMenteProjectLibrary.hasUnsavedWork(project)?this.save(project):structuredClone(project)}
+  static normalizeImportedProject(value){
+    if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Archivo de proyecto inválido');
+    const source=value.kind==='profitmente-studio-project'&&value.project?value.project:value;
+    if(!source||typeof source!=='object'||Array.isArray(source))throw new Error('Contenido de proyecto inválido');
+    const copy=structuredClone(source);
+    if(typeof copy.name!=='string'||!copy.name.trim())copy.name='Proyecto importado';else copy.name=copy.name.trim().slice(0,160);
+    const duration=Number(copy.duration);if(!Number.isFinite(duration)||duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');copy.duration=duration;
+    if(!['9:16','16:9','1:1','4:5'].includes(copy.format))throw new Error('Formato de proyecto no compatible');
+    if(!Array.isArray(copy.clips))throw new Error('Timeline de proyecto inválida');
+    for(const clip of copy.clips){if(!clip||typeof clip!=='object'||Array.isArray(clip))throw new Error('Clip de proyecto inválido');const start=Number(clip.start??0),clipDuration=Number(clip.duration??0);if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<0)throw new Error('Tiempo de clip inválido')}
+    delete copy.libraryId;
+    return copy;
+  }
+  static serialize(project){
+    const copy=structuredClone(project||{});delete copy.libraryId;
+    return JSON.stringify({kind:'profitmente-studio-project',schemaVersion:1,exportedAt:new Date().toISOString(),project:copy},null,2);
+  }
+  importSerialized(text){let parsed;try{parsed=JSON.parse(text)}catch{throw new Error('El archivo no contiene JSON válido')}return this.save(ProfitMenteProjectLibrary.normalizeImportedProject(parsed))}
 }
 return {ProfitMenteProjectLibrary};
 });
 
 if(typeof document!=='undefined')(()=>{
   const $=s=>document.querySelector(s),aside=$('aside');if(!aside||typeof project==='undefined')return;
-  const lib=new ProfitMenteProjectLibrary(localStorage),section=document.createElement('section');section.className='projectLibrary';section.innerHTML='<h3>Mis proyectos</h3><div class="projectLibraryActions"><button id="librarySaveBtn">＋ Guardar proyecto</button><button id="libraryRefreshBtn">↻ Actualizar</button></div><div id="projectLibraryList" class="projectLibraryList"></div>';aside.insertBefore(section,aside.firstChild);
+  const lib=new ProfitMenteProjectLibrary(localStorage),section=document.createElement('section');section.className='projectLibrary';section.innerHTML='<h3>Mis proyectos</h3><div class="projectLibraryActions"><button id="librarySaveBtn">＋ Guardar proyecto</button><button id="libraryExportBtn" title="Exportar respaldo JSON">⇩ Exportar</button><button id="libraryImportBtn" title="Importar respaldo JSON">⇧ Importar</button><button id="libraryRefreshBtn">↻ Actualizar</button><input id="libraryImportFile" type="file" accept="application/json,.json" hidden></div><div id="projectLibraryList" class="projectLibraryList"></div>';aside.insertBefore(section,aside.firstChild);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
   function render(){const el=$('#projectLibraryList'),rows=lib.list();el.innerHTML=rows.length?'':'<small>Sin proyectos guardados todavía.</small>';for(const row of rows){const card=document.createElement('div');card.className='projectLibraryCard';card.innerHTML=`<button class="projectOpen" data-open="${row.id}"><b>${escapeHtml(row.name)}</b><small>${new Date(row.updatedAt).toLocaleString()}</small></button><button class="projectDuplicate" data-duplicate="${row.id}" title="Duplicar proyecto">⧉</button><button class="projectDelete" data-delete="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)}}
@@ -71,9 +89,19 @@ if(typeof document!=='undefined')(()=>{
     window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:null,name:project.name,newProject:true}}));
     status('Proyecto nuevo listo · el proyecto anterior quedó guardado');return true;
   }
+  function safeFileName(name){return String(name||'profitmente-project').normalize('NFKD').replace(/[^\w\-. ]+/g,'').trim().replace(/\s+/g,'-').slice(0,80)||'profitmente-project'}
+  function exportCurrent(){
+    if(!flushCurrentProject())return;
+    const json=ProfitMenteProjectLibrary.serialize(project),blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${safeFileName(project.name)}.profitmente.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),0);status('Respaldo del proyecto exportado')
+  }
+  async function importProjectFile(file){
+    if(!file)return false;if(file.size>10*1024*1024){status('Archivo de proyecto demasiado grande (máximo 10 MB)');return false}
+    if(!flushCurrentProject())return false;
+    try{const text=await file.text(),next=lib.importSerialized(text);stopPlayback();project=next;await syncAll();resetHistory();render();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',imported:true}}));status(`Proyecto importado y abierto: ${project.name}`);return true}catch(err){console.error('ProfitMente project import failed',err);status(`No se pudo importar: ${err?.message||'archivo inválido'}`);return false}
+  }
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
-  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
+  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryExportBtn').onclick=exportCurrent;$('#libraryImportBtn').onclick=()=>$('#libraryImportFile').click();$('#libraryImportFile').addEventListener('change',e=>{const file=e.target.files?.[0];e.target.value='';void importProjectFile(file)});$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
   const clearBtn=$('#clearBtn');if(clearBtn)clearBtn.onclick=()=>{if(confirm('¿Crear proyecto nuevo?'))void newProject()};
-  render();window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};
+  render();window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};window.ProfitMenteProjectTransfer={exportCurrent,importProjectFile};
 })();
