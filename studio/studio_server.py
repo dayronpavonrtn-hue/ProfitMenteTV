@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,69 @@ RENDER_SLOT = threading.Semaphore(1)
 RENDER_QUEUE_POLL_SECONDS = 0.1
 RENDER_PROGRESS_POLL_SECONDS = 0.25
 RENDER_TIMEOUT_SECONDS = 1800
+
+
+def _render_popen_kwargs() -> dict:
+    """Create an isolated process group so cancelling Studio also stops FFmpeg children."""
+    if os.name == "nt":
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
+    return {"start_new_session": True}
+
+
+def _spawn_render_process(cmd, *, cwd, env):
+    return subprocess.Popen(
+        cmd,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        **_render_popen_kwargs(),
+    )
+
+
+def _terminate_process_tree(proc, *, force: bool = False, grace_seconds: float = 1.5) -> bool:
+    """Best-effort termination of the render parent plus all descendants.
+
+    render_bundle.py launches FFmpeg/FFprobe subprocesses. Killing only the Python
+    parent can leave those children encoding in the background, so every async
+    render starts in its own process group and cancellation targets the group.
+    """
+    if not proc or proc.poll() is not None:
+        return False
+    try:
+        if os.name == "nt":
+            taskkill = shutil.which("taskkill")
+            if taskkill and getattr(proc, "pid", None):
+                subprocess.run(
+                    [taskkill, "/PID", str(proc.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+            if proc.poll() is None:
+                proc.kill()
+            return True
+
+        pgid = os.getpgid(proc.pid)
+        os.killpg(pgid, signal.SIGKILL if force else signal.SIGTERM)
+        if not force:
+            try:
+                proc.wait(timeout=max(0.1, float(grace_seconds)))
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+        return True
+    except (ProcessLookupError, OSError, subprocess.SubprocessError):
+        try:
+            if proc.poll() is None:
+                (proc.kill if force else proc.terminate)()
+            return True
+        except (OSError, subprocess.SubprocessError):
+            return False
 
 
 def _render_counts() -> tuple[int, int]:
@@ -141,7 +205,7 @@ def _run_render_job(job_id: str):
             cmd = [sys.executable, str(STUDIO / "render_bundle.py"), str(job["bundle"]), str(job["output"])]
             env = os.environ.copy()
             env[RENDER_PROGRESS_ENV] = str(progress_file)
-            proc = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+            proc = _spawn_render_process(cmd, cwd=ROOT, env=env)
             job["process"] = proc
         started = time.monotonic()
         while True:
@@ -151,7 +215,7 @@ def _run_render_job(job_id: str):
             except subprocess.TimeoutExpired:
                 _sync_render_progress(job_id, progress_file)
                 if time.monotonic() - started > RENDER_TIMEOUT_SECONDS:
-                    proc.kill()
+                    _terminate_process_tree(proc, force=True)
                     stdout, stderr = proc.communicate()
                     with RENDER_LOCK:
                         job = RENDER_JOBS.get(job_id)
@@ -191,7 +255,7 @@ def _run_render_job(job_id: str):
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.6"
+    server_version = "ProfitMenteStudio/1.7"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -269,6 +333,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "render_active": active,
                 "render_queued": queued,
                 "render_progress_phases": True,
+                "render_process_tree_cancel": True,
                 "post_render_qc": True,
                 "server": self.server_version,
             })
@@ -315,6 +380,7 @@ class Handler(SimpleHTTPRequestHandler):
         if len(parts) != 4:
             self.send_error(HTTPStatus.NOT_FOUND); return
         job_id = parts[3]
+        proc = None
         with RENDER_LOCK:
             job = RENDER_JOBS.get(job_id)
             if not job:
@@ -323,11 +389,15 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(HTTPStatus.CONFLICT, {"ok": False, "error": "El render ya terminó."}); return
             job["cancel_requested"] = True
             proc = job.get("process")
-            if proc and proc.poll() is None:
-                proc.terminate()
             if job.get("status") == "queued":
                 job.update(status="cancelled", progress=0, phase="Cancelado")
                 _cleanup_job_files(job)
+        if proc and proc.poll() is None:
+            _terminate_process_tree(proc)
+        with RENDER_LOCK:
+            job = RENDER_JOBS.get(job_id)
+            if not job:
+                self._json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Trabajo de render no encontrado."}); return
             self._json(HTTPStatus.OK, _job_snapshot(job))
         return
 
