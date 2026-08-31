@@ -83,6 +83,8 @@
     ['rate-stretch-integration.js','ProfitMenteRateStretch'],
     ['freeze-frame-engine.js','ProfitMenteFreezeFrameEngine'],
     ['freeze-frame-integration.js','ProfitMenteFreezeFrame'],
+    ['clip-lock-engine.js','ProfitMenteClipLockEngine'],
+    ['clip-lock-integration.js','ProfitMenteClipLock'],
     ['clip-group-engine.js','ProfitMenteClipGroupEngine'],
     ['clip-group-integration.js','ProfitMenteClipGroups'],
     ['frame-nudge-engine.js','ProfitMenteFrameNudgeEngine'],
