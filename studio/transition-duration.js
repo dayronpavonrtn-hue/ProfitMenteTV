@@ -1,5 +1,19 @@
 (()=>{
-  if(!document.querySelector('script[data-profitmente-feature-bootstrap]')){const s=document.createElement('script');s.src='feature-bootstrap.js';s.dataset.profitmenteFeatureBootstrap='1';document.body.appendChild(s)}
+  function ensureFeatureBootstrap(){
+    if(window.__profitmenteFeatureBootstrap)return;
+    if([...document.scripts].some(s=>s.dataset?.profitmenteFeatureBootstrap==='1'||s.src?.endsWith('/feature-bootstrap.js')||s.src?.endsWith('feature-bootstrap.js')))return;
+    const s=document.createElement('script');
+    s.src='feature-bootstrap.js';
+    s.async=false;
+    s.dataset.profitmenteFeatureBootstrap='1';
+    s.onerror=()=>{
+      console.error('ProfitMente Studio: no se pudo cargar feature-bootstrap.js');
+      setStatus?.('Studio inició en modo básico: no se pudieron activar las herramientas avanzadas');
+      window.dispatchEvent(new CustomEvent('profitmente:features-ready',{detail:{failed:['feature-bootstrap.js'],bootstrapFailed:true}}));
+    };
+    document.body.appendChild(s);
+  }
+  ensureFeatureBootstrap();
   const $=s=>document.querySelector(s);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function selectedClip(){const id=window.ProfitMenteEditTools?.selectedId;return (project?.clips||[]).find(c=>c.id===id)||null}
