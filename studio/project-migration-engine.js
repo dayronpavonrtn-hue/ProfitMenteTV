@@ -25,6 +25,15 @@ function normalizeClip(input,projectDuration){
   if(Number.isFinite(Number(c.speed)))c.speed=Math.max(.25,Math.min(4,Number(c.speed)));
   return c;
 }
+function countIdentityRepairs(items=[]){
+  const seen=new Set();let repaired=0;
+  for(const item of items){
+    const id=typeof item?.id==='string'?item.id.trim():'';
+    if(!id||seen.has(id))repaired+=1;
+    else seen.add(id);
+  }
+  return repaired;
+}
 function ensureUniqueIds(items,prefix){
   const seen=new Set();let repaired=0;
   for(const item of items){
@@ -60,8 +69,10 @@ class ProfitMenteProjectMigrationEngine{
     project.mode=normalizeMode(source.mode);
     project.duration=duration;
     project.format=normalizeFormat(source.format);
-    project.clips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object').map(c=>normalizeClip(c,duration)):[];
-    const repairedClipIds=ensureUniqueIds(project.clips,'clip');
+    const sourceClips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object'):[];
+    const repairedClipIds=countIdentityRepairs(sourceClips);
+    project.clips=sourceClips.map(c=>normalizeClip(c,duration));
+    ensureUniqueIds(project.clips,'clip');
     if(source.markers!=null)project.markers=normalizeMarkers(source.markers,duration);
     if(source.trackState!=null&&(!source.trackState||typeof source.trackState!=='object'||Array.isArray(source.trackState)))delete project.trackState;
     if(versionNumber(fromVersion)<=versionNumber(this.currentVersion))project.version=this.currentVersion;
@@ -70,5 +81,5 @@ class ProfitMenteProjectMigrationEngine{
     return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds}};
   }
 }
-return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds};
+return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds,countIdentityRepairs};
 });
