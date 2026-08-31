@@ -1,0 +1,26 @@
+name: ProfitMente Studio Visual Track Order QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/test_visual_track_order_render.py'
+      - '.github/workflows/visual-track-order-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/test_visual_track_order_render.py'
+      - '.github/workflows/visual-track-order-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  visual-track-order:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Python syntax
+        run: python -m py_compile studio/render_mp4.py studio/test_visual_track_order_render.py
+      - name: Render layer-order regression
+        run: python studio/test_visual_track_order_render.py
