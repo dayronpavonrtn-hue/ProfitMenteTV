@@ -14,6 +14,7 @@
     duplicate(project,anchor,{idFactory=()=>crypto.randomUUID(),offset=.5}={}){
       const members=this.members(project,anchor);
       if(!members.length)return {copies:[],delta:0};
+      const blocked=this.lockedMembers(project,anchor);if(blocked.length)return {copies:[],delta:0,reason:'locked',blocked};
       const duration=Math.max(0,Number(project?.duration)||0);
       const minStart=Math.min(...members.map(c=>Math.max(0,Number(c.start)||0)));
       const maxEnd=Math.max(...members.map(c=>(Number(c.start)||0)+Math.max(0,Number(c.duration)||0)));
@@ -33,7 +34,8 @@
       return {copies,delta,groupId:newGroupId};
     }
     remove(project,anchor){
-      const members=this.members(project,anchor),ids=new Set(members.map(c=>String(c.id)));
+      const members=this.members(project,anchor),blocked=this.lockedMembers(project,anchor);if(blocked.length)return [];
+      const ids=new Set(members.map(c=>String(c.id)));
       if(!ids.size)return [];
       project.clips=(project.clips||[]).filter(c=>!ids.has(String(c.id)));
       return members;
