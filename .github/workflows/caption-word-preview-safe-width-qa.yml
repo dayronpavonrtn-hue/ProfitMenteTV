@@ -1,0 +1,26 @@
+name: ProfitMente Studio Caption Word Preview Safe Width QA
+
+on:
+  push:
+    paths:
+      - 'studio/caption-preview.js'
+      - 'studio/test_caption_word_preview_safe_width.mjs'
+      - '.github/workflows/caption-word-preview-safe-width-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/caption-preview.js'
+      - 'studio/test_caption_word_preview_safe_width.mjs'
+      - '.github/workflows/caption-word-preview-safe-width-qa.yml'
+
+jobs:
+  caption-word-preview-safe-width:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check studio/caption-preview.js
+      - name: Safe-width regression
+        run: node studio/test_caption_word_preview_safe_width.mjs
