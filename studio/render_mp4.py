@@ -6,12 +6,14 @@ Requires FFmpeg/ffprobe available on PATH.
 import json,sys,subprocess,pathlib,shlex,math
 from caption_layout import layout_caption
 from caption_word_layout import fit_word_caption
+from render_quality import resolve_render_quality
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
 
 p=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); out=pathlib.Path(sys.argv[3])
 project=json.loads(p.read_text(encoding='utf-8'))
+render_quality=resolve_render_quality(project.get('renderQuality','high'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
 try: fps=int(round(float(project.get('fps',30) or 30)))
@@ -255,8 +257,9 @@ if aouts: filters.append(''.join(aouts)+f'amix=inputs={len(aouts)}:duration=long
 
 out.parent.mkdir(parents=True,exist_ok=True)
 cmd=['ffmpeg','-hide_banner','-y',*inputs,'-filter_complex',';'.join(filters),'-map',base]
-if aouts: cmd+=['-map','[aout]','-c:a','aac','-b:a','192k']
-cmd+=['-t',str(duration),'-r',str(fps),'-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(out)]
+if aouts: cmd+=['-map','[aout]','-c:a','aac','-b:a',render_quality['audio_bitrate']]
+cmd+=['-t',str(duration),'-r',str(fps),'-c:v','libx264','-preset',render_quality['preset'],'-crf',render_quality['crf'],'-pix_fmt','yuv420p','-movflags','+faststart',str(out)]
+print(f"Render quality: {render_quality['id']} · H.264 {render_quality['preset']} CRF {render_quality['crf']} · AAC {render_quality['audio_bitrate']}")
 print('Rendering:', ' '.join(shlex.quote(x) for x in cmd)); subprocess.run(cmd,check=True)
 probe=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,codec_name,width,height,r_frame_rate','-show_entries','format=duration,size','-of','json',str(out)],check=True,capture_output=True,text=True)
 info=json.loads(probe.stdout); streams=info.get('streams',[]); video_stream=next((s for s in streams if s.get('codec_type')=='video'),None)
@@ -273,4 +276,4 @@ actual_fps=rate_value(video_stream.get('r_frame_rate'))
 if abs(actual_fps-fps)>.5: raise RuntimeError(f'Control de calidad: FPS inesperados {actual_fps:.2f} vs {fps}')
 actual=float(info.get('format',{}).get('duration',0) or 0)
 if abs(actual-duration)>1.0: raise RuntimeError(f'Control de calidad: duración inesperada {actual:.2f}s vs {duration:.2f}s')
-print(json.dumps(info,indent=2)); print(f'QA OK: {out} · {fps} FPS')
+print(json.dumps(info,indent=2)); print(f"QA OK: {out} · {fps} FPS · calidad {render_quality['id']}")
