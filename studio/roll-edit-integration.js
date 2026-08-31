@@ -3,11 +3,11 @@
   const $=s=>document.querySelector(s),engine=new ProfitMenteRollEditEngine(),props=$('.props');if(!props)return;
   const panel=document.createElement('section');panel.className='rollEditPanel';panel.innerHTML='<hr><h3>Roll Edit</h3><div id="rollInfo" class="clipEmpty">Selecciona uno de dos clips contiguos en la misma pista.</div><div class="ciActions"><button id="rollBack">← Corte 0.1s</button><button id="rollForward">Corte 0.1s →</button></div><small>Mueve el punto de corte entre dos clips sin cambiar la duración total del montaje. Conserva el contenido fuente y respeta sus límites.</small>';props.appendChild(panel);
   const style=document.createElement('style');style.textContent='.rollEditPanel .ciActions{display:flex;flex-wrap:wrap;gap:6px}.rollEditPanel button:disabled{opacity:.45}.rollEditPanel small{display:block;margin-top:7px;opacity:.72;line-height:1.35}';document.head.appendChild(style);
-  const selected=()=>window.ProfitMenteEditTools?.selectedId,pair=()=>engine.findPair(project?.clips,selected()),assetFor=c=>assets?.find(a=>a.id===c?.asset),locked=c=>!!project?.trackState?.[c?.track]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t);
+  const selected=()=>window.ProfitMenteEditTools?.selectedId,pair=()=>engine.findPair(project?.clips,selected()),assetFor=c=>assets?.find(a=>a.id===c?.asset),locked=c=>window.ProfitMenteEditLockGuard?window.ProfitMenteEditLockGuard.isLocked(project,c):!!c?.locked||!!project?.trackState?.[c?.track]?.locked||!!project?.trackState?.[String(c?.track)]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t);
   function state(){
     const p=pair(),info=$('#rollInfo');let disabled=true;
     if(!p){if(info)info.textContent='Selecciona uno de dos clips contiguos en la misma pista.'}
-    else if(locked(p.left)||locked(p.right)){if(info)info.textContent='La pista del punto de corte está bloqueada.'}
+    else if(locked(p.left)||locked(p.right)){if(info)info.textContent='Uno de los clips o su pista está bloqueado.'}
     else{
       const b=engine.bounds(p.left,p.right,assetFor(p.left),assetFor(p.right));disabled=!b.ok||Math.abs(b.minDelta)<1e-9&&Math.abs(b.maxDelta)<1e-9;
       if(info)info.textContent=b.ok?`${p.left.name||'Clip A'} | ${p.right.name||'Clip B'} · corte ${b.boundary.toFixed(2)}s · rango ${b.minDelta.toFixed(2)}s a +${b.maxDelta.toFixed(2)}s`:'Los clips no forman un punto de corte continuo.';
