@@ -2,6 +2,7 @@ class ProfitMenteMediaProxyEngine{
   static thresholdBytes=24*1024*1024;
   static extension(name=''){const m=String(name).toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
   static shouldProxy(asset={}){
+    if(asset?.proxyAutoDisabled)return false;
     if(asset?.type!=='video'||!(asset?.blob instanceof Blob))return false;
     const ext=this.extension(asset.name||''),size=Number(asset.blob.size||asset.size||0),w=Number(asset.width||0),h=Number(asset.height||0);
     return ['mov','mkv','avi'].includes(ext)||size>=this.thresholdBytes||w>1280||h>1280;
@@ -21,7 +22,7 @@ class ProfitMenteMediaProxyEngine{
   }
   static async prepare(asset={},options={}){
     const proxy=await this.createProxy(asset,options.fetchImpl||globalThis.fetch);if(!proxy)return false;
-    asset.previewBlob=proxy;asset.previewMime='video/mp4';asset.proxySourceFingerprint=String(asset.sourceFingerprint||'');asset.proxySize=proxy.size;asset.proxyGeneratedAt=Date.now();
+    asset.previewBlob=proxy;asset.previewMime='video/mp4';asset.proxySourceFingerprint=String(asset.sourceFingerprint||'');asset.proxySize=proxy.size;asset.proxyGeneratedAt=Date.now();delete asset.proxyAutoDisabled;
     if(typeof options.persist==='function')await options.persist(asset);
     return true;
   }
