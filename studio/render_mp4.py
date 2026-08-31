@@ -122,7 +122,7 @@ def visual_chain(idx,asset,start,d,clip,label):
     if clip.get('flipY'): chain+=',vflip'
     td=transition_duration(clip,d)
     if trans in ('fade','zoom','slide') and start>0: chain+=f',format=rgba,fade=t=in:st=0:d={td}:alpha=1'
-    if trans=='zoom': chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
+    if trans=='zoom' and start>0: chain+=f",scale='trunc(iw*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2':'trunc(ih*(1+0.025*(1-min(t/{max(td,.01)},1)))/2)*2',crop={w}:{h}"
     s0=kf_value(clip,'start','scale',1,.25,3); s1=kf_value(clip,'end','scale',1,.25,3) if has_keyframes(clip) else s0
     r0=kf_value(clip,'start','rotation',0,-180,180); r1=kf_value(clip,'end','rotation',0,-180,180) if has_keyframes(clip) else r0
     opacity=bounded(clip,'opacity',1,0,1)
