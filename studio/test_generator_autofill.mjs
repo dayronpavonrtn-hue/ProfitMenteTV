@@ -46,4 +46,24 @@ const noMatchResult=helper.fill(noMatch,unrelated,unrelated);
 assert.equal(noMatchResult.changed,false,'unclassified audio must not create a false automation change');
 assert.equal(noMatch.clips[1].asset,null);
 
+const protectedOnly={mode:'Automático',clips:[
+  {id:'locked-scene',track:0,asset:null,locked:true},
+  {id:'locked-voice',track:6,asset:null,locked:true}
+]};
+const protectedResult=helper.fill(protectedOnly,[...visuals,...voice],[...visuals,...voice]);
+assert.equal(protectedResult.changed,false,'locked placeholders must not trigger automatic mutation');
+assert.equal(protectedResult.before,0,'locked visual placeholders are not editable automation work');
+assert.equal(protectedOnly.clips[0].asset,null,'locked primary clip must remain untouched');
+assert.equal(protectedOnly.clips[1].asset,null,'locked narration clip must remain untouched');
+
+const lockedTracks={mode:'Automático',trackState:{0:{locked:true},5:{locked:true},6:{locked:true}},clips:[
+  {id:'track-scene',track:0,asset:null},
+  {id:'track-voice',track:6,asset:null}
+]};
+const trackResult=helper.fill(lockedTracks,[...visuals,...voice],[...visuals,...voice]);
+assert.equal(trackResult.changed,false,'locked tracks must suppress auto-fill triggers');
+assert.equal(trackResult.before,0);
+assert.equal(lockedTracks.clips[0].asset,null);
+assert.equal(lockedTracks.clips[1].asset,null);
+
 console.log('generator autofill tests passed');
