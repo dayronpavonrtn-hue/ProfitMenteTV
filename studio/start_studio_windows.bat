@@ -28,8 +28,9 @@ echo.
 where ffmpeg >nul 2>&1
 if %errorlevel%==0 (
   echo MP4 directo: LISTO
+  echo Proxies de preview: LISTOS
 ) else (
-  echo MP4 directo: FFmpeg no detectado. Studio seguira funcionando sin esa opcion.
+  echo MP4 directo y proxies: FFmpeg no detectado. Studio seguira funcionando sin esas opciones.
   echo Para instalarlo gratis: winget install Gyan.FFmpeg
 )
 echo.
@@ -37,7 +38,7 @@ echo El navegador se abrira automaticamente cuando el servidor este listo.
 echo El servidor quedara activo mientras esta ventana permanezca abierta.
 echo Para cerrar Studio, cierra esta ventana o presiona Ctrl+C.
 echo.
-%PY% studio\studio_server.py --port %PORT% --open-browser
+%PY% studio\media_proxy_server.py --port %PORT% --open-browser
 
 if errorlevel 1 (
   echo.
