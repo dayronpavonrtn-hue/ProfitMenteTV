@@ -6,7 +6,7 @@
   class ProfitMenteFrameNudgeEngine{
     static fps(project){const n=Math.round(Number(project?.fps)||30);return [24,30,60].includes(n)?n:30}
     static frame(project){return 1/this.fps(project)}
-    static locked(project,clip){const state=project?.trackState?.[clip?.track]??project?.trackState?.[String(clip?.track)];return !!state?.locked}
+    static locked(project,clip){const state=project?.trackState?.[clip?.track]??project?.trackState?.[String(clip?.track)];return !!clip?.locked||!!state?.locked}
     static members(project,clipId){
       const clips=Array.isArray(project?.clips)?project.clips:[],seed=clips.find(c=>String(c.id)===String(clipId));if(!seed)return [];
       const gid=String(seed.groupId||'').trim();return gid?clips.filter(c=>String(c.groupId||'').trim()===gid):[seed];
