@@ -43,6 +43,7 @@ assert.ok(clipIds[2].trim()&&clipIds[3].trim(),'blank or missing clip identities
 assert.equal(damaged.repairs.clipIds,3,'migration should report repaired clip identities');
 const markerIds=damaged.project.markers.map(m=>m.id);
 assert.equal(new Set(markerIds).size,markerIds.length,'marker ids must be unique after migration');
+assert.equal(damaged.repairs.markerIds,2,'migration should report duplicate and blank marker identity repairs');
 assert.deepEqual(damaged.project.markers.map(m=>m.time),[0,7,8],'markers must be clamped and sorted inside the project');
 assert.equal(damaged.project.markers[0].label,'Marcador','blank marker labels should be repaired');
 assert.equal(damaged.project.markers[1].label,'Final','marker labels should be trimmed');
@@ -50,6 +51,8 @@ assert.equal(damaged.project.markers[2].label,'fuera','marker labels should be t
 
 const square=engine.migrate({version:'1.0',name:'Square',mode:'Manual',duration:4,format:{width:1080,height:1080},clips:[]});
 assert.equal(square.project.format,'1:1');
+assert.equal(square.repairs.clipIds,0);
+assert.equal(square.repairs.markerIds,0);
 
 const future=engine.migrate({version:'2.0',name:'Future',mode:'Manual',duration:5,format:'16:9',clips:[],futureField:{x:1}});
 assert.equal(future.project.version,'2.0','future project versions must never be downgraded');
