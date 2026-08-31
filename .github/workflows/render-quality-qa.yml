@@ -1,0 +1,39 @@
+name: ProfitMente Studio Render Quality QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-quality-engine.js'
+      - 'studio/render-quality-integration.js'
+      - 'studio/render_quality.py'
+      - 'studio/render_mp4.py'
+      - 'studio/render_audio_mix.py'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_render_quality.mjs'
+      - 'studio/test_render_quality.py'
+      - '.github/workflows/render-quality-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JavaScript syntax
+        run: |
+          node --check studio/render-quality-engine.js
+          node --check studio/render-quality-integration.js
+          node --check studio/feature-bootstrap.js
+      - name: Python syntax
+        run: python -m py_compile studio/render_quality.py studio/render_mp4.py studio/render_audio_mix.py
+      - name: Render quality engine regression
+        run: node studio/test_render_quality.mjs
+      - name: Render quality renderer regression
+        run: python studio/test_render_quality.py
+      - name: Verify renderer wiring
+        run: |
+          grep -q "resolve_render_quality" studio/render_mp4.py
+          grep -q "render_quality\['preset'\]" studio/render_mp4.py
+          grep -q "render_quality\['crf'\]" studio/render_mp4.py
+          grep -q "render_quality\['audio_bitrate'\]" studio/render_audio_mix.py
+          grep -q "render-quality-integration.js" studio/feature-bootstrap.js
