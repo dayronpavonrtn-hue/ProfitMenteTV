@@ -17,8 +17,9 @@
     document.querySelector('#projectName').value=project.name;
     document.querySelector('#playhead').value=0;
     save();
-    const media=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
-    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${media}`);
+    const visual=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
+    const soundtrack=assigned.music?' Música local añadida automáticamente con ducking para voz.':'';
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${soundtrack}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
