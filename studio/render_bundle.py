@@ -2,9 +2,11 @@
 """Render a .profitmente.tar exported by Studio to MP4 with local FFmpeg."""
 import json,pathlib,sys,tarfile,tempfile,subprocess
 from track_state_render import normalize_track_solo
+from render_progress import write_progress
 if len(sys.argv)!=3: raise SystemExit('Usage: render_bundle.py bundle.profitmente.tar output.mp4')
 bundle=pathlib.Path(sys.argv[1]); out=pathlib.Path(sys.argv[2]); root=pathlib.Path(__file__).resolve().parent
 if not bundle.is_file(): raise FileNotFoundError(bundle)
+write_progress(12,'Abriendo paquete')
 with tempfile.TemporaryDirectory(prefix='profitmente-bundle-') as td:
     td=pathlib.Path(td)
     with tarfile.open(bundle,'r:') as tar:
@@ -20,16 +22,21 @@ with tempfile.TemporaryDirectory(prefix='profitmente-bundle-') as td:
     # validation, FFmpeg and post-render QA all consume the same effective tracks.
     data=json.loads(project.read_text(encoding='utf-8'))
     project.write_text(json.dumps(normalize_track_solo(data),ensure_ascii=False),encoding='utf-8')
+    write_progress(20,'Validando proyecto y medios')
     subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
+    write_progress(30,'Preparando composición')
     subprocess.run([sys.executable,str(root/'render_motion_text.py'),str(project),str(assets),str(out)],check=True)
     # A complete container/metadata probe is not enough: force FFmpeg to decode the
     # entire finished video/audio bitstream before any render can be accepted.
+    write_progress(84,'Verificando decodificación completa')
     subprocess.run([sys.executable,str(root/'verify_render_decode.py'),str(out)],check=True)
     report=out.with_suffix(out.suffix+'.qc.json')
+    write_progress(92,'Ejecutando control de calidad')
     qc=subprocess.run([sys.executable,str(root/'output_qc.py'),str(project),str(out),str(report)],capture_output=True,text=True)
     if qc.returncode!=0:
         detail=(qc.stdout or qc.stderr or 'Post-render QA falló').strip()
         raise RuntimeError(detail)
     data=json.loads(report.read_text(encoding='utf-8'))
+    write_progress(98,'Finalizando MP4 validado')
     print(f"Post-render QA {data.get('score',0)}/100 OK")
 print(f'Bundle render QA OK: {out}')
