@@ -75,6 +75,7 @@
     ['safe-area-integration.js','ProfitMenteSafeArea'],
     ['scene-detect-engine.js','ProfitMenteSceneDetectEngine'],
     ['scene-detect-integration.js','ProfitMenteSceneDetect'],
+    ['edit-lock-guard.js','ProfitMenteEditLockGuard'],
     ['slip-edit-engine.js','ProfitMenteSlipEditEngine'],
     ['slip-edit-integration.js','ProfitMenteSlipEdit'],
     ['roll-edit-engine.js','ProfitMenteRollEditEngine'],
