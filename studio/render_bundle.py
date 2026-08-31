@@ -36,8 +36,12 @@ try:
         # validation, FFmpeg and post-render QA all consume the same effective tracks.
         data=json.loads(project.read_text(encoding='utf-8'))
         project.write_text(json.dumps(normalize_track_solo(data),ensure_ascii=False),encoding='utf-8')
-        write_progress(20,'Validando proyecto y medios')
+        write_progress(18,'Validando estructura del proyecto')
         subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
+        # Probe only active media before composition. This catches truncated/corrupt
+        # files and wrong stream types early, before an expensive FFmpeg composition.
+        write_progress(24,'Comprobando medios activos con FFprobe')
+        subprocess.run([sys.executable,str(root/'media_preflight.py'),str(project),str(assets)],check=True)
         write_progress(30,'Preparando composición')
         subprocess.run([sys.executable,str(root/'render_motion_text.py'),str(project),str(assets),str(candidate)],check=True)
         # A complete container/metadata probe is not enough: force FFmpeg to decode the
