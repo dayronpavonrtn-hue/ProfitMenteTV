@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const ProfitMenteGeneratorAutoFill=require('./generator-autofill.js');
 
-const fakeEngine={assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset)){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset).length}}};
+const fakeEngine={
+  assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset)){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset).length}},
+  assignNarration(project,assets){const voice=assets.find(a=>a.type==='audio'&&/voice|voz|narr/i.test(a.name||''));if(!voice)return 0;let count=0;for(const clip of project.clips.filter(c=>Number(c.track)===6&&!c.asset)){clip.asset=voice.id;count++}return count},
+  assignSoundtrack(){return 0},
+  assignTransitionSfx(){return 0}
+};
 const helper=new ProfitMenteGeneratorAutoFill(fakeEngine);
 
 const project={mode:'Automático',clips:[
@@ -19,12 +24,26 @@ assert.equal(result.after,0);
 assert.equal(project.clips[0].asset,'manual-asset','must preserve manual/existing assignments');
 assert.equal(project.clips[1].asset,'new-video','must fill only missing primary scene');
 
-const manual={mode:'Manual',clips:[{track:0,asset:null}]};
-assert.equal(helper.fill(manual,visuals,visuals).changed,false,'manual projects must never auto-fill');
+const manual={mode:'Manual',clips:[{track:0,asset:null},{track:6,asset:null}]};
+const voice=[{id:'voice-final',type:'audio',name:'voice-final.wav'}];
+assert.equal(helper.fill(manual,voice,voice).changed,false,'manual projects must never auto-fill');
 assert.equal(manual.clips[0].asset,null);
+assert.equal(manual.clips[1].asset,null);
 
-const audioOnly={mode:'Automático',clips:[{track:0,asset:null}]};
-assert.equal(helper.fill(audioOnly,[{id:'voice',type:'audio'}],[{id:'voice',type:'audio'}]).changed,false,'audio imports must not trigger visual assignment');
-assert.equal(audioOnly.clips[0].asset,null);
+const audioAfterGeneration={mode:'Automático',clips:[
+  {id:'scene',track:0,asset:'visual-1'},
+  {id:'voice',track:6,asset:null}
+]};
+const audioResult=helper.fill(audioAfterGeneration,voice,voice);
+assert.equal(audioResult.changed,true,'audio imported after generation must complete pending automatic audio roles');
+assert.equal(audioResult.narration,1);
+assert.equal(audioAfterGeneration.clips[0].asset,'visual-1','audio import must never replace an existing visual');
+assert.equal(audioAfterGeneration.clips[1].asset,'voice-final','pending narration must attach when a matching local voice is imported');
+
+const unrelated=[{id:'ambient',type:'audio',name:'ambient.wav'}];
+const noMatch={mode:'Automático',clips:[{track:0,asset:'visual-1'},{track:6,asset:null}]};
+const noMatchResult=helper.fill(noMatch,unrelated,unrelated);
+assert.equal(noMatchResult.changed,false,'unclassified audio must not create a false automation change');
+assert.equal(noMatch.clips[1].asset,null);
 
 console.log('generator autofill tests passed');
