@@ -1,0 +1,27 @@
+name: ProfitMente Studio Render Cancel Tree QA
+
+on:
+  push:
+    paths:
+      - 'studio/studio_server.py'
+      - 'studio/test_render_process_tree.py'
+      - '.github/workflows/render-cancel-tree-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  render-cancel-tree-qa:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check server syntax
+        run: python -m py_compile studio/studio_server.py studio/test_render_process_tree.py
+      - name: Verify full process-tree cancellation
+        working-directory: studio
+        run: python test_render_process_tree.py
