@@ -3,12 +3,12 @@
   const $=s=>document.querySelector(s),engine=new ProfitMenteRateStretchEngine(),props=$('.props');if(!props)return;
   const panel=document.createElement('section');panel.className='rateStretchPanel';panel.innerHTML='<hr><h3>Rate Stretch</h3><div id="rateStretchInfo" class="clipEmpty">Selecciona un clip de video o audio.</div><div class="ciActions"><button id="rateStretchShorter">−10% duración</button><button id="rateStretchLonger">+10% duración</button><button id="rateStretchExact">Duración…</button></div><small>Cambia la duración ajustando la velocidad, conservando exactamente el mismo tramo de la fuente. Rango de velocidad: 0.25×–4×.</small>';props.appendChild(panel);
   const style=document.createElement('style');style.textContent='.rateStretchPanel .ciActions{display:flex;flex-wrap:wrap;gap:6px}.rateStretchPanel button:disabled{opacity:.45}.rateStretchPanel small{display:block;margin-top:7px;opacity:.72;line-height:1.35}';document.head.appendChild(style);
-  const selected=()=>project?.clips?.find(c=>c?.id===window.ProfitMenteEditTools?.selectedId),assetFor=c=>assets?.find(a=>a.id===c?.asset),locked=c=>!!project?.trackState?.[c?.track]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t);
+  const selected=()=>project?.clips?.find(c=>c?.id===window.ProfitMenteEditTools?.selectedId),assetFor=c=>assets?.find(a=>a.id===c?.asset),locked=c=>window.ProfitMenteEditLockGuard?window.ProfitMenteEditLockGuard.isLocked(project,c):!!c?.locked||!!project?.trackState?.[c?.track]?.locked||!!project?.trackState?.[String(c?.track)]?.locked,status=t=>typeof setStatus==='function'&&setStatus(t);
   function usable(c){const a=assetFor(c);return !!c&&!!c.asset&&a?.type!=='image'}
   function state(){
     const c=selected(),info=$('#rateStretchInfo');let disabled=true;
     if(!c){if(info)info.textContent='Selecciona un clip de video o audio.'}
-    else if(locked(c)){if(info)info.textContent='La pista del clip está bloqueada.'}
+    else if(locked(c)){if(info)info.textContent='El clip o su pista está bloqueado.'}
     else if(!usable(c)){if(info)info.textContent='Rate Stretch requiere un clip de video o audio con fuente.'}
     else{
       const next=engine.nextOnTrack(project?.clips,c),b=engine.targetBounds(c,assetFor(c),next,project?.duration);disabled=!b.ok;
@@ -27,6 +27,6 @@
   $('#rateStretchLonger').onclick=()=>{const c=selected();if(c)apply(engine.duration(c)*1.1,'Rate Stretch')};
   $('#rateStretchExact').onclick=()=>{const c=selected();if(!c)return;const raw=prompt('Nueva duración del clip en segundos:',engine.duration(c).toFixed(2));if(raw===null)return;apply(Number(String(raw).replace(',','.')),'Rate Stretch')};
   document.addEventListener('click',()=>requestAnimationFrame(state),true);
-  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||e.ctrlKey||e.metaKey||e.shiftKey)return;if(!e.altKey)return;const c=selected();if(!c)return;if(e.key==='['){e.preventDefault();apply(engine.duration(c)*.9,'Rate Stretch')}else if(e.key===']'){e.preventDefault();apply(engine.duration(c)*1.1,'Rate Stretch')}});
+  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||e.ctrlKey||e.metaKey||e.shiftKey)return;if(!e.altKey)return;const c=selected();if(!c||locked(c))return;if(e.key==='['){e.preventDefault();apply(engine.duration(c)*.9,'Rate Stretch')}else if(e.key===']'){e.preventDefault();apply(engine.duration(c)*1.1,'Rate Stretch')}});
   window.ProfitMenteRateStretch={engine,state,apply};state();
 })();
