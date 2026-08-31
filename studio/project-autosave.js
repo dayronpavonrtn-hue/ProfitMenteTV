@@ -21,29 +21,34 @@ if(typeof document!=='undefined')(()=>{
   if(typeof project==='undefined'||!window.ProfitMenteProjectAutosaveEngine||window.ProfitMenteProjectAutosave)return;
   const engine=window.ProfitMenteProjectAutosaveEngine,$=s=>document.querySelector(s),name=$('#projectName'),duration=$('#duration'),format=$('#format'),modeInput=$('#mode');
   if(!name||!duration||!format||!modeInput)return;
-  let timer=null,flushing=false,last=engine.fingerprint(project);
+  let timer=null,flushing=false,last=engine.fingerprint(project),retryCount=0;
   function read(){return {name:name.value,duration:duration.value,format:format.value,mode:modeInput.value}}
   function cancel(){if(timer){clearTimeout(timer);timer=null}}
   function flush(reason='autoguardado'){
     cancel();if(flushing)return false;
-    const next=engine.merge(project,read());
-    if(!engine.changed(project,next)){last=engine.fingerprint(project);return false}
+    const next=engine.merge(project,read()),nextFingerprint=JSON.stringify(engine.fields(next));
+    if(last===nextFingerprint)return false;
     const previous=engine.fields(project);Object.assign(project,next);flushing=true;
     try{
       if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
-      last=engine.fingerprint(project);
+      last=nextFingerprint;retryCount=0;
       const layoutChanged=previous.duration!==next.duration||previous.format!==next.format;
       if(layoutChanged&&typeof drawTimeline==='function')drawTimeline();
       if(reason!=='cierre'&&typeof renderAt==='function')void renderAt(+($('#playhead')?.value||0));
       window.dispatchEvent(new CustomEvent('profitmente:project-autosaved',{detail:{reason,libraryId:project.libraryId||null,name:project.name||'Sin título'}}));
       return true;
-    }catch(err){console.error('ProfitMente property autosave failed',err);return false}
+    }catch(err){
+      console.error('ProfitMente property autosave failed',err);
+      window.dispatchEvent(new CustomEvent('profitmente:project-autosave-error',{detail:{reason,error:err?.message||String(err),retry:retryCount}}));
+      if(reason!=='cierre'&&retryCount<3){retryCount+=1;timer=setTimeout(()=>flush('reintento'),1500*retryCount)}
+      return false;
+    }
     finally{flushing=false}
   }
   function schedule(){cancel();timer=setTimeout(()=>flush('propiedades'),450)}
   name.addEventListener('input',schedule);duration.addEventListener('input',schedule);
   format.addEventListener('change',()=>flush('formato'));modeInput.addEventListener('change',()=>flush('modo'));
-  window.addEventListener('profitmente:project-opened',()=>{cancel();last=engine.fingerprint(project)});
+  window.addEventListener('profitmente:project-opened',()=>{cancel();retryCount=0;last=engine.fingerprint(project)});
   window.addEventListener('beforeunload',()=>{try{flush('cierre')}catch{}});
   window.addEventListener('pagehide',()=>{try{flush('cierre')}catch{}});
   window.ProfitMenteProjectAutosave={engine,flush,schedule,get lastFingerprint(){return last}};
