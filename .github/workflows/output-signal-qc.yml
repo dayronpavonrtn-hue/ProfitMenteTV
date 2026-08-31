@@ -6,12 +6,14 @@ on:
       - 'studio/output_qc.py'
       - 'studio/test_output_qc.py'
       - 'studio/test_output_signal_qc.py'
+      - 'studio/test_output_loudness_qc.py'
       - '.github/workflows/output-signal-qc.yml'
   pull_request:
     paths:
       - 'studio/output_qc.py'
       - 'studio/test_output_qc.py'
       - 'studio/test_output_signal_qc.py'
+      - 'studio/test_output_loudness_qc.py'
       - '.github/workflows/output-signal-qc.yml'
 
 jobs:
@@ -23,10 +25,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Syntax check
-        run: python -m py_compile studio/output_qc.py studio/test_output_qc.py studio/test_output_signal_qc.py
+        run: python -m py_compile studio/output_qc.py studio/test_output_qc.py studio/test_output_signal_qc.py studio/test_output_loudness_qc.py
       - name: Metadata regression
         working-directory: studio
         run: python test_output_qc.py
       - name: Signal regression
         working-directory: studio
         run: python test_output_signal_qc.py
+      - name: Loudness regression
+        working-directory: studio
+        run: python test_output_loudness_qc.py
