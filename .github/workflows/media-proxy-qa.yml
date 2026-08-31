@@ -1,0 +1,50 @@
+name: ProfitMente Studio Media Proxy QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/media_proxy_server.py'
+      - 'studio/media-proxy-engine.js'
+      - 'studio/preview-engine.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/start_studio_windows.bat'
+      - 'studio/test_media_proxy_server.py'
+      - 'studio/test_media_proxy_engine.mjs'
+      - '.github/workflows/media-proxy-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-proxy-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Syntax check
+        run: |
+          python -m py_compile studio/studio_server.py studio/media_proxy_server.py studio/test_media_proxy_server.py
+          node --check studio/media-proxy-engine.js
+          node --check studio/preview-engine.js
+          node --check studio/feature-bootstrap.js
+      - name: Browser proxy engine regression
+        run: node studio/test_media_proxy_engine.mjs
+      - name: Real FFmpeg proxy regression
+        run: python studio/test_media_proxy_server.py
+      - name: Wiring regression
+        run: |
+          grep -q "media-proxy-engine.js" studio/feature-bootstrap.js
+          grep -q "media_proxy_server.py" studio/start_studio_windows.bat
+          grep -q "previewBlobFor" studio/preview-engine.js
