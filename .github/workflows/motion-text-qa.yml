@@ -26,7 +26,10 @@ jobs:
         run: python -m py_compile studio/motion_text_layout.py studio/render_motion_text.py studio/render_bundle.py studio/test_motion_text_render.py
       - name: Motion engine regression
         run: node studio/test_motion_text.mjs
-      - name: FFmpeg availability
-        run: ffmpeg -version | head -1
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -1
       - name: Motion MP4 render regression
         run: python studio/test_motion_text_render.py
