@@ -1,0 +1,32 @@
+name: ProfitMente Studio Media Preflight QA
+
+on:
+  push:
+    paths:
+      - 'studio/media_preflight.py'
+      - 'studio/test_media_preflight.py'
+      - 'studio/render_bundle.py'
+      - '.github/workflows/media-preflight-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/media_preflight.py studio/render_bundle.py studio/test_media_preflight.py
+      - name: Media preflight regression
+        working-directory: studio
+        run: python test_media_preflight.py
+      - name: Verify render wiring
+        run: python - <<'PY'
+          from pathlib import Path
+          text=Path('studio/render_bundle.py').read_text(encoding='utf-8')
+          assert "media_preflight.py" in text
+          assert "Comprobando medios activos con FFprobe" in text
+          print('render media preflight wiring OK')
+          PY
