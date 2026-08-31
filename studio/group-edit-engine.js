@@ -9,7 +9,7 @@
       return groupId?clips.filter(c=>String(c.groupId||'').trim()===groupId):[anchor];
     }
     lockedMembers(project,anchor){
-      return this.members(project,anchor).filter(c=>!!project?.trackState?.[c.track]?.locked);
+      return this.members(project,anchor).filter(c=>!!c?.locked||!!project?.trackState?.[c.track]?.locked||!!project?.trackState?.[String(c.track)]?.locked);
     }
     duplicate(project,anchor,{idFactory=()=>crypto.randomUUID(),offset=.5}={}){
       const members=this.members(project,anchor);
