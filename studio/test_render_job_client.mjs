@@ -37,6 +37,19 @@ const flaky=new Client({fetchFn:flakyFetch,interval:1,maxRetryDelay:2,maxConsecu
 const reconnect=[];const recovered=await flaky.wait(s=>reconnect.push(s.status));
 assert.equal(recovered.status,'done');assert.deepEqual(reconnect,['reconnecting','reconnecting','done']);assert.equal(flakyPolls,3);
 
+let stallPolls=0;
+const stallFetch=async(url)=>{
+  if(url!=='/api/render/jobs/stall')return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+  stallPolls++;
+  const data=stallPolls<4?{ok:true,job_id:'stall',status:'rendering',progress:48,phase:'Componiendo video',elapsed:stallPolls}:{ok:true,job_id:'stall',status:'done',progress:100,phase:'Completado',qc:{ok:true,score:100}};
+  return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});
+};
+const stalled=new Client({fetchFn:stallFetch,interval:2,staleProgressMs:1});stalled.attach('stall');
+const stalledStates=[];const stalledDone=await stalled.wait(s=>stalledStates.push(s));
+assert.equal(stalledDone.status,'done');
+assert.ok(stalledStates.some(s=>s.status==='rendering'&&s.progress_stale===true),'unchanged render progress should surface a non-fatal stale warning');
+assert.ok(stalledStates.some(s=>Number(s.progress_stale_seconds)>=1),'stale warning should include an age');
+
 const missing=new Client({fetchFn:async()=>new Response(JSON.stringify({error:'Trabajo de render no encontrado.'}),{status:404,headers:{'content-type':'application/json'}}),interval:1});missing.attach('missing');
 await assert.rejects(()=>missing.wait(),/no encontrado/i);
 console.log('render job client ok');
