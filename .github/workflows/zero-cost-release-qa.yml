@@ -1,0 +1,35 @@
+name: ProfitMente Studio Zero Cost Release QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/**'
+      - '.github/workflows/zero-cost-release-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  zero-cost-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Verify ProfitMente Studio $0 release
+        run: python studio/verify_zero_cost_release.py
