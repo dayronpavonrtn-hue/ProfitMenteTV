@@ -180,15 +180,20 @@ for c in [x for x in clips if int(x.get('track',-1))==2 and str(x.get('name','')
     tx=max(-45,min(45,float(c.get('textX',0) or 0))); ty=max(-45,min(45,float(c.get('textY',-28) or -28)))
     text_color=safe_hex(c.get('textColor'),'#FFE66D').replace('#','0x'); box_color=safe_hex(c.get('boxColor'),'#000000').replace('#','0x'); box_op=max(0,min(1,float(c.get('boxOpacity',.55) or 0)))
     enter=min(.28,max(.06,d*.25)); progress=f'min(max((t-{start})/{enter},0),1)'
-    alpha='1'
+    alpha='1'; font_expr=f'{size:.3f}'
     if anim in ('fade','pop','slide-up'):alpha=progress
+    if anim=='pop':
+        # Browser preview scales around the text center from 82% to 100% using
+        # cubic ease-out during the same entrance window. Dynamic fontsize keeps
+        # drawtext, its box and centering in sync without a second video encode.
+        scale_expr=f'(.82+.18*(1-pow(1-{progress},3)))'
+        font_expr=f'{size:.3f}*{scale_expr}'
     ybase=f'(h-text_h)/2+h*{ty}/100'
     if anim=='slide-up': yexpr=f'{ybase}+56*(1-{progress})'
-    elif anim=='pop': yexpr=f'{ybase}+12*(1-{progress})'
     else:yexpr=ybase
     border=max(4,int(round(size*.055))); pad=14 if style=='label' else (26 if style=='callout' else 20)
     nxt=f'[motion{motionn}]'
-    filters.append(f"{base}drawtext=text='{text}':fontcolor={text_color}:fontsize={size}:borderw={border}:bordercolor=black@0.90:box=1:boxcolor={box_color}@{box_op:.3f}:boxborderw={pad}:x='(w-text_w)/2+w*{tx}/100':y='{yexpr}':alpha='{alpha}':enable='between(t,{start},{end})'{nxt}")
+    filters.append(f"{base}drawtext=text='{text}':fontcolor={text_color}:fontsize='{font_expr}':borderw={border}:bordercolor=black@0.90:box=1:boxcolor={box_color}@{box_op:.3f}:boxborderw={pad}:x='(w-text_w)/2+w*{tx}/100':y='{yexpr}':alpha='{alpha}':enable='between(t,{start},{end})'{nxt}")
     base=nxt; motionn+=1
 
 capn=0
