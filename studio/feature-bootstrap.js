@@ -61,6 +61,8 @@
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
     ['recovery-integration.js','ProfitMenteRecovery'],
     ['project-autosave.js','ProfitMenteProjectAutosaveEngine','ProfitMenteProjectAutosave'],
+    ['render-quality-engine.js','ProfitMenteRenderQualityEngine'],
+    ['render-quality-integration.js','ProfitMenteRenderQuality'],
     ['export-preflight.js','ProfitMenteExportPreflight'],
     ['render-job-client.js','ProfitMenteRenderJobClient'],
     ['render-job-integration.js','ProfitMenteRenderJobs'],
