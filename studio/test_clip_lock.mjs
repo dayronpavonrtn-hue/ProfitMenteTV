@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {ProfitMenteClipLockEngine}=require('./clip-lock-engine.js');
+const {ProfitMenteGroupEditEngine}=require('./group-edit-engine.js');
+const ProfitMenteGroupSplitEngine=require('./group-split-engine.js');
+
+const engine=new ProfitMenteClipLockEngine();
+const a={id:'a',track:0,start:0,duration:4,groupId:'g'};
+const b={id:'b',track:1,start:0,duration:4,groupId:'g',locked:true};
+const project={duration:10,clips:[a,b],trackState:{0:{locked:false},1:{locked:false}}};
+assert.equal(engine.clipLocked(a),false);
+assert.equal(engine.clipLocked(b),true);
+assert.equal(engine.isLocked(project,b),true);
+assert.equal(engine.canMutate(project,a),false,'a locked group member must protect the group');
+engine.setLocked(b,false);
+assert.equal(engine.canMutate(project,a),true);
+project.trackState[1].locked=true;
+assert.equal(engine.isLocked(project,b),true,'track lock still protects clip');
+project.trackState[1].locked=false;
+assert.equal(engine.toggle(a),true);
+assert.equal(engine.toggle(a),false);
+
+b.locked=true;
+const groupEdit=new ProfitMenteGroupEditEngine();
+const before=project.clips.length;
+const duplicated=groupEdit.duplicate(project,a,{idFactory:(()=>{let n=0;return()=>`copy-${++n}`})()});
+assert.equal(duplicated.reason,'locked');
+assert.equal(duplicated.copies.length,0);
+assert.equal(project.clips.length,before,'locked group must not duplicate');
+assert.equal(groupEdit.remove(project,a).length,0);
+assert.equal(project.clips.length,before,'locked group must not delete');
+
+const fakeSplit={split(clip,time){return {ok:true,left:{...clip,duration:time-clip.start},right:{...clip,id:clip.id+'-r',start:time,duration:clip.start+clip.duration-time},speed:1,sourceCut:time}}};
+const groupSplit=new ProfitMenteGroupSplitEngine(fakeSplit);
+const splitResult=groupSplit.split(project,a,2,{idFactory:()=> 'right',groupIdFactory:x=>x});
+assert.equal(splitResult.ok,false);
+assert.equal(splitResult.reason,'locked');
+assert.equal(project.clips.length,before,'locked group must not split');
+
+const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
+const integration=fs.readFileSync(new URL('./clip-lock-integration.js',import.meta.url),'utf8');
+assert.match(bootstrap,/clip-lock-engine\.js/);
+assert.match(bootstrap,/clip-lock-integration\.js/);
+assert.match(integration,/pointerdown/);
+assert.match(integration,/ciClipLocked/);
+assert.match(integration,/clipLockDisabled/);
+assert.match(integration,/stopImmediatePropagation/);
+console.log('Clip lock regression OK');
