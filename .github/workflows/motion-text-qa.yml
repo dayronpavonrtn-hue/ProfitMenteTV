@@ -5,11 +5,13 @@ on:
       - 'studio/motion-text-engine.js'
       - 'studio/motion_text_layout.py'
       - 'studio/render_motion_text.py'
+      - 'studio/render_mp4.py'
       - 'studio/render_bundle.py'
       - 'studio/generator-engine.js'
       - 'studio/qa-engine.js'
       - 'studio/test_motion_text.mjs'
       - 'studio/test_motion_text_render.py'
+      - 'studio/test_motion_pop_render_parity.py'
       - '.github/workflows/motion-text-qa.yml'
   workflow_dispatch:
 jobs:
@@ -23,7 +25,7 @@ jobs:
           node --check studio/generator-engine.js
           node --check studio/qa-engine.js
       - name: Python syntax
-        run: python -m py_compile studio/motion_text_layout.py studio/render_motion_text.py studio/render_bundle.py studio/test_motion_text_render.py
+        run: python -m py_compile studio/motion_text_layout.py studio/render_motion_text.py studio/render_mp4.py studio/render_bundle.py studio/test_motion_text_render.py studio/test_motion_pop_render_parity.py
       - name: Motion engine regression
         run: node studio/test_motion_text.mjs
       - name: Install FFmpeg
@@ -33,3 +35,5 @@ jobs:
           ffmpeg -version | head -1
       - name: Motion MP4 render regression
         run: python studio/test_motion_text_render.py
+      - name: Motion Pop MP4 parity
+        run: python studio/test_motion_pop_render_parity.py
