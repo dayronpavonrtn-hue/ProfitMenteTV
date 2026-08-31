@@ -1,0 +1,28 @@
+name: ProfitMente Studio Audio Ducking Render Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_audio_mix.py'
+      - 'studio/render_motion_text.py'
+      - 'studio/track-mixer-render-integration.js'
+      - 'studio/test_audio_ducking_render.py'
+      - '.github/workflows/audio-ducking-render-parity-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  audio-ducking-render-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify FFmpeg
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+      - name: Syntax check
+        run: python -m py_compile studio/render_audio_mix.py studio/render_motion_text.py
+      - name: Temporal ducking MP4 regression
+        run: python studio/test_audio_ducking_render.py
+      - name: Existing ducking engine regression
+        run: node studio/test_audio_ducking.mjs
