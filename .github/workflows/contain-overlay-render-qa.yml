@@ -1,0 +1,27 @@
+name: ProfitMente Studio Contain Overlay Render QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_mp4.py'
+      - 'studio/test_contain_overlay_render.py'
+      - '.github/workflows/contain-overlay-render-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  contain-overlay-render:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Syntax check
+        run: python -m py_compile studio/render_mp4.py studio/test_contain_overlay_render.py
+
+      - name: Render contain overlay regression
+        run: python studio/test_contain_overlay_render.py
