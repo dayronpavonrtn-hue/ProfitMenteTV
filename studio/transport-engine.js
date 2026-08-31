@@ -7,7 +7,7 @@
   let zoom=Number(localStorage.getItem('profitmente-timeline-zoom')||1);
   zoom=Math.max(1,Math.min(6,zoom));
 
-  function isTyping(){return ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)}
+  function isTyping(){return ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||!!document.activeElement?.isContentEditable}
   function current(){return Number($('#playhead')?.value||0)}
   function duration(){return Math.max(.001,Number(project?.duration||1))}
   function seek(t){
@@ -57,4 +57,5 @@
   function loadOnce(src,key,globalName){if(globalName&&window[globalName])return;if(document.querySelector(`script[data-profitmente-${key}]`))return;const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]='1';document.body.appendChild(s)}
   loadOnce('timeline-ruler.js','timelineRuler','ProfitMenteTimelineRuler');
   loadOnce('project-duration.js','projectDuration','ProfitMenteProjectDuration');
+  loadOnce('timeline-focus-engine.js','timelineFocus','ProfitMenteTimelineFocusEngine');
 })();
