@@ -5,8 +5,11 @@
     const next=structuredClone(project||{});next.trackState=E.ensure(next.trackState);
     next.clips=(next.clips||[]).map(clip=>{
       if(!E.AUDIO_TRACKS.includes(Number(clip?.track)))return clip;
-      const track=Number(clip.track),fallback=track===5?.22:1,base=clip.volume==null?fallback:Math.max(0,Number(clip.volume)||0);
-      clip.volume=Math.max(0,Math.min(4,base*E.gain(next.trackState,track)));
+      const track=Number(clip.track),fallback=track===5?.22:1,base=clip.volume==null?fallback:Math.max(0,Number(clip.volume)||0),gain=E.gain(next.trackState,track);
+      clip.volume=Math.max(0,Math.min(4,base*gain));
+      // Duck volume lives before the track bus in preview, so it must receive
+      // the same baked track gain as the normal music level for local renders.
+      if(track===5){const duck=clip.duckVolume==null?.16:Math.max(0,Number(clip.duckVolume)||0);clip.duckVolume=Math.max(0,Math.min(4,duck*gain))}
       return clip;
     });
     for(const track of E.AUDIO_TRACKS)next.trackState[track].gain=1;
