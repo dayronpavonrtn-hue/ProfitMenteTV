@@ -23,4 +23,7 @@
   }
   root.ProfitMenteTimelineFocusEngine=ProfitMenteTimelineFocusEngine;
   if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteTimelineFocusEngine;
+  if(typeof document!=='undefined'&&!document.querySelector('script[data-profitmente-timeline-focus-integration]')){
+    const s=document.createElement('script');s.src='timeline-focus-integration.js';s.dataset.profitmenteTimelineFocusIntegration='1';document.body.appendChild(s);
+  }
 })();
