@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - 'studio/track-controls.js'
+      - 'studio/track_state_render.py'
+      - 'studio/render_bundle.py'
       - 'studio/test_track_solo.mjs'
+      - 'studio/test_track_solo_render.py'
       - '.github/workflows/track-solo-qa.yml'
   workflow_dispatch:
 
@@ -16,7 +19,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       - name: Syntax check
-        run: node --check studio/track-controls.js
-      - name: Track Solo regression
+        run: |
+          node --check studio/track-controls.js
+          python -m py_compile studio/track_state_render.py studio/render_bundle.py studio/test_track_solo_render.py
+      - name: Track Solo browser regression
         run: node studio/test_track_solo.mjs
+      - name: Track Solo final render regression
+        run: python studio/test_track_solo_render.py
