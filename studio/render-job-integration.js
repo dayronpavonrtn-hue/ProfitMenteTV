@@ -53,12 +53,12 @@
     if(freshness?.status==='unknown')return ' · resultado recuperado de una sesión anterior';
     return ' · versión actual ✓';
   }
-  async function renderPreflight(){
+  async function renderPreflight(renderProject=projectForRender(),renderAssets=snapshotAssetsForRender()){
     if(typeof window.ProfitMenteExportPreflightRun==='function'){
-      const preflight=await window.ProfitMenteExportPreflightRun();
+      const preflight=await window.ProfitMenteExportPreflightRun({project:renderProject,assets:renderAssets});
       return {ok:!!preflight?.canRender,preflight,qa:null};
     }
-    const report=qa.inspect(project,assets);
+    const report=qa.inspect(renderProject,renderAssets);
     return {ok:!(report.issues||[]).length,preflight:null,qa:report};
   }
   function reportPreflightBlock(gate){
@@ -114,10 +114,10 @@
   }
   renderBtn.onclick=async()=>{
     save();
-    let gate;
-    try{gate=await renderPreflight()}catch(err){console.error(err);setStatus('No se pudo completar el Preflight de exportación: '+(err?.message||err));return}
-    if(!gate.ok){reportPreflightBlock(gate);return}
     const renderProject=projectForRender(),renderAssets=snapshotAssetsForRender(),renderContext=captureRenderContext(renderProject,renderAssets);
+    let gate;
+    try{gate=await renderPreflight(renderProject,renderAssets)}catch(err){console.error(err);setStatus('No se pudo completar el Preflight de exportación: '+(err?.message||err));return}
+    if(!gate.ok){reportPreflightBlock(gate);return}
     renderBtn.disabled=true;cancelBtn.hidden=false;client.reset();clearSession();
     try{
       const health=gate.preflight?.health||await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
