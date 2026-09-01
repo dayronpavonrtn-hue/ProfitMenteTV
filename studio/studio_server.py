@@ -147,6 +147,23 @@ def _cleanup_job_files(job: dict):
         job["tempdir"] = None
 
 
+def _finish_job_download(job_id: str, *, delivered: bool) -> bool:
+    """Consume a completed render only after its HTTP body was delivered.
+
+    The browser client validates the received MP4 and retries network/truncation
+    failures. Keeping the job when socket delivery fails makes those retries real
+    instead of forcing an expensive second render.
+    """
+    if not delivered:
+        return False
+    with RENDER_LOCK:
+        job = RENDER_JOBS.pop(job_id, None)
+        if not job:
+            return False
+        _cleanup_job_files(job)
+        return True
+
+
 def _mark_job_error(job: dict, error, *, phase: str = "Error", qc=None):
     """Keep error metadata available to the UI while releasing large temp files."""
     job.update(
@@ -350,6 +367,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "render_process_tree_cancel": True,
                 "render_failure_cleanup": True,
                 "post_render_qc": True,
+                "render_result_retry_safe": True,
                 "server": self.server_version,
             })
             return
@@ -377,13 +395,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Disposition", 'attachment; filename="profitmente-render.mp4"')
             self.send_header("Content-Length", str(size))
             self.end_headers()
+            delivered = False
             try:
                 with output.open("rb") as f:
                     shutil.copyfileobj(f, self.wfile, length=1024 * 1024)
+                self.wfile.flush()
+                delivered = True
             finally:
-                with RENDER_LOCK:
-                    job = RENDER_JOBS.pop(job_id, None)
-                    if job: _cleanup_job_files(job)
+                _finish_job_download(job_id, delivered=delivered)
             return
         super().do_GET()
 
