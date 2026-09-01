@@ -1,0 +1,32 @@
+name: ProfitMente Studio Render Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_parity_preflight.py'
+      - 'studio/test_render_parity_preflight.py'
+      - 'studio/render_bundle.py'
+      - '.github/workflows/studio-render-parity-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  render-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/render_parity_preflight.py studio/render_bundle.py
+      - name: Preview to MP4 parity regression
+        working-directory: studio
+        run: python test_render_parity_preflight.py
+      - name: Render bundle wiring
+        run: python - <<'PY'
+          from pathlib import Path
+          text=Path('studio/render_bundle.py').read_text(encoding='utf-8')
+          assert "render_parity_preflight.py" in text
+          assert "Verificando paridad preview → MP4" in text
+          print('Render bundle parity wiring OK')
+          PY
