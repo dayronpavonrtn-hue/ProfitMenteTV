@@ -20,8 +20,15 @@
       if(!project||typeof project!=='object')return project;
       return {...project,trackState:this.mergeTrackState(project)};
     }
+    static resolveQA(){
+      if(root.ProfitMenteQAEngine)return root.ProfitMenteQAEngine;
+      if(typeof module!=='undefined'&&module.exports&&typeof require==='function'){
+        try{return require('./qa-engine.js').ProfitMenteQAEngine}catch(_){return null}
+      }
+      return null;
+    }
     static install(){
-      const QA=root.ProfitMenteQAEngine;
+      const QA=this.resolveQA();
       if(!QA?.prototype||QA.prototype.__profitmenteLegacyTrackStateGuard)return false;
       const original=QA.prototype.inspect;
       if(typeof original!=='function')return false;
