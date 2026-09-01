@@ -1,0 +1,25 @@
+name: ProfitMente Studio Track Lock Placement QA
+
+on:
+  push:
+    paths:
+      - 'studio/track-lock-placement-guard.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_track_lock_placement_guard.mjs'
+      - '.github/workflows/studio-track-lock-placement-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  track-lock-placement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check studio/track-lock-placement-guard.js && node --check studio/feature-bootstrap.js
+      - name: Manual placement lock regression
+        run: node studio/test_track_lock_placement_guard.mjs
+      - name: Bootstrap wiring
+        run: node -e "const fs=require('fs');const s=fs.readFileSync('studio/feature-bootstrap.js','utf8');if(!s.includes(\"['track-lock-placement-guard.js','ProfitMenteTrackLockPlacementGuard']\"))process.exit(1);console.log('Bootstrap wiring OK')"
