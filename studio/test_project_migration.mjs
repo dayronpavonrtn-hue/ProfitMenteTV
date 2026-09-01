@@ -35,8 +35,15 @@ assert.equal(overhang.project.clips[1].start,40);
 assert.equal(overhang.project.clips[1].duration,7);
 assert.equal(overhang.project.clips[1].locked,true);
 assert.equal(overhang.project.clips[1].asset,'camera-a');
-assert.equal(overhang.project.trackStates[0].locked,true,'legacy track protection metadata must survive migration');
+assert.equal(overhang.project.trackState[0].locked,true,'legacy track protection metadata must migrate into canonical trackState');
+assert.equal('trackStates' in overhang.project,false,'legacy trackStates must be removed after canonical migration');
 assert.equal(overhang.repairs.durationExtended,true);
+
+const mixedState=engine.migrate({version:'1.9',name:'Mixed state',mode:'Manual',duration:5,format:'9:16',trackState:{0:{locked:false,hidden:false,label:'Video'},1:{muted:true}},trackStates:{0:{locked:true,hidden:true,legacyOnly:'keep'},1:{muted:false,solo:true},2:{locked:true}},clips:[]});
+assert.deepEqual(mixedState.project.trackState[0],{locked:true,hidden:true,legacyOnly:'keep',label:'Video'},'true safety flags from either schema must win while metadata is preserved');
+assert.deepEqual(mixedState.project.trackState[1],{muted:true,solo:true},'mixed mute/solo state must merge conservatively');
+assert.deepEqual(mixedState.project.trackState[2],{locked:true},'legacy-only tracks must survive migration');
+assert.equal('trackStates' in mixedState.project,false,'mixed projects must finish with only canonical trackState');
 
 const damaged=engine.migrate({version:'1.8',name:'Damaged identities',mode:'Manual',duration:8,format:'9:16',clips:[
   {id:'dup',track:0,name:'A',start:0,duration:2},
