@@ -1,6 +1,10 @@
 (()=>{
   const baseRender=renderAt;
-  function captionsHidden(){const state=project?.trackState||{},value=state[3]??state['3']??{};return !!(value&&typeof value==='object'&&value.hidden)}
+  function trackStateValue(map,track){if(!map||typeof map!=='object')return null;const value=map[track]??map[String(track)];return value&&typeof value==='object'?value:null}
+  function captionsHidden(){
+    const current=trackStateValue(project?.trackState,3),legacy=trackStateValue(project?.trackStates,3);
+    return !!(current?.hidden||legacy?.hidden);
+  }
   function fitWordFont(ctx,text,baseSize,maxWidth,minSize=22){
     const safeBase=Math.max(minSize,Number(baseSize)||minSize),safeWidth=Math.max(1,Number(maxWidth)||1);
     ctx.font=`900 ${Math.round(safeBase)}px Arial`;
