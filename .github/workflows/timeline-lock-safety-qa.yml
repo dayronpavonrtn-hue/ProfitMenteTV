@@ -1,0 +1,24 @@
+name: ProfitMente Studio Timeline Lock Safety QA
+
+on:
+  push:
+    paths:
+      - 'studio/timeline-operations.js'
+      - 'studio/test_timeline_lock_safety.mjs'
+      - '.github/workflows/timeline-lock-safety-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  timeline-lock-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: node --check studio/timeline-operations.js
+      - name: Timeline lock regression
+        run: node studio/test_timeline_lock_safety.mjs
+      - name: Existing timeline regression
+        run: node studio/test_timeline_operations.mjs
