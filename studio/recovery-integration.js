@@ -4,7 +4,7 @@
   let showAll=false;
   const section=document.createElement('section');section.className='recoveryPanel';section.innerHTML='<h3>Recuperación</h3><div class="projectLibraryActions"><button id="recoverySnapshotBtn">⟲ Crear punto</button><button id="recoveryRefreshBtn">↻ Ver versiones</button><button id="recoveryAllBtn" title="Mostrar también copias de otros proyectos">☰ Ver todos</button></div><div id="recoveryList" class="projectLibraryList"></div>';aside.appendChild(section);
   const status=t=>typeof setStatus==='function'&&setStatus(t);
-  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   function rows(){return (showAll?engine.list():engine.list(project)).slice(0,showAll?12:6)}
   function render(){
     const el=$('#recoveryList'),list=rows(),toggle=$('#recoveryAllBtn');
