@@ -12,7 +12,7 @@
     const clip=selectedClip();if(!clip){setStatus?.('Selecciona primero un clip del timeline');return}
     const result=engine.replace(project,clip.id,asset);
     if(!result.ok){
-      const msg=result.reason==='incompatible'?'Ese medio no es compatible con la pista del clip seleccionado':'No se pudo reemplazar el medio';
+      const msg=result.reason==='locked'?'El clip o su pista está bloqueado 🔒. Desbloquéalo para reemplazar el medio':result.reason==='incompatible'?'Ese medio no es compatible con la pista del clip seleccionado':'No se pudo reemplazar el medio';
       setStatus?.(msg);return;
     }
     if(typeof persist==='function')persist();
