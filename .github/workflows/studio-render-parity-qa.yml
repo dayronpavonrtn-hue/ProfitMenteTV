@@ -23,7 +23,8 @@ jobs:
         working-directory: studio
         run: python test_render_parity_preflight.py
       - name: Render bundle wiring
-        run: python - <<'PY'
+        run: |
+          python - <<'PY'
           from pathlib import Path
           text=Path('studio/render_bundle.py').read_text(encoding='utf-8')
           assert "render_parity_preflight.py" in text
