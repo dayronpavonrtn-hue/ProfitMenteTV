@@ -1,27 +1,48 @@
 (()=>{
   const engine=new ProfitMenteGeneratorEngine();
+  const applyGeneratedProject=(target,result,duration)=>{
+    const previous=Array.isArray(target?.clips)?target.clips:[];
+    const preserved=previous.filter(clip=>engine.clipLocked(target,clip));
+    const blockedTracks=new Set();
+    const generated=(Array.isArray(result?.clips)?result.clips:[]).filter(clip=>{
+      if(engine.trackLocked(target,clip?.track)){
+        blockedTracks.add(String(clip?.track));
+        return false;
+      }
+      return true;
+    });
+    const requested=Math.max(10,Number(duration)||45);
+    const protectedEnd=preserved.reduce((max,clip)=>Math.max(max,(Number(clip?.start)||0)+Math.max(0,Number(clip?.duration)||0)),0);
+    target.mode='Automático';
+    target.duration=Math.max(requested,protectedEnd);
+    target.name=result?.title||'Video automático';
+    target.script=result?.script||'';
+    target.generatorSeed=result?.seed;
+    target.clips=[...preserved,...generated];
+    return {preserved:preserved.length,generated:generated.length,blockedTracks:blockedTracks.size,duration:target.duration};
+  };
+  window.ProfitMenteApplyGeneratedProject=applyGeneratedProject;
   const btn=document.querySelector('#generateBtn');
   const topic=document.querySelector('#topicInput');
   if(!btn)return;
   btn.onclick=()=>{
     const duration=Math.max(10,+document.querySelector('#duration').value||45);
     const result=engine.generate(topic.value,duration);
-    project.mode='Automático';
-    project.duration=duration;
-    project.name=result.title||'Video automático';
-    project.script=result.script;
-    project.generatorSeed=result.seed;
-    project.clips=result.clips;
+    const merge=applyGeneratedProject(project,result,duration);
     const assigned=engine.assignAssets(project,assets);
     document.querySelector('#mode').value='Automático';
     document.querySelector('#projectName').value=project.name;
+    document.querySelector('#duration').value=project.duration;
+    document.querySelector('#playhead').max=project.duration;
     document.querySelector('#playhead').value=0;
     save();
     const visual=assigned.primary?`${assigned.primary} escena(s) con medio y ${assigned.broll} B-roll.`:'Añade videos o imágenes a la biblioteca para completar visuales automáticamente.';
     const narration=assigned.narration?' Narración local conectada automáticamente.':'';
     const soundtrack=assigned.music?' Música local añadida automáticamente con ducking para voz.':'';
     const sfx=assigned.sfx?` ${assigned.sfx} efecto(s) local(es) colocado(s) en transiciones.`:'';
-    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${narration}${soundtrack}${sfx}`);
+    const protectedEdits=merge.preserved?` ${merge.preserved} clip(s) manual(es) bloqueado(s) conservado(s).`:'';
+    const protectedTracks=merge.blockedTracks?` ${merge.blockedTracks} pista(s) bloqueada(s) quedaron fuera de la regeneración.`:'';
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${narration}${soundtrack}${sfx}${protectedEdits}${protectedTracks}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
