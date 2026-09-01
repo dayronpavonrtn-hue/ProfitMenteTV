@@ -1,6 +1,9 @@
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
-  trackLocked(project,track){const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)}
+  trackLocked(project,track){
+    const keys=[track,String(track)],maps=[project?.trackState,project?.trackStates];
+    return maps.some(map=>keys.some(key=>!!(map?.[key]&&typeof map[key]==='object'&&map[key].locked)));
+  }
   locked(project,clip){
     const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;
     if(guard?.isLocked)return guard.isLocked(project,clip);
