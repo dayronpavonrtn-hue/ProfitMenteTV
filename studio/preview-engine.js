@@ -21,11 +21,25 @@
     mediaCache.set(a.id,entry);return entry;
   }
   async function seekVideo(v,time){
-    await new Promise(resolve=>{
+    return new Promise(resolve=>{
       const target=clamp(time,0,Math.max(0,(Number.isFinite(v.duration)?v.duration:time)-.01));
-      if(v.readyState>=2&&Math.abs(v.currentTime-target)<.035){resolve();return}
-      let done=false;const finish=()=>{if(done)return;done=true;v.removeEventListener('seeked',finish);resolve()};
-      v.addEventListener('seeked',finish,{once:true});try{v.currentTime=target}catch{finish()}setTimeout(finish,220);
+      let settled=false,seekTimer=null,frameTimer=null;
+      const cleanup=()=>{v.removeEventListener('seeked',onSeeked);if(seekTimer)clearTimeout(seekTimer);if(frameTimer)clearTimeout(frameTimer)};
+      const finish=ok=>{if(settled)return;settled=true;cleanup();resolve(!!ok)};
+      const afterSeek=()=>{
+        if(v.readyState<2){finish(false);return}
+        if(typeof v.requestVideoFrameCallback==='function'){
+          try{v.requestVideoFrameCallback(()=>finish(true));frameTimer=setTimeout(()=>finish(v.readyState>=2),160)}catch{finish(v.readyState>=2)}
+        }else finish(true);
+      };
+      const onSeeked=()=>afterSeek();
+      if(v.readyState>=2&&Math.abs(v.currentTime-target)<.035){afterSeek();return}
+      v.addEventListener('seeked',onSeeked,{once:true});
+      try{v.currentTime=target}catch{finish(false);return}
+      // Never paint a previous decoded frame just because a seek is slow. If the
+      // browser cannot produce the requested frame promptly, this clip is skipped
+      // for the current preview epoch and a later render request can retry it.
+      seekTimer=setTimeout(()=>finish(false),750);
     });
   }
   function fitted(source,mode='cover'){
@@ -62,8 +76,8 @@
     const source=entry.el;
     if(a.type==='video'){
       const speed=clamp(Number(c.speed)||1,.25,4),sourceTime=Math.max(0,(Number(c.sourceOffset)||0)+(t-Number(c.start||0))*speed);
-      await seekVideo(source,sourceTime);
-      if(epoch!==renderEpoch)return false;
+      const frameReady=await seekVideo(source,sourceTime);
+      if(!frameReady||epoch!==renderEpoch)return false;
     }
     const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size||epoch!==renderEpoch)return false;const tr=transformFor(c,t),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
     ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
