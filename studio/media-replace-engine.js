@@ -11,8 +11,7 @@ class ProfitMenteMediaReplaceEngine{
     return 'other';
   }
   static trackLocked(project,track){
-    const states=project?.trackState??project?.trackStates??{};
-    const state=states?.[track]??states?.[String(track)]??{};
+    const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??project?.trackStates?.[track]??project?.trackStates?.[String(track)]??{};
     return !!(state&&typeof state==='object'&&state.locked);
   }
   static isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
