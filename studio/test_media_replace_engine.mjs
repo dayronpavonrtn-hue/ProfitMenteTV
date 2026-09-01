@@ -15,5 +15,21 @@ const audio={clips:[{id:'a',track:5,asset:'x',duration:8,sourceOffset:1,speed:1,
 r=Engine.replace(audio,'a',{id:'voice',name:'Voice',type:'audio',duration:4});assert.equal(r.ok,true);assert.equal(audio.clips[0].duration,3);assert.equal(audio.clips[0].volume,.7);
 
 const incompatible={clips:[{id:'x',track:5,asset:'a',duration:2}]};r=Engine.replace(incompatible,'x',{id:'pic',name:'Pic',type:'image',duration:5});assert.equal(r.ok,false);assert.equal(r.reason,'incompatible');assert.equal(incompatible.clips[0].asset,'a');
+
+const lockedClip={clips:[{...structuredClone(baseClip),id:'locked-clip',locked:true}]};
+const lockedClipBefore=structuredClone(lockedClip);
+r=Engine.replace(lockedClip,'locked-clip',{id:'replacement',name:'Replacement',type:'video',duration:20});
+assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(lockedClip,lockedClipBefore);
+
+const lockedTrack={clips:[{...structuredClone(baseClip),id:'locked-track',track:1}],trackState:{1:{locked:true}}};
+const lockedTrackBefore=structuredClone(lockedTrack);
+r=Engine.replace(lockedTrack,'locked-track',{id:'replacement',name:'Replacement',type:'image',duration:20});
+assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(lockedTrack,lockedTrackBefore);
+
+const lockedTrackLegacy={clips:[{...structuredClone(baseClip),id:'locked-track-legacy',track:0}],trackStates:{'0':{locked:true}}};
+const lockedTrackLegacyBefore=structuredClone(lockedTrackLegacy);
+r=Engine.replace(lockedTrackLegacy,'locked-track-legacy',{id:'replacement',name:'Replacement',type:'video',duration:20});
+assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(lockedTrackLegacy,lockedTrackLegacyBefore);
+
 assert.equal(Engine.replace({clips:[]},'missing',{id:'a',type:'audio'}).reason,'clip-missing');
 console.log('media replace engine ok');
