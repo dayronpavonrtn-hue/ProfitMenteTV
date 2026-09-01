@@ -32,4 +32,38 @@ assert.equal(forced.clips[3].transition,'cut','force must not bridge timeline ga
 const short={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.2},{id:'b',track:0,sceneText:'b',start:.2,duration:.2}]};
 Engine.apply(short);assert.ok(short.clips[1].transitionDuration<=.2+.0001);assert.equal((short.clips[1].transitionDuration*60)%1,0);
 assert.equal(Engine.inspect(short).invalid,0);
+
+const lockedClip={fps:30,clips:[
+  {id:'a',track:0,sceneText:'a',start:0,duration:2,locked:true,transition:'fade'},
+  {id:'b',track:0,sceneText:'b',start:2,duration:2,locked:true,transition:'zoom',transitionDuration:.3,autoTransition:true},
+  {id:'c',track:0,sceneText:'c',start:4,duration:2}
+]};
+const lockedClipBefore=structuredClone(lockedClip.clips.slice(0,2));
+const lockedClipResult=Engine.apply(lockedClip,{force:true});
+assert.deepEqual(lockedClip.clips.slice(0,2),lockedClipBefore,'force must never change individually locked clips');
+assert.equal(lockedClipResult.locked,2);
+assert.equal(lockedClip.clips[2].autoTransition,true,'unlocked generated clips must remain eligible');
+assert.equal(Engine.inspect(lockedClip).locked,2);
+
+for(const mapName of ['trackState','trackStates']){
+  const lockedTrack={fps:30,[mapName]:{0:{locked:true}},clips:[
+    {id:'a',track:0,sceneText:'a',start:0,duration:2},
+    {id:'b',track:0,sceneText:'b',start:2,duration:2,transition:'fade',transitionDuration:.2,autoTransition:true}
+  ]};
+  const before=JSON.stringify(lockedTrack);
+  const result=Engine.apply(lockedTrack,{force:true});
+  assert.equal(JSON.stringify(lockedTrack),before,`${mapName} lock must make automatic transitions atomic and read-only`);
+  assert.equal(result.changed,0);
+  assert.equal(result.locked,2);
+}
+
+const conflictingMaps={fps:30,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[
+  {id:'a',track:0,sceneText:'a',start:0,duration:2},
+  {id:'b',track:0,sceneText:'b',start:2,duration:2}
+]};
+const conflictBefore=JSON.stringify(conflictingMaps);
+const conflictResult=Engine.apply(conflictingMaps,{force:true});
+assert.equal(JSON.stringify(conflictingMaps),conflictBefore,'a legacy lock must win over an unlocked current map');
+assert.equal(conflictResult.locked,2);
+
 console.log('auto-transition-engine regression: ok');
