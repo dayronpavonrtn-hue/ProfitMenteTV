@@ -63,7 +63,9 @@ assert.equal(collision.reason,'content-hash-mismatch');
 
 const unsafeLegacy={...legacyOffline,sourceFingerprint:'other.mp4|6000000|video/mp4|42'};
 const unsafeIdentity=Engine.identity(unsafeLegacy,rolloutFile,upgradedHashes);
-assert.notEqual(unsafeIdentity.reason,'legacy-content-hash-match','legacy hash alone must not be treated as authoritative after collision hardening');
+assert.equal(unsafeIdentity.ok,false,'legacy hash collision without a matching fingerprint must stay unmatched');
+assert.equal(unsafeIdentity.reason,'legacy-hash-unverified');
+assert.equal(Engine.bestMatch([unsafeLegacy],rolloutFile,upgradedHashes).asset,null,'unsafe legacy hash must not fall back to filename/size auto relink');
 
 const project={clips:[{id:'c1',asset:'v1',duration:4,speed:2,sourceOffset:3},{id:'c2',asset:'a1',duration:1,speed:1,sourceOffset:0}]};
 assert.equal(Engine.sourceWindowIssues(project,assets).length,1,'source overrun must be reported after relink');
