@@ -13,6 +13,16 @@ function normalizeFormat(value){
   }
   return '9:16';
 }
+function contentDuration(clips=[],fallback=1){
+  let end=Math.max(1,finite(fallback,1));
+  for(const clip of clips){
+    if(!clip||typeof clip!=='object')continue;
+    const start=Math.max(0,finite(clip.start,0));
+    const duration=Math.max(.05,finite(clip.duration,.05));
+    end=Math.max(end,start+duration);
+  }
+  return Number(end.toFixed(3));
+}
 function normalizeClip(input,projectDuration){
   const c=input&&typeof input==='object'?clone(input):{};
   c.id=typeof c.id==='string'&&c.id.trim()?c.id.trim():uuid('clip');
@@ -63,14 +73,16 @@ class ProfitMenteProjectMigrationEngine{
   constructor(currentVersion=CURRENT_VERSION){this.currentVersion=String(currentVersion||CURRENT_VERSION)}
   migrate(input){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Proyecto inválido para migración');
-    const source=clone(input),fromVersion=String(source.version||'0'),duration=Math.max(1,finite(source.duration,45));
+    const source=clone(input),fromVersion=String(source.version||'0');
+    const sourceClips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object'):[];
+    const sourceMarkers=Array.isArray(source.markers)?source.markers.filter(m=>m&&typeof m==='object'):[];
+    const declaredDuration=Math.max(1,finite(source.duration,45));
+    const duration=contentDuration(sourceClips,declaredDuration);
     const project={...source};
     project.name=typeof source.name==='string'&&source.name.trim()?source.name.trim():'Nuevo video';
     project.mode=normalizeMode(source.mode);
     project.duration=duration;
     project.format=normalizeFormat(source.format);
-    const sourceClips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object'):[];
-    const sourceMarkers=Array.isArray(source.markers)?source.markers.filter(m=>m&&typeof m==='object'):[];
     const repairedClipIds=countIdentityRepairs(sourceClips);
     const repairedMarkerIds=countIdentityRepairs(sourceMarkers);
     project.clips=sourceClips.map(c=>normalizeClip(c,duration));
@@ -80,8 +92,8 @@ class ProfitMenteProjectMigrationEngine{
     if(versionNumber(fromVersion)<=versionNumber(this.currentVersion))project.version=this.currentVersion;
     else project.version=fromVersion;
     const before=JSON.stringify(source),after=JSON.stringify(project);
-    return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds}};
+    return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds,durationExtended:duration>declaredDuration}};
   }
 }
-return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds,countIdentityRepairs};
+return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds,countIdentityRepairs,contentDuration};
 });
