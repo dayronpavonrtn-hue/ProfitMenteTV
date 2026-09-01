@@ -44,8 +44,10 @@ class ProfitMenteRelinkEngine{
     let score=0;
     const en=this.normalize(expected?.name),fn=this.normalize(file?.name),et=expected?.type||String(expected?.mime||'').split('/')[0],ft=this.inferType(file);
     if(et&&ft&&et!==ft)return -1000;
-    if(en&&fn&&en===fn)score+=100;
-    else if(en&&fn&&(en.includes(fn)||fn.includes(en)))score+=45;
+    const exactName=!!(en&&fn&&en===fn),relatedName=!!(en&&fn&&(exactName||en.includes(fn)||fn.includes(en)));
+    if(exactName)score+=100;
+    else if(relatedName)score+=45;
+    else if(en&&fn)score-=30;
     if(et&&et===ft)score+=25;
     if(expected?.size&&file?.size){const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);if(ratio<.002)score+=45;else if(ratio<.01)score+=35;else if(ratio<.08)score+=15;else if(ratio>.35)score-=35}
     if(expected?.lastModified&&file?.lastModified&&Math.abs(Number(expected.lastModified)-Number(file.lastModified))<2000)score+=10;
