@@ -63,11 +63,12 @@ class ProfitMenteMediaImportEngine{
     if(current){
       const modern=this.findDuplicateHash(assets,current);if(modern)return modern;
       // Existing Studio libraries can contain the former first+last-MB hash in
-      // sourceContentHash. Check it only as a compatibility path after the
-      // stronger v2 hash, never as a reason to collapse two modern v2 assets.
+      // sourceContentHash. Check that legacy hash only against assets created
+      // before sample-v2; two v2 assets with equal edges but different middles
+      // must remain distinct.
       if(legacy){
         const legacyMatch=(assets||[]).find(asset=>{
-          if(asset?.sourceHashVersion==='sample-v2')return asset?.sourceLegacyContentHash===legacy;
+          if(asset?.sourceHashVersion==='sample-v2')return false;
           return asset?.sourceContentHash===legacy||asset?.sourceLegacyContentHash===legacy;
         });
         if(legacyMatch)return legacyMatch;
