@@ -62,6 +62,7 @@
     ['project-reset-integration.js','ProfitMenteProjectReset'],
     ['project-version-engine.js','ProfitMenteProjectVersionEngine'],
     ['project-version-integration.js','ProfitMenteProjectVersions'],
+    ['qa-legacy-track-state-guard.js','ProfitMenteQALegacyTrackStateGuard'],
     ['qa-autofix.js','ProfitMenteQAAutofix'],
     ['qa-source-window-guard.js','ProfitMenteQASourceWindowGuard'],
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
