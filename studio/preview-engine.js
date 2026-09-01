@@ -4,7 +4,11 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
-  function trackHidden(track){const state=project?.trackState||{},value=state[track]??state[String(track)]??{};return !!(value&&typeof value==='object'&&value.hidden)}
+  function trackStateValue(map,track){if(!map||typeof map!=='object')return null;const value=map[track]??map[String(track)];return value&&typeof value==='object'?value:null}
+  function trackHidden(track){
+    const current=trackStateValue(project?.trackState,track),legacy=trackStateValue(project?.trackStates,track);
+    return !!(current?.hidden||legacy?.hidden);
+  }
   function transitionDuration(c,duration){const fallback=Math.min(.28,Math.max(.08,duration*.12)),raw=Number(c?.transitionDuration);return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,Math.max(.05,duration)))}
   function previewBlobFor(a){return a?.type==='video'&&a.previewBlob instanceof Blob&&a.previewBlob.size?a.previewBlob:a?.blob}
   function cachedMedia(a){
