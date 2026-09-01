@@ -4,8 +4,12 @@ on:
     paths:
       - 'studio/project-import-engine.js'
       - 'studio/project-import-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/transition-duration.js'
+      - 'studio/index.html'
       - 'studio/generator-integration.js'
       - 'studio/test_project_import.mjs'
+      - 'studio/test_feature_bootstrap_wiring.mjs'
       - '.github/workflows/project-import-qa.yml'
   workflow_dispatch:
 jobs:
@@ -20,6 +24,9 @@ jobs:
         run: |
           node --check studio/project-import-engine.js
           node --check studio/project-import-integration.js
+          node --check studio/feature-bootstrap.js
           node --check studio/generator-integration.js
       - name: Test safe import
         run: node studio/test_project_import.mjs
+      - name: Test import bootstrap wiring
+        run: node studio/test_feature_bootstrap_wiring.mjs
