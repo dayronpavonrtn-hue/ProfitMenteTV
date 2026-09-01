@@ -61,15 +61,17 @@ class ProfitMenteMediaImportEngine{
   static findDuplicateForHashes(assets=[],file={},hashes={}){
     const current=String(hashes?.current||''),legacy=String(hashes?.legacy||'');
     if(current){
-      const modern=this.findDuplicateHash(assets,current);if(modern)return modern;
-      // Existing Studio libraries can contain the former first+last-MB hash in
-      // sourceContentHash. Check that legacy hash only against assets created
-      // before sample-v2; two v2 assets with equal edges but different middles
-      // must remain distinct.
+      const modern=(assets||[]).find(asset=>asset?.sourceHashVersion==='sample-v2'&&asset?.sourceContentHash===current);if(modern)return modern;
+      // Existing Studio libraries can contain the former first+last-MB hash.
+      // That v1 hash can collide when the middle of a large video differs, so
+      // trust it only when the original metadata signature also agrees. In an
+      // ambiguous case Studio imports the file instead of risking data loss.
       if(legacy){
-        const legacyMatch=(assets||[]).find(asset=>{
+        const exact=this.signature(file),legacyMatch=(assets||[]).find(asset=>{
           if(asset?.sourceHashVersion==='sample-v2')return false;
-          return asset?.sourceContentHash===legacy||asset?.sourceLegacyContentHash===legacy;
+          const hashMatch=asset?.sourceContentHash===legacy||asset?.sourceLegacyContentHash===legacy;
+          const signatureMatch=asset?.sourceFingerprint===exact||this.signature(asset)===exact;
+          return hashMatch&&signatureMatch;
         });
         if(legacyMatch)return legacyMatch;
       }
