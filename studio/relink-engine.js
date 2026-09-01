@@ -65,7 +65,15 @@ class ProfitMenteRelinkEngine{
     else if(relatedName)score+=45;
     else if(en&&fn)score-=30;
     if(et&&et===ft)score+=25;
-    if(expected?.size&&file?.size){const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);if(ratio<.002)score+=45;else if(ratio<.01)score+=35;else if(ratio<.08)score+=15;else if(ratio>.35)score-=35}
+    if(expected?.size&&file?.size){
+      const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);
+      // A relink is supposed to restore the original source. Filename/path matches
+      // are not enough when the candidate is dramatically different in size: a
+      // common camera filename such as C0001.mp4 may point at unrelated footage.
+      // Reject that candidate outright instead of allowing name/path points to win.
+      if(ratio>.35)return -1000;
+      if(ratio<.002)score+=45;else if(ratio<.01)score+=35;else if(ratio<.08)score+=15;
+    }
     if(expected?.lastModified&&file?.lastModified&&Math.abs(Number(expected.lastModified)-Number(file.lastModified))<2000)score+=10;
     return score;
   }
