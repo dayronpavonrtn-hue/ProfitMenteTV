@@ -10,6 +10,12 @@ class ProfitMenteMediaReplaceEngine{
     if(asset?.type==='audio')return 'audio';
     return 'other';
   }
+  static trackLocked(project,track){
+    const states=project?.trackState??project?.trackStates??{};
+    const state=states?.[track]??states?.[String(track)]??{};
+    return !!(state&&typeof state==='object'&&state.locked);
+  }
+  static isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
   static canReplace(clip,asset){return !!clip&&!!asset&&this.trackKind(clip.track)===this.assetKind(asset)&&this.assetKind(asset)!=='other'}
   static maxTimelineDuration(clip,asset){
     if(asset?.type==='image')return Infinity;
@@ -20,6 +26,7 @@ class ProfitMenteMediaReplaceEngine{
     const clip=(project?.clips||[]).find(c=>c?.id===clipId);
     if(!clip)return {ok:false,reason:'clip-missing'};
     if(!asset?.id)return {ok:false,reason:'asset-missing'};
+    if(this.isLocked(project,clip))return {ok:false,reason:'locked'};
     if(!this.canReplace(clip,asset))return {ok:false,reason:'incompatible'};
     const before={asset:clip.asset,name:clip.name,duration:clip.duration,sourceOffset:clip.sourceOffset};
     clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';
