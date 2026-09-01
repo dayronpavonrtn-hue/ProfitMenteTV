@@ -55,6 +55,7 @@ for(const mapName of ['trackState','trackStates']){
   assert.equal(JSON.stringify(lockedTrack),before,`${mapName} lock must make automatic transitions atomic and read-only`);
   assert.equal(result.changed,0);
   assert.equal(result.locked,2);
+  assert.equal(Engine.inspect(lockedTrack).locked,2,`${mapName} lock must be visible to automation inspection`);
 }
 
 const conflictingMaps={fps:30,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[
@@ -65,5 +66,6 @@ const conflictBefore=JSON.stringify(conflictingMaps);
 const conflictResult=Engine.apply(conflictingMaps,{force:true});
 assert.equal(JSON.stringify(conflictingMaps),conflictBefore,'a legacy lock must win over an unlocked current map');
 assert.equal(conflictResult.locked,2);
+assert.equal(Engine.inspect(conflictingMaps).locked,2,'inspection must treat either lock map as authoritative');
 
 console.log('auto-transition-engine regression: ok');
