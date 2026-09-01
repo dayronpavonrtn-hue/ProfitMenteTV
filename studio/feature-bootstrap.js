@@ -18,6 +18,7 @@
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
     ['media-placement-engine.js','ProfitMenteMediaPlacementEngine'],
     ['media-placement-integration.js','ProfitMenteMediaPlacement'],
+    ['track-lock-placement-guard.js','ProfitMenteTrackLockPlacementGuard'],
     ['project-frame-rate-engine.js','ProfitMenteProjectFrameRateEngine'],
     ['project-frame-rate-integration.js','ProfitMenteProjectFrameRate'],
     ['frame-grid-engine.js','ProfitMenteFrameGridEngine'],
