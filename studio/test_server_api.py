@@ -11,8 +11,10 @@ from studio_server import (
     ThreadingHTTPServer,
     RENDER_JOBS,
     RENDER_LOCK,
+    RENDER_RESULT_TTL_SECONDS,
     _finish_job_download,
     _job_snapshot,
+    _prune_render_jobs,
     _render_counts,
 )
 
@@ -38,7 +40,7 @@ with RENDER_LOCK:
 with tempfile.TemporaryDirectory(prefix='profitmente-result-retry-test-') as parent:
     td=pathlib.Path(parent)/'job-files';td.mkdir()
     output=td/'output.mp4';output.write_bytes(b'0123456789')
-    job={'id':'retry-safe','status':'done','progress':100,'created':time.time(),'cancel_requested':False,'qc':{'ok':True},'error':None,'tempdir':str(td),'output':str(output)}
+    job={'id':'retry-safe','status':'done','progress':100,'created':time.time(),'finished_at':time.time(),'cancel_requested':False,'qc':{'ok':True},'error':None,'tempdir':str(td),'output':str(output),'result_downloads':0,'download_consumed':False}
     with RENDER_LOCK:
         previous=dict(RENDER_JOBS);RENDER_JOBS.clear();RENDER_JOBS[job['id']]=job
     try:
@@ -48,6 +50,30 @@ with tempfile.TemporaryDirectory(prefix='profitmente-result-retry-test-') as par
         assert _finish_job_download(job['id'],delivered=True) is True
         assert job['id'] not in RENDER_JOBS,'successful delivery should consume completed job'
         assert not td.exists(),'successful delivery should clean temporary render files'
+    finally:
+        with RENDER_LOCK:
+            RENDER_JOBS.clear();RENDER_JOBS.update(previous)
+
+# Retry safety must not become an unbounded disk leak. Old terminal jobs are
+# reclaimed, while an old result actively being transmitted is protected.
+with tempfile.TemporaryDirectory(prefix='profitmente-result-ttl-test-') as parent:
+    root=pathlib.Path(parent)
+    stale_dir=root/'stale';stale_dir.mkdir();stale_output=stale_dir/'output.mp4';stale_output.write_bytes(b'stale')
+    active_dir=root/'active';active_dir.mkdir();active_output=active_dir/'output.mp4';active_output.write_bytes(b'active')
+    now=time.time()
+    stale={'id':'stale','status':'done','created':now-RENDER_RESULT_TTL_SECONDS-20,'finished_at':now-RENDER_RESULT_TTL_SECONDS-10,'tempdir':str(stale_dir),'output':str(stale_output),'result_downloads':0}
+    active={'id':'active','status':'done','created':now-RENDER_RESULT_TTL_SECONDS-20,'finished_at':now-RENDER_RESULT_TTL_SECONDS-10,'tempdir':str(active_dir),'output':str(active_output),'result_downloads':1}
+    recent={'id':'recent','status':'error','created':now,'finished_at':now,'tempdir':None,'result_downloads':0}
+    with RENDER_LOCK:
+        previous=dict(RENDER_JOBS);RENDER_JOBS.clear();RENDER_JOBS.update(stale=stale,active=active,recent=recent)
+    try:
+        assert _prune_render_jobs(now=now)==1
+        assert 'stale' not in RENDER_JOBS and not stale_dir.exists(),'stale completed render should release disk space'
+        assert 'active' in RENDER_JOBS and active_output.is_file(),'active result download must never be pruned'
+        assert 'recent' in RENDER_JOBS,'recent terminal metadata should remain available'
+        active['result_downloads']=0
+        assert _prune_render_jobs(now=now)==1
+        assert 'active' not in RENDER_JOBS and not active_dir.exists()
     finally:
         with RENDER_LOCK:
             RENDER_JOBS.clear();RENDER_JOBS.update(previous)
@@ -67,6 +93,7 @@ try:
     assert isinstance(data.get('render_active'),int)
     assert isinstance(data.get('render_queued'),int)
     assert data.get('render_result_retry_safe') is True
+    assert data.get('render_result_ttl_seconds') == RENDER_RESULT_TTL_SECONDS
 
     req=urllib.request.Request(base+'/api/render',data=b'x',method='POST',headers={
         'Content-Type':'application/x-tar','Origin':'https://evil.example'
