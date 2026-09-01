@@ -4,6 +4,23 @@ class ProfitMenteRelinkEngine{
     for(const c of project?.clips||[]) if(c?.asset) ids.add(c.asset);
     return [...ids];
   }
+  manifest(assets=[]){
+    return (assets||[]).filter(a=>a?.id).map(a=>{
+      const row={id:a.id,name:a.name||'',type:a.type||'',mime:a.mime||''};
+      for(const key of ['size','duration','width','height','lastModified','metadataVersion']){
+        const value=Number(a?.[key]);if(Number.isFinite(value)&&value>=0)row[key]=value;
+      }
+      if(typeof a?.mediaReadable==='boolean')row.mediaReadable=a.mediaReadable;
+      if(a?.fingerprint)row.fingerprint=String(a.fingerprint);
+      return row;
+    });
+  }
+  syncManifest(project,assets=[]){
+    if(!project||typeof project!=='object')return [];
+    const next=this.manifest(assets),previous=new Map((project.assets||[]).map(a=>[a?.id,a]));
+    for(const row of next){const old=previous.get(row.id);if(old?.fingerprint&&!row.fingerprint)row.fingerprint=old.fingerprint}
+    project.assets=next;return next;
+  }
   missing(project,assets=[]){
     const available=new Set((assets||[]).map(a=>a?.id).filter(Boolean));
     const meta=new Map((project?.assets||[]).map(a=>[a?.id,a]));
@@ -25,20 +42,23 @@ class ProfitMenteRelinkEngine{
   }
   score(expected,file){
     let score=0;
-    const en=this.normalize(expected?.name),fn=this.normalize(file?.name);
+    const en=this.normalize(expected?.name),fn=this.normalize(file?.name),et=expected?.type||String(expected?.mime||'').split('/')[0],ft=this.inferType(file);
+    if(et&&ft&&et!==ft)return -1000;
     if(en&&fn&&en===fn)score+=100;
     else if(en&&fn&&(en.includes(fn)||fn.includes(en)))score+=45;
-    const et=expected?.type||String(expected?.mime||'').split('/')[0],ft=this.inferType(file);
     if(et&&et===ft)score+=25;
-    if(expected?.size&&file?.size){const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);if(ratio<.01)score+=35;else if(ratio<.08)score+=15}
+    if(expected?.size&&file?.size){const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);if(ratio<.002)score+=45;else if(ratio<.01)score+=35;else if(ratio<.08)score+=15;else if(ratio>.35)score-=35}
+    if(expected?.lastModified&&file?.lastModified&&Math.abs(Number(expected.lastModified)-Number(file.lastModified))<2000)score+=10;
     return score;
   }
   match(project,assets,files){
     const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[];
     for(const expected of missing){
-      let best=-1,bestScore=0;
+      let best=-1,bestScore=-Infinity;
       remaining.forEach((file,i)=>{const s=this.score(expected,file);if(s>bestScore){bestScore=s;best=i}});
-      if(best>=0&&bestScore>=50){matches.push({expected,file:remaining[best],score:bestScore});remaining.splice(best,1)}
+      // Require more than a type/size coincidence. A safe automatic relink needs
+      // a strong filename relationship or an exact-name match, with type enforced.
+      if(best>=0&&bestScore>=65){matches.push({expected,file:remaining[best],score:bestScore});remaining.splice(best,1)}
     }
     return {missing,matches,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
   }
@@ -55,14 +75,17 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
   const info=document.createElement('div');info.id='relinkInfo';info.className='relinkInfo';info.hidden=true;
   const anchor=document.querySelector('#importBundleBtn')||document.querySelector('#importBtn');anchor?.insertAdjacentElement('afterend',info);info.insertAdjacentElement('beforebegin',button);button.insertAdjacentElement('beforebegin',input);
   function markMissing(){const missing=engine.missing(project,assets),ids=new Set(missing.map(x=>x.id));document.querySelectorAll('.clip[data-id]').forEach(el=>{const c=(project.clips||[]).find(x=>x.id===el.dataset.id);el.classList.toggle('missingMedia',!!c?.asset&&ids.has(c.asset));if(c?.asset&&ids.has(c.asset))el.title=`Medio faltante: ${missing.find(x=>x.id===c.asset)?.name||c.asset}`});return missing}
-  function refresh(){const missing=markMissing();button.hidden=!missing.length;info.hidden=!missing.length;if(missing.length){info.className='relinkInfo';info.textContent=`${missing.length} medio${missing.length===1?'':'s'} faltante${missing.length===1?'':'s'}: ${missing.map(x=>x.name||x.id).join(', ')}`}return missing}
+  function refresh(){engine.syncManifest(project,assets);const missing=markMissing();button.hidden=!missing.length;info.hidden=!missing.length;if(missing.length){info.className='relinkInfo';info.textContent=`${missing.length} medio${missing.length===1?'':'s'} faltante${missing.length===1?'':'s'}: ${missing.map(x=>x.name||x.id).join(', ')}`}return missing}
   const baseDraw=drawTimeline;drawTimeline=function(){baseDraw();requestAnimationFrame(refresh)};
+  const basePersist=typeof persist==='function'?persist:null;
+  if(basePersist)persist=function(){engine.syncManifest(project,assets);return basePersist()};
   button.onclick=()=>input.click();
   input.onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const result=engine.match(project,assets,files);if(!result.matches.length){setStatus?.('No encontré coincidencias seguras. Selecciona los archivos originales con sus nombres correctos.');e.target.value='';return}
     let restored=0;
-    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size};await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
-    drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);e.target.value=''};
+    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
+    engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);e.target.value=''};
   document.querySelector('#projectInput')?.addEventListener('change',()=>setTimeout(refresh,80));
   document.querySelector('#bundleInput')?.addEventListener('change',()=>setTimeout(refresh,120));
+  window.addEventListener('profitmente:project-opened',()=>setTimeout(refresh,0));
   setTimeout(refresh,120);window.profitMenteRelink=engine;
 })();
