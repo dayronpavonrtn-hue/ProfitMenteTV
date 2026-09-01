@@ -27,7 +27,17 @@ for clip in video_project.get('clips',[]):
     if track in (0,1,4,5,6): clip['muted']=True
 
 with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
-    td=pathlib.Path(td); prepared=td/'project.render.json'; video_only=td/'video-only.mp4'
+    td=pathlib.Path(td)
+    normalized=td/'project.normalized.json'
+    prepared=td/'project.render.json'
+    video_only=td/'video-only.mp4'
+    normalized.write_text(json.dumps(project,ensure_ascii=False),encoding='utf-8')
+    # render_bundle.py already performs this inexpensive gate, but this entrypoint
+    # is also used directly by tests/tools. Keep it self-contained so imported or
+    # recovered projects cannot bypass Preview → MP4 compatibility checks and be
+    # silently coerced by the low-level FFmpeg compositor.
+    write_progress(31,'Verificando paridad preview → MP4')
+    subprocess.run([sys.executable,str(root/'render_parity_preflight.py'),str(normalized)],check=True)
     prepared.write_text(json.dumps(video_project,ensure_ascii=False),encoding='utf-8')
     write_progress(35,'Componiendo video y gráficos')
     subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],str(video_only)],check=True)
