@@ -30,6 +30,18 @@ assert.equal(h.state().undo,5,'history must enforce its memory limit');
 const detached=h.undo();detached.name='mutated outside';
 assert.notEqual(h.current.name,'mutated outside','returned snapshots must be defensive clones');
 
+const transactionState=h.exportState();
+const beforeTransaction=structuredClone(transactionState);
+const partial=structuredClone(h.current);partial.name='partial automation';
+h.commit(partial);
+assert.notDeepEqual(h.exportState(),beforeTransaction,'partial automation should change history before rollback');
+assert.equal(h.importState(transactionState),true,'valid transaction snapshot must restore history');
+assert.deepEqual(h.exportState(),beforeTransaction,'restored history must exactly match the pre-automation state');
+transactionState.current.name='mutated snapshot';
+assert.notEqual(h.current.name,'mutated snapshot','exported state must be a defensive clone');
+assert.equal(h.importState({undoStack:[],redoStack:[],current:null}),false,'malformed transaction snapshots must be rejected');
+assert.deepEqual(h.exportState(),beforeTransaction,'rejected history import must not mutate current history');
+
 h.reset(base);
 assert.deepEqual(h.state(),{undo:0,redo:0,limit:5});
 console.log('project history regression: ok');
