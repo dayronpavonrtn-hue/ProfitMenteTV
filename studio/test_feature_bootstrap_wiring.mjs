@@ -13,6 +13,8 @@ assert.match(bridge,/document\.scripts/,'bootstrap bridge must avoid duplicate b
 
 for(const required of [
   'media-library-tools.js',
+  'project-import-engine.js',
+  'project-import-integration.js',
   'project-migration-integration.js',
   'project-autosave.js',
   'recovery-integration.js',
@@ -22,6 +24,9 @@ for(const required of [
   'auto-finish-integration.js'
 ]) assert.ok(bootstrap.includes(`'${required}'`),`feature bootstrap must include ${required}`);
 
+const importEngineIndex=bootstrap.indexOf("'project-import-engine.js'");
+const importIntegrationIndex=bootstrap.indexOf("'project-import-integration.js'");
+assert.ok(importEngineIndex>=0&&importIntegrationIndex>importEngineIndex,'safe project import engine must load before its integration');
 assert.match(bootstrap,/document\.scripts/,'feature bootstrap must skip modules already loaded explicitly');
 assert.match(bootstrap,/profitmente:features-ready/,'feature bootstrap must announce startup completion');
 
