@@ -20,18 +20,25 @@ class MutationObserver{constructor(fn){this.fn=fn}observe(){}}
 class CustomEvent{constructor(type,init={}){this.type=type;this.detail=init.detail}}
 const originalProject={name:'Atomic',duration:10,clips:[{id:'c1',track:0,start:0,duration:5,name:'Original'}]};
 const originalAssets=[{id:'a1',name:'original.mp4',type:'video',sourceContentHash:'sha256-original'}];
-let persistCalls=0,drawTimelineCalls=0,drawLibraryCalls=0,renderCalls=0,historySeeds=0;
+const originalHistory={limit:80,undoStack:[{name:'Earlier edit',duration:10,clips:[]}],redoStack:[{name:'Redo edit',duration:10,clips:[]}],current:structuredClone(originalProject)};
+let historyState=structuredClone(originalHistory),historyImports=0;
+const projectHistoryEngine={
+  exportState(){return structuredClone(historyState)},
+  importState(state){historyState=structuredClone(state);historyImports++;return true}
+};
+let persistCalls=0,drawTimelineCalls=0,drawLibraryCalls=0,renderCalls=0,legacyHistorySeeds=0;
 const context={
   console,structuredClone,document,MutationObserver,CustomEvent,
   project:structuredClone(originalProject),assets:structuredClone(originalAssets),
   setStatus(v){statuses.push(v)},persist(){persistCalls++},drawTimeline(){drawTimelineCalls++},drawLibrary(){drawLibraryCalls++},syncForm(){},async renderAt(){renderCalls++},
-  historyEngine:{seed(){historySeeds++}},
+  historyEngine:{seed(){legacyHistorySeeds++}},
   window:{
     ProfitMenteAutoFinishEngine:{
       plan(){return {steps:['repair','smart-mix']}},inspect(){return {}}
     },
+    ProfitMenteProjectHistory:{engine:projectHistoryEngine},
     ProfitMenteQAAutofix:{repair(project,assets){project.clips[0].name='Mutated';project.clips.push({id:'partial'});assets.push({id:'partial-asset',name:'partial.mp4',type:'video'});return {changed:3}}},
-    ProfitMenteSmartMix:{async apply(){throw new Error('forced mix failure')}},
+    ProfitMenteSmartMix:{async apply(){historyState={limit:80,undoStack:[...historyState.undoStack,structuredClone(originalProject)],redoStack:[],current:{name:'Partial history state',clips:[{id:'partial'}]}};throw new Error('forced mix failure')}},
     dispatchEvent(event){events.push(event)}
   }
 };
@@ -44,12 +51,16 @@ assert.equal(result.error,'forced mix failure');
 assert.equal(result.rolledBack,true,'failed automation must report rollback');
 assert.deepEqual(context.project,originalProject,'project must be restored after a partial automation failure');
 assert.deepEqual(context.assets,originalAssets,'media library must be restored after a partial automation failure');
+assert.deepEqual(historyState,originalHistory,'undo/redo history must be restored exactly after automation rollback');
+assert.equal(historyImports,1,'modern project history must be restored once');
+assert.equal(legacyHistorySeeds,0,'restoring modern history must not erase it through the legacy seed fallback');
 assert.ok(persistCalls>=1,'restored state must be persisted');
 assert.ok(drawTimelineCalls>=1,'timeline must redraw after rollback');
 assert.ok(drawLibraryCalls>=1,'media library must redraw after rollback');
 assert.ok(renderCalls>=1,'preview must refresh after rollback');
-assert.ok(historySeeds>=1,'undo history must be reseeded from restored state');
-assert.ok(events.some(e=>e.type==='profitmente:auto-finish-rolled-back'),'rollback must publish an observable event');
+const rollbackEvent=events.find(e=>e.type==='profitmente:auto-finish-rolled-back');
+assert.ok(rollbackEvent,'rollback must publish an observable event');
+assert.equal(rollbackEvent.detail.historyRestored,true,'rollback event must confirm history restoration');
 assert.ok(statuses.some(s=>/revirti[oó] todos los cambios parciales/i.test(s)),'status must explain that partial changes were reverted');
 
 console.log('auto-finish atomic rollback regression: ok');
