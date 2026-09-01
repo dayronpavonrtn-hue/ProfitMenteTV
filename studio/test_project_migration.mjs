@@ -13,17 +13,30 @@ assert.equal(migrated.project.version,'1.9');
 assert.equal(migrated.project.name,'Legacy');
 assert.equal(migrated.project.mode,'Automático');
 assert.equal(migrated.project.format,'9:16');
-assert.equal(migrated.project.duration,10);
+assert.equal(migrated.project.duration,20,'migration must expand duration instead of truncating existing clip content');
+assert.equal(migrated.repairs.durationExtended,true);
 assert.deepEqual(migrated.project.custom,{keep:true});
 assert.equal(migrated.project.clips[0].track,6);
 assert.equal(migrated.project.clips[0].start,0);
-assert.equal(migrated.project.clips[0].duration,10);
+assert.equal(migrated.project.clips[0].duration,20,'legacy clip duration must be preserved when it exceeds declared project duration');
 assert.equal(migrated.project.clips[0].sourceOffset,0);
 assert.equal(migrated.project.clips[0].speed,4);
 assert.equal(migrated.project.clips[0].extra,'preserve');
 assert.ok(migrated.project.clips[1].id);
 assert.ok(migrated.project.clips[1].duration>=.05);
 assert.equal(old.version,'1.3','migration must not mutate the source object');
+
+const overhang=engine.migrate({version:'1.6',name:'Recovered long edit',mode:'Manual',duration:12,format:'16:9',trackStates:{0:{locked:true}},clips:[
+  {id:'early',track:0,name:'Early',start:0,duration:5,locked:true},
+  {id:'late',track:0,name:'Late protected take',start:40,duration:7,locked:true,asset:'camera-a'}
+]});
+assert.equal(overhang.project.duration,47,'a clip beyond stale project duration must remain at its original timeline position');
+assert.equal(overhang.project.clips[1].start,40);
+assert.equal(overhang.project.clips[1].duration,7);
+assert.equal(overhang.project.clips[1].locked,true);
+assert.equal(overhang.project.clips[1].asset,'camera-a');
+assert.equal(overhang.project.trackStates[0].locked,true,'legacy track protection metadata must survive migration');
+assert.equal(overhang.repairs.durationExtended,true);
 
 const damaged=engine.migrate({version:'1.8',name:'Damaged identities',mode:'Manual',duration:8,format:'9:16',clips:[
   {id:'dup',track:0,name:'A',start:0,duration:2},
@@ -41,6 +54,7 @@ assert.equal(clipIds[0],'dup','the first valid identity should be preserved');
 assert.notEqual(clipIds[1],'dup','duplicate clip identities must be regenerated');
 assert.ok(clipIds[2].trim()&&clipIds[3].trim(),'blank or missing clip identities must be generated');
 assert.equal(damaged.repairs.clipIds,3,'migration should report repaired clip identities');
+assert.equal(damaged.repairs.durationExtended,false);
 const markerIds=damaged.project.markers.map(m=>m.id);
 assert.equal(new Set(markerIds).size,markerIds.length,'marker ids must be unique after migration');
 assert.equal(damaged.repairs.markerIds,2,'migration should report duplicate and blank marker identity repairs');
@@ -53,6 +67,7 @@ const square=engine.migrate({version:'1.0',name:'Square',mode:'Manual',duration:
 assert.equal(square.project.format,'1:1');
 assert.equal(square.repairs.clipIds,0);
 assert.equal(square.repairs.markerIds,0);
+assert.equal(square.repairs.durationExtended,false);
 
 const future=engine.migrate({version:'2.0',name:'Future',mode:'Manual',duration:5,format:'16:9',clips:[],futureField:{x:1}});
 assert.equal(future.project.version,'2.0','future project versions must never be downgraded');
