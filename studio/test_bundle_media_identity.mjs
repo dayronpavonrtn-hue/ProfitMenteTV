@@ -19,6 +19,9 @@ const asset={
   height:1920,
   sourceFingerprint:'original-video.mp4|34|video/mp4|1770000000000',
   sourceContentHash:'d1b67bdce55d102701952d93a5c8b7e69b7800e9b53d8319d5a0dfba357eb027',
+  sourceLegacyContentHash:'70f5bc0cbf5f28b86a75758f07ff4b85c9692110346037af8b93af71746f96c7',
+  sourceHashVersion:'sample-v2',
+  sourceRelativePath:'camera/day-1/original-video.mp4',
   sourceLastModified:1770000000000,
   importOrigin:'drag-drop'
 };
@@ -31,9 +34,15 @@ assert.equal(restored.assets.length,1);
 assert.equal(restored.assets[0].name,'original-video.mp4');
 assert.equal(restored.assets[0].sourceFingerprint,asset.sourceFingerprint);
 assert.equal(restored.assets[0].sourceContentHash,asset.sourceContentHash);
+assert.equal(restored.assets[0].sourceLegacyContentHash,asset.sourceLegacyContentHash);
+assert.equal(restored.assets[0].sourceHashVersion,asset.sourceHashVersion);
+assert.equal(restored.assets[0].sourceRelativePath,asset.sourceRelativePath);
 assert.equal(restored.assets[0].sourceLastModified,asset.sourceLastModified);
 assert.equal(restored.assets[0].importOrigin,asset.importOrigin);
 assert.equal(restored.project.assets[0].sourceContentHash,asset.sourceContentHash);
+assert.equal(restored.project.assets[0].sourceLegacyContentHash,asset.sourceLegacyContentHash);
+assert.equal(restored.project.assets[0].sourceHashVersion,asset.sourceHashVersion);
+assert.equal(restored.project.assets[0].sourceRelativePath,asset.sourceRelativePath);
 assert.equal(restored.project.assets[0].sourceFingerprint,asset.sourceFingerprint);
 assert.equal(restored.project.assets[0].sourceLastModified,asset.sourceLastModified);
 assert.equal(restored.project.assets[0].importOrigin,asset.importOrigin);
