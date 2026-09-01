@@ -14,26 +14,41 @@
     if(!value||typeof value!=='object')return value;
     const out={};for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);return out;
   }
-  function renderFingerprint(renderProject){
+  function mediaIdentity(assetList){
+    return (Array.isArray(assetList)?assetList:[]).map(a=>({
+      id:String(a?.id||''),name:String(a?.name||''),type:String(a?.type||''),mime:String(a?.mime||''),
+      size:Number.isFinite(Number(a?.size))?Number(a.size):null,
+      duration:Number.isFinite(Number(a?.duration))?Number(a.duration):null,
+      width:Number.isFinite(Number(a?.width))?Number(a.width):null,
+      height:Number.isFinite(Number(a?.height))?Number(a.height):null,
+      sourceLastModified:Number.isFinite(Number(a?.sourceLastModified))?Number(a.sourceLastModified):null,
+      sourceFingerprint:String(a?.sourceFingerprint||''),sourceContentHash:String(a?.sourceContentHash||'')
+    })).sort((a,b)=>a.id.localeCompare(b.id)||a.name.localeCompare(b.name));
+  }
+  function renderFingerprint(renderProject,renderAssets){
     const copy=structuredClone(renderProject&&typeof renderProject==='object'?renderProject:{});
     delete copy.libraryId;delete copy.name;
-    const text=JSON.stringify(canonicalize(copy));let hash=2166136261;
+    const version=Array.isArray(renderAssets)?'v2':'v1';
+    const payload=version==='v2'?{project:canonicalize(copy),assets:canonicalize(mediaIdentity(renderAssets))}:canonicalize(copy);
+    const text=JSON.stringify(payload);let hash=2166136261;
     for(let i=0;i<text.length;i++){hash^=text.charCodeAt(i);hash=Math.imul(hash,16777619)}
-    return `v1-${(hash>>>0).toString(16).padStart(8,'0')}-${text.length}`;
+    return `${version}-${(hash>>>0).toString(16).padStart(8,'0')}-${text.length}`;
   }
   function normalizeRenderContext(value){const data=value&&typeof value==='object'?value:{projectName:value};return {projectName:String(data?.projectName||'profitmente'),libraryId:data?.libraryId||null,renderFingerprint:data?.renderFingerprint||null}}
   function projectForRender(value=project){const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(value):value;return structuredClone(prepared)}
-  function captureRenderContext(renderSnapshot=projectForRender()){return normalizeRenderContext({projectName:project?.name||'profitmente',libraryId:project?.libraryId||null,renderFingerprint:renderFingerprint(renderSnapshot)})}
-  function evaluateRenderFreshness(context,currentProject=project){
+  function snapshotAssetsForRender(value=assets){return structuredClone(Array.isArray(value)?value:[])}
+  function captureRenderContext(renderSnapshot=projectForRender(),renderAssets=snapshotAssetsForRender()){return normalizeRenderContext({projectName:project?.name||'profitmente',libraryId:project?.libraryId||null,renderFingerprint:renderFingerprint(renderSnapshot,renderAssets)})}
+  function evaluateRenderFreshness(context,currentProject=project,currentAssets=(typeof assets!=='undefined'?assets:[])){
     const identity=normalizeRenderContext(context),currentId=currentProject?.libraryId||null;
     if(identity.libraryId&&currentId&&identity.libraryId!==currentId)return {status:'different-project',current:false,reason:'project'};
     if(identity.libraryId&&!currentId)return {status:'different-project',current:false,reason:'project'};
     if(!identity.renderFingerprint)return {status:'unknown',current:false,reason:'legacy'};
-    const currentFingerprint=renderFingerprint(projectForRender(currentProject));
-    return currentFingerprint===identity.renderFingerprint?{status:'current',current:true,reason:null}:{status:'stale',current:false,reason:'content'};
+    const isMediaAware=String(identity.renderFingerprint).startsWith('v2-');
+    const currentFingerprint=isMediaAware?renderFingerprint(projectForRender(currentProject),currentAssets):renderFingerprint(projectForRender(currentProject));
+    return currentFingerprint===identity.renderFingerprint?{status:'current',current:true,reason:null}:{status:'stale',current:false,reason:isMediaAware?'content-or-media':'content'};
   }
   function freshnessLabel(freshness){
-    if(freshness?.status==='stale')return ' · ⚠ el proyecto cambió durante el render; este MP4 corresponde al snapshot anterior';
+    if(freshness?.status==='stale')return ' · ⚠ el proyecto o sus medios cambiaron durante el render; este MP4 corresponde al snapshot anterior';
     if(freshness?.status==='different-project')return ' · MP4 del proyecto original; el proyecto abierto ahora es otro';
     if(freshness?.status==='unknown')return ' · resultado recuperado de una sesión anterior';
     return ' · versión actual ✓';
@@ -102,11 +117,11 @@
     let gate;
     try{gate=await renderPreflight()}catch(err){console.error(err);setStatus('No se pudo completar el Preflight de exportación: '+(err?.message||err));return}
     if(!gate.ok){reportPreflightBlock(gate);return}
-    const renderProject=projectForRender(),renderContext=captureRenderContext(renderProject);
+    const renderProject=projectForRender(),renderAssets=snapshotAssetsForRender(),renderContext=captureRenderContext(renderProject,renderAssets);
     renderBtn.disabled=true;cancelBtn.hidden=false;client.reset();clearSession();
     try{
       const health=gate.preflight?.health||await bundler.health();if(!health.ok)throw new Error('Abre Studio con start_studio_windows.bat para activar el render MP4 directo.');if(!health.render_ready)throw new Error('FFmpeg y FFprobe no están disponibles. Instala FFmpeg gratis y vuelve a abrir Studio.');
-      setStatus('Empaquetando proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,assets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(renderContext);
+      setStatus('Empaquetando snapshot del proyecto, ducking de voz y medios…');const blob=await bundler.build(renderProject,renderAssets);setStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);await client.start(blob);persistSession(renderContext);
       await finishActiveJob(renderContext);
     }catch(err){
       if(err?.name==='AbortError'||/cancelado/i.test(err?.message||'')){clearSession();setStatus('Render MP4 cancelado')}
@@ -118,5 +133,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
 })();
