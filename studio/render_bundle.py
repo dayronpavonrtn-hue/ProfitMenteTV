@@ -38,6 +38,11 @@ try:
         project.write_text(json.dumps(normalize_track_solo(data),ensure_ascii=False),encoding='utf-8')
         write_progress(18,'Validando estructura del proyecto')
         subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
+        # Imported/legacy JSON can contain arbitrary visual enum values. The renderer
+        # used to silently coerce them, which could make MP4 differ from Studio preview.
+        # Fail before probing/rendering and tell the user exactly which clip is incompatible.
+        write_progress(21,'Verificando paridad preview → MP4')
+        subprocess.run([sys.executable,str(root/'render_parity_preflight.py'),str(project)],check=True)
         # Probe only active media before composition. This catches truncated/corrupt
         # files and wrong stream types early, before an expensive FFmpeg composition.
         write_progress(24,'Comprobando medios activos con FFprobe')
