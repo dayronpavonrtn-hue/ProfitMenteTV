@@ -3,9 +3,13 @@
   const engine=window.ProfitMenteOfflineMediaEngine,$=s=>document.querySelector(s),library=$('#mediaLibrary');if(!library)return;
   const host=library.parentElement||library,badge=document.createElement('button');badge.type='button';badge.id='profitmenteOfflineMediaStatus';badge.hidden=true;badge.style.cssText='width:100%;margin:6px 0;padding:7px 8px;border:1px solid #8b3b3b;border-radius:6px;background:#2a1717;color:#ffd7d7;cursor:pointer;font-size:11px;text-align:left';host.insertBefore(badge,library);
   function titleFor(item){const label=engine.label(item.reason);return `⚠ ${label}: ${item.clipName}${item.assetName?` · ${item.assetName}`:''}`}
+  function clearOfflineDecoration(el){
+    el.classList.remove('offline-media');el.removeAttribute('data-offline-media');el.style.outline='';el.style.outlineOffset='';
+    if(el.dataset.profitmenteOfflineTitle!==undefined){el.title=el.dataset.profitmenteOfflineTitle;delete el.dataset.profitmenteOfflineTitle}
+  }
   function decorate(report){
-    document.querySelectorAll('.clip[data-id]').forEach(el=>{el.classList.remove('offline-media');el.removeAttribute('data-offline-media');if(el.dataset.profitmenteOfflineTitle){el.title=el.dataset.profitmenteOfflineTitle;delete el.dataset.profitmenteOfflineTitle}});
-    for(const item of report.offline){if(!item.clipId)continue;const el=document.querySelector(`.clip[data-id="${CSS.escape(item.clipId)}"]`);if(!el)continue;if(el.title)el.dataset.profitmenteOfflineTitle=el.title;el.classList.add('offline-media');el.dataset.offlineMedia=item.reason;el.title=titleFor(item);el.style.outline='2px solid #d95555';el.style.outlineOffset='-2px'}
+    document.querySelectorAll('.clip[data-id]').forEach(clearOfflineDecoration);
+    for(const item of report.offline){if(!item.clipId)continue;const escaped=window.CSS&&typeof window.CSS.escape==='function'?window.CSS.escape(item.clipId):String(item.clipId).replace(/["\\]/g,'\\$&');const el=document.querySelector(`.clip[data-id="${escaped}"]`);if(!el)continue;if(el.dataset.profitmenteOfflineTitle===undefined)el.dataset.profitmenteOfflineTitle=el.title||'';el.classList.add('offline-media');el.dataset.offlineMedia=item.reason;el.title=titleFor(item);el.style.outline='2px solid #d95555';el.style.outlineOffset='-2px'}
   }
   function refresh({announce=false}={}){
     const report=engine.audit(project,assets);decorate(report);
