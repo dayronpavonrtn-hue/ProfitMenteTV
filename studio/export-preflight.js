@@ -19,10 +19,13 @@
   const qaBtn=$('#qaBtn');if(!qaBtn)return;
   let btn=$('#preflightBtn');if(!btn){btn=document.createElement('button');btn.id='preflightBtn';btn.textContent='🚦 Preflight export';btn.title='Comprobar proyecto, medios y disponibilidad del render local';qaBtn.after(btn)}
   let report=$('#preflightReport');if(!report){report=document.createElement('div');report.id='preflightReport';report.className='status preflightReport';report.hidden=true;const status=$('#status');status?.after(report)}
-  async function run(){
+  async function run(snapshot){
     btn.disabled=true;try{
-      if(typeof save==='function')save();
-      const qa=qaEngine.inspect(project,assets),health=await bundleEngine.health(),r=ProfitMenteExportPreflight.summarize(qa,health);
+      const hasSnapshot=!!snapshot&&typeof snapshot==='object'&&!!snapshot.project;
+      if(!hasSnapshot&&typeof save==='function')save();
+      const qaProject=hasSnapshot?snapshot.project:project;
+      const qaAssets=hasSnapshot&&Array.isArray(snapshot.assets)?snapshot.assets:assets;
+      const qa=qaEngine.inspect(qaProject,qaAssets),health=await bundleEngine.health(),r=ProfitMenteExportPreflight.summarize(qa,health);
       report.hidden=false;report.dataset.state=r.state;
       const render=r.canRender?'MP4 directo ✓':r.canPackage?'Paquete ✓ · MP4 directo no disponible':'MP4 bloqueado';
       const metrics=r.metrics||{};
@@ -31,5 +34,5 @@
       return r;
     }finally{btn.disabled=false}
   }
-  btn.onclick=run;root.ProfitMenteExportPreflightRun=run;
+  btn.onclick=()=>run();root.ProfitMenteExportPreflightRun=run;
 })();
