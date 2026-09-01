@@ -4,7 +4,7 @@
   let showAll=false;
   const section=document.createElement('section');section.className='recoveryPanel';section.innerHTML='<h3>Recuperación</h3><div class="projectLibraryActions"><button id="recoverySnapshotBtn">⟲ Crear punto</button><button id="recoveryRefreshBtn">↻ Ver versiones</button><button id="recoveryAllBtn" title="Mostrar también copias de otros proyectos">☰ Ver todos</button></div><div id="recoveryList" class="projectLibraryList"></div>';aside.appendChild(section);
   const status=t=>typeof setStatus==='function'&&setStatus(t);
-  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
   function rows(){return (showAll?engine.list():engine.list(project)).slice(0,showAll?12:6)}
   function render(){
     const el=$('#recoveryList'),list=rows(),toggle=$('#recoveryAllBtn');
@@ -21,13 +21,28 @@
     showAll=false;
     if(!engine.latest(project))capture('inicio');else render();
   }
+  function flushBeforeRestore(){
+    const flush=window.ProfitMenteNewProject?.flushCurrentProject;
+    if(typeof flush==='function')return flush()!==false;
+    capture('antes de restaurar');
+    return true;
+  }
+  function normalizeRestoredProject(next){
+    if(!next?.libraryId)return next;
+    const lib=window.profitMenteProjectLibrary;
+    if(lib?.load&&lib.load(next.libraryId))return next;
+    const copy=structuredClone(next);delete copy.libraryId;return copy;
+  }
   function restore(id){
-    const next=engine.restore(id);if(!next)return;
-    capture('antes de restaurar');project=next;
-    if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
+    let next=engine.restore(id);if(!next)return;
+    if(!flushBeforeRestore()){status('No se pudo guardar el proyecto actual; restauración cancelada');return}
+    next=normalizeRestoredProject(next);project=next;
+    if(typeof persist==='function')persist();else if(typeof originalPersist==='function')originalPersist();
     if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();
     const ph=$('#playhead');if(ph)ph.value=0;if(typeof renderAt==='function')renderAt(0);if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
-    showAll=false;render();status(`Punto de recuperación restaurado: ${project.name||'Sin título'}`)
+    showAll=false;render();
+    window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',recovered:true}}));
+    status(`Punto de recuperación restaurado: ${project.name||'Sin título'}`)
   }
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();capture('autoguardado')}}
