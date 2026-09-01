@@ -38,6 +38,25 @@ assert.equal(E.findDuplicate([sameMetadataDifferentContent],sameMetadataFile)?.i
 assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,hashC),null,'different content must not be dropped just because folder metadata collides');
 assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,'')?.id,'metadata-only','signature remains fallback when hashing is unavailable');
 
+const MB=1024*1024,largeSize=6*MB;
+function largeMedia(name,middleByte,lastModified=123){
+  const bytes=new Uint8Array(largeSize);bytes.fill(11);bytes[Math.floor(largeSize/2)]=middleByte;
+  const blob=new Blob([bytes],{type:'video/mp4'});Object.defineProperty(blob,'name',{value:name});Object.defineProperty(blob,'lastModified',{value:lastModified});return blob;
+}
+const largeA=largeMedia('large-a.mp4',21),largeB=largeMedia('large-b.mp4',99);
+const legacyA=await E.contentHashLegacy(largeA),legacyB=await E.contentHashLegacy(largeB),modernA=await E.contentHash(largeA),modernB=await E.contentHash(largeB);
+assert.equal(legacyA,legacyB,'legacy edge-only hash fixture must reproduce the historical collision');
+assert.notEqual(modernA,modernB,'sample-v2 hash must distinguish media that differs in the middle');
+const hashesA=await E.contentHashes(largeA),hashesB=await E.contentHashes(largeB);
+assert.equal(hashesA.version,'sample-v2');
+assert.equal(hashesA.current,modernA);assert.equal(hashesA.legacy,legacyA);
+const modernAsset={id:'modern-a',name:'large-a.mp4',mime:'video/mp4',blob:{size:largeSize},sourceLastModified:123,sourceFingerprint:E.signature(largeA),sourceContentHash:modernA,sourceLegacyContentHash:legacyA,sourceHashVersion:'sample-v2'};
+assert.equal(E.findDuplicateForHashes([modernAsset],largeB,hashesB),null,'two modern assets with colliding legacy edges must remain distinct');
+assert.equal(E.findDuplicateForHashes([modernAsset],largeA,hashesA)?.id,'modern-a','identical modern content must still deduplicate');
+const legacyAsset={id:'legacy-a',name:'large-a.mp4',mime:'video/mp4',blob:{size:largeSize},sourceLastModified:123,sourceFingerprint:E.signature(largeA),sourceContentHash:legacyA};
+assert.equal(E.findDuplicateForHashes([legacyAsset],largeA,hashesA)?.id,'legacy-a','same legacy asset with matching metadata must remain deduplicated after hash upgrade');
+assert.equal(E.findDuplicateForHashes([legacyAsset],largeB,hashesB),null,'ambiguous legacy hash collision with different metadata must import safely instead of dropping media');
+
 function mediaBlob(name,type='video/mp4',bytes=name){const blob=new Blob([bytes],{type});Object.defineProperty(blob,'name',{value:name});Object.defineProperty(blob,'lastModified',{value:77});return blob}
 function fileEntry(path,file){return {isFile:true,isDirectory:false,fullPath:path,file(resolve){resolve(file)}}}
 function dirEntry(children){return {isFile:false,isDirectory:true,createReader(){let sent=false;return {readEntries(resolve){if(sent)resolve([]);else{sent=true;resolve(children)}}}}}}
