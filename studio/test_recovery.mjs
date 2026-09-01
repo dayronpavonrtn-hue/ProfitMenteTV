@@ -12,6 +12,18 @@ const groups=r.listGroups();assert.equal(groups.length,2,'keeps recovery histori
 assert.equal(r.list(saved).length,1,'filters snapshots for the selected saved project');assert.equal(r.list(p).length,3,'filters snapshots for the current draft');assert.equal(r.restore(c.id).clips.length,2);assert.equal(r.restore(d.id).libraryId,'lib-a','restores snapshots from another project');
 r.remove(c.id);assert.equal(r.list(p).length,2);r.pruneBefore('2026-08-28T00:02:00Z');assert.equal(r.list().length,2,'prunes the removed snapshot and entries older than the cutoff');
 
+// A single heavily edited project must not consume the entire shared recovery
+// budget and erase every usable point from other projects.
+const fairStorage=new Storage(),fair=new ProfitMenteRecoveryEngine(fairStorage,{limit:6});
+const older={name:'Older',libraryId:'older',duration:20,clips:[]};
+fair.capture(older,'inicio','2026-08-28T01:00:00Z');older.duration=21;fair.capture(older,'edit','2026-08-28T01:01:00Z');
+const hot={name:'Hot',libraryId:'hot',duration:30,clips:[]};
+for(let i=0;i<10;i++){hot.duration=30+i;fair.capture(hot,'edit',`2026-08-28T02:${String(i).padStart(2,'0')}:00Z`)}
+assert.equal(fair.list().length,6,'shared recovery store still respects its global limit');
+assert.equal(fair.list(older).length,2,'two recent recovery points from an older project survive heavy edits elsewhere');
+assert.equal(fair.list(hot).length,4,'remaining recovery capacity is used by the most active project');
+assert.equal(fair.restore(fair.latest(older).id).libraryId,'older','preserved older-project recovery remains restorable');
+
 const valid=r.list()[0];
 const validRaw={...valid,fingerprint:'legacy-fingerprint'};
 storage.setItem('profitmente-recovery-v1',JSON.stringify([null,{id:'broken-no-project'},validRaw,'bad-row']));
