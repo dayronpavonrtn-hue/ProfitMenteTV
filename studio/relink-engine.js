@@ -50,6 +50,21 @@ class ProfitMenteRelinkEngine{
     if(['jpg','jpeg','png','webp','gif','avif'].includes(ext))return 'image';
     return 'file';
   }
+  async contentHash(file={}){
+    const blob=file?.blob instanceof Blob?file.blob:file;
+    if(typeof Blob==='undefined'||!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
+    const size=Number(blob.size||0),sample=1024*1024,parts=[];
+    if(size<=sample*2)parts.push(new Uint8Array(await blob.arrayBuffer()));
+    else{
+      parts.push(new Uint8Array(await blob.slice(0,sample).arrayBuffer()));
+      parts.push(new Uint8Array(await blob.slice(size-sample,size).arrayBuffer()));
+    }
+    const total=parts.reduce((n,p)=>n+p.byteLength,0),payload=new Uint8Array(total+8);let offset=0;
+    for(const part of parts){payload.set(part,offset);offset+=part.byteLength}
+    new DataView(payload.buffer).setBigUint64(total,BigInt(size),false);
+    const digest=await globalThis.crypto.subtle.digest('SHA-256',payload);
+    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  }
   score(expected,file){
     let score=0;
     const en=this.normalize(expected?.name),fn=this.normalize(file?.name),et=expected?.type||String(expected?.mime||'').split('/')[0],ft=this.inferType(file);
@@ -67,10 +82,6 @@ class ProfitMenteRelinkEngine{
     if(et&&et===ft)score+=25;
     if(expected?.size&&file?.size){
       const ratio=Math.abs(expected.size-file.size)/Math.max(expected.size,file.size);
-      // A relink is supposed to restore the original source. Filename/path matches
-      // are not enough when the candidate is dramatically different in size: a
-      // common camera filename such as C0001.mp4 may point at unrelated footage.
-      // Reject that candidate outright instead of allowing name/path points to win.
       if(ratio>.35)return -1000;
       if(ratio<.002)score+=45;else if(ratio<.01)score+=35;else if(ratio<.08)score+=15;
     }
@@ -85,6 +96,29 @@ class ProfitMenteRelinkEngine{
       if(best>=0&&bestScore>=65){matches.push({expected,file:remaining[best],score:bestScore});remaining.splice(best,1)}
     }
     return {missing,matches,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
+  }
+  async matchVerified(project,assets,files){
+    const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],hashRejected=[];
+    const hashCache=new Map();
+    const hashFor=async file=>{
+      if(hashCache.has(file))return hashCache.get(file);
+      let hash=null;try{hash=await this.contentHash(file)}catch{}
+      hashCache.set(file,hash);return hash;
+    };
+    for(const expected of missing){
+      const ranked=remaining.map((file,index)=>({file,index,score:this.score(expected,file)})).filter(x=>x.score>=65).sort((a,b)=>b.score-a.score);
+      let accepted=null;
+      for(const candidate of ranked){
+        let hash=null;
+        if(expected?.sourceContentHash){
+          hash=await hashFor(candidate.file);
+          if(!hash||hash!==expected.sourceContentHash){hashRejected.push({expected,file:candidate.file,score:candidate.score,reason:hash?'content-hash-mismatch':'content-hash-unavailable'});continue}
+        }
+        accepted={...candidate,hash};break;
+      }
+      if(accepted){matches.push({expected,file:accepted.file,score:accepted.score,hash:accepted.hash});remaining.splice(remaining.indexOf(accepted.file),1)}
+    }
+    return {missing,matches,hashRejected,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteRelinkEngine=ProfitMenteRelinkEngine;
@@ -107,9 +141,9 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
   if(basePersist)persist=function(){engine.syncManifest(project,assets);return basePersist()};
   async function relinkFiles(files){
     files=[...(files||[])];if(!files.length)return;
-    const result=engine.match(project,assets,files);if(!result.matches.length){setStatus?.('No encontré coincidencias seguras. Selecciona los archivos originales o la carpeta raíz donde fueron importados.');return}
+    const result=await engine.matchVerified(project,assets,files);if(!result.matches.length){const detail=result.hashRejected?.length?' Los candidatos parecidos no coinciden con la huella del archivo original.':'';setStatus?.(`No encontré coincidencias seguras.${detail} Selecciona los archivos originales o la carpeta raíz donde fueron importados.`);return}
     let restored=0;
-    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
+    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
     engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);
   }
   button.onclick=()=>input.click();folderButton.onclick=()=>folderInput.click();
