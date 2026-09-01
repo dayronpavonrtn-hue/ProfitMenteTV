@@ -37,7 +37,11 @@ assert.match(integration,/const renderBtn=\$\('#renderMp4Btn'\)/,'one-click MP4 
 assert.match(integration,/renderBtn\.click\(\)/,'one-click MP4 must start the existing local render pipeline instead of duplicating it');
 assert.match(integration,/profitmente:auto-finish-render-started/,'one-click MP4 must publish a render-started event');
 assert.match(integration,/render\.id='autoFinishRenderBtn'/,'the combined Auto Finish + MP4 control must be installed');
-assert.match(integration,/runAndRender,get lastReport/,'the public integration must expose runAndRender');
+assert.match(integration,/runAndRender/,'the public integration must expose runAndRender');
+assert.match(integration,/captureAutomationState/,'Auto Finish must capture an atomic pre-run state');
+assert.match(integration,/restoreAutomationState/,'Auto Finish must expose rollback support');
+assert.match(integration,/profitmente:auto-finish-rolled-back/,'rollback must emit an observable event');
+assert.match(integration,/rolledBack/,'failed Auto Finish runs must report rollback state');
 assert.match(integration,/\$0 local/);
 assert.match(integration,/No publica ni usa servicios de pago/);
 assert.match(beats,/trackUnavailable/);
