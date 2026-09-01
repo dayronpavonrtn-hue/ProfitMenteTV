@@ -53,4 +53,17 @@ assert.match(source,/project=ProfitMenteProjectLibrary\.blank\(\)/,'new project 
 assert.match(source,/clearBtn\.onclick=.*newProject/,'the New project button must use the safe transition');
 assert.match(source,/newProject:true/,'new project transition must emit a project-opened event for integrations');
 
-console.log('safe new project + unsaved draft regression passed');
+// The later-loaded recovery/reset enhancement must not replace the safe library transition
+// with a direct blank-project assignment. It must flush the current project first and then
+// delegate to the canonical new-project controller.
+const resetIntegration=fs.readFileSync(path.join(__dirname,'project-reset-integration.js'),'utf8');
+assert.match(resetIntegration,/ProfitMenteNewProject\?\.create/,'advanced reset must detect the safe project-library controller');
+assert.match(resetIntegration,/ProfitMenteNewProject\?\.flushCurrentProject/,'advanced reset must require the safe project flush path');
+assert.match(resetIntegration,/ProfitMenteNewProject\.flushCurrentProject\(\)/,'advanced reset must persist pending work before taking recovery snapshot');
+assert.match(resetIntegration,/await window\.ProfitMenteNewProject\.create\(\)/,'advanced reset must delegate project creation to the canonical transition');
+const flushIndex=resetIntegration.indexOf('ProfitMenteNewProject.flushCurrentProject()');
+const snapshotIndex=resetIntegration.indexOf('engine.snapshot(window.profitMenteRecovery,project)');
+const createIndex=resetIntegration.indexOf('await window.ProfitMenteNewProject.create()');
+assert.ok(flushIndex>=0&&snapshotIndex>flushIndex&&createIndex>snapshotIndex,'advanced reset must flush, snapshot, then create in that order');
+
+console.log('safe new project + unsaved draft + advanced reset regression passed');
