@@ -6,6 +6,7 @@ on:
       - 'studio/recovery-integration.js'
       - 'studio/test_recovery.mjs'
       - 'studio/test_recovery_project_switch.mjs'
+      - 'studio/test_recovery_restore_persistence.mjs'
       - 'studio/generator-integration.js'
       - '.github/workflows/recovery-qa.yml'
 jobs:
@@ -25,3 +26,5 @@ jobs:
         run: node studio/test_recovery.mjs
       - name: Test recovery project switching
         run: node studio/test_recovery_project_switch.mjs
+      - name: Test recovery restore persistence
+        run: node studio/test_recovery_restore_persistence.mjs
