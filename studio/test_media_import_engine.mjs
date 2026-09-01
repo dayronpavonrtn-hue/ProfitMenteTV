@@ -34,7 +34,7 @@ assert.equal(E.findDuplicateHash([{id:'other',sourceContentHash:hashC}],hashB),n
 assert.equal(E.findDuplicateForImport([{id:'same',sourceContentHash:hashA}],renamed,hashB)?.id,'same','content-identical renamed files must deduplicate');
 const sameMetadataDifferentContent={id:'metadata-only',name:'same.mp4',mime:'video/mp4',blob:{size:22},sourceLastModified:77,sourceFingerprint:'same.mp4|22|video/mp4|77',sourceContentHash:hashA};
 const sameMetadataFile={name:'same.mp4',type:'video/mp4',size:22,lastModified:77};
-assert.equal(E.findDuplicate(sameMetadataDifferentContent?[sameMetadataDifferentContent]:[],sameMetadataFile)?.id,'metadata-only','fixture must collide by metadata signature');
+assert.equal(E.findDuplicate([sameMetadataDifferentContent],sameMetadataFile)?.id,'metadata-only','fixture must collide by metadata signature');
 assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,hashC),null,'different content must not be dropped just because folder metadata collides');
 assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,'')?.id,'metadata-only','signature remains fallback when hashing is unavailable');
 
