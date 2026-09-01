@@ -1,0 +1,36 @@
+name: ProfitMente Studio Timeline Paste QA
+
+on:
+  push:
+    paths:
+      - 'studio/timeline-operations.js'
+      - 'studio/timeline-paste-extension.js'
+      - 'studio/test_timeline_paste_extension.mjs'
+      - 'studio/index.html'
+      - '.github/workflows/timeline-paste-extension-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/timeline-operations.js'
+      - 'studio/timeline-paste-extension.js'
+      - 'studio/test_timeline_paste_extension.mjs'
+      - 'studio/index.html'
+      - '.github/workflows/timeline-paste-extension-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  timeline-paste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          node --check studio/timeline-operations.js
+          node --check studio/timeline-paste-extension.js
+      - name: Paste beyond sequence and lock regression
+        run: node studio/test_timeline_paste_extension.mjs
+      - name: Browser wiring
+        run: |
+          grep -q '<script src="timeline-operations.js"></script><script src="timeline-paste-extension.js"></script>' studio/index.html
