@@ -7,16 +7,17 @@
   const status=t=>typeof setStatus==='function'&&setStatus(t);
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
+  const placementFailure=(result,fallback)=>result?.reason==='locked-track'?'La pista destino está bloqueada':result?.reason==='locked-clip'?'Hay un clip bloqueado en el intervalo y no se modificó la timeline':result?.reason==='out-of-range'?'No hay espacio al final del proyecto para completar la operación':fallback;
   function place(asset,track,at,duration,sourceOffset=0){
     track=Number(track);if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const chosen=mode.value,r=engine.range(project,at,duration);
     if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
     if(chosen==='insert'){
       const result=engine.insertSpace(project,track,r.start,r.duration,ops);
-      if(!result.ok){status(result.reason==='locked-track'?'La pista destino está bloqueada':result.reason==='out-of-range'?'No hay espacio al final del proyecto para insertar sin recortar clips':'No se pudo preparar la inserción');return false}
+      if(!result.ok){status(placementFailure(result,'No se pudo preparar la inserción'));return false}
     }else if(chosen==='overwrite'){
       const result=engine.overwriteRange(project,track,r.start,r.duration,ops);
-      if(!result.ok){status(result.reason==='locked-track'?'La pista destino está bloqueada':'No se pudo preparar la sobrescritura');return false}
+      if(!result.ok){status(placementFailure(result,'No se pudo preparar la sobrescritura'));return false}
     }
     addClip(track,asset.name,asset.id,r.start,r.duration);
     const inserted=project.clips?.[project.clips.length-1];
@@ -45,5 +46,5 @@
     if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}
     const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration);
   },true);
-  window.ProfitMenteMediaPlacement={engine,mode,place};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
+  window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
 })();
