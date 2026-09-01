@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - 'studio/project-library.js'
+      - 'studio/project-reset-integration.js'
       - 'studio/project-new-regression.test.js'
       - '.github/workflows/project-new-qa.yml'
   pull_request:
     paths:
       - 'studio/project-library.js'
+      - 'studio/project-reset-integration.js'
       - 'studio/project-new-regression.test.js'
       - '.github/workflows/project-new-qa.yml'
 
@@ -21,6 +23,6 @@ jobs:
         with:
           node-version: '20'
       - name: Syntax check
-        run: node --check studio/project-library.js && node --check studio/project-new-regression.test.js
+        run: node --check studio/project-library.js && node --check studio/project-reset-integration.js && node --check studio/project-new-regression.test.js
       - name: Safe new project regression
         run: node studio/project-new-regression.test.js
