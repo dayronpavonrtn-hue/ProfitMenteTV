@@ -8,8 +8,8 @@ const preflightPos=bootstrap.indexOf("['export-preflight.js','ProfitMenteExportP
 const renderPos=bootstrap.indexOf("['render-job-integration.js','ProfitMenteRenderJobs']");
 assert.ok(preflightPos>=0&&renderPos>=0&&preflightPos<renderPos,'export preflight must load before MP4 render integration');
 
-async function scenario(preflight){
-  const statuses=[];let started=0,healthCalls=0,qaClicks=0,built=0;
+async function scenario(preflight,{mutateDuringPreflight=false}={}){
+  const statuses=[];let started=0,healthCalls=0,qaClicks=0,built=0,preflightSnapshot=null,builtSnapshot=null,context;
   const renderBtn={disabled:false,onclick:null,insertAdjacentElement(){}};
   const cancelBtn={hidden:true,disabled:false,onclick:null};
   const qaBtn={click(){qaClicks++}};
@@ -25,16 +25,16 @@ async function scenario(preflight){
     reset(){this.jobId=null}
     async cancel(){return {ok:true,status:'cancelled'}}
   }
-  const context={
+  context={
     console,Blob,structuredClone,ProfitMenteRenderJobClient:FakeClient,document,
-    project:{name:'Gate QA',libraryId:'gate-1',clips:[]},assets:[],qa:{inspect(){throw new Error('legacy QA path should not run when canonical preflight exists')}},save(){},
+    project:{name:'Gate QA',libraryId:'gate-1',clips:[{id:'clip-original',start:0,duration:2}]},assets:[{id:'asset-original',name:'original.mp4',size:100,sourceContentHash:'sha256-original'}],qa:{inspect(){throw new Error('legacy QA path should not run when canonical preflight exists')}},save(){},
     setStatus(v){statuses.push(v)},
-    bundler:{async health(){healthCalls++;return {ok:true,render_ready:true}},async build(){built++;return new Blob(['tar'])},qcSummary(){return 'QA post-render 100/100'}},
+    bundler:{async health(){healthCalls++;return {ok:true,render_ready:true}},async build(projectSnapshot,assetSnapshot){built++;builtSnapshot=structuredClone({project:projectSnapshot,assets:assetSnapshot});return new Blob(['tar'])},qcSummary(){return 'QA post-render 100/100'}},
     localStorage:{getItem(){return null},setItem(){},removeItem(){}},URL:{createObjectURL(){return 'blob:test'},revokeObjectURL(){}},
-    setTimeout(){return 1},clearTimeout(){},window:{ProfitMenteExportPreflightRun:async()=>structuredClone(preflight)},
+    setTimeout(){return 1},clearTimeout(){},window:{ProfitMenteExportPreflightRun:async snapshot=>{preflightSnapshot=structuredClone(snapshot);if(mutateDuringPreflight){context.project.clips.push({id:'clip-live-change',start:3,duration:1});context.assets.push({id:'asset-live-change',name:'changed.mp4',size:200,sourceContentHash:'sha256-changed'})}return structuredClone(preflight)}},
   };
   vm.createContext(context);vm.runInContext(source,context);await renderBtn.onclick();
-  return {statuses,started,healthCalls,qaClicks,built};
+  return {statuses,started,healthCalls,qaClicks,built,preflightSnapshot,builtSnapshot,liveProject:structuredClone(context.project),liveAssets:structuredClone(context.assets)};
 }
 
 const blocked=await scenario({state:'blocked',canRender:false,canPackage:false,issues:['medio faltante'],health:{ok:true,render_ready:true}});
@@ -53,5 +53,16 @@ assert.equal(ready.started,1,'ready preflight must allow MP4 render');
 assert.equal(ready.built,1,'ready preflight must build exactly one render bundle');
 assert.equal(ready.healthCalls,0,'render must reuse health already verified by preflight');
 assert.equal(ready.qaClicks,0);
+assert.deepEqual(ready.preflightSnapshot,ready.builtSnapshot,'preflight and bundler must receive the exact same project/media snapshot');
 
-console.log('canonical MP4 preflight gate ok');
+const changed=await scenario({state:'ready',canRender:true,canPackage:true,issues:[],health:{ok:true,render_ready:true}},{mutateDuringPreflight:true});
+assert.equal(changed.started,1,'live edits after snapshot capture must not corrupt an already validated snapshot render');
+assert.equal(changed.liveProject.clips.length,2,'regression must mutate the live project during preflight');
+assert.equal(changed.liveAssets.length,2,'regression must mutate the live media library during preflight');
+assert.equal(changed.preflightSnapshot.project.clips.length,1,'preflight must inspect the frozen project snapshot');
+assert.equal(changed.preflightSnapshot.assets.length,1,'preflight must inspect the frozen media snapshot');
+assert.deepEqual(changed.preflightSnapshot,changed.builtSnapshot,'the snapshot validated by preflight must be the snapshot packaged for render');
+assert.equal(changed.builtSnapshot.project.clips[0].id,'clip-original');
+assert.equal(changed.builtSnapshot.assets[0].id,'asset-original');
+
+console.log('canonical MP4 preflight snapshot gate ok');
