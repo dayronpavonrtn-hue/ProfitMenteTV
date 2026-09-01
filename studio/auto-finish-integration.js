@@ -9,9 +9,20 @@
     if(typeof window.ProfitMenteExportPreflightRun!=='function')return null;
     try{return await window.ProfitMenteExportPreflightRun()}catch(err){console.error('Auto Finish export preflight failed',err);return null}
   }
+  function captureAutomationState(){return {project:structuredClone(project),assets:structuredClone(Array.isArray(assets)?assets:[])}}
+  async function restoreAutomationState(snapshot){
+    if(!snapshot)return false;
+    project=structuredClone(snapshot.project);assets=structuredClone(snapshot.assets);
+    persist?.();drawTimeline?.();drawLibrary?.();syncForm?.();
+    const playhead=$('#playhead');if(playhead)playhead.value=Math.max(0,Math.min(Number(project?.duration)||0,+playhead.value||0));
+    await renderAt?.(+(playhead?.value||0));
+    if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
+    window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-rolled-back',{detail:{reason:'step-error'}}));
+    return true;
+  }
   async function run(){
     if(busy)return null;busy=true;const btn=$('#autoFinishBtn');if(btn){btn.disabled=true;btn.textContent='Finalizando…'}
-    const completed=[],skipped=[];lastReport=null;lastPreflight=null;
+    const completed=[],skipped=[];lastReport=null;lastPreflight=null;const automationSnapshot=captureAutomationState();
     try{
       const plan=Engine.plan(project,assets);setStatus?.(`Auto Finish local · ${plan.steps.length} paso(s)…`);
       for(const step of plan.steps){
@@ -47,7 +58,12 @@
       }
       window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-complete',{detail:{completed:[...completed],skipped:[...skipped],qa:lastReport,preflight:lastPreflight}}));
       return {completed,skipped,qa:lastReport,preflight:lastPreflight};
-    }catch(err){console.error(err);setStatus?.('Auto Finish no pudo completar todos los pasos: '+(err?.message||err));return {completed,skipped,qa:lastReport,preflight:lastPreflight,error:String(err?.message||err)}}
+    }catch(err){
+      console.error(err);let rolledBack=false;
+      try{rolledBack=await restoreAutomationState(automationSnapshot)}catch(restoreErr){console.error('Auto Finish rollback failed',restoreErr)}
+      setStatus?.(rolledBack?'Auto Finish encontró un error y revirtió todos los cambios parciales: '+(err?.message||err):'Auto Finish no pudo completar todos los pasos: '+(err?.message||err));
+      return {completed,skipped,qa:lastReport,preflight:lastPreflight,error:String(err?.message||err),rolledBack};
+    }
     finally{busy=false;if(btn){btn.disabled=false;btn.textContent='✨ Auto Finish'}}
   }
   async function runAndRender(){
@@ -74,5 +90,5 @@
     if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
-  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,runAndRender,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
+  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,runAndRender,captureAutomationState,restoreAutomationState,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
 })();
