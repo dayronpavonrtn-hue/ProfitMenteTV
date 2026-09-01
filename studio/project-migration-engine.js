@@ -74,6 +74,7 @@ class ProfitMenteProjectMigrationEngine{
   migrate(input){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Proyecto inválido para migración');
     const source=clone(input),fromVersion=String(source.version||'0');
+    if(versionNumber(fromVersion)>versionNumber(this.currentVersion))throw new Error(`Proyecto v${fromVersion} requiere una versión más nueva de ProfitMente Studio; esta instalación soporta hasta v${this.currentVersion}. El archivo no fue modificado.`);
     const sourceClips=Array.isArray(source.clips)?source.clips.filter(c=>c&&typeof c==='object'):[];
     const sourceMarkers=Array.isArray(source.markers)?source.markers.filter(m=>m&&typeof m==='object'):[];
     const declaredDuration=Math.max(1,finite(source.duration,45));
@@ -89,8 +90,7 @@ class ProfitMenteProjectMigrationEngine{
     ensureUniqueIds(project.clips,'clip');
     if(source.markers!=null)project.markers=normalizeMarkers(source.markers,duration);
     if(source.trackState!=null&&(!source.trackState||typeof source.trackState!=='object'||Array.isArray(source.trackState)))delete project.trackState;
-    if(versionNumber(fromVersion)<=versionNumber(this.currentVersion))project.version=this.currentVersion;
-    else project.version=fromVersion;
+    project.version=this.currentVersion;
     const before=JSON.stringify(source),after=JSON.stringify(project);
     return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds,durationExtended:duration>declaredDuration}};
   }
