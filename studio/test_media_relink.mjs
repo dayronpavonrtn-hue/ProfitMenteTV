@@ -38,6 +38,33 @@ assert.equal(legacyApplied.ok,true);assert.equal(legacyTarget.relinkConfidence,'
 const duplicated=[{id:'x1',name:'same.mp4',type:'video',size:20},{id:'x2',name:'same.mp4',type:'video',size:20}];
 const ambiguous=Engine.bestMatch(duplicated,{name:'same.mp4',type:'video/mp4',size:20},'');
 assert.equal(ambiguous.ambiguous,true);assert.equal(ambiguous.asset,null,'ambiguous matches must never relink automatically');
+
+const rolloutFile={name:'rollout.mp4',type:'video/mp4',size:6000000,lastModified:42};
+const rolloutFingerprint=ProfitMenteMediaImportEngine.signature(rolloutFile);
+const legacyOffline={id:'legacy',name:'rollout.mp4',type:'video',size:6000000,sourceFingerprint:rolloutFingerprint,sourceContentHash:'edge-hash'};
+const upgradedHashes={current:'sample-v2-hash',legacy:'edge-hash',version:'sample-v2'};
+const legacyIdentity=Engine.identity(legacyOffline,rolloutFile,upgradedHashes);
+assert.equal(legacyIdentity.ok,true,'a pre-sample-v2 asset must relink using its legacy hash plus fingerprint');
+assert.equal(legacyIdentity.reason,'legacy-content-hash-match');
+const upgraded={...legacyOffline};
+const upgradedResult=Engine.apply(upgraded,rolloutFile,upgradedHashes);
+assert.equal(upgradedResult.ok,true);
+assert.equal(upgraded.sourceContentHash,'sample-v2-hash','successful legacy relink must migrate to the collision-resistant hash');
+assert.equal(upgraded.sourceLegacyContentHash,'edge-hash','successful relink must retain the legacy hash for compatibility');
+assert.equal(upgraded.sourceHashVersion,'sample-v2','successful relink must record the hash algorithm version');
+
+const rolloutMetadataOnly={id:'rollout-modern',name:'rollout.mp4',type:'video',size:6000000,sourceContentHash:'sample-v2-hash'};
+assert.equal(Engine.identity(rolloutMetadataOnly,rolloutFile,upgradedHashes).ok,true,'modern hash metadata must remain usable even if sourceHashVersion was lost');
+
+const collidingModern={id:'modern',name:'rollout.mp4',type:'video',size:6000000,sourceFingerprint:rolloutFingerprint,sourceContentHash:'different-modern',sourceLegacyContentHash:'edge-hash',sourceHashVersion:'sample-v2'};
+const collision=Engine.identity(collidingModern,rolloutFile,upgradedHashes);
+assert.equal(collision.ok,false,'legacy edge-hash collision must never override a modern content-hash mismatch');
+assert.equal(collision.reason,'content-hash-mismatch');
+
+const unsafeLegacy={...legacyOffline,sourceFingerprint:'other.mp4|6000000|video/mp4|42'};
+const unsafeIdentity=Engine.identity(unsafeLegacy,rolloutFile,upgradedHashes);
+assert.notEqual(unsafeIdentity.reason,'legacy-content-hash-match','legacy hash alone must not be treated as authoritative after collision hardening');
+
 const project={clips:[{id:'c1',asset:'v1',duration:4,speed:2,sourceOffset:3},{id:'c2',asset:'a1',duration:1,speed:1,sourceOffset:0}]};
 assert.equal(Engine.sourceWindowIssues(project,assets).length,1,'source overrun must be reported after relink');
 console.log('Media relink regression: OK');
