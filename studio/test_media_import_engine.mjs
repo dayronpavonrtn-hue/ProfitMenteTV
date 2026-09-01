@@ -31,6 +31,12 @@ assert.equal(hashA,hashB,'renamed copies with identical bytes must share a conte
 assert.notEqual(hashA,hashC,'different media bytes must not collide in regression fixture');
 assert.equal(E.findDuplicateHash([{id:'same',sourceContentHash:hashA}],hashB)?.id,'same');
 assert.equal(E.findDuplicateHash([{id:'other',sourceContentHash:hashC}],hashB),null);
+assert.equal(E.findDuplicateForImport([{id:'same',sourceContentHash:hashA}],renamed,hashB)?.id,'same','content-identical renamed files must deduplicate');
+const sameMetadataDifferentContent={id:'metadata-only',name:'same.mp4',mime:'video/mp4',blob:{size:22},sourceLastModified:77,sourceFingerprint:'same.mp4|22|video/mp4|77',sourceContentHash:hashA};
+const sameMetadataFile={name:'same.mp4',type:'video/mp4',size:22,lastModified:77};
+assert.equal(E.findDuplicate(sameMetadataDifferentContent?[sameMetadataDifferentContent]:[],sameMetadataFile)?.id,'metadata-only','fixture must collide by metadata signature');
+assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,hashC),null,'different content must not be dropped just because folder metadata collides');
+assert.equal(E.findDuplicateForImport([sameMetadataDifferentContent],sameMetadataFile,'')?.id,'metadata-only','signature remains fallback when hashing is unavailable');
 
 function mediaBlob(name,type='video/mp4',bytes=name){const blob=new Blob([bytes],{type});Object.defineProperty(blob,'name',{value:name});Object.defineProperty(blob,'lastModified',{value:77});return blob}
 function fileEntry(path,file){return {isFile:true,isDirectory:false,fullPath:path,file(resolve){resolve(file)}}}
