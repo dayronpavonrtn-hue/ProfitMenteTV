@@ -36,11 +36,12 @@ class ProfitMenteMediaRelinkEngine{
       if(expectedLegacy&&hashes.legacy){
         if(expectedLegacy===hashes.legacy){
           // The former first+last-MB hash can collide for large files. Require
-          // the original metadata fingerprint as a second factor before an
-          // automatic legacy relink. Without it, continue to conservative
-          // name/size matching rather than treating the hash as authoritative.
+          // the original metadata fingerprint as a second factor. Do not fall
+          // through to name/size matching after a known legacy-hash collision.
           if(fingerprintMatch)return {ok:true,reason:'legacy-content-hash-match',confidence:'high'};
-        }else if(!storedVersion)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
+          return {ok:false,reason:'legacy-hash-unverified',confidence:'none'};
+        }
+        if(!storedVersion)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
       }
       if(storedVersion==='sample-v2'&&storedCurrent&&hashes.current)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
     }else if(storedCurrent&&hashes.current){
