@@ -9,6 +9,37 @@ import json,pathlib,sys,tarfile,tempfile,subprocess,os,uuid
 from track_state_render import normalize_track_solo
 from render_progress import write_progress
 
+
+def safe_extract_bundle(tar, destination):
+    """Extract only normal files/directories that stay inside destination.
+
+    ProfitMente bundles are locally generated and need no symlinks, hardlinks,
+    devices or FIFOs. Rejecting them avoids link-based traversal that a simple
+    resolved member-name check cannot prevent when using TarFile.extractall().
+    Duplicate paths are rejected too so a later member cannot silently replace
+    a project or asset that was already validated by the archive walk.
+    """
+    destination = pathlib.Path(destination).resolve()
+    seen = set()
+    members = tar.getmembers()
+    for member in members:
+        name = member.name.replace('\\', '/')
+        if not name or name.startswith('/'):
+            raise RuntimeError(f'Ruta insegura en bundle: {member.name}')
+        target = (destination / name).resolve()
+        if target != destination and destination not in target.parents:
+            raise RuntimeError(f'Ruta insegura en bundle: {member.name}')
+        key = target.as_posix().casefold()
+        if key in seen:
+            raise RuntimeError(f'Ruta duplicada en bundle: {member.name}')
+        seen.add(key)
+        if member.issym() or member.islnk():
+            raise RuntimeError(f'Enlace no permitido en bundle: {member.name}')
+        if not (member.isdir() or member.isfile()):
+            raise RuntimeError(f'Tipo de archivo no permitido en bundle: {member.name}')
+    tar.extractall(destination, members=members)
+
+
 if len(sys.argv)!=3: raise SystemExit('Usage: render_bundle.py bundle.profitmente.tar output.mp4')
 bundle=pathlib.Path(sys.argv[1]); out=pathlib.Path(sys.argv[2]); root=pathlib.Path(__file__).resolve().parent
 if not bundle.is_file(): raise FileNotFoundError(bundle)
@@ -24,10 +55,7 @@ try:
     with tempfile.TemporaryDirectory(prefix='profitmente-bundle-') as td:
         td=pathlib.Path(td)
         with tarfile.open(bundle,'r:') as tar:
-            for m in tar.getmembers():
-                dest=(td/m.name).resolve()
-                if td.resolve() not in dest.parents and dest!=td.resolve(): raise RuntimeError(f'Ruta insegura en bundle: {m.name}')
-            tar.extractall(td)
+            safe_extract_bundle(tar, td)
         project=td/'project.json'; assets=td/'assets'
         if not project.is_file(): raise RuntimeError('Bundle inválido: falta project.json')
         assets.mkdir(exist_ok=True)
