@@ -16,7 +16,7 @@ class ProfitMenteRelinkEngine{
       for(const key of ['size','duration','width','height','lastModified','metadataVersion']){
         const value=Number(a?.[key]);if(Number.isFinite(value)&&value>=0)row[key]=value;
       }
-      for(const key of ['sourceRelativePath','sourceContentHash','sourceFingerprint'])if(a?.[key])row[key]=String(a[key]);
+      for(const key of ['sourceRelativePath','sourceContentHash','sourceLegacyContentHash','sourceHashVersion','sourceFingerprint'])if(a?.[key])row[key]=String(a[key]);
       if(typeof a?.mediaReadable==='boolean')row.mediaReadable=a.mediaReadable;
       if(a?.fingerprint)row.fingerprint=String(a.fingerprint);
       return row;
@@ -27,7 +27,7 @@ class ProfitMenteRelinkEngine{
     const next=this.manifest(assets),previous=new Map((project.assets||[]).map(a=>[a?.id,a]));
     for(const row of next){
       const old=previous.get(row.id);if(!old)continue;
-      for(const key of ['fingerprint','sourceRelativePath','sourceContentHash','sourceFingerprint'])if(old?.[key]&&!row[key])row[key]=old[key];
+      for(const key of ['fingerprint','sourceRelativePath','sourceContentHash','sourceLegacyContentHash','sourceHashVersion','sourceFingerprint'])if(old?.[key]&&!row[key])row[key]=old[key];
     }
     project.assets=next;return next;
   }
@@ -50,7 +50,15 @@ class ProfitMenteRelinkEngine{
     if(['jpg','jpeg','png','webp','gif','avif'].includes(ext))return 'image';
     return 'file';
   }
-  async contentHash(file={}){
+  async digestParts(parts=[],size=0){
+    if(!globalThis.crypto?.subtle)return null;
+    const total=parts.reduce((n,p)=>n+p.byteLength,0),payload=new Uint8Array(total+8);let offset=0;
+    for(const part of parts){payload.set(part,offset);offset+=part.byteLength}
+    new DataView(payload.buffer).setBigUint64(total,BigInt(size),false);
+    const digest=await globalThis.crypto.subtle.digest('SHA-256',payload);
+    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async contentHashLegacy(file={}){
     const blob=file?.blob instanceof Blob?file.blob:file;
     if(typeof Blob==='undefined'||!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
     const size=Number(blob.size||0),sample=1024*1024,parts=[];
@@ -59,11 +67,21 @@ class ProfitMenteRelinkEngine{
       parts.push(new Uint8Array(await blob.slice(0,sample).arrayBuffer()));
       parts.push(new Uint8Array(await blob.slice(size-sample,size).arrayBuffer()));
     }
-    const total=parts.reduce((n,p)=>n+p.byteLength,0),payload=new Uint8Array(total+8);let offset=0;
-    for(const part of parts){payload.set(part,offset);offset+=part.byteLength}
-    new DataView(payload.buffer).setBigUint64(total,BigInt(size),false);
-    const digest=await globalThis.crypto.subtle.digest('SHA-256',payload);
-    return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    return this.digestParts(parts,size);
+  }
+  async contentHash(file={}){
+    const blob=file?.blob instanceof Blob?file.blob:file;
+    if(typeof Blob==='undefined'||!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
+    const size=Number(blob.size||0),sample=1024*1024;
+    if(size<=sample*2)return this.contentHashLegacy(blob);
+    const starts=[0,Math.max(0,Math.floor(size*.25-sample/2)),Math.max(0,Math.floor(size*.5-sample/2)),Math.max(0,Math.floor(size*.75-sample/2)),Math.max(0,size-sample)];
+    const unique=[...new Set(starts.map(start=>Math.min(Math.max(0,start),Math.max(0,size-sample))))].sort((a,b)=>a-b),parts=[];
+    for(const start of unique)parts.push(new Uint8Array(await blob.slice(start,Math.min(size,start+sample)).arrayBuffer()));
+    return this.digestParts(parts,size);
+  }
+  async contentHashes(file={}){
+    const current=await this.contentHash(file),legacy=await this.contentHashLegacy(file);
+    return {current:current||'',legacy:legacy||'',version:'sample-v2'};
   }
   score(expected,file){
     let score=0;
@@ -100,23 +118,25 @@ class ProfitMenteRelinkEngine{
   async matchVerified(project,assets,files){
     const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],hashRejected=[];
     const hashCache=new Map();
-    const hashFor=async file=>{
+    const hashesFor=async file=>{
       if(hashCache.has(file))return hashCache.get(file);
-      let hash=null;try{hash=await this.contentHash(file)}catch{}
-      hashCache.set(file,hash);return hash;
+      let hashes=null;try{hashes=await this.contentHashes(file)}catch{}
+      hashCache.set(file,hashes);return hashes;
     };
     for(const expected of missing){
       const ranked=remaining.map((file,index)=>({file,index,score:this.score(expected,file)})).filter(x=>x.score>=65).sort((a,b)=>b.score-a.score);
       let accepted=null;
       for(const candidate of ranked){
-        let hash=null;
+        let hash=null,hashes=null;
         if(expected?.sourceContentHash){
-          hash=await hashFor(candidate.file);
+          hashes=await hashesFor(candidate.file);
+          const modern=expected?.sourceHashVersion==='sample-v2';
+          hash=modern?hashes?.current:hashes?.legacy;
           if(!hash||hash!==expected.sourceContentHash){hashRejected.push({expected,file:candidate.file,score:candidate.score,reason:hash?'content-hash-mismatch':'content-hash-unavailable'});continue}
         }
-        accepted={...candidate,hash};break;
+        accepted={...candidate,hash,hashes};break;
       }
-      if(accepted){matches.push({expected,file:accepted.file,score:accepted.score,hash:accepted.hash});remaining.splice(remaining.indexOf(accepted.file),1)}
+      if(accepted){matches.push({expected,file:accepted.file,score:accepted.score,hash:accepted.hash,hashes:accepted.hashes});remaining.splice(remaining.indexOf(accepted.file),1)}
     }
     return {missing,matches,hashRejected,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
   }
@@ -143,7 +163,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
     files=[...(files||[])];if(!files.length)return;
     const result=await engine.matchVerified(project,assets,files);if(!result.matches.length){const detail=result.hashRejected?.length?' Los candidatos parecidos no coinciden con la huella del archivo original.':'';setStatus?.(`No encontré coincidencias seguras.${detail} Selecciona los archivos originales o la carpeta raíz donde fueron importados.`);return}
     let restored=0;
-    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
+    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||'',sourceLegacyContentHash:m.hashes?.legacy||m.expected.sourceLegacyContentHash||'',sourceHashVersion:m.expected.sourceHashVersion||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
     engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);
   }
   button.onclick=()=>input.click();folderButton.onclick=()=>folderInput.click();
