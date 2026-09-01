@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import json
+import pathlib
+import tempfile
 import threading
 import time
 import urllib.error
@@ -9,6 +11,7 @@ from studio_server import (
     ThreadingHTTPServer,
     RENDER_JOBS,
     RENDER_LOCK,
+    _finish_job_download,
     _job_snapshot,
     _render_counts,
 )
@@ -30,6 +33,25 @@ with RENDER_LOCK:
     assert _job_snapshot(third)['queue_position']==1
     RENDER_JOBS.clear();RENDER_JOBS.update(previous)
 
+# A failed/truncated HTTP delivery must leave the completed MP4 available for the
+# browser client's existing result retry. Cleanup happens only after delivery.
+with tempfile.TemporaryDirectory(prefix='profitmente-result-retry-test-') as parent:
+    td=pathlib.Path(parent)/'job-files';td.mkdir()
+    output=td/'output.mp4';output.write_bytes(b'0123456789')
+    job={'id':'retry-safe','status':'done','progress':100,'created':time.time(),'cancel_requested':False,'qc':{'ok':True},'error':None,'tempdir':str(td),'output':str(output)}
+    with RENDER_LOCK:
+        previous=dict(RENDER_JOBS);RENDER_JOBS.clear();RENDER_JOBS[job['id']]=job
+    try:
+        assert _finish_job_download(job['id'],delivered=False) is False
+        assert job['id'] in RENDER_JOBS,'interrupted delivery must keep completed job for retry'
+        assert output.is_file(),'interrupted delivery must keep rendered MP4 for retry'
+        assert _finish_job_download(job['id'],delivered=True) is True
+        assert job['id'] not in RENDER_JOBS,'successful delivery should consume completed job'
+        assert not td.exists(),'successful delivery should clean temporary render files'
+    finally:
+        with RENDER_LOCK:
+            RENDER_JOBS.clear();RENDER_JOBS.update(previous)
+
 server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
 port=server.server_address[1]
 thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -44,6 +66,7 @@ try:
     assert data.get('render_concurrency') == 1
     assert isinstance(data.get('render_active'),int)
     assert isinstance(data.get('render_queued'),int)
+    assert data.get('render_result_retry_safe') is True
 
     req=urllib.request.Request(base+'/api/render',data=b'x',method='POST',headers={
         'Content-Type':'application/x-tar','Origin':'https://evil.example'
