@@ -45,6 +45,34 @@ const lockedPrimaryResult=engine.assignAssets(lockedPrimaryTrack,assets);
 assert.equal(lockedPrimaryResult.primary,0,'track lock must protect all primary placeholders');
 assert.equal(lockedPrimaryTrack.clips[0].asset,null);
 
+const legacyLockedProject={
+  name:'Legacy locks',format:'9:16',duration:20,
+  trackStates:{0:{locked:true},1:{locked:true},4:{locked:true},5:{locked:true},6:{locked:true}},
+  clips:[
+    {id:'legacy-scene',track:0,start:0,duration:5,asset:null,keywords:['tema']},
+    {id:'legacy-voice',track:6,start:0,duration:20,asset:null}
+  ]
+};
+const legacyBefore=JSON.stringify(legacyLockedProject);
+const legacyResult=engine.assignAssets(legacyLockedProject,assets);
+assert.equal(legacyResult.primary,0,'legacy trackStates must protect primary automation');
+assert.equal(legacyResult.broll,0,'legacy trackStates must protect B-roll automation');
+assert.equal(legacyResult.narration,0,'legacy trackStates must protect narration automation');
+assert.equal(legacyResult.music,0,'legacy trackStates must protect music automation');
+assert.equal(legacyResult.sfx,0,'legacy trackStates must protect SFX automation');
+assert.equal(JSON.stringify(legacyLockedProject),legacyBefore,'fully locked legacy project must remain byte-for-byte unchanged');
+
+const conflictingMaps={
+  name:'Mixed lock maps',format:'9:16',duration:20,
+  trackState:{0:{locked:false},5:{locked:false}},
+  trackStates:{0:{locked:true},5:{locked:true}},
+  clips:[{id:'mixed-scene',track:0,start:0,duration:5,asset:null,keywords:['tema']}]
+};
+const conflictResult=engine.assignAssets(conflictingMaps,assets);
+assert.equal(conflictResult.primary,0,'a legacy lock must win over an unlocked current map');
+assert.equal(conflictResult.music,0,'mixed maps must not permit soundtrack creation on a legacy-locked track');
+assert.equal(conflictingMaps.clips.length,1,'mixed lock maps must not create protected clips');
+
 const mixedNarration={
   name:'Mixed narration locks',format:'9:16',duration:20,
   clips:[
