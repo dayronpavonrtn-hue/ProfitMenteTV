@@ -3,7 +3,23 @@
   const btn=document.querySelector('#clearBtn');if(!btn)return;
   const engine=new ProfitMenteProjectResetEngine();
   btn.onclick=async()=>{
-    if(!confirm('¿Crear proyecto nuevo? Se guardará un punto de recuperación del proyecto actual.'))return;
+    if(!confirm('¿Crear proyecto nuevo? Se guardará el proyecto actual y un punto de recuperación.'))return;
+
+    // project-library.js owns the canonical safe project transition. Its controller
+    // flushes pending form/autosave state, promotes unsaved drafts into "Mis proyectos",
+    // resets history/UI and emits the project-opened event used by integrations.
+    // This advanced reset module loads later and must not bypass that persistence path.
+    if(window.ProfitMenteNewProject?.create&&window.ProfitMenteNewProject?.flushCurrentProject){
+      const flushed=window.ProfitMenteNewProject.flushCurrentProject();
+      if(!flushed)return;
+      const snapshot=engine.snapshot(window.profitMenteRecovery,project);
+      const created=await window.ProfitMenteNewProject.create();
+      if(!created)return;
+      if(typeof setStatus==='function')setStatus(snapshot?'Proyecto nuevo creado · anterior guardado en Mis proyectos y Recuperación':'Proyecto nuevo creado · anterior guardado en Mis proyectos');
+      return;
+    }
+
+    // Compatibility fallback for installations where project-library.js is unavailable.
     const result=engine.reset(window.profitMenteRecovery,project);
     try{
       if(typeof playing!=='undefined'&&playing){playing=false}
