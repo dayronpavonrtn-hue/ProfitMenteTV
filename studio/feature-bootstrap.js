@@ -11,6 +11,8 @@
     ['media-priority-integration.js','ProfitMenteMediaPriority'],
     ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
     ['media-relink-integration.js','ProfitMenteMediaRelink'],
+    ['offline-media-engine.js','ProfitMenteOfflineMediaEngine'],
+    ['offline-media-integration.js','ProfitMenteOfflineMedia'],
     ['media-replace-engine.js','ProfitMenteMediaReplaceEngine'],
     ['media-replace-integration.js','ProfitMenteMediaReplace'],
     ['media-timeline-dnd.js','ProfitMenteMediaTimelineDnD'],
