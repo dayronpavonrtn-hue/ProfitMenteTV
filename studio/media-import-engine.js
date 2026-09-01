@@ -35,6 +35,12 @@ class ProfitMenteMediaImportEngine{
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   }
   static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash)||null:null}
+  static findDuplicateForImport(assets=[],file={},hash=''){
+    // A metadata signature is only a fallback. Folder imports commonly contain
+    // different files with identical names, sizes and timestamps, so a content
+    // hash must take precedence whenever the browser can compute one.
+    return hash?this.findDuplicateHash(assets,hash):this.findDuplicate(assets,file);
+  }
   static async filesFromDataTransfer(dataTransfer={}){
     const items=Array.from(dataTransfer?.items||[]),entries=items.map(item=>typeof item?.webkitGetAsEntry==='function'?item.webkitGetAsEntry():null).filter(Boolean);
     if(!entries.length)return Array.from(dataTransfer?.files||[]);
@@ -68,9 +74,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;const addedIds=[];
     for(const file of incoming){
       try{
-        if(engine.findDuplicate(assets,file)){duplicates++;continue}
         const contentHash=await engine.contentHash(file);
-        if(contentHash&&engine.findDuplicateHash(assets,contentHash)){duplicates++;continue}
+        if(engine.findDuplicateForImport(assets,file,contentHash||'')){duplicates++;continue}
         const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
