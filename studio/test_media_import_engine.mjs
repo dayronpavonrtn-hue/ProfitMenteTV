@@ -17,6 +17,7 @@ assert.equal(E.compatible([file,{name:'readme.txt',type:'text/plain'}]).length,1
 assert.equal(E.findDuplicate([{id:'a',name:'Take 01.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file)?.id,'a');
 assert.equal(E.findDuplicate([{id:'b',sourceFingerprint:signature}],file)?.id,'b');
 assert.equal(E.findDuplicate([{id:'c',name:'Take 02.mp4',mime:'video/mp4',blob:{size:12345},sourceLastModified:42}],file),null);
+assert.equal(E.relativePath({name:'clip.mp4',webkitRelativePath:'Shoot\\Day 1\\clip.mp4'}),'Shoot/Day 1/clip.mp4');
 
 const original=new Blob([new TextEncoder().encode('profitmente-media-content')],{type:'video/mp4'});
 Object.defineProperty(original,'name',{value:'original.mp4'});Object.defineProperty(original,'lastModified',{value:1});
@@ -30,4 +31,20 @@ assert.equal(hashA,hashB,'renamed copies with identical bytes must share a conte
 assert.notEqual(hashA,hashC,'different media bytes must not collide in regression fixture');
 assert.equal(E.findDuplicateHash([{id:'same',sourceContentHash:hashA}],hashB)?.id,'same');
 assert.equal(E.findDuplicateHash([{id:'other',sourceContentHash:hashC}],hashB),null);
+
+function mediaBlob(name,type='video/mp4',bytes=name){const blob=new Blob([bytes],{type});Object.defineProperty(blob,'name',{value:name});Object.defineProperty(blob,'lastModified',{value:77});return blob}
+function fileEntry(path,file){return {isFile:true,isDirectory:false,fullPath:path,file(resolve){resolve(file)}}}
+function dirEntry(children){return {isFile:false,isDirectory:true,createReader(){let sent=false;return {readEntries(resolve){if(sent)resolve([]);else{sent=true;resolve(children)}}}}}}
+const clipA=mediaBlob('a.mp4'),clipB=mediaBlob('b.wav','audio/wav'),ignored=mediaBlob('notes.txt','text/plain');
+const nested=dirEntry([
+  fileEntry('/Campaign/video/a.mp4',clipA),
+  dirEntry([fileEntry('/Campaign/audio/b.wav',clipB),fileEntry('/Campaign/docs/notes.txt',ignored)])
+]);
+const folderFiles=await E.filesFromDataTransfer({items:[{webkitGetAsEntry:()=>nested}],files:[]});
+assert.equal(folderFiles.length,3,'recursive folder drop must enumerate nested files');
+assert.equal(E.relativePath(folderFiles[0]),'Campaign/video/a.mp4');
+assert.equal(E.relativePath(folderFiles[1]),'Campaign/audio/b.wav');
+assert.deepEqual(E.compatible(folderFiles).map(x=>x.name),['a.mp4','b.wav'],'unsupported files in folders must remain filterable');
+const fallback=[mediaBlob('fallback.mp4')];
+assert.equal((await E.filesFromDataTransfer({items:[],files:fallback}))[0],fallback[0],'plain file drops must keep working without directory entries');
 console.log('media import engine regression passed');
