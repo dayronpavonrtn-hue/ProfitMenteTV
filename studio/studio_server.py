@@ -31,6 +31,10 @@ RENDER_SLOT = threading.Semaphore(1)
 RENDER_QUEUE_POLL_SECONDS = 0.1
 RENDER_PROGRESS_POLL_SECONDS = 0.25
 RENDER_TIMEOUT_SECONDS = 1800
+# Interrupted result downloads remain retryable for one hour. After that, stale
+# MP4/temp files are reclaimed automatically so abandoned browser sessions cannot
+# fill the user's disk indefinitely.
+RENDER_RESULT_TTL_SECONDS = 3600
 
 
 def _render_popen_kwargs() -> dict:
@@ -147,19 +151,44 @@ def _cleanup_job_files(job: dict):
         job["tempdir"] = None
 
 
+def _prune_render_jobs(*, now: float | None = None) -> int:
+    """Remove stale terminal jobs while never touching a result being downloaded."""
+    now = time.time() if now is None else float(now)
+    removed = 0
+    with RENDER_LOCK:
+        for job_id, job in list(RENDER_JOBS.items()):
+            if job.get("status") not in ("done", "error", "cancelled"):
+                continue
+            if int(job.get("result_downloads", 0) or 0) > 0:
+                continue
+            finished = float(job.get("finished_at", job.get("created", now)) or now)
+            if now - finished < RENDER_RESULT_TTL_SECONDS:
+                continue
+            RENDER_JOBS.pop(job_id, None)
+            _cleanup_job_files(job)
+            removed += 1
+    return removed
+
+
 def _finish_job_download(job_id: str, *, delivered: bool) -> bool:
     """Consume a completed render only after its HTTP body was delivered.
 
     The browser client validates the received MP4 and retries network/truncation
     failures. Keeping the job when socket delivery fails makes those retries real
-    instead of forcing an expensive second render.
+    instead of forcing an expensive second render. Concurrent result requests are
+    reference-counted so cleanup cannot remove a file while another response uses it.
     """
-    if not delivered:
-        return False
     with RENDER_LOCK:
-        job = RENDER_JOBS.pop(job_id, None)
+        job = RENDER_JOBS.get(job_id)
         if not job:
             return False
+        downloads = max(0, int(job.get("result_downloads", 0) or 0) - 1)
+        job["result_downloads"] = downloads
+        if delivered:
+            job["download_consumed"] = True
+        if downloads or not job.get("download_consumed"):
+            return False
+        RENDER_JOBS.pop(job_id, None)
         _cleanup_job_files(job)
         return True
 
@@ -172,6 +201,7 @@ def _mark_job_error(job: dict, error, *, phase: str = "Error", qc=None):
         phase=phase,
         error=str(error),
         process=None,
+        finished_at=time.time(),
     )
     if qc is not None:
         job["qc"] = qc
@@ -212,7 +242,7 @@ def _wait_for_render_slot(job_id: str) -> bool:
             job = RENDER_JOBS.get(job_id)
             if not job or job.get("cancel_requested") or job.get("status") == "cancelled":
                 if job and job.get("status") != "cancelled":
-                    job.update(status="cancelled", progress=0, phase="Cancelado")
+                    job.update(status="cancelled", progress=0, phase="Cancelado", finished_at=time.time())
                     _cleanup_job_files(job)
                 return False
         if RENDER_SLOT.acquire(timeout=RENDER_QUEUE_POLL_SECONDS):
@@ -228,7 +258,7 @@ def _run_render_job(job_id: str):
             job = RENDER_JOBS.get(job_id)
             if not job or job.get("cancel_requested"):
                 if job:
-                    job.update(status="cancelled", progress=0, phase="Cancelado")
+                    job.update(status="cancelled", progress=0, phase="Cancelado", finished_at=time.time())
                     _cleanup_job_files(job)
                 return
             progress_file = pathlib.Path(job["tempdir"]) / "render-progress.json"
@@ -260,7 +290,7 @@ def _run_render_job(job_id: str):
                 return
             job["process"] = None
             if job.get("cancel_requested"):
-                job.update(status="cancelled", progress=0, phase="Cancelado")
+                job.update(status="cancelled", progress=0, phase="Cancelado", finished_at=time.time())
                 _cleanup_job_files(job)
                 return
             output = pathlib.Path(job["output"])
@@ -275,7 +305,7 @@ def _run_render_job(job_id: str):
                     detail += " " + " ".join(str(x) for x in qc["issues"][:3])
                 _mark_job_error(job, detail, phase="Control de calidad fallido", qc=qc)
                 return
-            job.update(status="done", progress=100, phase="Completado", size=output.stat().st_size, qc=qc)
+            job.update(status="done", progress=100, phase="Completado", size=output.stat().st_size, qc=qc, finished_at=time.time(), result_downloads=0, download_consumed=False)
     except Exception as exc:
         with RENDER_LOCK:
             job = RENDER_JOBS.get(job_id)
@@ -286,7 +316,7 @@ def _run_render_job(job_id: str):
 
 
 class Handler(SimpleHTTPRequestHandler):
-    server_version = "ProfitMenteStudio/1.8"
+    server_version = "ProfitMenteStudio/1.9"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -347,6 +377,7 @@ class Handler(SimpleHTTPRequestHandler):
             raise
 
     def do_GET(self):
+        _prune_render_jobs()
         path = urlparse(self.path).path
         if path == "/api/health":
             ffmpeg = shutil.which("ffmpeg")
@@ -368,6 +399,7 @@ class Handler(SimpleHTTPRequestHandler):
                 "render_failure_cleanup": True,
                 "post_render_qc": True,
                 "render_result_retry_safe": True,
+                "render_result_ttl_seconds": RENDER_RESULT_TTL_SECONDS,
                 "server": self.server_version,
             })
             return
@@ -390,6 +422,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if not output.is_file():
                     self._json(HTTPStatus.GONE, {"ok": False, "error": "El archivo renderizado ya no está disponible."}); return
                 size = output.stat().st_size
+                job["result_downloads"] = int(job.get("result_downloads", 0) or 0) + 1
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "video/mp4")
             self.send_header("Content-Disposition", 'attachment; filename="profitmente-render.mp4"')
@@ -407,6 +440,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_DELETE(self):
+        _prune_render_jobs()
         path = urlparse(self.path).path
         if not path.startswith("/api/render/jobs/") or not self._same_local_origin():
             self.send_error(HTTPStatus.NOT_FOUND); return
@@ -424,7 +458,7 @@ class Handler(SimpleHTTPRequestHandler):
             job["cancel_requested"] = True
             proc = job.get("process")
             if job.get("status") == "queued":
-                job.update(status="cancelled", progress=0, phase="Cancelado")
+                job.update(status="cancelled", progress=0, phase="Cancelado", finished_at=time.time())
                 _cleanup_job_files(job)
         if proc and proc.poll() is None:
             _terminate_process_tree(proc)
@@ -436,6 +470,7 @@ class Handler(SimpleHTTPRequestHandler):
         return
 
     def do_POST(self):
+        _prune_render_jobs()
         path = urlparse(self.path).path
         if path not in ("/api/render", "/api/render/jobs"):
             self.send_error(HTTPStatus.NOT_FOUND); return
