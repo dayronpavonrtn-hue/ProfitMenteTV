@@ -1,0 +1,30 @@
+name: ProfitMente Studio Legacy Track State QA
+
+on:
+  push:
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-legacy-track-state-guard.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_qa_legacy_track_state.js'
+      - '.github/workflows/qa-legacy-track-state.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax
+        run: |
+          node --check studio/qa-engine.js
+          node --check studio/qa-legacy-track-state-guard.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_qa_legacy_track_state.js
+      - name: Legacy track state regression
+        run: node studio/test_qa_legacy_track_state.js
+      - name: Bootstrap wiring
+        run: grep -q "qa-legacy-track-state-guard.js" studio/feature-bootstrap.js
