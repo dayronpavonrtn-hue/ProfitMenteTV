@@ -8,14 +8,15 @@
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
   function place(asset,track,at,duration,sourceOffset=0){
-    track=Number(track);if(project.trackState?.[track]?.locked){status('La pista destino está bloqueada');return false}
+    track=Number(track);if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const chosen=mode.value,r=engine.range(project,at,duration);
+    if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
     if(chosen==='insert'){
       const result=engine.insertSpace(project,track,r.start,r.duration,ops);
-      if(!result.ok){status(result.reason==='out-of-range'?'No hay espacio al final del proyecto para insertar sin recortar clips':'No se pudo preparar la inserción');return false}
+      if(!result.ok){status(result.reason==='locked-track'?'La pista destino está bloqueada':result.reason==='out-of-range'?'No hay espacio al final del proyecto para insertar sin recortar clips':'No se pudo preparar la inserción');return false}
     }else if(chosen==='overwrite'){
       const result=engine.overwriteRange(project,track,r.start,r.duration,ops);
-      if(!result.ok){status('No se pudo preparar la sobrescritura');return false}
+      if(!result.ok){status(result.reason==='locked-track'?'La pista destino está bloqueada':'No se pudo preparar la sobrescritura');return false}
     }
     addClip(track,asset.name,asset.id,r.start,r.duration);
     const inserted=project.clips?.[project.clips.length-1];
@@ -28,14 +29,21 @@
     const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s`);return true;
   }
   library.addEventListener('click',e=>{
-    if(mode.value==='add')return;const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=assets.find(a=>a.id===card.dataset.assetId);if(!asset)return;
+    const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=assets.find(a=>a.id===card.dataset.assetId);if(!asset)return;
     e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,Math.min(nativeDuration(asset),Math.max(.25,project.duration-at)));
   },true);
+  tracksHost.addEventListener('dragover',e=>{
+    const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);
+    if(!engine.trackLocked(project,track))return;
+    e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(e.dataTransfer)e.dataTransfer.dropEffect='none';
+  },true);
   tracksHost.addEventListener('drop',e=>{
-    if(mode.value==='add')return;const lane=e.target.closest?.('.lane');if(!lane)return;
+    const lane=e.target.closest?.('.lane');if(!lane)return;
     const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=assets.find(a=>a.id===id),track=Number(lane.dataset.track);if(!asset)return;
+    e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');
     if(!window.ProfitMenteMediaTimelineDnD?.canDrop(asset.type,track)){status('Ese tipo de medio no es compatible con esta pista');return}
-    e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration);
+    if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}
+    const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration);
   },true);
   window.ProfitMenteMediaPlacement={engine,mode,place};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
 })();
