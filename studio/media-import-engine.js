@@ -13,6 +13,7 @@ class ProfitMenteMediaImportEngine{
     const name=String(file.name||'').trim().toLowerCase(),size=Number(file.size??file.blob?.size??0)||0,mime=String(file.type||file.mime||'').toLowerCase(),modified=Number(file.lastModified??file.sourceLastModified??0)||0;
     return `${name}|${size}|${mime}|${modified}`;
   }
+  static relativePath(file={}){return String(file.sourceRelativePath||file.webkitRelativePath||file.name||'').replace(/^[/\\]+/,'').replace(/\\/g,'/')}
   static compatible(files=[]){return Array.from(files||[]).filter(file=>this.kind(file))}
   static findDuplicate(assets=[],file={}){
     const exact=this.signature(file);return (assets||[]).find(asset=>asset?.sourceFingerprint===exact||this.signature(asset)===exact)||null;
@@ -34,6 +35,21 @@ class ProfitMenteMediaImportEngine{
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   }
   static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash)||null:null}
+  static async filesFromDataTransfer(dataTransfer={}){
+    const items=Array.from(dataTransfer?.items||[]),entries=items.map(item=>typeof item?.webkitGetAsEntry==='function'?item.webkitGetAsEntry():null).filter(Boolean);
+    if(!entries.length)return Array.from(dataTransfer?.files||[]);
+    const files=[];
+    const attachPath=(file,path)=>{const clean=String(path||file?.name||'').replace(/^[/\\]+/,'').replace(/\\/g,'/');try{Object.defineProperty(file,'sourceRelativePath',{value:clean,configurable:true})}catch{try{file.sourceRelativePath=clean}catch{}}return file};
+    const readFile=entry=>new Promise((resolve,reject)=>entry.file(file=>resolve(attachPath(file,entry.fullPath||file.name)),reject));
+    const readDirectory=async entry=>{
+      const reader=entry.createReader(),children=[];
+      while(true){const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));if(!batch?.length)break;children.push(...batch)}
+      for(const child of children)await walk(child);
+    };
+    const walk=async entry=>{if(entry?.isFile)files.push(await readFile(entry));else if(entry?.isDirectory)await readDirectory(entry)};
+    for(const entry of entries)await walk(entry);
+    return files;
+  }
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaImportEngine=ProfitMenteMediaImportEngine;
 if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaImportEngine;
@@ -43,7 +59,11 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   const engine=ProfitMenteMediaImportEngine,input=document.querySelector('#mediaInput'),library=document.querySelector('#mediaLibrary'),dropHost=library?.closest('aside')||library;
   if(!input||!library)return;
   if(!document.querySelector('#profitmenteMediaImportStyle')){const style=document.createElement('style');style.id='profitmenteMediaImportStyle';style.textContent='.mediaDropActive{outline:2px dashed #7ad7ff!important;outline-offset:-6px;background:rgba(122,215,255,.06)!important}.mediaDropHint{font-size:9px;color:#7f8795;text-align:center;margin:4px 0 8px}';document.head.appendChild(style)}
-  if(!document.querySelector('#mediaDropHint')){const hint=document.createElement('div');hint.id='mediaDropHint';hint.className='mediaDropHint';hint.textContent='Arrastra aquí video, imagen o audio · también puedes pegar archivos con Ctrl/Cmd+V';library.insertAdjacentElement('beforebegin',hint)}
+  if(!document.querySelector('#mediaDropHint')){const hint=document.createElement('div');hint.id='mediaDropHint';hint.className='mediaDropHint';hint.textContent='Arrastra archivos o carpetas aquí · también puedes pegar medios con Ctrl/Cmd+V';library.insertAdjacentElement('beforebegin',hint)}
+  let folderInput=document.querySelector('#mediaFolderInput');
+  if(!folderInput){folderInput=document.createElement('input');folderInput.id='mediaFolderInput';folderInput.type='file';folderInput.multiple=true;folderInput.hidden=true;folderInput.setAttribute('webkitdirectory','');folderInput.setAttribute('directory','');input.insertAdjacentElement('afterend',folderInput)}
+  let folderBtn=document.querySelector('#mediaFolderBtn');
+  if(!folderBtn){folderBtn=document.createElement('button');folderBtn.id='mediaFolderBtn';folderBtn.type='button';folderBtn.textContent='📁 Importar carpeta';const uploadBtn=document.querySelector('#uploadBtn');uploadBtn?.insertAdjacentElement('afterend',folderBtn)}
   async function importFiles(files,origin='selector'){
     const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;const addedIds=[];
     for(const file of incoming){
@@ -51,7 +71,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
         if(engine.findDuplicate(assets,file)){duplicates++;continue}
         const contentHash=await engine.contentHash(file);
         if(contentHash&&engine.findDuplicateHash(assets,contentHash)){duplicates++;continue}
-        const type=engine.kind(file),fingerprint=engine.signature(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),importOrigin:origin};
+        const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
@@ -62,12 +82,14 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     return {added,duplicates,unsupported,failed,total:incoming.length,assetIds:addedIds};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
+  folderBtn.onclick=()=>folderInput.click();
+  folderInput.onchange=async e=>{try{await importFiles(e.target.files,'folder-picker')}finally{e.target.value=''}};
   const hasFiles=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
   let dragDepth=0;
   dropHost?.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth++;dropHost.classList.add('mediaDropActive')});
   dropHost?.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
   dropHost?.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)dropHost.classList.remove('mediaDropActive')});
-  dropHost?.addEventListener('drop',async e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;dropHost.classList.remove('mediaDropActive');await importFiles(e.dataTransfer.files,'drag-drop')});
+  dropHost?.addEventListener('drop',async e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;dropHost.classList.remove('mediaDropActive');try{const dropped=await engine.filesFromDataTransfer(e.dataTransfer);await importFiles(dropped,'drag-drop')}catch(err){console.error(err);setStatus?.('No se pudo leer la carpeta o los medios arrastrados')}});
   document.addEventListener('paste',async e=>{
     const active=document.activeElement;if(active&&(['INPUT','TEXTAREA','SELECT'].includes(active.tagName)||active.isContentEditable))return;
     const files=Array.from(e.clipboardData?.files||[]);if(!files.length)return;
