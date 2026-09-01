@@ -2,7 +2,10 @@ class ProfitMenteGeneratorEngine{
   hash(text){let h=2166136261;for(const ch of text){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
   pick(list,seed,offset=0){return list[(seed+offset)%list.length]}
   words(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>3)}
-  trackLocked(project,track){const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)}
+  trackLocked(project,track){
+    const keys=[track,String(track)],maps=[project?.trackState,project?.trackStates];
+    return maps.some(map=>keys.some(key=>!!(map?.[key]&&typeof map[key]==='object'&&map[key].locked)));
+  }
   clipLocked(project,clip){const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;return guard?.isLocked?guard.isLocked(project,clip):!!clip?.locked||this.trackLocked(project,clip?.track)}
   captionWords(text,start,duration){const raw=String(text||'').trim().split(/\s+/).filter(Boolean);if(!raw.length)return[];const weights=raw.map(w=>Math.max(1,w.replace(/[^\p{L}\p{N}]/gu,'').length*.32)),sum=weights.reduce((a,b)=>a+b,0);let cursor=start;return raw.map((word,i)=>{const d=duration*weights[i]/sum,seg={word,start:cursor,duration:d,end:cursor+d,index:i};cursor+=d;return seg})}
   generate(topic,duration=45){
