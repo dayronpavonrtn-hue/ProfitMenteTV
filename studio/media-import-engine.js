@@ -18,28 +18,63 @@ class ProfitMenteMediaImportEngine{
   static findDuplicate(assets=[],file={}){
     const exact=this.signature(file);return (assets||[]).find(asset=>asset?.sourceFingerprint===exact||this.signature(asset)===exact)||null;
   }
-  static async contentHash(file={}){
-    const blob=file?.blob instanceof Blob?file.blob:file;
-    if(!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
-    const size=Number(blob.size||0),sample=1024*1024;
-    const parts=[];
-    if(size<=sample*2)parts.push(new Uint8Array(await blob.arrayBuffer()));
-    else{
-      parts.push(new Uint8Array(await blob.slice(0,sample).arrayBuffer()));
-      parts.push(new Uint8Array(await blob.slice(size-sample,size).arrayBuffer()));
-    }
+  static async digestParts(parts=[],size=0){
+    if(!globalThis.crypto?.subtle)return null;
     const total=parts.reduce((n,p)=>n+p.byteLength,0),payload=new Uint8Array(total+8);let offset=0;
     for(const part of parts){payload.set(part,offset);offset+=part.byteLength}
     new DataView(payload.buffer).setBigUint64(total,BigInt(size),false);
     const digest=await globalThis.crypto.subtle.digest('SHA-256',payload);
     return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   }
-  static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash)||null:null}
+  static async contentHashLegacy(file={}){
+    const blob=file?.blob instanceof Blob?file.blob:file;
+    if(!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
+    const size=Number(blob.size||0),sample=1024*1024,parts=[];
+    if(size<=sample*2)parts.push(new Uint8Array(await blob.arrayBuffer()));
+    else{
+      parts.push(new Uint8Array(await blob.slice(0,sample).arrayBuffer()));
+      parts.push(new Uint8Array(await blob.slice(size-sample,size).arrayBuffer()));
+    }
+    return this.digestParts(parts,size);
+  }
+  static async contentHash(file={}){
+    const blob=file?.blob instanceof Blob?file.blob:file;
+    if(!(blob instanceof Blob)||!globalThis.crypto?.subtle)return null;
+    const size=Number(blob.size||0),sample=1024*1024;
+    if(size<=sample*2)return this.contentHashLegacy(blob);
+    const starts=[0,Math.max(0,Math.floor(size*.25-sample/2)),Math.max(0,Math.floor(size*.5-sample/2)),Math.max(0,Math.floor(size*.75-sample/2)),Math.max(0,size-sample)];
+    const unique=[...new Set(starts.map(start=>Math.min(Math.max(0,start),Math.max(0,size-sample))))].sort((a,b)=>a-b),parts=[];
+    for(const start of unique)parts.push(new Uint8Array(await blob.slice(start,Math.min(size,start+sample)).arrayBuffer()));
+    return this.digestParts(parts,size);
+  }
+  static async contentHashes(file={}){
+    const current=await this.contentHash(file),legacy=await this.contentHashLegacy(file);
+    return {current:current||'',legacy:legacy||'',version:'sample-v2'};
+  }
+  static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash||asset?.sourceLegacyContentHash===hash)||null:null}
   static findDuplicateForImport(assets=[],file={},hash=''){
     // A metadata signature is only a fallback. Folder imports commonly contain
     // different files with identical names, sizes and timestamps, so a content
     // hash must take precedence whenever the browser can compute one.
     return hash?this.findDuplicateHash(assets,hash):this.findDuplicate(assets,file);
+  }
+  static findDuplicateForHashes(assets=[],file={},hashes={}){
+    const current=String(hashes?.current||''),legacy=String(hashes?.legacy||'');
+    if(current){
+      const modern=this.findDuplicateHash(assets,current);if(modern)return modern;
+      // Existing Studio libraries can contain the former first+last-MB hash in
+      // sourceContentHash. Check it only as a compatibility path after the
+      // stronger v2 hash, never as a reason to collapse two modern v2 assets.
+      if(legacy){
+        const legacyMatch=(assets||[]).find(asset=>{
+          if(asset?.sourceHashVersion==='sample-v2')return asset?.sourceLegacyContentHash===legacy;
+          return asset?.sourceContentHash===legacy||asset?.sourceLegacyContentHash===legacy;
+        });
+        if(legacyMatch)return legacyMatch;
+      }
+      return null;
+    }
+    return this.findDuplicate(assets,file);
   }
   static async filesFromDataTransfer(dataTransfer={}){
     const items=Array.from(dataTransfer?.items||[]),entries=items.map(item=>typeof item?.webkitGetAsEntry==='function'?item.webkitGetAsEntry():null).filter(Boolean);
@@ -74,9 +109,9 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;const addedIds=[];
     for(const file of incoming){
       try{
-        const contentHash=await engine.contentHash(file);
-        if(engine.findDuplicateForImport(assets,file,contentHash||'')){duplicates++;continue}
-        const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:contentHash||'',sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
+        const hashes=await engine.contentHashes(file);
+        if(engine.findDuplicateForHashes(assets,file,hashes)){duplicates++;continue}
+        const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:hashes.current||'',sourceLegacyContentHash:hashes.legacy||'',sourceHashVersion:hashes.version,sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
