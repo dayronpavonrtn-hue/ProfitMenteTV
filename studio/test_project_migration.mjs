@@ -69,9 +69,10 @@ assert.equal(square.repairs.clipIds,0);
 assert.equal(square.repairs.markerIds,0);
 assert.equal(square.repairs.durationExtended,false);
 
-const future=engine.migrate({version:'2.0',name:'Future',mode:'Manual',duration:5,format:'16:9',clips:[],futureField:{x:1}});
-assert.equal(future.project.version,'2.0','future project versions must never be downgraded');
-assert.deepEqual(future.project.futureField,{x:1});
+const future={version:'2.0',name:'Future',mode:'Manual',duration:5,format:'16:9',clips:[{id:'future',track:9,name:'Future track',start:0,duration:5}],futureField:{x:1}};
+assert.throws(()=>engine.migrate(future),err=>/versión más nueva/i.test(err.message)&&/v1\.9/.test(err.message),'future project schemas must be rejected instead of normalized destructively');
+assert.equal(future.clips[0].track,9,'rejected future projects must remain untouched');
+assert.deepEqual(future.futureField,{x:1});
 
 assert.throws(()=>engine.migrate(null),/inválido/i);
 console.log('ProfitMente project migration QA passed');
