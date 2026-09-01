@@ -18,6 +18,14 @@ assert.equal(right.sourceOffset,6.5,'split continuation must preserve source pos
 assert.equal(insertProject.clips.find(c=>c.id==='b').start,10,'later clips on target track must shift');
 assert.equal(insertProject.clips.find(c=>c.id==='music').start,1,'other tracks must remain untouched');
 
+const locked={duration:20,trackState:{0:{locked:true}},clips:[{id:'locked',track:0,start:2,duration:5,asset:'locked.mp4'}]};
+const lockedBefore=structuredClone(locked);
+assert.equal(Placement.trackLocked(locked,0),true,'numeric track lock must be detected');
+assert.equal(Placement.trackLocked({trackState:{'5':{locked:true}}},5),true,'string track lock must be detected');
+assert.equal(Placement.trackLocked(locked,1),false,'unlocked track must remain editable');
+const lockedInsert=Placement.insertSpace(locked,0,3,2,ops);assert.equal(lockedInsert.ok,false);assert.equal(lockedInsert.reason,'locked-track');assert.deepEqual(locked,lockedBefore,'locked insert must not mutate project');
+const lockedOverwrite=Placement.overwriteRange(locked,0,3,2,ops);assert.equal(lockedOverwrite.ok,false);assert.equal(lockedOverwrite.reason,'locked-track');assert.deepEqual(locked,lockedBefore,'locked overwrite must not mutate project');
+
 const overflow={duration:10,clips:[{id:'tail',track:0,start:7,duration:3,asset:'tail.mp4'}]};
 const blocked=Placement.insertSpace(overflow,0,5,2,ops);assert.equal(blocked.ok,false);assert.equal(blocked.reason,'out-of-range');assert.equal(overflow.clips[0].start,7,'failed insert must not mutate project');
 
