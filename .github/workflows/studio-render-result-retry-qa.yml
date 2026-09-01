@@ -5,11 +5,15 @@ on:
     paths:
       - 'studio/render-job-client.js'
       - 'studio/test_render_result_retry.mjs'
+      - 'studio/studio_server.py'
+      - 'studio/test_server_api.py'
       - '.github/workflows/studio-render-result-retry-qa.yml'
   pull_request:
     paths:
       - 'studio/render-job-client.js'
       - 'studio/test_render_result_retry.mjs'
+      - 'studio/studio_server.py'
+      - 'studio/test_server_api.py'
       - '.github/workflows/studio-render-result-retry-qa.yml'
 
 jobs:
@@ -20,7 +24,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Check client syntax
         run: node --check studio/render-job-client.js
+      - name: Check local render server syntax
+        run: python -m py_compile studio/studio_server.py studio/test_server_api.py
       - name: Run render result retry regression
         run: node studio/test_render_result_retry.mjs
+      - name: Run server result retention regression
+        working-directory: studio
+        run: python test_server_api.py
