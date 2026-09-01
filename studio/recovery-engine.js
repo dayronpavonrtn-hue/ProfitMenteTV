@@ -24,7 +24,23 @@ class ProfitMenteRecoveryEngine{
     return {rows,invalid};
   }
   _read(){return this._decode().rows}
-  _write(rows){this.storage.setItem(this.key,JSON.stringify(rows.slice(0,this.limit)))}
+  _write(rows){
+    // The recovery budget is shared by every Studio project. A hot project can
+    // generate many snapshots in seconds, so a plain rows.slice(0, limit) can
+    // evict every recovery point belonging to other projects. Reserve up to two
+    // recent points per project group first, then spend the remaining capacity
+    // strictly by recency. With a single project this still retains the full
+    // configured history budget.
+    const valid=Array.isArray(rows)?rows.filter(Boolean):[],selected=new Set(),perGroup=new Map();
+    for(const row of valid){
+      if(selected.size>=this.limit)break;
+      const group=row.group||this._group(row.project),count=perGroup.get(group)||0;
+      if(count>=2)continue;
+      selected.add(row.id);perGroup.set(group,count+1);
+    }
+    for(const row of valid){if(selected.size>=this.limit)break;if(!selected.has(row.id))selected.add(row.id)}
+    this.storage.setItem(this.key,JSON.stringify(valid.filter(row=>selected.has(row.id)).slice(0,this.limit)))
+  }
   repair(){const {rows,invalid}=this._decode();this._write(rows);return {kept:rows.length,removed:invalid}}
   capture(project,reason='change',now=new Date().toISOString()){
     if(!this._isProject(project))return null;
