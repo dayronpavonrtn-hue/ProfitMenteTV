@@ -49,6 +49,8 @@
     ['project-history-engine.js','ProfitMenteProjectHistoryEngine'],
     ['project-history-integration.js','ProfitMenteProjectHistory'],
     ['project-portability.js','ProfitMenteProjectPortability'],
+    ['project-import-engine.js','ProfitMenteProjectImportEngine'],
+    ['project-import-integration.js',null],
     ['bundle-import-engine.js','ProfitMenteBundleImportEngine'],
     ['bundle-import-integration.js','ProfitMenteBundleImport'],
     ['project-migration-engine.js','ProfitMenteProjectMigrationEngine'],
