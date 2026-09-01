@@ -31,5 +31,10 @@ const lockedTrackLegacyBefore=structuredClone(lockedTrackLegacy);
 r=Engine.replace(lockedTrackLegacy,'locked-track-legacy',{id:'replacement',name:'Replacement',type:'video',duration:20});
 assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(lockedTrackLegacy,lockedTrackLegacyBefore);
 
+const mixedTrackMaps={clips:[{...structuredClone(baseClip),id:'mixed-maps',track:1}],trackState:{0:{locked:false}},trackStates:{'1':{locked:true}}};
+const mixedTrackMapsBefore=structuredClone(mixedTrackMaps);
+r=Engine.replace(mixedTrackMaps,'mixed-maps',{id:'replacement',name:'Replacement',type:'video',duration:20});
+assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(mixedTrackMaps,mixedTrackMapsBefore);
+
 assert.equal(Engine.replace({clips:[]},'missing',{id:'a',type:'audio'}).reason,'clip-missing');
 console.log('media replace engine ok');
