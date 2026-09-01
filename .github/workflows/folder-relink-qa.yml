@@ -5,11 +5,13 @@ on:
     paths:
       - 'studio/relink-engine.js'
       - 'studio/relink-manifest-regression.js'
+      - 'studio/relink-content-hash-regression.js'
       - '.github/workflows/folder-relink-qa.yml'
   pull_request:
     paths:
       - 'studio/relink-engine.js'
       - 'studio/relink-manifest-regression.js'
+      - 'studio/relink-content-hash-regression.js'
       - '.github/workflows/folder-relink-qa.yml'
 
 jobs:
@@ -24,5 +26,7 @@ jobs:
         run: node --check studio/relink-engine.js
       - name: Path-aware relink regression
         run: node studio/relink-manifest-regression.js
+      - name: Content-hash relink regression
+        run: node studio/relink-content-hash-regression.js
       - name: Media import syntax parity
         run: node --check studio/media-import-engine.js
