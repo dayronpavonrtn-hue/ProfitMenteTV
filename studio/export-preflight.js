@@ -12,6 +12,21 @@
       return {state,label,canPackage:issues.length===0,canRender:issues.length===0&&!!health.render_ready,score:Number(qa.score)||0,issues,warnings,metrics:qa.metrics||{},health};
     }
   }
+  function captureLiveState(projectValue,assetValue){
+    let projectText='',assetsText='';
+    try{projectText=JSON.stringify(projectValue)}catch{}
+    try{assetsText=JSON.stringify(assetValue)}catch{}
+    return {projectText,assetsText,assetRefs:Array.isArray(assetValue)?assetValue.slice():null};
+  }
+  function liveStateUnchanged(state,projectValue,assetValue){
+    if(!state)return true;
+    try{if(JSON.stringify(projectValue)!==state.projectText||JSON.stringify(assetValue)!==state.assetsText)return false}catch{return false}
+    if(state.assetRefs){
+      if(!Array.isArray(assetValue)||assetValue.length!==state.assetRefs.length)return false;
+      for(let i=0;i<state.assetRefs.length;i++)if(assetValue[i]!==state.assetRefs[i])return false;
+    }
+    return true;
+  }
   root.ProfitMenteExportPreflight=ProfitMenteExportPreflight;
   if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteExportPreflight;
   if(typeof document==='undefined')return;
@@ -23,9 +38,15 @@
     btn.disabled=true;try{
       const hasSnapshot=!!snapshot&&typeof snapshot==='object'&&!!snapshot.project;
       if(!hasSnapshot&&typeof save==='function')save();
+      const liveGuard=hasSnapshot?null:captureLiveState(project,assets);
       const qaProject=hasSnapshot?snapshot.project:project;
       const qaAssets=hasSnapshot&&Array.isArray(snapshot.assets)?snapshot.assets:assets;
-      const qa=qaEngine.inspect(qaProject,qaAssets),health=await bundleEngine.health(),r=ProfitMenteExportPreflight.summarize(qa,health);
+      const qa=qaEngine.inspect(qaProject,qaAssets),health=await bundleEngine.health();
+      let r=ProfitMenteExportPreflight.summarize(qa,health);
+      if(!hasSnapshot&&!liveStateUnchanged(liveGuard,project,assets)){
+        const changedQa={...qa,ok:false,issues:[...(qa.issues||[]),'El proyecto cambió durante el Preflight. Inicia la exportación otra vez para validar la versión actual.']};
+        r=ProfitMenteExportPreflight.summarize(changedQa,health);
+      }
       report.hidden=false;report.dataset.state=r.state;
       const render=r.canRender?'MP4 directo ✓':r.canPackage?'Paquete ✓ · MP4 directo no disponible':'MP4 bloqueado';
       const metrics=r.metrics||{};
