@@ -69,6 +69,23 @@ function normalizeMarkers(input,projectDuration){
   markers.sort((a,b)=>a.time-b.time);
   return markers;
 }
+function normalizeTrackStateMap(current,legacy){
+  const modern=current&&typeof current==='object'&&!Array.isArray(current)?current:{};
+  const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
+  const keys=new Set([...Object.keys(old),...Object.keys(modern)]);
+  const result={};
+  for(const key of keys){
+    const legacyState=old[key]&&typeof old[key]==='object'&&!Array.isArray(old[key])?old[key]:{};
+    const currentState=modern[key]&&typeof modern[key]==='object'&&!Array.isArray(modern[key])?modern[key]:{};
+    const merged={...clone(legacyState),...clone(currentState)};
+    for(const flag of ['hidden','muted','locked','solo']){
+      if(Boolean(legacyState[flag])||Boolean(currentState[flag]))merged[flag]=true;
+      else if(flag in legacyState||flag in currentState)merged[flag]=false;
+    }
+    if(Object.keys(merged).length)result[key]=merged;
+  }
+  return result;
+}
 class ProfitMenteProjectMigrationEngine{
   constructor(currentVersion=CURRENT_VERSION){this.currentVersion=String(currentVersion||CURRENT_VERSION)}
   migrate(input){
@@ -89,11 +106,14 @@ class ProfitMenteProjectMigrationEngine{
     project.clips=sourceClips.map(c=>normalizeClip(c,duration));
     ensureUniqueIds(project.clips,'clip');
     if(source.markers!=null)project.markers=normalizeMarkers(source.markers,duration);
-    if(source.trackState!=null&&(!source.trackState||typeof source.trackState!=='object'||Array.isArray(source.trackState)))delete project.trackState;
+    const trackState=normalizeTrackStateMap(source.trackState,source.trackStates);
+    if(Object.keys(trackState).length)project.trackState=trackState;
+    else delete project.trackState;
+    delete project.trackStates;
     project.version=this.currentVersion;
     const before=JSON.stringify(source),after=JSON.stringify(project);
     return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds,durationExtended:duration>declaredDuration}};
   }
 }
-return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,ensureUniqueIds,countIdentityRepairs,contentDuration};
+return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,normalizeTrackStateMap,ensureUniqueIds,countIdentityRepairs,contentDuration};
 });
