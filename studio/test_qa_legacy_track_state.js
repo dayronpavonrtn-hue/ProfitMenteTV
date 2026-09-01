@@ -2,6 +2,7 @@
 const assert=require('assert');
 const {ProfitMenteQAEngine}=require('./qa-engine.js');
 const Guard=require('./qa-legacy-track-state-guard.js');
+const QAAutofix=require('./qa-autofix.js');
 
 assert.strictEqual(Guard.install(),false,'guard should already be installed by module load');
 const qa=new ProfitMenteQAEngine();
@@ -35,4 +36,18 @@ assert.strictEqual(normalized.trackState['0'].hidden,true);
 assert.strictEqual(normalized.trackState['0'].locked,true);
 assert.strictEqual(normalized.trackState['1'].solo,true);
 
-console.log('QA legacy track-state compatibility OK');
+const lockedProject={duration:10,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[{id:'locked',track:0,start:-2,duration:-1,fitMode:'invalid',speed:99}]};
+const before=JSON.stringify(lockedProject.clips[0]);
+const fixed=QAAutofix.repair(lockedProject,[]);
+assert.strictEqual(fixed.skippedLocked,1,'legacy track lock must protect clip from safe repair');
+assert.strictEqual(JSON.stringify(lockedProject.clips[0]),before,'legacy locked clip must remain unchanged');
+
+const openProject={duration:10,trackStates:{0:{locked:false}},clips:[{id:'open',track:0,start:-2,duration:-1,fitMode:'invalid',speed:99}]};
+const repaired=QAAutofix.repair(openProject,[]);
+assert.strictEqual(repaired.skippedLocked,0,'unlocked legacy track must remain editable');
+assert.strictEqual(openProject.clips[0].start,0);
+assert.strictEqual(openProject.clips[0].duration,.05);
+assert.strictEqual(openProject.clips[0].fitMode,'cover');
+assert.strictEqual(openProject.clips[0].speed,4);
+
+console.log('QA legacy track-state compatibility + safe repair lock parity OK');
