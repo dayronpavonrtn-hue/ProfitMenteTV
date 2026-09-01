@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression: direct Motion render must honor legacy trackStates before child renderers run."""
+"""Regression: direct Motion render normalizes legacy state and gates parity before FFmpeg."""
 import json
 import pathlib
 import runpy
@@ -25,6 +25,7 @@ def main():
         "clips": [],
     }
     captured = {}
+    calls = []
     original_run = subprocess.run
     original_argv = sys.argv[:]
     original_path = sys.path[:]
@@ -39,7 +40,10 @@ def main():
 
             def fake_run(cmd, check=False, **kwargs):
                 child = pathlib.Path(str(cmd[1])).name if len(cmd) > 1 else ""
-                if child == "render_mp4.py":
+                calls.append(child)
+                if child == "render_parity_preflight.py":
+                    captured["preflight"] = json.loads(pathlib.Path(cmd[2]).read_text(encoding="utf-8"))
+                elif child == "render_mp4.py":
                     captured["video"] = json.loads(pathlib.Path(cmd[2]).read_text(encoding="utf-8"))
                 elif child == "render_audio_mix.py":
                     captured["audio"] = json.loads(pathlib.Path(cmd[2]).read_text(encoding="utf-8"))
@@ -54,13 +58,14 @@ def main():
         sys.argv = original_argv
         sys.path[:] = original_path
 
-    assert set(captured) == {"video", "audio"}, captured
+    assert calls == ["render_parity_preflight.py", "render_mp4.py", "render_audio_mix.py"], calls
+    assert set(captured) == {"preflight", "video", "audio"}, captured
     for name, value in captured.items():
         assert "trackStates" not in value, (name, value)
         assert value["trackState"]["0"]["hidden"] is True, (name, value)
         assert value["trackState"]["5"]["muted"] is True, (name, value)
 
-    print("Direct Motion render legacy track-state parity OK")
+    print("Direct Motion render parity gate + legacy track-state normalization OK")
 
 
 if __name__ == "__main__":
