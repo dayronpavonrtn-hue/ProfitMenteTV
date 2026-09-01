@@ -4,8 +4,10 @@
     static clamp(v,lo,hi,fallback=lo){const n=Number(v);return Math.max(lo,Math.min(hi,Number.isFinite(n)?n:fallback))}
     static isLocked(project,clip){
       if(!clip)return false;
-      const track=clip.track,state=project?.trackState?.[track]??project?.trackState?.[String(track)]??{};
-      return !!clip.locked||!!(state&&typeof state==='object'&&state.locked);
+      const track=clip.track;
+      const read=map=>map?.[track]??map?.[String(track)]??{};
+      const current=read(project?.trackState),legacy=read(project?.trackStates);
+      return !!clip.locked||!!(current&&typeof current==='object'&&current.locked)||!!(legacy&&typeof legacy==='object'&&legacy.locked);
     }
     static repair(project,assets=[]){
       if(!project||typeof project!=='object')return {changed:0,fixes:['Proyecto inválido'],skippedLocked:0};
