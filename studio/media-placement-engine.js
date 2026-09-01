@@ -4,9 +4,16 @@ class ProfitMenteMediaPlacementEngine{
     const requested=Math.max(.25,Number(duration)||.25),available=Math.max(0,total-start),length=Math.min(available,requested);
     return {start,end:start+length,duration:length,total,available,valid:length>=.25-.001};
   }
+  static trackLocked(project,track){
+    const state=project?.trackState;
+    if(!state||typeof state!=='object')return false;
+    const value=state[track]??state[String(track)];
+    return !!(value&&typeof value==='object'&&value.locked);
+  }
   static onTrack(project,track){return (project?.clips||[]).filter(c=>Number(c?.track)===Number(track))}
   static insertSpace(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split)return {ok:false,reason:'missing-engine',shifted:0};
+    if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',shifted:0};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',shifted:0,required:.25,total:r.total,available:r.available};
     const clips=this.onTrack(project,track),after=clips.filter(c=>(Number(c.start)||0)>=r.start-.001),crossing=clips.find(c=>(Number(c.start)||0)<r.start-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>r.start+.001);
     const movable=[...after];if(crossing)movable.push(crossing);
@@ -20,6 +27,7 @@ class ProfitMenteMediaPlacementEngine{
   }
   static overwriteRange(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split||!ops?.trimLeft||!ops?.trimRight)return {ok:false,reason:'missing-engine',removed:0,trimmed:0};
+    if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',removed:0,trimmed:0};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',removed:0,trimmed:0,total:r.total,available:r.available};
     const ids=this.onTrack(project,track).filter(c=>{const s=Number(c.start)||0,e=s+(Number(c.duration)||0);return s<r.end-.001&&e>r.start+.001}).map(c=>c.id);
     let removed=0,trimmed=0,splitCount=0;
