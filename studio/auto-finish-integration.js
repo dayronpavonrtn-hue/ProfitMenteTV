@@ -9,15 +9,25 @@
     if(typeof window.ProfitMenteExportPreflightRun!=='function')return null;
     try{return await window.ProfitMenteExportPreflightRun()}catch(err){console.error('Auto Finish export preflight failed',err);return null}
   }
-  function captureAutomationState(){return {project:structuredClone(project),assets:structuredClone(Array.isArray(assets)?assets:[])}}
+  function getProjectHistoryEngine(){return window.ProfitMenteProjectHistory?.engine||null}
+  function captureAutomationState(){
+    const projectHistory=getProjectHistoryEngine();
+    return {
+      project:structuredClone(project),
+      assets:structuredClone(Array.isArray(assets)?assets:[]),
+      projectHistory:projectHistory?.exportState?.()||null
+    };
+  }
   async function restoreAutomationState(snapshot){
     if(!snapshot)return false;
     project=structuredClone(snapshot.project);assets=structuredClone(snapshot.assets);
+    const projectHistory=getProjectHistoryEngine();
+    const historyRestored=!!(snapshot.projectHistory&&projectHistory?.importState?.(snapshot.projectHistory));
     persist?.();drawTimeline?.();drawLibrary?.();syncForm?.();
     const playhead=$('#playhead');if(playhead)playhead.value=Math.max(0,Math.min(Number(project?.duration)||0,+playhead.value||0));
     await renderAt?.(+(playhead?.value||0));
-    if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
-    window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-rolled-back',{detail:{reason:'step-error'}}));
+    if(!historyRestored&&typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
+    window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-rolled-back',{detail:{reason:'step-error',historyRestored}}));
     return true;
   }
   async function run(){
