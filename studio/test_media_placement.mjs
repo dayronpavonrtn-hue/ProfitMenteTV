@@ -26,6 +26,16 @@ assert.equal(Placement.trackLocked(locked,1),false,'unlocked track must remain e
 const lockedInsert=Placement.insertSpace(locked,0,3,2,ops);assert.equal(lockedInsert.ok,false);assert.equal(lockedInsert.reason,'locked-track');assert.deepEqual(locked,lockedBefore,'locked insert must not mutate project');
 const lockedOverwrite=Placement.overwriteRange(locked,0,3,2,ops);assert.equal(lockedOverwrite.ok,false);assert.equal(lockedOverwrite.reason,'locked-track');assert.deepEqual(locked,lockedBefore,'locked overwrite must not mutate project');
 
+const lockedClipInsert={duration:20,clips:[{id:'free',track:0,start:0,duration:2,asset:'free.mp4'},{id:'protected',track:0,start:5,duration:3,asset:'protected.mp4',locked:true},{id:'tail',track:0,start:10,duration:2,asset:'tail.mp4'}]};
+const lockedClipInsertBefore=structuredClone(lockedClipInsert);
+const blockedByClip=Placement.insertSpace(lockedClipInsert,0,4,1,ops);assert.equal(blockedByClip.ok,false);assert.equal(blockedByClip.reason,'locked-clip');assert.deepEqual(blockedByClip.lockedIds,['protected']);assert.deepEqual(lockedClipInsert,lockedClipInsertBefore,'insert blocked by a locked clip must be atomic');
+const beforeProtectedInsert=Placement.insertSpace(lockedClipInsert,0,1,1,ops);assert.equal(beforeProtectedInsert.ok,false);assert.equal(beforeProtectedInsert.reason,'locked-clip','inserting before a locked downstream clip would move it and must be blocked');assert.deepEqual(lockedClipInsert,lockedClipInsertBefore);
+
+const lockedClipOverwrite={duration:20,clips:[{id:'protected',track:0,start:4,duration:5,asset:'protected.mp4',locked:true},{id:'safe',track:0,start:12,duration:2,asset:'safe.mp4'}]};
+const lockedClipOverwriteBefore=structuredClone(lockedClipOverwrite);
+const overwriteLocked=Placement.overwriteRange(lockedClipOverwrite,0,5,2,ops);assert.equal(overwriteLocked.ok,false);assert.equal(overwriteLocked.reason,'locked-clip');assert.deepEqual(overwriteLocked.lockedIds,['protected']);assert.deepEqual(lockedClipOverwrite,lockedClipOverwriteBefore,'overwrite blocked by locked clip must not trim or split anything');
+const overwriteSafe=Placement.overwriteRange(lockedClipOverwrite,0,10,1,ops);assert.equal(overwriteSafe.ok,true,'overwrite outside locked clip remains allowed');assert.deepEqual(lockedClipOverwrite.clips.find(c=>c.id==='protected'),lockedClipOverwriteBefore.clips.find(c=>c.id==='protected'),'unrelated locked clip must remain untouched');
+
 const overflow={duration:10,clips:[{id:'tail',track:0,start:7,duration:3,asset:'tail.mp4'}]};
 const blocked=Placement.insertSpace(overflow,0,5,2,ops);assert.equal(blocked.ok,false);assert.equal(blocked.reason,'out-of-range');assert.equal(overflow.clips[0].start,7,'failed insert must not mutate project');
 
