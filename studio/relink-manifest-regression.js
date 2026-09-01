@@ -31,15 +31,22 @@ const exact={name:'Hook Final.mp4',type:'video/mp4',size:10485760,lastModified:1
 const sameNameWrongFolder={name:'Hook Final.mp4',type:'video/mp4',size:10485760,lastModified:1720000000000,webkitRelativePath:'Archive/Old/Hook Final.mp4'};
 const wrongType={name:'Hook Final.mp4',type:'audio/mp4',size:10485760,lastModified:1720000000000,webkitRelativePath:'Campaign A/Video/Hook Final.mp4'};
 const unrelated={name:'Vacation.mp4',type:'video/mp4',size:10485760,lastModified:1720000000000,webkitRelativePath:'Campaign A/Video/Vacation.mp4'};
+const samePathWrongFile={name:'Hook Final.mp4',type:'video/mp4',size:3145728,lastModified:1760000000000,webkitRelativePath:'Campaign A/Video/Hook Final.mp4'};
 assert.ok(engine.score(missing[0],exact)>engine.score(missing[0],sameNameWrongFolder),'exact relative path must outrank duplicate filenames from another folder');
 assert.ok(engine.score(missing[0],exact)>=65,'exact original should be a safe match');
 assert.ok(engine.score(missing[0],wrongType)<0,'same filename with wrong media type must be rejected');
 assert.ok(engine.score(missing[0],unrelated)<65,'size/type coincidence without filename relationship must not auto-relink');
+assert.ok(engine.score(missing[0],samePathWrongFile)<0,'same path/name with a dramatic size mismatch must be rejected as unsafe');
 
 let result=engine.match(project,[assets[1]],[sameNameWrongFolder,exact]);
 assert.strictEqual(result.matches.length,1);
 assert.strictEqual(result.matches[0].expected.id,'a1');
 assert.strictEqual(result.matches[0].file,exact,'folder relink should select the original relative path when duplicate names exist');
+
+result=engine.match(project,[assets[1]],[samePathWrongFile]);
+assert.strictEqual(result.matches.length,0,'unsafe replacement footage must never auto-relink');
+assert.deepStrictEqual(result.unmatchedMissing.map(x=>x.id),['a1']);
+assert.strictEqual(result.unusedFiles[0],samePathWrongFile);
 
 project.assets[0].fingerprint='sha256:legacy';
 const strippedAssets=[{...assets[0],sourceRelativePath:'',sourceFingerprint:'',sourceContentHash:''},assets[1]];
