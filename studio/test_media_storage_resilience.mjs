@@ -43,7 +43,7 @@ function makeContext({fail=false,initial=[]}={}){
   const asset={id:'session-media',name:'Session media'};
   await context.putAsset(asset);
   const list=await context.getAssets();
-  assert.deepEqual(list.map(x=>x.id),['session-media'],'uploads remain usable during the degraded session');
+  assert.equal(list.map(x=>x.id).join(','),'session-media','uploads remain usable during the degraded session');
   assert.equal(api.memoryCount(),1,'fallback keeps the media in memory');
   assert.ok(calls.status.some(x=>x.includes('medios en memoria')),'user receives a concrete persistence warning');
   assert.ok(calls.library>0&&calls.form>0&&calls.timeline>0&&calls.render>0,'storage failure no longer blocks Studio initialization');
