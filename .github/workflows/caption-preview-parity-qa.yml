@@ -5,15 +5,19 @@ on:
     paths:
       - 'studio/caption-compact-engine.js'
       - 'studio/preview-engine.js'
+      - 'studio/caption-preview.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_caption_preview_compact.mjs'
+      - 'studio/test_caption_overlap_preview_parity.mjs'
       - '.github/workflows/caption-preview-parity-qa.yml'
   pull_request:
     paths:
       - 'studio/caption-compact-engine.js'
       - 'studio/preview-engine.js'
+      - 'studio/caption-preview.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_caption_preview_compact.mjs'
+      - 'studio/test_caption_overlap_preview_parity.mjs'
   workflow_dispatch:
 
 jobs:
@@ -28,11 +32,17 @@ jobs:
         run: |
           node --check studio/caption-compact-engine.js
           node --check studio/preview-engine.js
+          node --check studio/caption-preview.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_caption_preview_compact.mjs
+          node --check studio/test_caption_overlap_preview_parity.mjs
       - name: Caption preview regression
-        run: node studio/test_caption_preview_compact.mjs
+        run: |
+          node studio/test_caption_preview_compact.mjs
+          node studio/test_caption_overlap_preview_parity.mjs
       - name: Verify Studio integration
         run: |
           grep -q "caption-compact-engine.js" studio/feature-bootstrap.js
           grep -q "ProfitMenteCaptionCompactEngine" studio/preview-engine.js
+          grep -q "activeCaptions" studio/preview-engine.js
+          grep -q "activeCaptions" studio/caption-preview.js
