@@ -100,6 +100,19 @@ const clone=value=>structuredClone(value);
 
 {
   const ops=new Ops();
+  ops.copy({id:'source',track:0,start:0,duration:4,name:'Source'});
+  const project={duration:10,clips:[]};
+  const pasted=ops.paste(project,12,0);
+  assert.ok(pasted,'paste beyond the current sequence must succeed');
+  assert.equal(pasted.start,12,'paste must preserve the requested timeline position');
+  assert.equal(project.duration,16,'paste must extend project duration through the pasted clip end');
+  const inside=ops.paste(project,2,0);
+  assert.equal(inside.start,2);
+  assert.equal(project.duration,16,'paste inside the sequence must not shrink project duration');
+}
+
+{
+  const ops=new Ops();
   const project={duration:20,clips:[
     {id:'a',track:0,start:0,duration:2},
     {id:'b',track:0,start:5,duration:2}
