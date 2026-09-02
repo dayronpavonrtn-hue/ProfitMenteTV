@@ -14,7 +14,7 @@ assert.match(
 );
 assert.match(
   renderer,
-  /key=lambda c: \(int\(c\.get\("track", 0\)\), float\(c\.get\("start", 0\)\)\)/,
+  /sorted\(visual,key=lambda x:\(int\(x\.get\('track',0\)\),float\(x\.get\('start',0\)\)\)\)/,
   'MP4 renderer must keep the matching track/start visual order'
 );
 
