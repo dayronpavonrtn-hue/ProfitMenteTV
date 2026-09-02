@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {ProfitMenteBundleImportEngine}=require('./bundle-import-engine.js');
@@ -31,4 +32,12 @@ assert.deepEqual(conflict.stats,{added:1,reused:0,remapped:1,totalIncoming:2});
 
 assert.throws(()=>conflictEngine.prepare({clips:[]},[{name:'sin-id'}],[]),/sin identificador/);
 assert.throws(()=>conflictEngine.prepare({clips:null},[],[]),/timeline válida/);
+
+const integration=fs.readFileSync(new URL('./bundle-import-integration.js',import.meta.url),'utf8');
+assert.match(integration,/migrateRestoredProject\(restored\.project\)/,'bundle restore must migrate the restored project before media preparation');
+assert.match(integration,/ProfitMenteProjectMigration\?\.engine/,'bundle restore should reuse the active canonical migration engine');
+assert.match(integration,/ProfitMenteProjectMigrationEngine/,'bundle restore needs a migration fallback when the integration wrapper is unavailable');
+const migrateAt=integration.indexOf('migrateRestoredProject(restored.project)');
+const prepareAt=integration.indexOf('importer.prepare(normalized');
+assert.ok(migrateAt>=0&&prepareAt>migrateAt,'migration must finish before asset remapping and project persistence');
 console.log('Safe bundle import regression OK');
