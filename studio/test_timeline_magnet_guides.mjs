@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 globalThis.window=globalThis;
 globalThis.assets=[];
 globalThis.names=[];
+globalThis.ProfitMenteGroupDragEngine=function ProfitMenteGroupDragEngine(){};
 globalThis.project={
   duration:30,
   markers:[{id:'m1',time:7.25,label:'Beat'}],
