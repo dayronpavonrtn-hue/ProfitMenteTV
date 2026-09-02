@@ -26,4 +26,33 @@ assert.equal(E.label('unreadable'),'medio no decodificable');
 const healthy=E.audit({clips:[{id:'x',track:0,asset:'a1'}]},assets);
 assert.equal(healthy.ok,true);
 assert.equal(healthy.counts.offline,0);
-console.log('offline media regression ok',report.counts);
+
+// Legacy/current state conflicts must resolve conservatively. A hidden or muted flag in either
+// schema keeps offline clips non-blocking instead of resurrecting them during migration.
+const legacyConflict=E.audit({
+  trackState:{1:{hidden:false},5:{muted:false}},
+  trackStates:{1:{hidden:true},5:{muted:true}},
+  clips:[{id:'legacy-hidden',track:1,asset:'missing-v'},{id:'legacy-muted',track:5,asset:'missing-a'}]
+},[]);
+assert.equal(legacyConflict.counts.offline,2);
+assert.equal(legacyConflict.counts.blocking,0);
+assert.equal(E.trackState({trackState:{1:{hidden:false}},trackStates:{1:{hidden:true}}},1).hidden,true);
+
+// Solo is semantic: once one visual/audio track is Solo, offline media on sibling tracks is inactive
+// and must not falsely block export/relink QA. Legacy Solo remains authoritative as well.
+const solo=E.audit({
+  trackState:{0:{solo:true},4:{solo:false}},
+  trackStates:{4:{solo:true}},
+  clips:[
+    {id:'visual-solo',track:0,asset:'missing-v0'},
+    {id:'visual-nonsolo',track:1,asset:'missing-v1'},
+    {id:'audio-solo',track:4,asset:'missing-a4'},
+    {id:'audio-nonsolo',track:6,asset:'missing-a6'}
+  ]
+},[]);
+assert.deepEqual(new Set(solo.blockingClipIds),new Set(['visual-solo','audio-solo']));
+assert.equal(solo.offline.find(x=>x.clipId==='visual-nonsolo').active,false);
+assert.equal(solo.offline.find(x=>x.clipId==='audio-nonsolo').active,false);
+assert.equal(E.trackState({trackState:{4:{solo:false}},trackStates:{4:{solo:true}}},4).solo,true);
+
+console.log('offline media regression ok',{base:report.counts,legacy:legacyConflict.counts,solo:solo.counts});
