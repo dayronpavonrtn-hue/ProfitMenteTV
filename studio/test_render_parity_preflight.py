@@ -16,7 +16,7 @@ def assert_bad(project, needle):
 base = {
     'fps': 30,
     'clips': [
-        {'id': 'v1', 'track': 0, 'name': 'Video', 'start': 0, 'duration': 3, 'transition': 'fade', 'transitionDuration': .3, 'fitMode': 'cover'},
+        {'id': 'v1', 'track': 0, 'name': 'Video', 'start': 0, 'duration': 3, 'sourceOffset': 0, 'speed': 1, 'transition': 'fade', 'transitionDuration': .3, 'fitMode': 'cover'},
         {'id': 't1', 'track': 2, 'name': 'Título', 'start': 0, 'duration': 2, 'textStyle': 'callout', 'textAnimation': 'slide-up'},
         {'id': 'c1', 'track': 3, 'name': 'Caption', 'start': 0, 'duration': 2},
     ],
@@ -26,7 +26,16 @@ assert_bad({**base, 'fps': 25}, 'FPS')
 assert_bad({**base, 'clips': [{**base['clips'][0], 'transition': 'wipe'}]}, 'transición')
 assert_bad({**base, 'clips': [{**base['clips'][0], 'fitMode': 'stretch'}]}, 'ajuste')
 assert_bad({**base, 'clips': [{**base['clips'][0], 'transitionDuration': 0}]}, 'duración de transición')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'transitionDuration': .01}]}, 'duración de transición')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'duration': .2, 'transitionDuration': .3}]}, 'duración de transición')
 assert_bad({**base, 'clips': [{**base['clips'][1], 'textAnimation': 'bounce'}]}, 'animación')
 assert_bad({**base, 'clips': [{**base['clips'][1], 'textStyle': 'lower-third'}]}, 'estilo')
 assert_bad({**base, 'clips': [{'id': 'v2', 'track': 0, 'name': 'Bad number', 'start': 'abc', 'duration': 2}]}, 'start')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'start': -1}]}, 'start no puede')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'duration': 0}]}, 'duration debe')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'sourceOffset': -0.1}]}, 'sourceOffset')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'speed': .1}]}, 'velocidad')
+assert_bad({**base, 'clips': [{**base['clips'][0], 'speed': 5}]}, 'velocidad')
+assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': .25}, {**base['clips'][1]}, {**base['clips'][2]}]})
+assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': 4}, {**base['clips'][1]}, {**base['clips'][2]}]})
 print('Render parity preflight regression OK')
