@@ -20,8 +20,17 @@ class ProfitMenteWebMRenderEngine{
       name:asset?.name??'',
       type:asset?.type??'',
       mime:asset?.mime??blob?.type??'',
-      size:Number(blob?.size)||0,
-      lastModified:Number(blob?.lastModified)||0
+      size:Number(blob?.size??asset?.size)||0,
+      lastModified:Number(blob?.lastModified??asset?.sourceLastModified)||0,
+      duration:Number(asset?.duration)||0,
+      width:Number(asset?.width)||0,
+      height:Number(asset?.height)||0,
+      mediaReadable:asset?.mediaReadable===false?false:true,
+      metadataVersion:Number(asset?.metadataVersion)||0,
+      sourceFingerprint:String(asset?.sourceFingerprint||''),
+      sourceContentHash:String(asset?.sourceContentHash||''),
+      sourceLegacyContentHash:String(asset?.sourceLegacyContentHash||''),
+      sourceHashVersion:String(asset?.sourceHashVersion||'')
     };
   }
   static stateSignature(project,assets=[]){
