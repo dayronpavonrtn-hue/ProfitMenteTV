@@ -6,8 +6,10 @@ let r=Engine.normalizeRange(video,2.5,7.75);assert.equal(r.in,2.5);assert.equal(
 r=Engine.normalizeRange(video,-5,99);assert.equal(r.in,0);assert.equal(r.out,12);assert.equal(r.duration,12);
 r=Engine.normalizeRange(video,11.95,11.96);assert.equal(r.in,11.75);assert.equal(r.out,12);assert.ok(Math.abs(r.duration-.25)<1e-9);
 r=Engine.normalizeRange({type:'audio'},0,2);assert.equal(r.valid,false);assert.equal(r.reason,'unknown-duration');
-r=Engine.selection(video,3,8,10,20);assert.equal(r.start,10);assert.equal(r.sourceOffset,3);assert.equal(r.duration,5);assert.equal(r.out,8);assert.equal(r.valid,true);
+r=Engine.selection(video,3,8,10,20);assert.equal(r.start,10);assert.equal(r.sourceOffset,3);assert.equal(r.duration,5);assert.equal(r.out,8);assert.equal(r.valid,true);assert.equal(r.extendsProject,false);
 r=Engine.selection(video,3,8,19.9,20);assert.equal(r.valid,false);assert.equal(r.reason,'project-end');
+r=Engine.selection(video,3,8,19.9,20,Engine.minimum(),true);assert.equal(r.valid,true);assert.equal(r.duration,5);assert.equal(r.sourceOffset,3);assert.equal(r.out,8);assert.equal(r.projectEnd,24.9);assert.equal(r.extendsProject,true,'add mode should preserve the full IN/OUT selection past project end');
+r=Engine.selection(video,3,8,20,20,Engine.minimum(),true);assert.equal(r.start,20);assert.equal(r.duration,5);assert.equal(r.projectEnd,25);assert.equal(r.valid,true,'add mode should allow placing a full source selection at the exact project end');
 r=Engine.selection({type:'image',duration:99},2,3,0,20);assert.equal(r.sourceOffset,0);assert.equal(r.in,0);assert.equal(r.duration,5);
 assert.deepEqual(Engine.tracks(video),[{id:0,label:'Video'},{id:1,label:'Overlay'}]);
 assert.deepEqual(Engine.tracks({type:'image'}),[{id:0,label:'Video'},{id:1,label:'Overlay'}]);
