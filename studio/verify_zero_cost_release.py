@@ -4,7 +4,7 @@
 Checks the critical editor/runtime pieces together without paid services:
 - browser startup wiring and corrupt-state isolation
 - JavaScript editor integrity and automatic mode regressions
-- media import/library identity and safe relinking
+- media import/library identity, storage fallback and safe relinking
 - multilayer timeline placement and preview freshness
 - project persistence/recovery/JSON transfer and portable bundles
 - export preflight, render-quality/parity configuration and output QC
@@ -63,6 +63,7 @@ def main() -> None:
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
+        ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
         ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
