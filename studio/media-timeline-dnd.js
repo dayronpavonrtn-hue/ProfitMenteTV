@@ -8,10 +8,10 @@ class ProfitMenteMediaTimelineDnD{
   static placement(asset,clientX,laneLeft,laneWidth,projectDuration){
     const total=Math.max(.25,Number(projectDuration)||.25),width=Math.max(1,Number(laneWidth)||1);
     const raw=(Number(clientX)-Number(laneLeft||0))/width*total;
-    const start=Math.max(0,Math.min(total-.25,raw));
+    const start=Math.max(0,Math.min(total,raw));
     const native=asset?.type==='image'?5:(Number(asset?.duration)||8);
-    const duration=Math.max(.25,Math.min(native,total-start));
-    return {start,duration};
+    const duration=Math.max(.25,native);
+    return {start,duration,end:start+duration};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaTimelineDnD=ProfitMenteMediaTimelineDnD;
@@ -50,8 +50,14 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaTi
     const id=e.dataTransfer.getData('application/x-profitmente-asset')||e.dataTransfer.getData('text/plain'),asset=assets.find(a=>a.id===id),track=Number(lane.dataset.track);
     lane.classList.remove('mediaAssetDrop');if(!asset)return;
     if(!ProfitMenteMediaTimelineDnD.canDrop(asset.type,track)){setStatus?.('Ese tipo de medio no es compatible con esta pista');return}
-    e.preventDefault();const rect=lane.getBoundingClientRect(),place=ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);
-    addClip(track,asset.name,asset.id,place.start,place.duration);setStatus?.(`${asset.name} añadido a la pista ${track} en ${place.start.toFixed(2)}s`);
+    e.preventDefault();
+    const rect=lane.getBoundingClientRect(),place=ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration),previousDuration=Number(project.duration)||.25;
+    const expandedDuration=Math.max(previousDuration,place.end);
+    if(expandedDuration>previousDuration){project.duration=expandedDuration;if(typeof syncForm==='function')syncForm()}
+    let created;
+    try{created=addClip(track,asset.name,asset.id,place.start,place.duration)}catch(error){project.duration=previousDuration;if(typeof syncForm==='function')syncForm();throw error}
+    if(created===null){project.duration=previousDuration;if(typeof syncForm==='function')syncForm();return}
+    setStatus?.(`${asset.name} añadido a la pista ${track} en ${place.start.toFixed(2)}s`);
   });
   document.addEventListener('dragend',()=>tracksHost.querySelectorAll('.mediaAssetDrop').forEach(x=>x.classList.remove('mediaAssetDrop')));
   window.profitMenteMediaTimelineDnD=ProfitMenteMediaTimelineDnD;
