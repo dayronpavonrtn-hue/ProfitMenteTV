@@ -30,7 +30,7 @@ assert.ok(magnet.boundaries('moving').includes(5.5),'playhead must be a snap bou
 assert.ok(magnet.boundaries('moving').includes(7.25),'marker must be a snap boundary');
 assert.equal(magnet.snapTime(7.19,'moving').time,7.25,'trim should snap to nearby marker');
 assert.equal(magnet.snapStart(5.44,project.clips[1]).start,5.5,'clip start should snap to playhead');
-assert.equal(magnet.snapStart(5.30,project.clips[1]).start,5.3,'outside threshold should stay on grid');
+assert.equal(magnet.snapStart(5.0,project.clips[1]).start,5,'outside threshold of both clip edges should stay on grid');
 playheadValue='100';
 assert.ok(magnet.guideTimes().includes(30),'playhead guide must clamp to project duration');
 project.markers.push({id:'bad',time:'not-a-number'});
