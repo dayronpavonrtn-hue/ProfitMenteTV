@@ -51,6 +51,7 @@ assert.throws(()=>lib.importSerialized('{broken json'),/JSON válido/,'malformed
 assert.throws(()=>lib.importSerialized(JSON.stringify({name:'No timeline',duration:30,format:'9:16'})),/Timeline/,'missing timeline must be rejected');
 assert.throws(()=>lib.importSerialized(JSON.stringify({name:'Bad duration',duration:-1,format:'9:16',clips:[]})),/Duración/,'invalid duration must be rejected');
 assert.throws(()=>lib.importSerialized(JSON.stringify({name:'Bad format',duration:10,format:'2:1',clips:[]})),/Formato/,'unsupported format must be rejected');
+assert.throws(()=>lib.importSerialized(JSON.stringify({name:'Unsupported 4:5',duration:10,format:'4:5',clips:[]})),/Formato/,'4:5 must be rejected until preview and MP4 render support it instead of silently converting it to square');
 assert.throws(()=>lib.importSerialized(JSON.stringify({name:'Bad clip',duration:10,format:'9:16',clips:[{start:-2,duration:3}]})),/Tiempo de clip/,'invalid clip timing must be rejected');
 
 const uiSource=fs.readFileSync(path.join(__dirname,'project-library.js'),'utf8');
