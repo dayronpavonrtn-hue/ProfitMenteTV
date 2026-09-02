@@ -29,10 +29,10 @@
   panel.querySelector('[data-sm-reset]').onclick=()=>{if(!asset)return;inPoint=0;outPoint=Engine.duration(asset);if(element&&asset.type!=='image')element.currentTime=0;update()};
   panel.querySelector('[data-sm-close]').onclick=()=>{release();asset=null;panel.hidden=true};
   panel.querySelector('[data-sm-place]').onclick=()=>{
-    if(!asset)return;const at=Number($('#playhead')?.value)||0,sel=Engine.selection(asset,inPoint,outPoint,at,project.duration);
+    if(!asset)return;const placement=window.ProfitMenteMediaPlacement;if(!placement?.place){status('El motor de colocación todavía no está disponible');return}
+    const at=Number($('#playhead')?.value)||0,allowExtend=placement.mode?.value==='add',sel=Engine.selection(asset,inPoint,outPoint,at,project.duration,Engine.minimum(),allowExtend);
     if(!sel.valid){status(sel.reason==='project-end'?'No queda espacio suficiente desde el cursor para colocar la selección':'No hay una selección de fuente válida');return}
-    const placement=window.ProfitMenteMediaPlacement;if(!placement?.place){status('El motor de colocación todavía no está disponible');return}
-    const allowed=Engine.tracks(asset).map(x=>x.id),requested=Number(trackEl.value),track=allowed.includes(requested)?requested:Engine.defaultTrack(asset),ok=placement.place(asset,track,at,sel.duration,sel.sourceOffset);if(ok)status(`${asset.name} · fuente ${Engine.time(sel.in)}–${Engine.time(sel.out)} colocada en pista ${track} a ${sel.start.toFixed(2)}s`)
+    const allowed=Engine.tracks(asset).map(x=>x.id),requested=Number(trackEl.value),track=allowed.includes(requested)?requested:Engine.defaultTrack(asset),ok=placement.place(asset,track,at,sel.duration,sel.sourceOffset);if(ok)status(`${asset.name} · fuente ${Engine.time(sel.in)}–${Engine.time(sel.out)} colocada en pista ${track} a ${sel.start.toFixed(2)}s${sel.extendsProject?' · duración ampliada':''}`)
   };
   document.addEventListener('keydown',e=>{if(panel.hidden||!asset||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;const k=e.key.toLowerCase();if(k!=='i'&&k!=='o')return;e.preventDefault();panel.querySelector(k==='i'?'[data-sm-in]':'[data-sm-out]').click()});
   window.ProfitMenteSourceMonitor={engine:Engine,panel,open,get asset(){return asset},get range(){return range()}};status('Monitor de fuente listo · selección IN/OUT disponible');
