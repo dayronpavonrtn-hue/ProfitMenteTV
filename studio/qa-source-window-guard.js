@@ -4,8 +4,12 @@
     static inspect(project,assets){
       project=project||{};assets=Array.isArray(assets)?assets:[];
       const issues=[];const byId=new Map(assets.map(a=>[a?.id,a]));
-      const trackState=track=>{const s=project.trackState?.[track]??project.trackState?.[String(track)]??{};return s&&typeof s==='object'?s:{}};
-      const inactive=clip=>{const track=Number(clip?.track),s=trackState(track);return ([0,1,2,3].includes(track)&&!!s.hidden)||([4,5,6].includes(track)&&!!s.muted)};
+      const trackState=track=>{
+        const read=states=>{const value=states?.[track]??states?.[String(track)]??{};return value&&typeof value==='object'?value:{}};
+        const modern=read(project.trackState),legacy=read(project.trackStates);
+        return {hidden:!!(modern.hidden||legacy.hidden),muted:!!(modern.muted||legacy.muted)};
+      };
+      const inactive=clip=>{const track=Number(clip?.track),s=trackState(track);return ([0,1,2,3].includes(track)&&s.hidden)||([4,5,6].includes(track)&&s.muted)};
       for(const clip of project.clips||[]){
         if(inactive(clip)||!clip?.asset)continue;
         const asset=byId.get(clip.asset);if(!asset||!['video','audio'].includes(asset.type))continue;
