@@ -36,6 +36,8 @@ jobs:
         run: node studio/project-transfer-regression.test.js
       - name: Critical Python syntax
         run: python -m py_compile studio/render_mp4.py studio/studio_server.py studio/output_qc.py studio/validate_project.py
+      - name: Render numeric validation regression
+        run: python studio/test_validate_project_numeric.py
       - name: Post-render output QC regression
         working-directory: studio
         run: python test_output_qc.py
