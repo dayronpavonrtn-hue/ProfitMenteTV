@@ -24,11 +24,11 @@ class ProfitMenteSourceMonitorEngine{
     const duration=Math.max(0,end-start);
     return {in:start,out:end,duration,total,valid:duration>=Math.min(min,total)-.001,reason:duration>0?null:'empty-range'};
   }
-  static selection(asset,inPoint,outPoint,at,projectDuration,minDuration=this.minimum()){
+  static selection(asset,inPoint,outPoint,at,projectDuration,minDuration=this.minimum(),allowExtend=false){
     const range=this.normalizeRange(asset,inPoint,outPoint,minDuration),total=Math.max(0,Number(projectDuration)||0),start=this.clamp(at,0,total),available=Math.max(0,total-start);
     if(!range.valid)return {...range,start,available,valid:false};
-    const duration=Math.min(range.duration,available),valid=duration>=Math.min(Number(minDuration)||this.minimum(),range.duration)-.001;
-    return {...range,out:range.in+duration,duration,start,available,sourceOffset:asset?.type==='image'?0:range.in,valid,reason:valid?null:'project-end'};
+    const duration=allowExtend?range.duration:Math.min(range.duration,available),valid=duration>=Math.min(Number(minDuration)||this.minimum(),range.duration)-.001;
+    return {...range,out:range.in+duration,duration,start,available,projectEnd:start+duration,extendsProject:!!allowExtend&&start+duration>total+.001,sourceOffset:asset?.type==='image'?0:range.in,valid,reason:valid?null:'project-end'};
   }
   static time(sec){
     const n=Math.max(0,Number(sec)||0),m=Math.floor(n/60),s=n-m*60;
