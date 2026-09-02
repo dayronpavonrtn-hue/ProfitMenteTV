@@ -11,6 +11,23 @@
       else if(warnings.length){state='warning';label=`Listo con ${warnings.length} advertencia${warnings.length===1?'':'s'}`}
       return {state,label,canPackage:issues.length===0,canRender:issues.length===0&&!!health.render_ready,score:Number(qa.score)||0,issues,warnings,metrics:qa.metrics||{},health};
     }
+    static narrationCoverage(qa,project){
+      const next={...(qa||{}),issues:[...(qa?.issues||[])],warnings:[...(qa?.warnings||[])],metrics:{...(qa?.metrics||{})}};
+      const duration=Math.max(.001,Number(project?.duration)||0),clips=Array.isArray(project?.clips)?project.clips:[];
+      const readState=states=>{const value=states?.[6]??states?.['6']??{};return value&&typeof value==='object'?value:{}};
+      const modern=readState(project?.trackState),legacy=readState(project?.trackStates),trackMuted=!!(modern.muted||legacy.muted);
+      const voice=trackMuted?[]:clips.filter(c=>Number(c?.track)===6&&c?.asset&&!c?.muted&&Number(c?.duration)>0);
+      const ranges=voice.map(c=>[Math.max(0,Number(c.start)||0),Math.min(duration,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0))]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
+      let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
+      const ratio=Math.max(0,Math.min(1,seconds/duration)),percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
+      const mode=String(project?.mode||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),automatic=mode.includes('automatic');
+      if(!automatic||trackMuted)return next;
+      const pending=clips.some(c=>Number(c?.track)===6&&!c?.asset&&Number(c?.duration)>0);
+      if(pending&&ratio<.72)next.warnings.push(`Narración automática pendiente · cobertura actual ${percent}%. Añade o graba una voz que cubra al menos 72% del video.`);
+      else if(voice.length&&ratio<.72)next.warnings.push(`Narración automática incompleta · cobertura ${percent}%. Recomendado: al menos 72% del video.`);
+      else if(!voice.length)next.warnings.push('El proyecto automático no tiene narración activa. Añade o graba una voz antes del render final.');
+      return next;
+    }
   }
   function captureLiveState(projectValue,assetValue){
     let projectText='',assetsText='';
@@ -41,7 +58,7 @@
       const liveGuard=hasSnapshot?null:captureLiveState(project,assets);
       const qaProject=hasSnapshot?snapshot.project:project;
       const qaAssets=hasSnapshot&&Array.isArray(snapshot.assets)?snapshot.assets:assets;
-      const qa=qaEngine.inspect(qaProject,qaAssets),health=await bundleEngine.health();
+      const qa=ProfitMenteExportPreflight.narrationCoverage(qaEngine.inspect(qaProject,qaAssets),qaProject),health=await bundleEngine.health();
       let r=ProfitMenteExportPreflight.summarize(qa,health);
       if(!hasSnapshot&&!liveStateUnchanged(liveGuard,project,assets)){
         const changedQa={...qa,ok:false,issues:[...(qa.issues||[]),'El proyecto cambió durante el Preflight. Inicia la exportación otra vez para validar la versión actual.']};
@@ -50,7 +67,7 @@
       report.hidden=false;report.dataset.state=r.state;
       const render=r.canRender?'MP4 directo ✓':r.canPackage?'Paquete ✓ · MP4 directo no disponible':'MP4 bloqueado';
       const metrics=r.metrics||{};
-      report.innerHTML=`<b>${r.label}</b><br>QA ${r.score}/100 · ${render}<br>Visual ${metrics.visualCoverage??0}% · Captions ${metrics.captionCoverage??0}% · ${metrics.clips??0} clips${r.issues.length?'<br>❌ '+r.issues.slice(0,3).join('<br>❌ '):r.warnings.length?'<br>⚠️ '+r.warnings.slice(0,3).join('<br>⚠️ '):'<br>Sin bloqueos detectados.'}`;
+      report.innerHTML=`<b>${r.label}</b><br>QA ${r.score}/100 · ${render}<br>Visual ${metrics.visualCoverage??0}% · Captions ${metrics.captionCoverage??0}% · Voz ${metrics.narrationCoverage??0}% · ${metrics.clips??0} clips${r.issues.length?'<br>❌ '+r.issues.slice(0,3).join('<br>❌ '):r.warnings.length?'<br>⚠️ '+r.warnings.slice(0,3).join('<br>⚠️ '):'<br>Sin bloqueos detectados.'}`;
       if(typeof setStatus==='function')setStatus(r.canRender?'Preflight completo: listo para MP4':r.canPackage?'Preflight completo: proyecto exportable como paquete':'Preflight: corrige los errores antes de exportar');
       return r;
     }finally{btn.disabled=false}
