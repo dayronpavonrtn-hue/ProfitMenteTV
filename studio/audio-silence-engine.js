@@ -1,5 +1,11 @@
 class ProfitMenteAudioSilenceEngine{
   static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
+  static trackLocked(project,track){
+    const n=Number(track);if(!Number.isFinite(n))return false;
+    const modern=project?.trackState?.[n]??project?.trackState?.[String(n)]??null;
+    const legacy=project?.trackStates?.[n]??project?.trackStates?.[String(n)]??null;
+    return !!(modern?.locked||legacy?.locked);
+  }
   static clipWindow(clip,bufferDuration){
     const speed=Math.max(.25,Math.min(4,Number(clip?.speed)||1));
     const offset=Math.max(0,Number(clip?.sourceOffset)||0);
