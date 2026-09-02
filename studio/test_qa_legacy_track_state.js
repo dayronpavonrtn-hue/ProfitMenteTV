@@ -31,10 +31,36 @@ assert(r.warnings.some(x=>x.includes('Pistas desactivadas')),'conflicting legacy
 r=inspect({trackState:{0:{hidden:false},5:{muted:false}},trackStates:{}});
 assert.strictEqual(r.issues.filter(x=>x.includes('Medio faltante')).length,2,'active tracks must still report missing media');
 
-const normalized=Guard.normalize({trackState:{'0':{hidden:false}},trackStates:{'0':{hidden:true,locked:true},'1':{solo:true}}});
+// Semantic Solo may be the only persisted signal after import/recovery. QA must
+// derive the same effective hidden/muted state as preview and the MP4 renderer.
+r=inspect({trackStates:{1:{solo:true},6:{solo:true}}});
+assert(!r.issues.some(x=>x.includes('Medio faltante')),'non-Solo tracks must not block QA when semantic Solo is persisted without materialized hidden/muted flags');
+assert.strictEqual(r.metrics.visualCoverage,0,'non-Solo visual track must not count toward coverage');
+assert.strictEqual(r.metrics.activeAudioClips,0,'non-Solo audio track must not count as active');
+assert(r.metrics.disabledTracks.includes(0)&&r.metrics.disabledTracks.includes(5),'QA must report tracks disabled by semantic Solo');
+
+r=inspect({trackState:{0:{hidden:false},5:{muted:false}},trackStates:{1:{solo:true},6:{solo:true}}});
+assert(!r.issues.some(x=>x.includes('Medio faltante')),'legacy semantic Solo must remain effective when current state contains conflicting false flags');
+
+const normalized=Guard.normalize({trackState:{'0':{hidden:false}},trackStates:{'0':{hidden:true,locked:true},'1':{solo:true},'6':{solo:true}}});
 assert.strictEqual(normalized.trackState['0'].hidden,true);
 assert.strictEqual(normalized.trackState['0'].locked,true);
 assert.strictEqual(normalized.trackState['1'].solo,true);
+assert.strictEqual(normalized.trackState['6'].solo,true);
+assert.strictEqual(normalized.trackState['5'].muted,true,'audio Solo must materialize mute on non-Solo audio tracks');
+
+// Browser Solo bookkeeping must expose the user's original manual state before
+// recalculating Solo, otherwise a stale materialized flag can become permanent.
+const stale=Guard.normalize({trackState:{
+  0:{hidden:true,_soloVisualActive:true,_soloHiddenBase:false},
+  1:{solo:true},
+  5:{muted:true,_soloAudioActive:true,_soloMutedBase:false},
+  6:{solo:true}
+}});
+assert.strictEqual(stale.trackState['0'].hidden,true,'non-Solo visual remains hidden while visual Solo is active');
+assert.strictEqual(stale.trackState['5'].muted,true,'non-Solo audio remains muted while audio Solo is active');
+assert(!('_soloVisualActive' in stale.trackState['0']),'QA normalization must strip browser-only visual Solo bookkeeping');
+assert(!('_soloAudioActive' in stale.trackState['5']),'QA normalization must strip browser-only audio Solo bookkeeping');
 
 const lockedProject={duration:10,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[{id:'locked',track:0,start:-2,duration:-1,fitMode:'invalid',speed:99}]};
 const before=JSON.stringify(lockedProject.clips[0]);
@@ -50,4 +76,4 @@ assert.strictEqual(openProject.clips[0].duration,.05);
 assert.strictEqual(openProject.clips[0].fitMode,'cover');
 assert.strictEqual(openProject.clips[0].speed,4);
 
-console.log('QA legacy track-state compatibility + safe repair lock parity OK');
+console.log('QA legacy track-state + semantic Solo compatibility + safe repair lock parity OK');
