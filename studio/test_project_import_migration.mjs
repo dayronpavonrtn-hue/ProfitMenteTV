@@ -25,11 +25,17 @@ assert.equal('trackStates' in migrated,false,'legacy trackStates must be removed
 assert.equal('libraryId' in migrated,false,'imported projects remain detached from the source library identity');
 
 const integration=fs.readFileSync(new URL('./project-import-integration.js',import.meta.url),'utf8');
+const flushCallAt=integration.indexOf('if(!flushCurrentProject())return;');
 const normalizeAt=integration.indexOf('engine.normalize(parsed)');
 const migrateAt=integration.indexOf('migrateImported(engine.normalize(parsed))');
+const assignAt=integration.indexOf('project=migrateImported(engine.normalize(parsed))');
 const persistAt=integration.indexOf("typeof originalPersist==='function'");
 assert.ok(normalizeAt>=0&&migrateAt>=0,'project import integration must route normalized JSON through migration');
+assert.ok(flushCallAt>=0&&assignAt>=0&&flushCallAt<assignAt,'current project must be flushed before JSON import replaces the active project');
 assert.ok(migrateAt<persistAt,'migration must happen before the imported project is persisted');
+assert.match(integration,/ProfitMenteNewProject\?\.flushCurrentProject/,'import should reuse the guarded project-switch flush when available');
+assert.match(integration,/ProfitMenteProjectAutosave\?\.flush/,'import fallback should flush autosave before replacing the active project');
 assert.match(integration,/ProfitMenteProjectMigration\?\.engine/,'integration should reuse the active migration engine when available');
 assert.match(integration,/f\.size>10\*1024\*1024/,'legacy import path must reject oversized project files before reading JSON');
+assert.match(integration,/profitmente:project-opened/,'successful JSON import should announce the project switch to dependent integrations');
 console.log('Project import migration parity QA passed');
