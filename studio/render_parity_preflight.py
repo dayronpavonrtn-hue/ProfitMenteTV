@@ -2,9 +2,10 @@
 """Fail early when a Studio project uses visual settings the $0 FFmpeg renderer
 cannot reproduce deterministically.
 
-The browser editor may receive older/imported JSON with arbitrary enum values.
-Silently falling back during MP4 export makes the final video differ from preview,
-so this check runs before expensive composition and reports the exact clips to fix.
+The browser editor may receive older/imported JSON with arbitrary enum or numeric
+values. Silently falling back or clamping during MP4 export makes the final video
+differ from preview, so this check runs before expensive composition and reports
+the exact clips to fix.
 """
 import json
 import math
@@ -16,6 +17,10 @@ ALLOWED_FIT_MODES = {'cover', 'contain'}
 ALLOWED_TEXT_STYLES = {'title', 'label', 'callout'}
 ALLOWED_TEXT_ANIMATIONS = {'none', 'fade', 'pop', 'slide-up'}
 ALLOWED_FPS = {24, 30, 60}
+MIN_SPEED = 0.25
+MAX_SPEED = 4.0
+MIN_TRANSITION_DURATION = 0.05
+MAX_TRANSITION_DURATION = 2.0
 
 
 def _finite(value):
@@ -23,6 +28,13 @@ def _finite(value):
         return math.isfinite(float(value))
     except (TypeError, ValueError):
         return False
+
+
+def _number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return math.nan
 
 
 def inspect(project):
@@ -53,8 +65,40 @@ def inspect(project):
                 issues.append(f'Clip "{name}" ({clip_id}): ajuste "{fit_mode}" no reproducible en MP4.')
             if clip.get('transitionDuration') is not None:
                 value = clip.get('transitionDuration')
-                if not _finite(value) or float(value) <= 0:
-                    issues.append(f'Clip "{name}" ({clip_id}): duración de transición inválida ({value!r}).')
+                duration = _number(clip.get('duration', 0))
+                upper = min(MAX_TRANSITION_DURATION, duration) if math.isfinite(duration) and duration > 0 else MAX_TRANSITION_DURATION
+                if (not _finite(value) or float(value) < MIN_TRANSITION_DURATION or float(value) > upper + 1e-9):
+                    issues.append(
+                        f'Clip "{name}" ({clip_id}): duración de transición inválida ({value!r}); '
+                        f'usa {MIN_TRANSITION_DURATION:.2f}–{upper:.2f} s.'
+                    )
+
+        numeric_fields = ('start', 'duration', 'sourceOffset', 'speed')
+        invalid_numeric = set()
+        for field in numeric_fields:
+            if field in clip and clip.get(field) is not None and not _finite(clip.get(field)):
+                issues.append(f'Clip "{name}" ({clip_id}): {field} no es un número válido.')
+                invalid_numeric.add(field)
+
+        # Match the ranges enforced by the Studio inspector and consumed by the
+        # local renderer. Imported/recovered JSON must never be silently clamped
+        # during MP4 export because that would produce a different edit than preview.
+        if 'start' in clip and clip.get('start') is not None and 'start' not in invalid_numeric:
+            if float(clip.get('start')) < 0:
+                issues.append(f'Clip "{name}" ({clip_id}): start no puede ser negativo.')
+        if 'duration' in clip and clip.get('duration') is not None and 'duration' not in invalid_numeric:
+            if float(clip.get('duration')) <= 0:
+                issues.append(f'Clip "{name}" ({clip_id}): duration debe ser mayor que 0.')
+        if 'sourceOffset' in clip and clip.get('sourceOffset') is not None and 'sourceOffset' not in invalid_numeric:
+            if float(clip.get('sourceOffset')) < 0:
+                issues.append(f'Clip "{name}" ({clip_id}): sourceOffset no puede ser negativo.')
+        if 'speed' in clip and clip.get('speed') is not None and 'speed' not in invalid_numeric:
+            speed = float(clip.get('speed'))
+            if speed < MIN_SPEED or speed > MAX_SPEED:
+                issues.append(
+                    f'Clip "{name}" ({clip_id}): velocidad {speed:g}× fuera de rango; '
+                    f'usa {MIN_SPEED:g}×–{MAX_SPEED:g}×.'
+                )
 
         if track == 2:
             style = str(clip.get('textStyle', 'title') or 'title')
@@ -63,10 +107,6 @@ def inspect(project):
                 issues.append(f'Título "{name}" ({clip_id}): estilo "{style}" no reproducible en MP4.')
             if animation not in ALLOWED_TEXT_ANIMATIONS:
                 issues.append(f'Título "{name}" ({clip_id}): animación "{animation}" no reproducible en MP4.')
-
-        for field in ('start', 'duration', 'sourceOffset', 'speed'):
-            if field in clip and clip.get(field) is not None and not _finite(clip.get(field)):
-                issues.append(f'Clip "{name}" ({clip_id}): {field} no es un número válido.')
 
     return issues
 
