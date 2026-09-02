@@ -5,6 +5,7 @@ import {webcrypto} from 'node:crypto';
 globalThis.window=globalThis;
 if(!globalThis.crypto)Object.defineProperty(globalThis,'crypto',{value:webcrypto,configurable:true});
 vm.runInThisContext(fs.readFileSync(new URL('./generator-engine.js',import.meta.url),'utf8'));
+vm.runInThisContext(fs.readFileSync(new URL('./generator-autofill.js',import.meta.url),'utf8'));
 
 const engine=new ProfitMenteGeneratorEngine();
 
@@ -15,6 +16,7 @@ const assets=[
   {id:'music',name:'background instrumental lofi.wav',type:'audio',duration:32},
   {id:'sfx',name:'whoosh transition.wav',type:'audio',duration:.5},
   {id:'wrong-voice',name:'podcast random audio.wav',type:'audio',duration:30},
+  {id:'voice-short',name:'voz narracion final master.wav',type:'audio',duration:8},
   {id:'voice-final',name:'voz narracion final.wav',type:'audio',duration:29.6}
 ];
 const assigned=engine.assignAssets(project,assets);
@@ -38,4 +40,13 @@ const ambiguous={name:'Ambiguous audio',format:'9:16',duration:10,clips:[{id:'pe
 const ambiguousResult=engine.assignAssets(ambiguous,[{id:'unknown',name:'audio 001.wav',type:'audio',duration:10},{id:'beat',name:'music beat.wav',type:'audio',duration:10}]);
 if(ambiguousResult.narration!==0||ambiguous.clips[0].asset!==null)throw new Error('Ambiguous or music audio must not be guessed as narration');
 
-console.log(JSON.stringify({ok:true,narration:voice.asset,duration:voice.duration,manualPreserved:true,ambiguousSkipped:true}));
+const insufficient={name:'Short voice guard',format:'9:16',duration:30,mode:'Automático',clips:[{id:'pending-short',track:6,name:'Narración automática pendiente',start:0,duration:30,asset:null,volume:1}]};
+const insufficientResult=engine.assignAssets(insufficient,[{id:'short-only',name:'voice narration final master.wav',type:'audio',duration:8}]);
+if(insufficientResult.narration!==0)throw new Error(`Short narration must be rejected automatically, got ${insufficientResult.narration}`);
+if(insufficient.clips[0].asset!==null||insufficient.clips[0].duration!==30)throw new Error('Rejected short narration must leave the pending narration clip untouched');
+
+const threshold={name:'Coverage threshold',format:'9:16',duration:30,mode:'Automático',clips:[{id:'pending-threshold',track:6,name:'Narración automática pendiente',start:0,duration:30,asset:null,volume:1}]};
+const thresholdResult=engine.assignAssets(threshold,[{id:'enough',name:'voice narration final.wav',type:'audio',duration:21.6}]);
+if(thresholdResult.narration!==1||threshold.clips[0].asset!=='enough')throw new Error('Narration at the 72% coverage threshold should remain eligible');
+
+console.log(JSON.stringify({ok:true,narration:voice.asset,duration:voice.duration,manualPreserved:true,ambiguousSkipped:true,shortRejected:true,thresholdAccepted:true}));
