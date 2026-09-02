@@ -13,6 +13,7 @@ assert.match(bridge,/document\.scripts/,'bootstrap bridge must avoid duplicate b
 
 for(const required of [
   'media-library-tools.js',
+  'media-storage-resilience.js',
   'project-import-engine.js',
   'project-import-integration.js',
   'project-migration-integration.js',
