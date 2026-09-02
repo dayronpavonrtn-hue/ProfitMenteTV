@@ -20,11 +20,13 @@
   async function runAll(options={}){
     const {deferPersist=false,quiet=false}=options&&typeof options==='object'?options:{};
     if(busy)return {ok:false,reason:'busy',changed:0,skipped:0};
-    const clips=(project?.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&c.asset);
-    if(!clips.length){if(!quiet)status('No hay clips de audio para normalizar');return {ok:false,reason:'empty',changed:0,skipped:0}}
-    busy=true;updateButtons();const cache=new Map();let changed=0,skipped=0;
+    const audioClips=(project?.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&c.asset);
+    const clips=Engine.activeAudioClips(project).filter(c=>c.asset);
+    const inactive=Math.max(0,audioClips.length-clips.length);
+    if(!clips.length){if(!quiet)status(audioClips.length?'No hay clips de audio activos para normalizar':'No hay clips de audio para normalizar');return {ok:false,reason:audioClips.length?'inactive':'empty',changed:0,skipped:inactive}}
+    busy=true;updateButtons();const cache=new Map();let changed=0,skipped=inactive;
     try{
-      if(!quiet)status(`Analizando ${clips.length} clip(s) de audio localmente…`);
+      if(!quiet)status(`Analizando ${clips.length} clip(s) de audio activo(s) localmente…`);
       for(const clip of clips){try{const r=await normalizeClip(clip,cache);r.ok?changed++:skipped++}catch{skipped++}}
       if(changed&&!deferPersist)refresh();
       if(!quiet)status(`Normalización terminada · ${changed} clip(s) ajustados${skipped?` · ${skipped} omitidos`:''}`);
@@ -35,7 +37,7 @@
   let oneBtn=null,allBtn=null;
   function install(){
     const wrap=$('#ciVolumeWrap');if(wrap&&!$('#audioNormalizeClipBtn')){oneBtn=document.createElement('button');oneBtn.id='audioNormalizeClipBtn';oneBtn.type='button';oneBtn.textContent='⚖ Normalizar clip';oneBtn.title='Analiza localmente el tramo usado y ajusta su nivel sin servicios externos';oneBtn.onclick=runOne;wrap.insertAdjacentElement('afterend',oneBtn)}else oneBtn=$('#audioNormalizeClipBtn');
-    const qa=$('#qaBtn'),aside=qa?.parentElement;if(aside&&!$('#audioNormalizeAllBtn')){allBtn=document.createElement('button');allBtn.id='audioNormalizeAllBtn';allBtn.type='button';allBtn.textContent='⚖ Normalizar mezcla';allBtn.title='Normaliza voz, música y efectos según objetivos seguros';qa.insertAdjacentElement('afterend',allBtn)}else allBtn=$('#audioNormalizeAllBtn');
+    const qa=$('#qaBtn'),aside=qa?.parentElement;if(aside&&!$('#audioNormalizeAllBtn')){allBtn=document.createElement('button');allBtn.id='audioNormalizeAllBtn';allBtn.type='button';allBtn.textContent='⚖ Normalizar mezcla';allBtn.title='Normaliza solo las pistas de audio activas según Solo/Mute y objetivos seguros';qa.insertAdjacentElement('afterend',allBtn)}else allBtn=$('#audioNormalizeAllBtn');
     document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(updateButtons)},true);setInterval(updateButtons,700);updateButtons();
   }
   install();window.ProfitMenteAudioNormalize={normalizeClip,normalizeAll:runAll};
