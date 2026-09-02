@@ -5,7 +5,11 @@ on:
     paths:
       - 'studio/media-placement-engine.js'
       - 'studio/media-placement-integration.js'
+      - 'studio/media-timeline-dnd.js'
       - 'studio/test_media_placement.mjs'
+      - 'studio/test_media_timeline_dnd.mjs'
+      - 'studio/track-lock-placement-guard.js'
+      - 'studio/test_track_lock_placement_guard.mjs'
       - 'studio/timeline-operations.js'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/studio-media-placement-qa.yml'
@@ -23,8 +27,13 @@ jobs:
         run: |
           node --check studio/media-placement-engine.js
           node --check studio/media-placement-integration.js
+          node --check studio/media-timeline-dnd.js
+          node --check studio/track-lock-placement-guard.js
           node --check studio/feature-bootstrap.js
       - name: Placement regressions
-        run: node studio/test_media_placement.mjs
+        run: |
+          node studio/test_media_placement.mjs
+          node studio/test_media_timeline_dnd.mjs
+          node studio/test_track_lock_placement_guard.mjs
       - name: Existing timeline regressions
         run: node studio/test_timeline_operations.mjs
