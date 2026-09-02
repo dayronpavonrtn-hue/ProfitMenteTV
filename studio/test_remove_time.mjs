@@ -42,6 +42,28 @@ const engine=new Engine();
 }
 
 {
+  const project={duration:10,clips:[{id:'legacy-locked',track:5,start:7,duration:1}],trackState:{5:{locked:false}},trackStates:{5:{locked:true}}};
+  const before=structuredClone(project);
+  const r=engine.remove(project,5,1);
+  assert.equal(r.ok,false);
+  assert.equal(r.reason,'locked');
+  assert.deepEqual(project,before,'legacy lock must prevail over modern unlocked state');
+}
+
+{
+  const project={duration:10,clips:[{id:'modern-locked',track:'5',start:7,duration:1}],trackState:{5:{locked:true}},trackStates:{5:{locked:false}}};
+  const before=structuredClone(project);
+  const r=engine.remove(project,5,1);
+  assert.equal(r.ok,false);
+  assert.equal(r.reason,'locked');
+  assert.deepEqual(project,before,'modern lock must not be cancelled by legacy unlocked state');
+}
+
+assert.equal(engine.trackLocked({},5),false);
+assert.equal(engine.trackLocked({trackStates:{'5':{locked:true}}},5),true,'serialized legacy track keys must be supported');
+assert.equal(engine.trackLocked({trackState:{5:{locked:true}}},'invalid'),false,'invalid track identifiers must not lock by accident');
+
+{
   const project={duration:10,clips:[{id:'early',track:0,start:1,duration:2}],trackState:{}};
   const r=engine.remove(project,8,1);
   assert.equal(r.ok,true);
