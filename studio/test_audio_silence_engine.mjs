@@ -48,4 +48,13 @@ const win=Engine.clipWindow({duration:4,sourceOffset:8,speed:2},10);
 approx(win.sourceDuration,2,.001,'ventana debe respetar final físico del asset');
 assert.equal(win.speed,2);
 
+assert.equal(Engine.trackLocked({},4),false,'sin estado la pista es editable');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},4),true,'respeta lock moderno');
+assert.equal(Engine.trackLocked({trackStates:{4:{locked:true}}},4),true,'respeta lock heredado');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:false}},trackStates:{4:{locked:true}}},4),true,'cualquier lock debe prevalecer');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}},trackStates:{4:{locked:false}}},4),true,'lock moderno no puede ser anulado por legacy');
+assert.equal(Engine.trackLocked({trackState:{'5':{locked:true}}},5),true,'acepta claves serializadas como string');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},5),false,'no bloquea otra pista');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},'invalid'),false,'track inválido no debe bloquear por accidente');
+
 console.log('Audio silence trim regression OK');
