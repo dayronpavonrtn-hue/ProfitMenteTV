@@ -1,8 +1,19 @@
 class ProfitMenteAudioDuckingEngine{
-  static trackMuted(project,track){const s=project?.trackState?.[String(track)]??project?.trackState?.[track];return !!s?.muted}
+  static AUDIO_TRACKS=[4,5,6]
+  static stateFrom(map,track){const value=map?.[String(track)]??map?.[track];return value&&typeof value==='object'?value:{}}
+  static trackState(project,track){
+    const current=this.stateFrom(project?.trackState,track),legacy=this.stateFrom(project?.trackStates,track),merged={...legacy,...current};
+    for(const key of ['muted','solo'])if(legacy?.[key]||current?.[key])merged[key]=true;
+    return merged;
+  }
+  static audioSoloSet(project){return new Set(this.AUDIO_TRACKS.filter(track=>!!this.trackState(project,track).solo))}
+  static trackActive(project,track){
+    const state=this.trackState(project,track);if(state.muted)return false;
+    const solos=this.audioSoloSet(project);return !solos.size||solos.has(Number(track));
+  }
   static enabled(clip){return clip?.ducking!==false}
   static intervals(project,music){
-    if(!music||Number(music.track)!==5||!this.enabled(music)||this.trackMuted(project,6))return [];
+    if(!music||Number(music.track)!==5||!this.enabled(music)||!this.trackActive(project,5)||!this.trackActive(project,6))return [];
     const ms=Number(music.start)||0,md=Math.max(0,Number(music.duration)||0),me=ms+md;
     const raw=(project?.clips||[]).filter(v=>Number(v.track)===6&&v.asset&&!v.muted).map(v=>{
       const s=Math.max(ms,Number(v.start)||0),e=Math.min(me,(Number(v.start)||0)+Math.max(0,Number(v.duration)||0));
