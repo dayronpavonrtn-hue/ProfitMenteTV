@@ -10,6 +10,14 @@ class ProfitMenteProjectLibrary{
   duplicate(id){const items=this._read(),source=items.find(x=>x.id===id);if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   remove(id){const before=this._read(),after=before.filter(x=>x.id!==id);this._write(after);return after.length!==before.length}
   static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}}
+  static hasMeaningfulTrackState(trackState){
+    if(!trackState||typeof trackState!=='object'||Array.isArray(trackState))return false;
+    return Object.values(trackState).some(s=>s&&typeof s==='object'&&!Array.isArray(s)&&(
+      s.locked===true||s.hidden===true||s.muted===true||s.solo===true||
+      s._soloVisualActive===true||s._soloAudioActive===true||
+      s._soloHiddenBase===true||s._soloMutedBase===true
+    ));
+  }
   static hasUnsavedWork(project){
     if(!project||project.libraryId)return false;
     const blank=this.blank(),clips=Array.isArray(project.clips)?project.clips:[];
@@ -20,7 +28,7 @@ class ProfitMenteProjectLibrary{
     if((project.format||blank.format)!==blank.format)return true;
     if(project.frameRate!=null&&Number(project.frameRate)!==30)return true;
     if(Array.isArray(project.markers)&&project.markers.length)return true;
-    if(project.trackStates&&Object.keys(project.trackStates).length)return true;
+    if(this.hasMeaningfulTrackState(project.trackState)||this.hasMeaningfulTrackState(project.trackStates))return true;
     if(project.renderRange||project.safeAreaPlatform||project.socialPlatform)return true;
     return false;
   }
