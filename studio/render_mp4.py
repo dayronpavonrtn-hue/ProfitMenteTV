@@ -7,12 +7,13 @@ import json,sys,subprocess,pathlib,shlex,math
 from caption_layout import layout_caption
 from caption_word_layout import fit_word_caption
 from render_quality import resolve_render_quality
+from track_state_render import normalize_track_solo
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
 
 p=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); out=pathlib.Path(sys.argv[3])
-project=json.loads(p.read_text(encoding='utf-8'))
+project=normalize_track_solo(json.loads(p.read_text(encoding='utf-8')))
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
