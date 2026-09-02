@@ -27,4 +27,10 @@ assert(!r.issues.some(x=>x.includes('Recorte supera el final')),'unknown source 
 r=new ProfitMenteQAEngine().inspect({duration:20,format:'9:16',clips:[{id:'c1',name:'Muted audio',track:5,start:0,duration:4,asset:'a1',sourceOffset:-1}],trackState:{5:{muted:true}}},[{id:'a1',type:'audio',duration:10,blob:null}]);
 assert(!r.issues.some(x=>x.includes('Punto de entrada inválido')),'muted tracks should not block render source validation');
 
+r=new ProfitMenteQAEngine().inspect({duration:20,format:'9:16',clips:[{id:'c1',name:'Legacy muted audio',track:5,start:0,duration:4,asset:'a1',sourceOffset:-1}],trackState:{5:{muted:false}},trackStates:{5:{muted:true}}},[{id:'a1',type:'audio',duration:10,blob:null}]);
+assert(!r.issues.some(x=>x.includes('Punto de entrada inválido')),'legacy-muted tracks must stay inactive even when modern state says muted:false');
+
+r=new ProfitMenteQAEngine().inspect({duration:20,format:'9:16',clips:[{id:'c1',name:'Legacy hidden visual',track:0,start:0,duration:4,asset:'a1',sourceOffset:-1}],trackState:{0:{hidden:false}},trackStates:{0:{hidden:true}}},[{id:'a1',type:'video',duration:10,width:1080,height:1920,blob:null}]);
+assert(!r.issues.some(x=>x.includes('Punto de entrada inválido')),'legacy-hidden visual tracks must not block source validation');
+
 console.log('ProfitMente Studio source-window browser QA regression passed');
