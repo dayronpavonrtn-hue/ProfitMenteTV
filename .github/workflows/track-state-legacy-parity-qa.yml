@@ -1,0 +1,25 @@
+name: ProfitMente Studio Track State Legacy Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/track-controls.js'
+      - 'studio/test_track_state_legacy_parity.mjs'
+      - '.github/workflows/track-state-legacy-parity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  track-state-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Track controls syntax
+        run: node --check studio/track-controls.js
+      - name: Legacy/current track state regression
+        run: node studio/test_track_state_legacy_parity.mjs
