@@ -43,4 +43,16 @@ const lockedProject={duration:5,trackState:{0:{locked:false},5:{locked:true}},cl
   {id:'la',groupId:'lg',track:5,start:0,duration:2}
 ]};
 assert.equal(engine.lockedMembers(lockedProject,lockedProject.clips[0]).length,1);
+
+const legacyLocked={duration:5,trackState:{0:{locked:false},5:{locked:false}},trackStates:{5:{locked:true}},clips:[
+  {id:'legacy-v',groupId:'legacy-g',track:0,start:0,duration:2},
+  {id:'legacy-a',groupId:'legacy-g',track:5,start:0,duration:2}
+]};
+const legacyBefore=JSON.stringify(legacyLocked);
+assert.equal(engine.lockedMembers(legacyLocked,legacyLocked.clips[0]).length,1,'legacy lock must win over modern unlocked state');
+const legacyDup=engine.duplicate(legacyLocked,legacyLocked.clips[0],{idFactory,offset:.5});
+assert.equal(legacyDup.reason,'locked');
+assert.equal(legacyDup.copies.length,0);
+assert.deepEqual(engine.remove(legacyLocked,legacyLocked.clips[0]),[]);
+assert.equal(JSON.stringify(legacyLocked),legacyBefore,'blocked grouped edits must not mutate legacy-locked projects');
 console.log('ProfitMente grouped edit QA passed');
