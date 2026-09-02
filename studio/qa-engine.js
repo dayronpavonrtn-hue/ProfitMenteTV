@@ -2,7 +2,11 @@ class ProfitMenteQAEngine{
   inspect(project,assets){
     assets=Array.isArray(assets)?assets:[];
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>a.id));
-    const state=track=>{const s=project.trackState?.[track]??project.trackState?.[String(track)]??{};return s&&typeof s==='object'?s:{}};
+    const state=track=>{
+      const read=states=>{const value=states?.[track]??states?.[String(track)]??{};return value&&typeof value==='object'?value:{}};
+      const modern=read(project.trackState),legacy=read(project.trackStates);
+      return {hidden:!!(modern.hidden||legacy.hidden),muted:!!(modern.muted||legacy.muted),locked:!!(modern.locked||legacy.locked)};
+    };
     const hidden=track=>!!state(track).hidden,muted=track=>!!state(track).muted;
     const disabled=c=>{const track=Number(c?.track);return ([0,1,2,3].includes(track)&&hidden(track))||([4,5,6].includes(track)&&muted(track))};
     const assetKind=a=>a?.type==='video'||a?.type==='image'?'visual':a?.type==='audio'?'audio':'other';
