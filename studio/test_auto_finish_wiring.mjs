@@ -34,10 +34,14 @@ assert.match(integration,/async function runAndRender\(\)/,'Auto Finish must exp
 assert.match(integration,/result\.preflight\?\.canRender/,'one-click MP4 must respect export preflight');
 assert.match(integration,/!result\.qa\?\.ok/,'one-click MP4 must not render after blocking QA');
 assert.match(integration,/const renderBtn=\$\('#renderMp4Btn'\)/,'one-click MP4 must reuse the hardened local render control');
-assert.match(integration,/renderBtn\.click\(\)/,'one-click MP4 must start the existing local render pipeline instead of duplicating it');
+assert.match(integration,/async function startLocalRenderAndWait\(renderBtn\)/,'one-click MP4 must use a single awaited render bridge');
+assert.match(integration,/renderBtn\.disabled=true/,'combined automation must lock the render control before invoking preflight');
+assert.match(integration,/await handler\.call\(renderBtn\)/,'combined automation must await the existing local render pipeline instead of fire-and-forget click');
+assert.match(integration,/renderAwaited:renderState\.awaited/,'one-click MP4 must report whether render completion was awaited');
 assert.match(integration,/profitmente:auto-finish-render-started/,'one-click MP4 must publish a render-started event');
 assert.match(integration,/render\.id='autoFinishRenderBtn'/,'the combined Auto Finish + MP4 control must be installed');
 assert.match(integration,/runAndRender/,'the public integration must expose runAndRender');
+assert.match(integration,/startLocalRenderAndWait/,'the public integration must expose the awaited render bridge for regression testing');
 assert.match(integration,/captureAutomationState/,'Auto Finish must capture an atomic pre-run state');
 assert.match(integration,/restoreAutomationState/,'Auto Finish must expose rollback support');
 assert.match(integration,/profitmente:auto-finish-rolled-back/,'rollback must emit an observable event');
