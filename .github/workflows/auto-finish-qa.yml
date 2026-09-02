@@ -11,6 +11,7 @@ on:
       - 'studio/test_auto_finish_engine.mjs'
       - 'studio/test_auto_finish_wiring.mjs'
       - 'studio/test_auto_finish_atomicity.mjs'
+      - 'studio/test_auto_finish_render_wait.mjs'
       - '.github/workflows/auto-finish-qa.yml'
   workflow_dispatch:
 
@@ -35,3 +36,5 @@ jobs:
         run: node studio/test_auto_finish_wiring.mjs
       - name: Verify atomic rollback
         run: node studio/test_auto_finish_atomicity.mjs
+      - name: Verify awaited local render
+        run: node studio/test_auto_finish_render_wait.mjs
