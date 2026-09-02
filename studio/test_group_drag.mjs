@@ -12,10 +12,11 @@ const anchor=project.clips[0],originals=engine.snapshot(project,anchor);
 assert.equal(originals.length,2,'group members must move as one unit');
 
 let plan=engine.movePlan({duration:10,originals,anchorId:'v1',desiredStart:9,boundaries:[],snapSeconds:.15});
-assert.equal(plan.delta,6,'group move must clamp using the latest group end');
-assert.deepEqual(plan.moves.map(x=>x.start),[7,9]);
+assert.equal(plan.delta,8,'group move may continue beyond the previous sequence end');
+assert.deepEqual(plan.moves.map(x=>x.start),[9,11]);
 engine.apply(project,plan);
-assert.equal(project.clips[0].start,7);assert.equal(project.clips[1].start,9);
+assert.equal(project.clips[0].start,9);assert.equal(project.clips[1].start,11);
+assert.equal(project.duration,12,'group drag must extend the sequence to the latest moved clip end');
 
 const originals2=[{id:'v1',start:1,duration:2,track:0},{id:'o1',start:3,duration:1,track:1}];
 plan=engine.movePlan({duration:10,originals:originals2,anchorId:'v1',desiredStart:4.92,boundaries:[5,8],snapSeconds:.15});
@@ -29,5 +30,10 @@ assert.equal(plan.trackChanged,false,'invalid group track shift must be rejected
 
 const lockedPlan=engine.movePlan({duration:10,originals:originals2,anchorId:'v1',desiredStart:-5,boundaries:[]});
 assert.equal(lockedPlan.moves[0].start,0);assert.equal(lockedPlan.moves[1].start,2,'left clamp must preserve relative offsets');
+
+const noShrink={duration:20,clips:[{id:'a',track:0,start:1,duration:1}]};
+const noShrinkPlan=engine.movePlan({duration:20,originals:engine.snapshot(noShrink,noShrink.clips[0]),anchorId:'a',desiredStart:2,boundaries:[]});
+engine.apply(noShrink,noShrinkPlan);
+assert.equal(noShrink.duration,20,'moving inside an existing sequence must never shrink its duration');
 
 console.log('group drag regression: ok');
