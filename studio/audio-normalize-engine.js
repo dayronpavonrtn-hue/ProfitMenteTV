@@ -1,6 +1,21 @@
 class ProfitMenteAudioNormalizeEngine{
+  static AUDIO_TRACKS=[4,5,6]
   static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
   static linearToDb(v){const n=Math.max(1e-9,Number(v)||0);return 20*Math.log10(n)}
+  static stateFrom(map,track){const value=map?.[String(track)]??map?.[track];return value&&typeof value==='object'?value:{}}
+  static trackState(project,track){
+    const current=this.stateFrom(project?.trackState,track),legacy=this.stateFrom(project?.trackStates,track),merged={...legacy,...current};
+    for(const key of ['muted','solo'])if(legacy?.[key]||current?.[key])merged[key]=true;
+    return merged;
+  }
+  static audioSoloSet(project){return new Set(this.AUDIO_TRACKS.filter(track=>!!this.trackState(project,track).solo))}
+  static trackActive(project,track){
+    const t=Number(track);if(!this.AUDIO_TRACKS.includes(t))return false;
+    const state=this.trackState(project,t);if(state.muted)return false;
+    const solos=this.audioSoloSet(project);return !solos.size||solos.has(t);
+  }
+  static clipActive(project,clip){return !!clip&&this.trackActive(project,clip.track)&&clip.muted!==true}
+  static activeAudioClips(project){return (project?.clips||[]).filter(clip=>this.clipActive(project,clip))}
   static targets(track){
     const t=Number(track);
     if(t===4)return {rmsDb:-18,peakDb:-1,label:'voz'};
