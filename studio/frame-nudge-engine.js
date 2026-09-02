@@ -25,16 +25,21 @@
       const members=this.members(project,clipId);if(!members.length)return {ok:false,reason:'missing',delta:0,members:[],appliedFrames:0};
       if(members.some(c=>this.locked(project,c)))return {ok:false,reason:'locked',delta:0,members,appliedFrames:0};
       const count=Math.trunc(Number(frames)||0);if(!count)return {ok:false,reason:'zero',delta:0,members,appliedFrames:0};
-      const frame=this.frame(project),b=this.bounds(project,members),duration=Math.max(0,Number(project?.duration)||0),epsilon=frame*1e-7;
-      const room=count<0?b.start:Math.max(0,duration-b.end),available=Math.max(0,Math.floor((room+epsilon)/frame));
-      const appliedFrames=(count<0?-1:1)*Math.min(Math.abs(count),available);
+      const frame=this.frame(project),b=this.bounds(project,members),epsilon=frame*1e-7;
+      // Moving right behaves like paste/insert: preserve the user's requested edit
+      // and let the sequence grow. Only the hard zero boundary limits left moves.
+      const available=count<0?Math.max(0,Math.floor((b.start+epsilon)/frame)):Math.abs(count);
+      const appliedFrames=count<0?-Math.min(Math.abs(count),available):count;
       if(!appliedFrames)return {ok:false,reason:'boundary',delta:0,members,requestedFrames:count,appliedFrames:0};
       return {ok:true,reason:'ok',delta:appliedFrames*frame,members,requestedFrames:count,appliedFrames};
     }
     static apply(project,clipId,frames){
       const plan=this.delta(project,clipId,frames);if(!plan.ok)return {...plan,changed:0};
+      const oldDuration=Math.max(0,Number(project?.duration)||0);
       for(const c of plan.members)c.start=Math.max(0,Number(c.start)||0)+plan.delta;
-      return {...plan,changed:plan.members.length};
+      const end=plan.members.reduce((m,c)=>Math.max(m,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0)),0);
+      if(project)project.duration=Math.max(oldDuration,end);
+      return {...plan,changed:plan.members.length,duration:project?.duration??oldDuration,extended:(project?.duration??oldDuration)>oldDuration+1e-9};
     }
   }
   return {ProfitMenteFrameNudgeEngine};
