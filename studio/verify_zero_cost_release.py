@@ -5,8 +5,8 @@ Checks the critical editor/runtime pieces together without paid services:
 - JavaScript editor integrity and automatic mode regressions
 - media import/library identity and safe relinking
 - multilayer timeline placement and preview freshness
-- project persistence/recovery and portable bundles
-- render-quality/parity configuration
+- project persistence/recovery/JSON transfer and portable bundles
+- export preflight, render-quality/parity configuration and output QC
 - local server API
 - real FFmpeg end-to-end MP4 smoke render
 
@@ -65,12 +65,15 @@ def main() -> None:
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
+        ("proyectos", "Transferencia JSON segura", [node, "project-transfer-regression.test.js"]),
         ("portabilidad", "Paquete con identidad de medios", [node, "test_bundle_media_identity.mjs"]),
+        ("exportacion", "Preflight antes de exportar", [node, "test_export_preflight.mjs"]),
         ("render", "Configuración de calidad MP4", [node, "test_render_quality.mjs"]),
         ("render", "Presets de render Python", [py, "test_render_quality.py"]),
         ("render", "Paridad Preview a MP4", [py, "test_render_parity_preflight.py"]),
         ("servidor", "API local de Studio", [py, "test_server_api.py"]),
         ("exportacion", "Render MP4 real end-to-end", [py, "smoke_test.py"]),
+        ("calidad", "Control de calidad del MP4 final", [py, "test_output_qc.py"]),
     ]
 
     results = []
