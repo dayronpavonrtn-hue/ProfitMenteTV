@@ -12,14 +12,8 @@
     if(measured<=safeWidth)return safeBase;
     return Math.max(minSize,safeBase*(safeWidth/measured));
   }
-  renderAt=async function(t){
-    await baseRender(t);
-    if(captionsHidden())return;
-    const cap=project.clips.find(c=>c.track===3&&Array.isArray(c.wordTimings)&&t>=c.start&&t<c.start+c.duration);
-    if(!cap)return;
-    const word=cap.wordTimings.find(w=>t>=w.start&&t<w.end);
-    if(!word)return;
-    const progress=Math.max(0,Math.min(1,(t-word.start)/Math.max(.01,word.duration)));
+  function drawWord(word,t){
+    const progress=Math.max(0,Math.min(1,(t-word.start)/Math.max(.01,word.duration||Number(word.end)-Number(word.start))));
     const pop=1+0.16*Math.exp(-7*progress)*Math.sin(Math.PI*Math.min(1,progress*2));
     ctx.save();
     ctx.textAlign='center';ctx.textBaseline='middle';
@@ -30,6 +24,18 @@
     ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x-w/2,y-h/2,w,h);
     ctx.lineWidth=Math.max(4,Math.min(8,fontSize*.17));ctx.strokeStyle='rgba(0,0,0,.96)';ctx.strokeText(text,x,y);
     ctx.fillStyle='#FFE66D';ctx.fillText(text,x,y);ctx.restore();
+  }
+  renderAt=async function(t){
+    await baseRender(t);
+    if(captionsHidden())return;
+    const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
+    // render_mp4.py applies every active word-timed caption in project-array order.
+    // Mirror that instead of stopping at the first word caption during overlaps.
+    for(const cap of active){
+      if(!Array.isArray(cap.wordTimings))continue;
+      const word=cap.wordTimings.find(w=>t>=Number(w.start)&&t<Number(w.end));
+      if(word)drawWord(word,t);
+    }
   };
-  window.ProfitMenteCaptionPreview={captionsHidden,fitWordFont};
+  window.ProfitMenteCaptionPreview={captionsHidden,fitWordFont,drawWord};
 })();
