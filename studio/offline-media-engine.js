@@ -1,7 +1,21 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteOfflineMediaEngine=api.ProfitMenteOfflineMediaEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteOfflineMediaEngine{
-  static trackState(project={},track){const all=project.trackState||project.trackStates||{};const state=all?.[track]??all?.[String(track)]??{};return state&&typeof state==='object'?state:{}}
-  static clipActive(project={},clip={}){const track=Number(clip.track),state=this.trackState(project,track);if([0,1,2,3].includes(track)&&state.hidden)return false;if([4,5,6].includes(track)&&(state.muted||clip.muted))return false;return true}
+  static trackState(project={},track){
+    const keys=[track,String(track)],maps=[project?.trackState,project?.trackStates],states=[];
+    for(const map of maps)for(const key of keys){const state=map?.[key];if(state&&typeof state==='object')states.push(state)}
+    if(!states.length)return {};
+    const merged=Object.assign({},...states);
+    for(const key of ['locked','hidden','muted','solo'])merged[key]=states.some(state=>state?.[key]===true);
+    return merged;
+  }
+  static clipActive(project={},clip={}){
+    const track=Number(clip.track),state=this.trackState(project,track),visual=[0,1,2,3].includes(track),audio=[4,5,6].includes(track);
+    if(visual&&state.hidden)return false;
+    if(audio&&(state.muted||clip.muted))return false;
+    if(visual){const hasSolo=[0,1,2,3].some(t=>this.trackState(project,t).solo);if(hasSolo&&!state.solo)return false}
+    if(audio){const hasSolo=[4,5,6].some(t=>this.trackState(project,t).solo);if(hasSolo&&!state.solo)return false}
+    return true;
+  }
   static assetUsable(asset){
     if(!asset)return false;
     if(asset.mediaReadable===false)return false;
