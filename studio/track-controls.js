@@ -8,7 +8,15 @@
   const AUDIO_TRACKS=new Set(engine.AUDIO_TRACKS);
   const VISUAL_TRACKS=new Set(engine.VISUAL_TRACKS);
 
-  function ensureState(){project.trackState=engine.ensure(project.trackState);engine.apply(project.trackState);return project.trackState}
+  function ensureState(){
+    const states=engine.merge(project.trackState,project.trackStates);
+    // Keep both schema names synchronized. Imported legacy projects therefore migrate
+    // immediately, while later UI toggles cannot be resurrected by stale trackStates.
+    project.trackState=states;
+    project.trackStates=states;
+    engine.apply(states);
+    return states;
+  }
   function state(i){return engine.state(ensureState(),i)}
   function isVisualHidden(i){ensureState();return engine.isVisualHidden(project.trackState,Number(i))}
   function isAudioMuted(i){ensureState();return engine.isAudioMuted(project.trackState,Number(i))}
@@ -81,6 +89,20 @@
     static ensure(trackState){
       const out=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
       for(let i=0;i<7;i++)out[i]=Object.assign({locked:false,hidden:false,muted:false,solo:false},out[i]||out[String(i)]||{});
+      return out;
+    }
+    static merge(current,legacy){
+      const cur=current&&typeof current==='object'&&!Array.isArray(current)?current:{};
+      const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
+      const out={};
+      for(let i=0;i<7;i++){
+        const c=cur[i]||cur[String(i)]||null,l=old[i]||old[String(i)]||null;
+        const merged=Object.assign({locked:false,hidden:false,muted:false,solo:false},l||{},c||{});
+        // A restrictive state from either schema must survive migration. This prevents
+        // old projects from silently unlocking/unmuting/unhiding a track on open.
+        for(const key of ['locked','hidden','muted','solo'])merged[key]=!!(c?.[key]||l?.[key]);
+        out[i]=merged;
+      }
       return out;
     }
     static state(trackState,track){return this.ensure(trackState)[Number(track)]}
