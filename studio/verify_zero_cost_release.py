@@ -65,6 +65,7 @@ def main() -> None:
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
+        ("proyectos", "Importación JSON heredada segura", [node, "test_project_import.mjs"]),
         ("proyectos", "Transferencia JSON segura", [node, "project-transfer-regression.test.js"]),
         ("portabilidad", "Paquete con identidad de medios", [node, "test_bundle_media_identity.mjs"]),
         ("exportacion", "Preflight antes de exportar", [node, "test_export_preflight.mjs"]),
