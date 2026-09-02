@@ -14,6 +14,24 @@ r=Engine.replace(visual,'v',{id:'img',name:'Still',type:'image',duration:5});ass
 const audio={clips:[{id:'a',track:5,asset:'x',duration:8,sourceOffset:1,speed:1,volume:.7}]};
 r=Engine.replace(audio,'a',{id:'voice',name:'Voice',type:'audio',duration:4});assert.equal(r.ok,true);assert.equal(audio.clips[0].duration,3);assert.equal(audio.clips[0].volume,.7);
 
+const tooShort={clips:[{id:'short',track:0,asset:'old',name:'Old short target',duration:2,sourceOffset:0,speed:1,fadeIn:.1,fadeOut:.1}]};
+const tooShortBefore=structuredClone(tooShort);
+r=Engine.replace(tooShort,'short',{id:'tiny',name:'Tiny video',type:'video',duration:.2});
+assert.equal(r.ok,false);assert.equal(r.reason,'source-too-short');near(r.available,.2);assert.equal(r.required,.25);assert.deepEqual(tooShort,tooShortBefore);
+
+const speedMakesShort={clips:[{id:'fast',track:5,asset:'old',duration:2,sourceOffset:0,speed:2,volume:.8}]};
+const speedMakesShortBefore=structuredClone(speedMakesShort);
+r=Engine.replace(speedMakesShort,'fast',{id:'tiny-audio',name:'Tiny audio',type:'audio',duration:.4});
+assert.equal(r.ok,false);assert.equal(r.reason,'source-too-short');near(r.available,.2);assert.deepEqual(speedMakesShort,speedMakesShortBefore);
+
+const minimumBoundary={clips:[{id:'minimum',track:0,asset:'old',duration:2,sourceOffset:0,speed:1,fadeIn:.5,fadeOut:.5}]};
+r=Engine.replace(minimumBoundary,'minimum',{id:'quarter',name:'Quarter second',type:'video',duration:.25});
+assert.equal(r.ok,true);near(minimumBoundary.clips[0].duration,.25);near(minimumBoundary.clips[0].fadeIn,.25);near(minimumBoundary.clips[0].fadeOut,.25);
+
+const unknownDuration={clips:[{id:'unknown',track:0,asset:'old',duration:2,sourceOffset:1,speed:1}]};
+r=Engine.replace(unknownDuration,'unknown',{id:'unknown-video',name:'Metadata pending',type:'video'});
+assert.equal(r.ok,true);assert.equal(unknownDuration.clips[0].duration,2);assert.equal(unknownDuration.clips[0].sourceOffset,1);
+
 const incompatible={clips:[{id:'x',track:5,asset:'a',duration:2}]};r=Engine.replace(incompatible,'x',{id:'pic',name:'Pic',type:'image',duration:5});assert.equal(r.ok,false);assert.equal(r.reason,'incompatible');assert.equal(incompatible.clips[0].asset,'a');
 
 const lockedClip={clips:[{...structuredClone(baseClip),id:'locked-clip',locked:true}]};
