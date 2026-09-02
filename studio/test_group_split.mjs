@@ -24,6 +24,10 @@ const locked={trackState:{6:{locked:true}},clips:[{id:'v',groupId:'g',track:0,st
 const before=JSON.stringify(locked);const blocked=engine.split(locked,locked.clips[0],2);
 assert.equal(blocked.ok,false);assert.equal(blocked.reason,'locked');assert.equal(JSON.stringify(locked),before);
 
+const legacyLocked={trackState:{6:{locked:false}},trackStates:{6:{locked:true}},clips:[{id:'v',groupId:'legacy-g',track:0,start:0,duration:4},{id:'a',groupId:'legacy-g',track:6,start:0,duration:4}]};
+const legacyBefore=JSON.stringify(legacyLocked),legacyBlocked=engine.split(legacyLocked,legacyLocked.clips[0],2);
+assert.equal(legacyBlocked.ok,false);assert.equal(legacyBlocked.reason,'locked');assert.equal(JSON.stringify(legacyLocked),legacyBefore,'legacy lock must prevent grouped split without mutation');
+
 const uneven={trackState:{},clips:[{id:'v',groupId:'g',track:0,start:0,duration:6},{id:'a',groupId:'g',track:6,start:0,duration:2}]};
 const unevenBefore=JSON.stringify(uneven);const invalid=engine.split(uneven,uneven.clips[0],3);
 assert.equal(invalid.ok,false);assert.equal(invalid.reason,'member-outside');assert.equal(JSON.stringify(uneven),unevenBefore);
