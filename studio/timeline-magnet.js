@@ -9,6 +9,12 @@
     return lockedIn(project?.trackState)||lockedIn(project?.trackStates);
   }
   function clipLocked(clip){return !!clip&&(!!clip.locked||trackLocked(clip.track))}
+  function restoreMoveSnapshot(originals,originalDuration){
+    const snapshots=Array.isArray(originals)?originals:[],byId=new Map(snapshots.map(x=>[String(x.id),x]));let restored=0;
+    for(const clip of project?.clips||[]){const original=byId.get(String(clip.id));if(!original)continue;if(Math.abs((Number(clip.start)||0)-(Number(original.start)||0))>.0001||Number(clip.track)!==Number(original.track))restored++;clip.start=Number(original.start)||0;clip.track=Number(original.track)||0;}
+    if(project&&Number.isFinite(Number(originalDuration)))project.duration=Math.max(0,Number(originalDuration));
+    return restored;
+  }
   function groupFor(clip){
     const a=assetFor(clip);
     if(a?.type==='audio'||clip.track>=4)return 'audio';
@@ -63,8 +69,8 @@
     const protectedMember=originals.find(x=>{const c=(project.clips||[]).find(y=>String(y.id)===String(x.id));return clipLocked(c||x)});
     if(protectedMember){if(typeof setStatus==='function')setStatus(originals.length>1?'El grupo contiene un clip o pista bloqueada':'El clip o la pista está bloqueado');e.preventDefault();e.stopImmediatePropagation();return}
     const er=el.getBoundingClientRect(),leftEdge=e.clientX-er.left<=EDGE_PX,rightEdge=er.right-e.clientX<=EDGE_PX,mode=leftEdge?'trim-left':rightEdge?'trim-right':'move';
-    const lane=el.closest('.lane'),rect=lane.getBoundingClientRect(),timelineDuration=Math.max(.001,Number(project.duration)||1);
-    active={el,clip,mode,startX:e.clientX,originalStart:+clip.start||0,originalDuration:+clip.duration||0,originalTrack:clip.track,rect,pendingTime:null,groupEngine,originals,timelineDuration};
+    const lane=el.closest('.lane'),rect=lane.getBoundingClientRect(),timelineDuration=Math.max(.001,Number(project.duration)||1),originalProjectDuration=Math.max(0,Number(project.duration)||0);
+    active={el,clip,mode,startX:e.clientX,originalStart:+clip.start||0,originalDuration:+clip.duration||0,originalTrack:clip.track,rect,pendingTime:null,groupEngine,originals,timelineDuration,originalProjectDuration};
     e.preventDefault();e.stopImmediatePropagation();el.classList.add('dragging');el.setPointerCapture?.(e.pointerId);
     el.addEventListener('pointermove',move);el.addEventListener('pointerup',end,{once:true});el.addEventListener('pointercancel',end,{once:true});
   }
@@ -92,9 +98,14 @@
     if(lane&&moved.trackChanged)lane.classList.add('dropTarget');
     if(typeof setStatus==='function')setStatus(`${moved.snapped?'🧲 ':''}${active.clip.name||'Clip'} · ${active.clip.start.toFixed(2)}s · ${names[active.clip.track]||'Pista '+active.clip.track}`);
   }
-  function end(){
-    if(!active)return;const {el,clip,mode,originalStart,originalDuration,originalTrack,pendingTime,originals}=active;
+  function end(e){
+    if(!active)return;const {el,clip,mode,originalStart,originalDuration,originalTrack,pendingTime,originals,originalProjectDuration}=active;
     el.removeEventListener('pointermove',move);el.classList.remove('dragging');clearTargets();active=null;
+    if(e?.type==='pointercancel'){
+      const restored=restoreMoveSnapshot(originals,originalProjectDuration);
+      if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0);if(typeof setStatus==='function')setStatus(restored?'Movimiento cancelado · proyecto restaurado':'Edición cancelada');
+      return;
+    }
     let changed=false,message='';
     if(mode==='trim-left'&&pendingTime!=null){const result=window.ProfitMenteTimelineOps?.trimLeft?.(project,clip.id,pendingTime,MIN_DURATION);changed=!!result;message=result?`Entrada recortada · ${result.start.toFixed(2)}s · fuente ${(Number(result.sourceOffset)||0).toFixed(2)}s`:''}
     else if(mode==='trim-right'&&pendingTime!=null){const result=window.ProfitMenteTimelineOps?.trimRight?.(project,clip.id,pendingTime,MIN_DURATION);changed=!!result;message=result?`Salida recortada · duración ${result.duration.toFixed(2)}s`:''}
@@ -104,5 +115,5 @@
     else if(mode!=='move'&&typeof drawTimeline==='function')drawTimeline();
   }
   document.addEventListener('pointerdown',e=>{const el=e.target.closest?.('.clip');if(el)begin(e,el)},true);
-  window.ProfitMenteTimelineMagnet={snapStart,snapTime,compatible,boundaries,guideTimes,trackLocked,clipLocked,applySingleMove};
+  window.ProfitMenteTimelineMagnet={snapStart,snapTime,compatible,boundaries,guideTimes,trackLocked,clipLocked,applySingleMove,restoreMoveSnapshot};
 })();
