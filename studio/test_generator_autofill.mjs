@@ -47,6 +47,24 @@ const noMatchResult=helper.fill(noMatch,unrelated,unrelated);
 assert.equal(noMatchResult.changed,false,'unclassified audio must not create a false automation change');
 assert.equal(noMatch.clips[1].asset,null);
 
+const unreadableVisual={mode:'Automático',clips:[{id:'offline-scene',track:0,asset:null}]};
+const badVisual={id:'bad-video',type:'video',mediaReadable:false};
+const unreadableVisualResult=helper.fill(unreadableVisual,[badVisual],[badVisual]);
+assert.equal(unreadableVisualResult.changed,false,'unreadable visual imports must not trigger automatic assignment');
+assert.equal(unreadableVisual.clips[0].asset,null,'offline visual must remain unassigned');
+
+const mixedVisual={mode:'Automático',clips:[{id:'mixed-scene',track:0,asset:null}]};
+const goodVisual={id:'good-video',type:'video',mediaReadable:true};
+const mixedResult=helper.fill(mixedVisual,[badVisual,goodVisual],[badVisual,goodVisual]);
+assert.equal(mixedResult.changed,true,'a usable visual in a mixed import must still complete automation');
+assert.equal(mixedVisual.clips[0].asset,'good-video','unreadable media must be removed before the generator sees candidates');
+
+const unreadableVoiceProject={mode:'Automático',clips:[{id:'scene',track:0,asset:'visual-1'},{id:'voice',track:6,asset:null}]};
+const badVoice={id:'bad-voice',type:'audio',name:'voice-final.wav',mediaReadable:false};
+const unreadableVoiceResult=helper.fill(unreadableVoiceProject,[badVoice],[badVoice]);
+assert.equal(unreadableVoiceResult.changed,false,'unreadable audio must not trigger pending automatic audio roles');
+assert.equal(unreadableVoiceProject.clips[1].asset,null,'unreadable narration must stay pending');
+
 const protectedOnly={mode:'Automático',clips:[
   {id:'locked-scene',track:0,asset:null,locked:true},
   {id:'locked-voice',track:6,asset:null,locked:true}
