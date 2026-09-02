@@ -2,7 +2,17 @@
   let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null,groupSplitEnginePromise=null;
   const $=s=>document.querySelector(s);
   const clipById=id=>(project.clips||[]).find(c=>c.id===id);
-  const locked=c=>!!project.trackState?.[c?.track]?.locked;
+  const locked=c=>{
+    if(!c)return false;
+    if(window.ProfitMenteEditLockGuard?.isLocked)return window.ProfitMenteEditLockGuard.isLocked(project,c);
+    const track=c.track,key=String(track);
+    const modern=project?.trackState?.[track]??project?.trackState?.[key];
+    const legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
+    return !!c.locked||!!(
+      (modern&&typeof modern==='object'&&modern.locked)||
+      (legacy&&typeof legacy==='object'&&legacy.locked)
+    );
+  };
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function loadEngine(globalName,src,dataKey){
     if(window[globalName])return Promise.resolve(window[globalName]);
