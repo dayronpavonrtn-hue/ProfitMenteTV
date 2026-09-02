@@ -20,7 +20,8 @@ assert.equal(migrated.clips[0].start,20);
 assert.equal(migrated.clips[0].duration,6);
 assert.equal(migrated.clips[0].locked,true);
 assert.equal(migrated.clips[0].asset,'camera-a');
-assert.equal(migrated.trackStates[0].locked,true);
+assert.equal(migrated.trackState[0].locked,true,'legacy track locks must migrate to the canonical trackState map');
+assert.equal('trackStates' in migrated,false,'legacy trackStates must be removed after canonical migration');
 assert.equal('libraryId' in migrated,false,'imported projects remain detached from the source library identity');
 
 const integration=fs.readFileSync(new URL('./project-import-integration.js',import.meta.url),'utf8');
@@ -30,4 +31,5 @@ const persistAt=integration.indexOf("typeof originalPersist==='function'");
 assert.ok(normalizeAt>=0&&migrateAt>=0,'project import integration must route normalized JSON through migration');
 assert.ok(migrateAt<persistAt,'migration must happen before the imported project is persisted');
 assert.match(integration,/ProfitMenteProjectMigration\?\.engine/,'integration should reuse the active migration engine when available');
+assert.match(integration,/f\.size>10\*1024\*1024/,'legacy import path must reject oversized project files before reading JSON');
 console.log('Project import migration parity QA passed');
