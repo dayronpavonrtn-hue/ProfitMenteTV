@@ -18,12 +18,29 @@
       return true;
     }catch(err){console.error('ProfitMente project migration failed',err);setStatus?.('No se pudo migrar el proyecto guardado');return false}
   }
+  function migrateImportedProject(value){
+    return engine.migrate(value).project;
+  }
+  function installProjectLibraryImportMigration(){
+    const Library=window.ProfitMenteProjectLibrary,proto=Library?.prototype;
+    if(!proto||typeof proto.importSerialized!=='function'||proto.importSerialized.__profitmenteMigrationWrapped)return false;
+    const wrapped=function(text){
+      let parsed;
+      try{parsed=JSON.parse(text)}catch{throw new Error('El archivo no contiene JSON válido')}
+      const normalized=Library.normalizeImportedProject(parsed);
+      return this.save(migrateImportedProject(normalized));
+    };
+    wrapped.__profitmenteMigrationWrapped=true;
+    proto.importSerialized=wrapped;
+    return true;
+  }
   migrateCurrent();
+  installProjectLibraryImportMigration();
   if(typeof persist==='function'&&!persist.__profitmenteMigrationWrapped){
     const oldPersist=persist;
     const wrapped=function(){oldPersist();try{normalizeAndStore()}catch(err){console.error('ProfitMente persist migration failed',err)}};
     wrapped.__profitmenteMigrationWrapped=true;
     persist=wrapped;
   }
-  window.ProfitMenteProjectMigration={engine,migrateCurrent,normalizeAndStore};
+  window.ProfitMenteProjectMigration={engine,migrateCurrent,normalizeAndStore,migrateImportedProject,installProjectLibraryImportMigration};
 })();
