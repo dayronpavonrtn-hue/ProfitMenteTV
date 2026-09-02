@@ -12,6 +12,17 @@ assert.equal(DnD.canDrop('video',5),false);
 assert.equal(DnD.canDrop('audio',6),true);
 assert.equal(DnD.canDrop('audio',1),false);
 
+const readableBlob={size:1024,arrayBuffer:async()=>new ArrayBuffer(0)};
+assert.equal(DnD.assetUsable(null,{browser:true}),false,'missing assets must never be placed');
+assert.equal(DnD.assetUsable({type:'video',mediaReadable:false,blob:readableBlob},{browser:true}),false,'known undecodable media must be rejected');
+assert.equal(DnD.assetUsable({type:'video',blob:{size:0,arrayBuffer:readableBlob.arrayBuffer}},{browser:true}),false,'empty local blobs must be rejected');
+assert.equal(DnD.assetUsable({type:'video'},{browser:true}),false,'browser placement requires a locally available blob');
+assert.equal(DnD.assetUsable({type:'video'},{browser:false}),true,'metadata-only checks outside the browser must not invent an offline state');
+assert.equal(DnD.assetUsable({type:'video',blob:readableBlob},{browser:true}),true,'readable local media remains placeable');
+assert.equal(DnD.canDropAsset({type:'video',mediaReadable:false,blob:readableBlob},0,{browser:true}),false,'unreadable media must not pass compatible-track checks');
+assert.equal(DnD.canDropAsset({type:'video',blob:readableBlob},0,{browser:true}),true,'usable video remains droppable on video tracks');
+assert.equal(DnD.canDropAsset({type:'video',blob:readableBlob},5,{browser:true}),false,'usable media must still honor track compatibility');
+
 let p=DnD.placement({type:'video',duration:12},150,100,200,40);
 assert.ok(Math.abs(p.start-10)<1e-9);
 assert.equal(p.duration,12);
