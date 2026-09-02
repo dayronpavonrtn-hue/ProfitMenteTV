@@ -8,9 +8,13 @@
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
   const placementFailure=(result,fallback)=>result?.reason==='locked-track'?'La pista destino está bloqueada':result?.reason==='locked-clip'?'Hay un clip bloqueado en el intervalo y no se modificó la timeline':result?.reason==='out-of-range'?'No hay espacio al final del proyecto para completar la operación':fallback;
+  function addRange(at,duration){
+    const total=Math.max(.25,Number(project?.duration)||.25),start=Math.max(0,Math.min(total,Number(at)||0)),requested=Math.max(.25,Number(duration)||.25);
+    return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
+  }
   function place(asset,track,at,duration,sourceOffset=0){
     track=Number(track);if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
-    const chosen=mode.value,r=engine.range(project,at,duration);
+    const chosen=mode.value,r=chosen==='add'?addRange(at,duration):engine.range(project,at,duration);
     if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
     if(chosen==='insert'){
       const result=engine.insertSpace(project,track,r.start,r.duration,ops);
@@ -19,7 +23,9 @@
       const result=engine.overwriteRange(project,track,r.start,r.duration,ops);
       if(!result.ok){status(placementFailure(result,'No se pudo preparar la sobrescritura'));return false}
     }
-    addClip(track,asset.name,asset.id,r.start,r.duration);
+    const previousDuration=Math.max(.25,Number(project.duration)||.25),extended=chosen==='add'&&r.end>previousDuration+.001;
+    if(extended)project.duration=r.end;
+    try{addClip(track,asset.name,asset.id,r.start,r.duration)}catch(err){if(extended)project.duration=previousDuration;throw err}
     const inserted=project.clips?.[project.clips.length-1];
     if(inserted?.asset===asset.id){
       const maxOffset=asset.type==='image'?0:Math.max(0,(Number(asset.duration)||0)-r.duration),requested=asset.type==='image'?0:Number(sourceOffset)||0;
@@ -27,11 +33,11 @@
       if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
       if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0);
     }
-    const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s`);return true;
+    const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
   }
   library.addEventListener('click',e=>{
     const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=assets.find(a=>a.id===card.dataset.assetId);if(!asset)return;
-    e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,Math.min(nativeDuration(asset),Math.max(.25,project.duration-at)));
+    e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset));
   },true);
   tracksHost.addEventListener('dragover',e=>{
     const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);
