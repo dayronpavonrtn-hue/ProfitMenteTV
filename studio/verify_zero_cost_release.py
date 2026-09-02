@@ -2,6 +2,7 @@
 """Integrated release gate for the $0 local ProfitMente Studio workflow.
 
 Checks the critical editor/runtime pieces together without paid services:
+- browser startup wiring and corrupt-state isolation
 - JavaScript editor integrity and automatic mode regressions
 - media import/library identity and safe relinking
 - multilayer timeline placement and preview freshness
@@ -57,6 +58,8 @@ def main() -> None:
     # every check deterministic and local so the gate never needs API keys,
     # premium services, network publishing, or social credentials.
     checks = [
+        ("inicio", "Carga real de herramientas avanzadas", [node, "test_feature_bootstrap_wiring.mjs"]),
+        ("inicio", "Aislamiento de proyecto corrupto al arrancar", [node, "test_startup_corruption_guard.mjs"]),
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
