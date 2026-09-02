@@ -3,6 +3,14 @@
   const input=document.querySelector('#bundleInput'),button=document.querySelector('#importBundleBtn');if(!input||!button)return;
   const bundler=new ProfitMenteBundleEngine(),importer=new ProfitMenteBundleImportEngine();
   const status=t=>{if(typeof setStatus==='function')setStatus(t)};
+  function migrateRestoredProject(value){
+    const normalized=window.ProfitMenteProjectLibrary?.normalizeImportedProject?window.ProfitMenteProjectLibrary.normalizeImportedProject(value):value;
+    const migration=window.ProfitMenteProjectMigration?.engine;
+    if(migration?.migrate)return migration.migrate(normalized).project;
+    const MigrationEngine=window.ProfitMenteProjectMigrationEngine;
+    if(typeof MigrationEngine==='function')return new MigrationEngine().migrate(normalized).project;
+    return normalized;
+  }
   function stopPlayback(){
     try{if(typeof playing!=='undefined')playing=false}catch{}
     try{if(typeof audio!=='undefined'&&audio?.stop)audio.stop()}catch{}
@@ -25,7 +33,7 @@
       if(window.ProfitMenteNewProject?.flushCurrentProject&&!window.ProfitMenteNewProject.flushCurrentProject())return false;
       stopPlayback();status('Verificando y restaurando paquete completo…');
       const restored=await bundler.parse(file);
-      const normalized=window.ProfitMenteProjectLibrary?.normalizeImportedProject?window.ProfitMenteProjectLibrary.normalizeImportedProject(restored.project):restored.project;
+      const normalized=migrateRestoredProject(restored.project);
       const prepared=importer.prepare(normalized,restored.assets,typeof assets!=='undefined'?assets:[]);
       for(const asset of prepared.assetsToPersist){if(typeof putAsset!=='function')throw new Error('El almacén local de medios no está disponible');await putAsset(asset)}
       assets=prepared.assets;
