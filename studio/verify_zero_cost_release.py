@@ -62,6 +62,7 @@ def main() -> None:
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
+        ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
