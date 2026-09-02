@@ -27,6 +27,11 @@
     capture('antes de restaurar');
     return true;
   }
+  function migrateRestoredProject(next){
+    const migrate=window.ProfitMenteProjectMigration?.migrateImportedProject;
+    if(typeof migrate!=='function')return next;
+    try{return migrate(next)}catch(err){console.error('ProfitMente recovery migration failed',err);throw new Error('No se pudo actualizar el punto de recuperación al formato actual')}
+  }
   function normalizeRestoredProject(next){
     if(!next?.libraryId)return next;
     const lib=window.profitMenteProjectLibrary;
@@ -36,6 +41,7 @@
   function restore(id){
     let next=engine.restore(id);if(!next)return;
     if(!flushBeforeRestore()){status('No se pudo guardar el proyecto actual; restauración cancelada');return}
+    try{const migrate=migrateRestoredProject;next=migrate(next)}catch(err){console.error(err);status(err.message||'No se pudo restaurar el punto de recuperación');return}
     next=normalizeRestoredProject(next);project=next;
     if(typeof persist==='function')persist();else if(typeof originalPersist==='function')originalPersist();
     if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();
