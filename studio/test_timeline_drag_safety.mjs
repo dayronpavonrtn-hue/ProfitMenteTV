@@ -23,6 +23,7 @@ const magnet=globalThis.ProfitMenteTimelineMagnet;
 assert.ok(magnet,'timeline magnet API must load');
 assert.equal(typeof magnet.applySingleMove,'function');
 assert.equal(typeof magnet.trackLocked,'function');
+assert.equal(typeof magnet.restoreMoveSnapshot,'function');
 
 {
   globalThis.project={duration:10,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[]};
@@ -73,7 +74,25 @@ assert.equal(typeof magnet.trackLocked,'function');
   assert.equal(clip.start,1);
 }
 
+{
+  const a={id:'a',track:2,start:15,duration:2};
+  const b={id:'b',track:1,start:18,duration:1};
+  const untouched={id:'other',track:0,start:4,duration:3};
+  globalThis.project={duration:24,clips:[a,b,untouched]};
+  const restored=magnet.restoreMoveSnapshot([
+    {id:'a',track:0,start:2,duration:2},
+    {id:'b',track:1,start:5,duration:1}
+  ],10);
+  assert.equal(restored,2,'cancel rollback must report every moved member that was restored');
+  assert.deepEqual({start:a.start,track:a.track},{start:2,track:0});
+  assert.deepEqual({start:b.start,track:b.track},{start:5,track:1});
+  assert.deepEqual({start:untouched.start,track:untouched.track},{start:4,track:0},'cancel rollback must not touch unrelated clips');
+  assert.equal(globalThis.project.duration,10,'cancel rollback must restore the pre-drag sequence duration after temporary growth');
+}
+
 assert.match(source,/active\.timelineDuration/,'drag math must retain the timeline duration captured at pointer-down');
 assert.match(source,/\*active\.timelineDuration/,'pointer delta must use the captured duration instead of a duration mutated during drag');
+assert.match(source,/e\?\.type==='pointercancel'/,'pointer cancellation must take an explicit rollback path');
+assert.match(source,/restoreMoveSnapshot\(originals,originalProjectDuration\)/,'cancel path must restore both clip positions and original duration');
 
 console.log('timeline drag safety regression: ok');
