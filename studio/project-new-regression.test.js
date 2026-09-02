@@ -41,6 +41,27 @@ const untouched=lib.saveDraftIfNeeded(pristine);
 assert.ok(!untouched.libraryId,'pristine blank must stay transient');
 assert.strictEqual(lib.list().length,beforeCount,'pristine blank must not clutter project library');
 
+// Track controls initialize the modern schema with seven all-false rows. That initialization
+// alone must remain pristine, otherwise merely opening Studio would create an empty draft.
+const initializedTrackState={};
+for(let i=0;i<7;i++)initializedTrackState[i]={locked:false,hidden:false,muted:false,solo:false};
+const initializedOnly={...ProfitMenteProjectLibrary.blank(),trackState:initializedTrackState};
+assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(initializedOnly),false,'default modern track state must not create a noisy draft');
+
+// But a real modern track-state edit is user work and must survive New/Open transitions.
+const trackStateDraft={...ProfitMenteProjectLibrary.blank(),trackState:structuredClone(initializedTrackState)};
+trackStateDraft.trackState[1].hidden=true;
+trackStateDraft.trackState[5].muted=true;
+assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(trackStateDraft),true,'modern trackState edits must be recognized as unsaved work');
+const preservedTrackState=lib.saveDraftIfNeeded(trackStateDraft);
+assert.ok(preservedTrackState.libraryId,'track-state-only draft must be promoted before leaving it');
+assert.strictEqual(lib.load(preservedTrackState.libraryId).trackState[1].hidden,true,'hidden visual track state must remain recoverable');
+assert.strictEqual(lib.load(preservedTrackState.libraryId).trackState[5].muted,true,'muted audio track state must remain recoverable');
+
+// Legacy projects must remain protected too.
+const legacyTrackDraft={...ProfitMenteProjectLibrary.blank(),trackStates:{0:{locked:true}}};
+assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(legacyTrackDraft),true,'legacy trackStates edits must remain recognized');
+
 // Property-only edits are still real work even with an empty timeline.
 const propertyDraft={...ProfitMenteProjectLibrary.blank(),duration:90,frameRate:60};
 assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(propertyDraft),true,'property-only draft edits must be preserved');
@@ -66,4 +87,4 @@ const snapshotIndex=resetIntegration.indexOf('engine.snapshot(window.profitMente
 const createIndex=resetIntegration.indexOf('await window.ProfitMenteNewProject.create()');
 assert.ok(flushIndex>=0&&snapshotIndex>flushIndex&&createIndex>snapshotIndex,'advanced reset must flush, snapshot, then create in that order');
 
-console.log('safe new project + unsaved draft + advanced reset regression passed');
+console.log('safe new project + unsaved draft + modern track state + advanced reset regression passed');
