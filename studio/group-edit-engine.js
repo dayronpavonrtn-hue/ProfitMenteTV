@@ -8,9 +8,17 @@
       const groupId=String(anchor.groupId||'').trim();
       return groupId?clips.filter(c=>String(c.groupId||'').trim()===groupId):[anchor];
     }
-    lockedMembers(project,anchor){
-      return this.members(project,anchor).filter(c=>!!c?.locked||!!project?.trackState?.[c.track]?.locked||!!project?.trackState?.[String(c.track)]?.locked);
+    locked(project,clip){
+      if(!clip)return false;
+      const track=clip.track,key=String(track);
+      const modern=project?.trackState?.[track]??project?.trackState?.[key];
+      const legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
+      return !!clip.locked||!!(
+        (modern&&typeof modern==='object'&&modern.locked)||
+        (legacy&&typeof legacy==='object'&&legacy.locked)
+      );
     }
+    lockedMembers(project,anchor){return this.members(project,anchor).filter(c=>this.locked(project,c))}
     duplicate(project,anchor,{idFactory=()=>crypto.randomUUID(),offset=.5}={}){
       const members=this.members(project,anchor);
       if(!members.length)return {copies:[],delta:0};
