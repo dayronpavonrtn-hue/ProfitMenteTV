@@ -12,7 +12,7 @@
     copy(clip){this.clipboard=structuredClone(clip);return this.clipboard}
     paste(project,at,track=null){
       if(!this.clipboard)return null;const targetTrack=track??this.clipboard.track;if(this.trackLocked(project,targetTrack))return null;
-      const c=this.cloneClip(this.clipboard);c.track=targetTrack;c.start=Math.max(0,Math.min(Math.max(0,project.duration-c.duration),Number(at)||0));project.clips.push(c);return c
+      const c=this.cloneClip(this.clipboard),start=Math.max(0,Number(at)||0);c.track=targetTrack;c.start=start;project.clips.push(c);project.duration=Math.max(Number(project.duration)||0,start+(Number(c.duration)||0));return c
     }
     interpolateFrame(a,b,p){
       const out={};for(const key of new Set([...Object.keys(a||{}),...Object.keys(b||{})])){const x=Number(a?.[key]),y=Number(b?.[key]);if(Number.isFinite(x)&&Number.isFinite(y))out[key]=x+(y-x)*p;else if(a?.[key]!==undefined)out[key]=structuredClone(a[key]);else out[key]=structuredClone(b[key])}return out;
