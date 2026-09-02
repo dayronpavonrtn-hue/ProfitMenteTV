@@ -5,10 +5,12 @@ class ProfitMenteMediaPlacementEngine{
     return {start,end:start+length,duration:length,total,available,valid:length>=.25-.001};
   }
   static trackLocked(project,track){
-    const state=project?.trackState;
-    if(!state||typeof state!=='object')return false;
-    const value=state[track]??state[String(track)];
-    return !!(value&&typeof value==='object'&&value.locked);
+    const states=[project?.trackState,project?.trackStates];
+    return states.some(state=>{
+      if(!state||typeof state!=='object')return false;
+      const value=state[track]??state[String(track)];
+      return !!(value&&typeof value==='object'&&value.locked);
+    });
   }
   static clipLocked(clip){return !!clip?.locked}
   static onTrack(project,track){return (project?.clips||[]).filter(c=>Number(c?.track)===Number(track))}
