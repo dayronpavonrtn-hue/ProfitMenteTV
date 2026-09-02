@@ -11,8 +11,13 @@ class ProfitMenteMediaReplaceEngine{
     return 'other';
   }
   static trackLocked(project,track){
-    const state=project?.trackState?.[track]??project?.trackState?.[String(track)]??project?.trackStates?.[track]??project?.trackStates?.[String(track)]??{};
-    return !!(state&&typeof state==='object'&&state.locked);
+    const key=String(track);
+    const modern=project?.trackState?.[track]??project?.trackState?.[key];
+    const legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
+    return !!(
+      (modern&&typeof modern==='object'&&modern.locked)||
+      (legacy&&typeof legacy==='object'&&legacy.locked)
+    );
   }
   static isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
   static canReplace(clip,asset){return !!clip&&!!asset&&this.trackKind(clip.track)===this.assetKind(asset)&&this.assetKind(asset)!=='other'}
