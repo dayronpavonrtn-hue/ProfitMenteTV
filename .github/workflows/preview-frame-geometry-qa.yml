@@ -1,0 +1,29 @@
+name: ProfitMente Studio Preview Frame Geometry QA
+
+on:
+  push:
+    paths:
+      - 'studio/preview-format-engine.js'
+      - 'studio/preview-format-integration.js'
+      - 'studio/test_preview_frame_geometry.mjs'
+      - '.github/workflows/preview-frame-geometry-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/preview-format-engine.js'
+      - 'studio/preview-format-integration.js'
+      - 'studio/test_preview_frame_geometry.mjs'
+      - '.github/workflows/preview-frame-geometry-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  preview-frame:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: node --check studio/preview-format-integration.js
+      - name: Format-aware frame regression
+        run: node studio/test_preview_frame_geometry.mjs
