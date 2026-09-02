@@ -33,6 +33,20 @@ const clone=value=>structuredClone(value);
 
 {
   const ops=new Ops();
+  ops.copy({id:'source',track:2,start:0,duration:2,name:'Source'});
+  const project={duration:20,trackState:{'2':{locked:false}},trackStates:{'2':{locked:true}},clips:[{id:'a',track:2,start:0,duration:4}]};
+  const before=clone(project);
+  assert.equal(ops.split(project,'a',2),null,'legacy lock must win when modern mixed state says unlocked');
+  assert.equal(ops.trimLeft(project,'a',1),null,'mixed-state legacy lock must block trim');
+  assert.equal(ops.paste(project,3,2),null,'mixed-state legacy lock must block paste');
+  assert.equal(ops.closeGaps(project,2),0,'mixed-state legacy lock must block gap closure');
+  const gap=ops.insertGap(project,2,0,1);assert.equal(gap.ok,false);assert.equal(gap.reason,'locked');
+  const time=ops.insertTime(project,0,1);assert.equal(time.ok,false);assert.equal(time.reason,'locked');
+  assert.deepEqual(project,before,'mixed-state lock checks must be atomic');
+}
+
+{
+  const ops=new Ops();
   const project={duration:20,clips:[
     {id:'a',track:0,start:0,duration:2},
     {id:'b',track:0,start:4,duration:2,locked:true},
