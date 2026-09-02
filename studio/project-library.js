@@ -40,7 +40,7 @@ class ProfitMenteProjectLibrary{
     const copy=structuredClone(source);
     if(typeof copy.name!=='string'||!copy.name.trim())copy.name='Proyecto importado';else copy.name=copy.name.trim().slice(0,160);
     const duration=Number(copy.duration);if(!Number.isFinite(duration)||duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');copy.duration=duration;
-    if(!['9:16','16:9','1:1','4:5'].includes(copy.format))throw new Error('Formato de proyecto no compatible');
+    if(!['9:16','16:9','1:1'].includes(copy.format))throw new Error('Formato de proyecto no compatible');
     if(!Array.isArray(copy.clips))throw new Error('Timeline de proyecto inválida');
     for(const clip of copy.clips){if(!clip||typeof clip!=='object'||Array.isArray(clip))throw new Error('Clip de proyecto inválido');const start=Number(clip.start??0),clipDuration=Number(clip.duration??0);if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<0)throw new Error('Tiempo de clip inválido')}
     delete copy.libraryId;
