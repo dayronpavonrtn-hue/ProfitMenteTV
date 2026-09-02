@@ -21,12 +21,26 @@
   root.addClip=guardedAddClip;
   root.ProfitMenteTrackLockPlacementGuard={...api,installed:true};
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
-  function state(project,track){
-    const states=project?.trackState||project?.trackStates;
-    if(!states||typeof states!=='object')return null;
-    return states[track]??states[String(track)]??null;
+  function stateValue(map,track){
+    if(!map||typeof map!=='object')return null;
+    const value=map[track]??map[String(track)];
+    return value&&typeof value==='object'?value:null;
   }
-  function trackLocked(project,track){return !!state(project,track)?.locked}
+  function states(project,track){
+    return {
+      current:stateValue(project?.trackState,track),
+      legacy:stateValue(project?.trackStates,track)
+    };
+  }
+  function state(project,track){
+    const {current,legacy}=states(project,track);
+    if(!current&&!legacy)return null;
+    return {...(legacy||{}),...(current||{}),locked:!!(current?.locked||legacy?.locked)};
+  }
+  function trackLocked(project,track){
+    const {current,legacy}=states(project,track);
+    return !!(current?.locked||legacy?.locked);
+  }
   function canCreate(project,track){return !trackLocked(project,track)}
-  return {state,trackLocked,canCreate};
+  return {state,states,trackLocked,canCreate};
 });
