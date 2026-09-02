@@ -30,6 +30,21 @@
     window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-rolled-back',{detail:{reason:'step-error',historyRestored}}));
     return true;
   }
+  async function startLocalRenderAndWait(renderBtn){
+    if(!renderBtn||renderBtn.disabled)return {started:false,awaited:false};
+    const handler=renderBtn.onclick;
+    if(typeof handler!=='function'){
+      renderBtn.click();
+      return {started:true,awaited:false};
+    }
+    renderBtn.disabled=true;
+    try{
+      await handler.call(renderBtn);
+      return {started:true,awaited:true};
+    }finally{
+      renderBtn.disabled=false;
+    }
+  }
   async function run(){
     if(busy)return null;busy=true;const btn=$('#autoFinishBtn');if(btn){btn.disabled=true;btn.textContent='Finalizando…'}
     const completed=[],skipped=[];lastReport=null;lastPreflight=null;const automationSnapshot=captureAutomationState();
@@ -88,9 +103,9 @@
       const renderBtn=$('#renderMp4Btn');
       if(!renderBtn||renderBtn.disabled){setStatus?.('Auto Finish completado · MP4 local listo, pero el control de render está ocupado o no disponible');return {...result,renderStarted:false}}
       setStatus?.(`Auto Finish aprobado · QA ${result.qa.score}/100 · iniciando MP4 local…`);
-      renderBtn.click();
       window.dispatchEvent?.(new CustomEvent('profitmente:auto-finish-render-started',{detail:{qa:result.qa,preflight:result.preflight}}));
-      return {...result,renderStarted:true};
+      const renderState=await startLocalRenderAndWait(renderBtn);
+      return {...result,renderStarted:renderState.started,renderAwaited:renderState.awaited};
     }finally{renderBusy=false;if(btn){btn.disabled=false;btn.textContent='✨ Auto Finish + MP4'}}
   }
   function install(){
@@ -100,5 +115,5 @@
     if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
-  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,runAndRender,captureAutomationState,restoreAutomationState,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
+  window.ProfitMenteAutoFinish={inspect:()=>Engine.inspect(project,assets),plan:()=>Engine.plan(project,assets),run,runAndRender,startLocalRenderAndWait,captureAutomationState,restoreAutomationState,get lastReport(){return lastReport},get lastPreflight(){return lastPreflight}};
 })();
