@@ -9,6 +9,7 @@ on:
       - 'studio/generator-autofill.js'
       - 'studio/generator-integration.js'
       - 'studio/test_media_import_engine.mjs'
+      - 'studio/test_media_import_empty_guard.mjs'
       - 'studio/test_media_timeline_dnd.mjs'
       - 'studio/test_generator_autofill.mjs'
       - '.github/workflows/media-import-qa.yml'
@@ -34,6 +35,8 @@ jobs:
         run: node --check studio/generator-integration.js
       - name: Test classification and deduplication
         run: node studio/test_media_import_engine.mjs
+      - name: Test empty media rejection
+        run: node studio/test_media_import_empty_guard.mjs
       - name: Test timeline media placement
         run: node studio/test_media_timeline_dnd.mjs
       - name: Test automatic refill after import
