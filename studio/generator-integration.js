@@ -1,5 +1,16 @@
 (()=>{
   const engine=new ProfitMenteGeneratorEngine();
+  const assetUsable=asset=>{
+    if(!asset||asset.mediaReadable===false)return false;
+    const offline=typeof globalThis!=='undefined'?globalThis.ProfitMenteOfflineMediaEngine:null;
+    if(offline?.assetUsable)return offline.assetUsable(asset);
+    if(typeof document!=='undefined'){
+      if(!asset.blob||typeof asset.blob.arrayBuffer!=='function')return false;
+      if(asset.blob.size!=null&&Number(asset.blob.size)<=0)return false;
+    }
+    return true;
+  };
+  const usableAssets=()=>Array.isArray(assets)?assets.filter(assetUsable):[];
   const applyGeneratedProject=(target,result,duration)=>{
     const previous=Array.isArray(target?.clips)?target.clips:[];
     const preserved=previous.filter(clip=>engine.clipLocked(target,clip));
@@ -29,7 +40,7 @@
     const duration=Math.max(10,+document.querySelector('#duration').value||45);
     const result=engine.generate(topic.value,duration);
     const merge=applyGeneratedProject(project,result,duration);
-    const assigned=engine.assignAssets(project,assets);
+    const assigned=engine.assignAssets(project,usableAssets());
     document.querySelector('#mode').value='Automático';
     document.querySelector('#projectName').value=project.name;
     document.querySelector('#duration').value=project.duration;
