@@ -1,3 +1,22 @@
+(function installNarrationCoverageGuard(){
+  const Engine=typeof globalThis!=='undefined'?globalThis.ProfitMenteGeneratorEngine:null;
+  if(!Engine?.prototype||Engine.prototype.__profitmenteNarrationCoverageGuard)return;
+  const original=Engine.prototype.narrationScore;
+  if(typeof original!=='function')return;
+  Engine.prototype.narrationScore=function(asset,projectDuration=45){
+    const score=original.call(this,asset,projectDuration);
+    if(!Number.isFinite(score))return score;
+    const duration=Number(asset?.duration)||0,target=Math.max(.25,Number(projectDuration)||45);
+    // Automatic narration must cover most of the project. Previously a clearly
+    // named but very short voice clip could win scoring and leave a long silent
+    // tail. Unknown-duration assets remain eligible because Studio cannot prove
+    // they are too short until media metadata is available.
+    if(duration>0&&duration+.25<target*.72)return -Infinity;
+    return score;
+  };
+  try{Object.defineProperty(Engine.prototype,'__profitmenteNarrationCoverageGuard',{value:true,configurable:true})}catch{Engine.prototype.__profitmenteNarrationCoverageGuard=true}
+})();
+
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
   trackLocked(project,track){
