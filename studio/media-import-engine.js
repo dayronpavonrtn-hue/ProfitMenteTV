@@ -9,12 +9,21 @@ class ProfitMenteMediaImportEngine{
     if(['mp3','wav','m4a','aac','ogg','opus','flac','webm'].includes(ext))return ext==='webm'?'video':'audio';
     return null;
   }
+  static sizeOf(file={}){
+    const raw=file?.size??file?.blob?.size;
+    if(raw===undefined||raw===null||raw==='')return null;
+    const size=Number(raw);return Number.isFinite(size)?size:null;
+  }
+  static hasContent(file={}){
+    const size=this.sizeOf(file);
+    return size===null||size>0;
+  }
   static signature(file={}){
     const name=String(file.name||'').trim().toLowerCase(),size=Number(file.size??file.blob?.size??0)||0,mime=String(file.type||file.mime||'').toLowerCase(),modified=Number(file.lastModified??file.sourceLastModified??0)||0;
     return `${name}|${size}|${mime}|${modified}`;
   }
   static relativePath(file={}){return String(file.sourceRelativePath||file.webkitRelativePath||file.name||'').replace(/^[/\\]+/,'').replace(/\\/g,'/')}
-  static compatible(files=[]){return Array.from(files||[]).filter(file=>this.kind(file))}
+  static compatible(files=[]){return Array.from(files||[]).filter(file=>this.kind(file)&&this.hasContent(file))}
   static findDuplicate(assets=[],file={}){
     const exact=this.signature(file);return (assets||[]).find(asset=>asset?.sourceFingerprint===exact||this.signature(asset)===exact)||null;
   }
@@ -53,19 +62,12 @@ class ProfitMenteMediaImportEngine{
   }
   static findDuplicateHash(assets=[],hash=''){return hash?(assets||[]).find(asset=>asset?.sourceContentHash===hash||asset?.sourceLegacyContentHash===hash)||null:null}
   static findDuplicateForImport(assets=[],file={},hash=''){
-    // A metadata signature is only a fallback. Folder imports commonly contain
-    // different files with identical names, sizes and timestamps, so a content
-    // hash must take precedence whenever the browser can compute one.
     return hash?this.findDuplicateHash(assets,hash):this.findDuplicate(assets,file);
   }
   static findDuplicateForHashes(assets=[],file={},hashes={}){
     const current=String(hashes?.current||''),legacy=String(hashes?.legacy||'');
     if(current){
       const modern=(assets||[]).find(asset=>asset?.sourceHashVersion==='sample-v2'&&asset?.sourceContentHash===current);if(modern)return modern;
-      // Existing Studio libraries can contain the former first+last-MB hash.
-      // That v1 hash can collide when the middle of a large video differs, so
-      // trust it only when the original metadata signature also agrees. In an
-      // ambiguous case Studio imports the file instead of risking data loss.
       if(legacy){
         const exact=this.signature(file),legacyMatch=(assets||[]).find(asset=>{
           if(asset?.sourceHashVersion==='sample-v2')return false;
@@ -109,7 +111,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   let folderBtn=document.querySelector('#mediaFolderBtn');
   if(!folderBtn){folderBtn=document.createElement('button');folderBtn.id='mediaFolderBtn';folderBtn.type='button';folderBtn.textContent='📁 Importar carpeta';const uploadBtn=document.querySelector('#uploadBtn');uploadBtn?.insertAdjacentElement('afterend',folderBtn)}
   async function importFiles(files,origin='selector'){
-    const incoming=engine.compatible(files),unsupported=Math.max(0,Array.from(files||[]).length-incoming.length);let added=0,duplicates=0,failed=0;const addedIds=[];
+    const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0;const addedIds=[];
     for(const file of incoming){
       try{
         const hashes=await engine.contentHashes(file);
@@ -120,9 +122,9 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     }
     drawLibrary?.();
     if(addedIds.length)document.dispatchEvent(new CustomEvent('profitmente:media-imported',{detail:{assetIds:addedIds,origin}}));
-    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
+    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
     setStatus?.(parts.join(' · ')||'No se encontraron medios compatibles');
-    return {added,duplicates,unsupported,failed,total:incoming.length,assetIds:addedIds};
+    return {added,duplicates,empty,unsupported,failed,total:incoming.length,assetIds:addedIds};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
   folderBtn.onclick=()=>folderInput.click();
