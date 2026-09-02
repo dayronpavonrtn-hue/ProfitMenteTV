@@ -12,13 +12,14 @@
     movePlan({duration,originals,anchorId,desiredStart,boundaries=[],snapSeconds=.15,desiredTrack=null,canTrack=null}){
       const list=Array.isArray(originals)?originals:[],anchor=list.find(x=>String(x.id)===String(anchorId));
       if(!anchor||!list.length)return null;
-      const projectDuration=Math.max(0,Number(duration)||0),minStart=Math.min(...list.map(x=>x.start)),maxEnd=Math.max(...list.map(x=>x.start+x.duration));
+      const minStart=Math.min(...list.map(x=>x.start)),maxEnd=Math.max(...list.map(x=>x.start+x.duration));
       let delta=(Number(desiredStart)||0)-anchor.start;
-      delta=Math.max(-minStart,Math.min(projectDuration-maxEnd,delta));
+      // The sequence may grow to the right. Only clamp the left edge at 0.
+      delta=Math.max(-minStart,delta);
       let snap=null,best=Infinity;
       const points=[{time:minStart+delta,kind:'group-start'},{time:maxEnd+delta,kind:'group-end'}];
       for(const b0 of boundaries){const b=Number(b0);if(!Number.isFinite(b))continue;for(const p of points){const dist=Math.abs(b-p.time);if(dist<=snapSeconds&&dist<best){best=dist;snap={adjust:b-p.time,kind:p.kind,target:b}}}}
-      if(snap){delta=Math.max(-minStart,Math.min(projectDuration-maxEnd,delta+snap.adjust));}
+      if(snap)delta=Math.max(-minStart,delta+snap.adjust);
       let trackDelta=0,trackChanged=false;
       if(desiredTrack!==null&&desiredTrack!==undefined){
         trackDelta=Number(desiredTrack)-anchor.track;
@@ -27,8 +28,9 @@
       return {delta,trackDelta,trackChanged,snapped:!!snap,snapKind:snap?.kind||'',snapTarget:snap?.target??null,moves:list.map(x=>({id:x.id,start:x.start+delta,track:x.track+trackDelta}))};
     }
     apply(project,plan){
-      if(!plan)return 0;const map=new Map((plan.moves||[]).map(x=>[String(x.id),x]));let changed=0;
-      for(const clip of project?.clips||[]){const next=map.get(String(clip.id));if(!next)continue;if(Math.abs((Number(clip.start)||0)-next.start)>.0001||Number(clip.track)!==next.track)changed++;clip.start=next.start;clip.track=next.track;}
+      if(!plan)return 0;const map=new Map((plan.moves||[]).map(x=>[String(x.id),x]));let changed=0,maxEnd=Math.max(0,Number(project?.duration)||0);
+      for(const clip of project?.clips||[]){const next=map.get(String(clip.id));if(!next)continue;if(Math.abs((Number(clip.start)||0)-next.start)>.0001||Number(clip.track)!==next.track)changed++;clip.start=next.start;clip.track=next.track;maxEnd=Math.max(maxEnd,(Number(clip.start)||0)+(Number(clip.duration)||0));}
+      if(changed&&project)project.duration=maxEnd;
       return changed;
     }
   }
