@@ -28,9 +28,20 @@ class ProfitMenteGeneratorAutoFill {
     if(guard?.isLocked)return guard.isLocked(project,clip);
     return !!clip?.locked||this.trackLocked(project,clip?.track);
   }
+  assetUsable(asset){
+    if(!asset||asset.mediaReadable===false)return false;
+    const offline=typeof globalThis!=='undefined'?globalThis.ProfitMenteOfflineMediaEngine:null;
+    if(offline?.assetUsable)return offline.assetUsable(asset);
+    if(typeof document!=='undefined'){
+      if(!asset.blob||typeof asset.blob.arrayBuffer!=='function')return false;
+      if(asset.blob.size!=null&&Number(asset.blob.size)<=0)return false;
+    }
+    return true;
+  }
+  usableAssets(list=[]){return (Array.isArray(list)?list:[]).filter(asset=>this.assetUsable(asset))}
   missing(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&!c.asset&&!this.locked(project,c)).length}
-  importedVisuals(importedAssets=[]){return (importedAssets||[]).filter(a=>a?.type==='video'||a?.type==='image')}
-  importedAudio(importedAssets=[]){return (importedAssets||[]).filter(a=>a?.type==='audio')}
+  importedVisuals(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='video'||a?.type==='image')}
+  importedAudio(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='audio')}
   needsAudio(project){
     const clips=project?.clips||[];
     const narration=clips.some(c=>Number(c.track)===6&&!c.asset&&!this.locked(project,c));
@@ -48,16 +59,17 @@ class ProfitMenteGeneratorAutoFill {
   fill(project,allAssets=[],importedAssets=[]){
     const before=this.missing(project);
     if(!this.shouldRun(project,importedAssets))return {changed:false,before,after:before,primary:0,broll:0,skipped:before,narration:0,music:0,sfx:0};
+    const usable=this.usableAssets(allAssets);
     const hasNewVisual=this.importedVisuals(importedAssets).length>0;
     let assigned={};
     if(hasNewVisual&&before>0){
-      assigned=this.engine.assignAssets(project,allAssets)||{};
+      assigned=this.engine.assignAssets(project,usable)||{};
     }else{
       assigned={
         primary:0,broll:0,skipped:before,
-        narration:Number(this.engine.assignNarration?.(project,allAssets)||0),
-        music:Number(this.engine.assignSoundtrack?.(project,allAssets)||0),
-        sfx:Number(this.engine.assignTransitionSfx?.(project,allAssets)||0)
+        narration:Number(this.engine.assignNarration?.(project,usable)||0),
+        music:Number(this.engine.assignSoundtrack?.(project,usable)||0),
+        sfx:Number(this.engine.assignTransitionSfx?.(project,usable)||0)
       };
     }
     const after=this.missing(project),narration=Number(assigned.narration||0),music=Number(assigned.music||0),sfx=Number(assigned.sfx||0);
