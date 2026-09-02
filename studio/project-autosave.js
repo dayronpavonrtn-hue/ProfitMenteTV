@@ -36,7 +36,7 @@ if(typeof document!=='undefined')(()=>{
   function flush(reason='autoguardado'){
     cancel();if(flushing)return false;
     const next=engine.merge(project,read()),nextFingerprint=JSON.stringify(engine.fields(next));
-    if(last===nextFingerprint){markSaved();return false}
+    if(last===nextFingerprint&&!unsaved)return false;
     const previous=engine.fields(project);Object.assign(project,next);flushing=true;
     try{
       if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
