@@ -1,4 +1,5 @@
 class ProfitMenteMediaReplaceEngine{
+  static MIN_CLIP_DURATION=.25;
   static trackKind(track){
     const t=Number(track);
     if(t===0||t===1)return 'visual';
@@ -21,27 +22,29 @@ class ProfitMenteMediaReplaceEngine{
   }
   static isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
   static canReplace(clip,asset){return !!clip&&!!asset&&this.trackKind(clip.track)===this.assetKind(asset)&&this.assetKind(asset)!=='other'}
-  static maxTimelineDuration(clip,asset){
-    if(asset?.type==='image')return Infinity;
-    const native=Math.max(0,Number(asset?.duration)||0),speed=Math.max(.01,Number(clip?.speed)||1),offset=Math.max(0,Number(clip?.sourceOffset)||0);
-    return Math.max(0,(native-offset)/speed);
+  static sourceWindow(clip,asset){
+    if(asset?.type==='image')return {known:false,offset:0,maxDuration:Infinity};
+    const raw=Number(asset?.duration),known=Number.isFinite(raw)&&raw>0;
+    const native=known?raw:0,speed=Math.max(.01,Number(clip?.speed)||1);
+    let offset=Math.max(0,Number(clip?.sourceOffset)||0);
+    if(known)offset=Math.min(offset,Math.max(0,native-.05));
+    return {known,native,speed,offset,maxDuration:known?Math.max(0,(native-offset)/speed):Infinity};
   }
+  static maxTimelineDuration(clip,asset){return this.sourceWindow(clip,asset).maxDuration}
   static replace(project,clipId,asset){
     const clip=(project?.clips||[]).find(c=>c?.id===clipId);
     if(!clip)return {ok:false,reason:'clip-missing'};
     if(!asset?.id)return {ok:false,reason:'asset-missing'};
     if(this.isLocked(project,clip))return {ok:false,reason:'locked'};
     if(!this.canReplace(clip,asset))return {ok:false,reason:'incompatible'};
+    const window=this.sourceWindow(clip,asset);
+    if(window.known&&window.maxDuration<this.MIN_CLIP_DURATION-.001)return {ok:false,reason:'source-too-short',available:window.maxDuration,required:this.MIN_CLIP_DURATION};
     const before={asset:clip.asset,name:clip.name,duration:clip.duration,sourceOffset:clip.sourceOffset};
     clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';
     if(asset.type==='image')clip.sourceOffset=0;
     else{
-      const native=Math.max(0,Number(asset.duration)||0),speed=Math.max(.01,Number(clip.speed)||1);
-      let offset=Math.max(0,Number(clip.sourceOffset)||0);
-      if(native>0)offset=Math.min(offset,Math.max(0,native-.05));
-      clip.sourceOffset=offset;
-      const maxDuration=this.maxTimelineDuration(clip,asset);
-      if(Number.isFinite(maxDuration)&&maxDuration>0&&Number(clip.duration)>maxDuration)clip.duration=Math.max(.05,maxDuration);
+      clip.sourceOffset=window.offset;
+      if(Number.isFinite(window.maxDuration)&&Number(clip.duration)>window.maxDuration)clip.duration=Math.max(this.MIN_CLIP_DURATION,window.maxDuration);
     }
     if(Number(clip.fadeIn)>Number(clip.duration))clip.fadeIn=Number(clip.duration);
     if(Number(clip.fadeOut)>Number(clip.duration))clip.fadeOut=Number(clip.duration);
