@@ -4,7 +4,10 @@
   const AUDIO_TRACKS=new Set([4,5,6]);
   const selected=()=>{const id=window.ProfitMenteEditTools?.selectedId;return (project?.clips||[]).find(c=>c.id===id)};
   function status(t){setStatus?.(t)}
-  function locked(clip){return !!window.ProfitMenteTrackControls?.state?.(Number(clip?.track))?.locked}
+  function locked(clip){
+    const track=Number(clip?.track);
+    return Engine.trackLocked?.(project,track)||!!window.ProfitMenteTrackControls?.state?.(track)?.locked;
+  }
   async function context(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')await ctx.resume();return ctx}
   async function decode(asset,cache){if(cache?.has(asset.id))return cache.get(asset.id);const c=await context(),buffer=await c.decodeAudioData(await asset.blob.arrayBuffer());cache?.set(asset.id,buffer);return buffer}
   async function trimClip(clip,cache=new Map()){
@@ -33,7 +36,7 @@
     busy=true;updateButtons();const cache=new Map();let changed=0,skipped=0,totalRemoved=0;try{status(`Limpiando silencios en ${clips.length} clip(s) de voz…`);for(const clip of clips){try{const r=await trimClip(clip,cache);if(r.ok){changed++;totalRemoved+=r.removedTimeline||0}else skipped++}catch{skipped++}}if(changed)refresh();status(`Limpieza de voz terminada · ${changed} clip(s) ajustados · ${totalRemoved.toFixed(2)} s removidos${skipped?` · ${skipped} sin cambios`:''}`)}finally{busy=false;updateButtons()}
   }
   let oneBtn=null,allBtn=null;
-  function updateButtons(){const c=selected(),ok=c&&AUDIO_TRACKS.has(Number(c.track))&&!locked(c);if(oneBtn){oneBtn.disabled=busy||!ok;oneBtn.textContent=busy?'Analizando…':'✂ Recortar silencio'}if(allBtn){allBtn.disabled=busy;allBtn.textContent=busy?'Limpiando voces…':'✂ Limpiar silencios de voz'}}
+  function updateButtons(){const c=selected(),ok=c&&AUDIO_TRACKS.has(Number(c.track))&&!locked(c);if(oneBtn){oneBtn.disabled=busy||!ok;oneBtn.textContent=busy?'Analizando…':'✂ Recortar silencio'}if(allBtn){allBtn.disabled=busy;allBtn.textContent=busy?'Limpiando…':'✂ Limpiar silencios de voz'}}
   function install(){
     const normalize=$('#audioNormalizeClipBtn'),wrap=$('#ciVolumeWrap');if(!$('#audioSilenceTrimBtn')){oneBtn=document.createElement('button');oneBtn.id='audioSilenceTrimBtn';oneBtn.type='button';oneBtn.textContent='✂ Recortar silencio';oneBtn.title='Detecta y elimina silencio al inicio/final del clip usando análisis local';oneBtn.onclick=runOne;(normalize||wrap)?.insertAdjacentElement('afterend',oneBtn)}else oneBtn=$('#audioSilenceTrimBtn');
     const normalizeAll=$('#audioNormalizeAllBtn'),qa=$('#qaBtn');if(!$('#audioSilenceAllBtn')){allBtn=document.createElement('button');allBtn.id='audioSilenceAllBtn';allBtn.type='button';allBtn.textContent='✂ Limpiar silencios de voz';allBtn.title='Recorta automáticamente silencios de entrada/salida en todos los clips de voz';allBtn.onclick=runVoices;(normalizeAll||qa)?.insertAdjacentElement('afterend',allBtn)}else allBtn=$('#audioSilenceAllBtn');
