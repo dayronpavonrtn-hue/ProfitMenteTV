@@ -2,6 +2,7 @@
   const input=document.querySelector('#projectInput');
   if(!input||!window.ProfitMenteProjectImportEngine)return;
   const engine=new ProfitMenteProjectImportEngine();
+  input.accept='application/json,.json';
   function migrateImported(next){
     const migration=window.ProfitMenteProjectMigration?.engine;
     if(migration?.migrate)return migration.migrate(next).project;
@@ -12,6 +13,7 @@
   input.onchange=async e=>{
     const f=e.target.files?.[0];if(!f)return;
     try{
+      if(f.size>10*1024*1024)throw new Error('Archivo de proyecto demasiado grande (máximo 10 MB)');
       const parsed=JSON.parse(await f.text());
       project=migrateImported(engine.normalize(parsed));
       if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
