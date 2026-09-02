@@ -1,9 +1,16 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   class ProfitMenteRemoveTimeEngine{
+    trackLocked(project,track){
+      const n=Number(track);
+      if(!Number.isFinite(n))return false;
+      const modern=project?.trackState?.[n]||project?.trackState?.[String(n)]||{};
+      const legacy=project?.trackStates?.[n]||project?.trackStates?.[String(n)]||{};
+      return modern.locked===true||legacy.locked===true;
+    }
     remove(project,at,gap=1){
       const t=Math.max(0,Number(at)||0),amount=Math.max(.05,Number(gap)||1),end=t+amount;
-      const clips=Array.isArray(project?.clips)?project.clips:[],states=project?.trackState||{},duration=Math.max(0,Number(project?.duration)||0);
+      const clips=Array.isArray(project?.clips)?project.clips:[],duration=Math.max(0,Number(project?.duration)||0);
       if(end>duration+.001)return {ok:false,reason:'out_of_range',at:t,gap:amount,duration};
       const occupied=clips.find(c=>{
         const start=Number(c.start)||0,clipEnd=start+Math.max(0,Number(c.duration)||0);
@@ -11,7 +18,7 @@
       });
       if(occupied)return {ok:false,reason:'occupied',track:occupied.track,clip:occupied,at:t,gap:amount};
       const affected=clips.filter(c=>(Number(c.start)||0)>=end-.001);
-      const locked=affected.find(c=>!!states?.[c.track]?.locked);
+      const locked=affected.find(c=>this.trackLocked(project,c.track));
       if(locked)return {ok:false,reason:'locked',track:locked.track,clip:locked,at:t,gap:amount};
       for(const c of affected)c.start=Math.max(t,(Number(c.start)||0)-amount);
       const maxEnd=clips.reduce((m,c)=>Math.max(m,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0)),0);
