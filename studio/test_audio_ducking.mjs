@@ -12,5 +12,34 @@ assert.deepEqual(parts.map(c=>[c.start,c.duration,c.volume]),[[0,2,.3],[2,3.5,.1
 assert.equal(parts[0].sourceOffset,1);assert.ok(Math.abs(parts[1].sourceOffset-4)<1e-9);assert.equal(parts[0].fadeIn,.4);assert.equal(parts[0].fadeOut,0);assert.equal(parts.at(-1).fadeIn,0);assert.equal(parts.at(-1).fadeOut,.6);
 assert.equal(project.clips.length,4,'prepareForRender must not mutate editor project');
 const muted={...project,trackState:{6:{muted:true}}};assert.deepEqual(Ducking.intervals(muted,music),[]);
+
+// Persisted legacy mute must remain conservative when current state disagrees.
+const legacyMuted={...project,trackState:{6:{muted:false}},trackStates:{6:{muted:true}}};
+assert.deepEqual(Ducking.intervals(legacyMuted,music),[]);
+assert.equal(Ducking.prepareForRender(legacyMuted).clips.filter(c=>c.track===5).length,1);
+
+// Audio Solo is semantic across tracks 4-6, matching the canonical render path.
+// Solo music makes voice inactive, so inactive voice must not duck it.
+const soloMusic={...project,trackState:{5:{solo:true}}};
+assert.deepEqual(Ducking.intervals(soloMusic,music),[]);
+assert.equal(Ducking.prepareForRender(soloMusic).clips.filter(c=>c.track===5).length,1);
+
+// Solo voice makes music inactive. Ducking must not manufacture segmented copies
+// of a track that the render path will mute.
+const soloVoice={...project,trackState:{6:{solo:true}}};
+assert.deepEqual(Ducking.intervals(soloVoice,music),[]);
+assert.equal(Ducking.prepareForRender(soloVoice).clips.filter(c=>c.track===5).length,1);
+
+// A legacy Solo flag is equally authoritative, and mixed current/legacy state
+// cannot silently re-enable a track.
+const legacySoloVoice={...project,trackState:{6:{solo:false}},trackStates:{6:{solo:true}}};
+assert.deepEqual(Ducking.intervals(legacySoloVoice,music),[]);
+const legacySoloMusic={...project,trackState:{5:{solo:false}},trackStates:{5:{solo:true}}};
+assert.deepEqual(Ducking.intervals(legacySoloMusic,music),[]);
+
+// Solo on another audio layer (track 4) deactivates both music and voice.
+const soloSourceAudio={...project,trackState:{4:{solo:true}}};
+assert.deepEqual(Ducking.intervals(soloSourceAudio,music),[]);
+
 const noVoice={clips:[music]};assert.equal(Ducking.prepareForRender(noVoice).clips.length,1);
 console.log('audio ducking ok');
