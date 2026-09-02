@@ -3,8 +3,8 @@
   class ProfitMenteTimelineOperations{
     constructor(){this.clipboard=null}
     trackLocked(project,track){
-      const states=project?.trackState??project?.trackStates??{},state=states?.[track]??states?.[String(track)]??{};
-      return !!(state&&typeof state==='object'&&state.locked);
+      const lockedIn=states=>{const state=states?.[track]??states?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)};
+      return lockedIn(project?.trackState)||lockedIn(project?.trackStates);
     }
     isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
     anyLocked(project,clips){return (clips||[]).some(c=>this.isLocked(project,c))}
