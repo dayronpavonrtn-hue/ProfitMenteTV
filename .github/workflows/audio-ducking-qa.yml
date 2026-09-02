@@ -33,4 +33,4 @@ jobs:
       - name: Verify Studio loads ducking before audio engine
         run: grep -q 'audio-ducking-engine.js.*audio-engine.js' studio/index.html
       - name: Verify MP4 path prepares render project
-        run: grep -q 'prepareForRender(project)' studio/render-job-integration.js
+        run: grep -q 'ProfitMenteAudioDuckingEngine.prepareForRender(value)' studio/render-job-integration.js
