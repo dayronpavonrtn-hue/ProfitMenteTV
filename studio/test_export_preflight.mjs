@@ -5,6 +5,26 @@ r=P.summarize({ok:true,score:93,issues:[],warnings:['baja resolución'],metrics:
 r=P.summarize({ok:true,score:100,issues:[],warnings:[],metrics:{}},{ok:false,render_ready:false});assert.equal(r.state,'package');assert.equal(r.canPackage,true);assert.equal(r.canRender,false);
 r=P.summarize({ok:false,score:50,issues:['medio faltante'],warnings:[],metrics:{}},{ok:true,render_ready:true});assert.equal(r.state,'blocked');assert.equal(r.canPackage,false);assert.equal(r.canRender,false);
 
+const cleanQa=()=>({ok:true,score:100,issues:[],warnings:[],metrics:{clips:1}});
+let narration=P.narrationCoverage(cleanQa(),{mode:'Automático',duration:30,clips:[{track:6,start:0,duration:8,asset:'voice'}]});
+assert.equal(narration.metrics.narrationCoverage,26.7,'short narration coverage must be measured');
+assert.ok(narration.warnings.some(x=>/Narración automática incompleta/.test(x)),'short automatic narration must be surfaced before render');
+narration=P.narrationCoverage(cleanQa(),{mode:'Automático',duration:30,clips:[{track:6,start:0,duration:30,asset:null,pending:true}]});
+assert.equal(narration.metrics.narrationCoverage,0);
+assert.ok(narration.warnings.some(x=>/Narración automática pendiente/.test(x)),'pending automatic narration must be surfaced');
+narration=P.narrationCoverage(cleanQa(),{mode:'Automático',duration:30,clips:[{track:6,start:0,duration:21.6,asset:'voice'}]});
+assert.equal(narration.metrics.narrationCoverage,72);
+assert.equal(narration.warnings.length,0,'72 percent narration coverage must satisfy the generator quality threshold');
+narration=P.narrationCoverage(cleanQa(),{mode:'Manual',duration:30,clips:[{track:6,start:0,duration:8,asset:'voice'}]});
+assert.equal(narration.metrics.narrationCoverage,26.7);
+assert.equal(narration.warnings.length,0,'manual editing must not inherit automatic narration requirements');
+narration=P.narrationCoverage(cleanQa(),{mode:'Automático',duration:30,trackStates:{6:{muted:true}},clips:[{track:6,start:0,duration:8,asset:'voice'}]});
+assert.equal(narration.metrics.narrationCoverage,0);
+assert.equal(narration.warnings.length,0,'an intentionally muted narration track must not create a duplicate quality warning');
+narration=P.narrationCoverage(cleanQa(),{mode:'Automático',duration:30,clips:[{track:6,start:0,duration:20,asset:'a'},{track:6,start:10,duration:20,asset:'b'}]});
+assert.equal(narration.metrics.narrationCoverage,100,'overlapping narration clips must not double-count coverage');
+assert.equal(narration.warnings.length,0);
+
 async function browserScenario({useSnapshot=false}={}){
   const liveProject={name:'Race guard',clips:[]},liveAssets=[{id:'asset-1',name:'base.mp4'}];
   const btn={disabled:false,onclick:null},report={hidden:true,dataset:{},innerHTML:''},qaBtn={after(){}},status={after(){}};
