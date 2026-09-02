@@ -2,6 +2,7 @@ name: ProfitMente Studio Project Import QA
 on:
   push:
     paths:
+      - 'studio/project-library.js'
       - 'studio/project-import-engine.js'
       - 'studio/project-import-integration.js'
       - 'studio/project-migration-engine.js'
@@ -12,6 +13,7 @@ on:
       - 'studio/generator-integration.js'
       - 'studio/test_project_import.mjs'
       - 'studio/test_project_import_migration.mjs'
+      - 'studio/test_project_library_import_migration.mjs'
       - 'studio/test_feature_bootstrap_wiring.mjs'
       - '.github/workflows/project-import-qa.yml'
   workflow_dispatch:
@@ -25,6 +27,7 @@ jobs:
           node-version: '22'
       - name: Syntax
         run: |
+          node --check studio/project-library.js
           node --check studio/project-import-engine.js
           node --check studio/project-import-integration.js
           node --check studio/project-migration-engine.js
@@ -35,5 +38,7 @@ jobs:
         run: node studio/test_project_import.mjs
       - name: Test import migration parity
         run: node studio/test_project_import_migration.mjs
+      - name: Test project library import migration
+        run: node studio/test_project_library_import_migration.mjs
       - name: Test import bootstrap wiring
         run: node studio/test_feature_bootstrap_wiring.mjs
