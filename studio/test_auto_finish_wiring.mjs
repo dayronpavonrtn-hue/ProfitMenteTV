@@ -18,6 +18,8 @@ assert.match(integration,/ProfitMenteSmartMix\?\.apply/);
 assert.match(integration,/ProfitMenteBeatDetect\?\.run/);
 assert.match(integration,/ProfitMenteBeatSync\?\.run/);
 assert.match(integration,/ProfitMenteAutoTransitions\?\.run/);
+assert.match(integration,/if\(r\?\.changed\)completed\.push\(`transiciones \$\{r\.changed\}`\)/,'Auto Finish must only report transitions completed when the transition tool actually changed clips');
+assert.match(integration,/else if\(r\?\.locked\)skipped\.push\(`transiciones protegidas \$\{r\.locked\}`\)/,'Auto Finish must surface protected transitions as skipped instead of completed');
 assert.match(integration,/new window\.ProfitMenteQAEngine\(\)\.inspect\(project,assets\)/,'Auto Finish must run QA engine directly');
 assert.match(integration,/ProfitMenteExportPreflightRun/,'Auto Finish must run export preflight after passing QA');
 assert.match(integration,/lastReport\?\.ok/,'preflight must only run after QA passes');
