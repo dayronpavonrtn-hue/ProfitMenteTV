@@ -61,4 +61,51 @@ const trimCaptionProject={duration:10,clips:[{id:'trimcap',track:3,name:'uno dos
 ]}]};
 ops.trimLeft(trimCaptionProject,'trimcap',1);assert.equal(trimCaptionProject.clips[0].name,'uno dos tres');assert.equal(trimCaptionProject.clips[0].wordTimings[0].start,1);
 ops.trimRight(trimCaptionProject,'trimcap',4.8);assert.equal(trimCaptionProject.clips[0].name,'uno dos tres');assert.equal(trimCaptionProject.clips[0].wordTimings.at(-1).end,4.8);assert.deepEqual(trimCaptionProject.clips[0].wordTimings.map(w=>w.index),[0,1,2]);
+
+const groupedRipple={duration:20,clips:[
+ {id:'gv',groupId:'linked-1',track:0,name:'Video linked',start:2,duration:4,asset:'v'},
+ {id:'ga',groupId:'linked-1',track:'2',name:'Audio linked',start:2,duration:4,asset:'a'},
+ {id:'gc',groupId:'linked-1',track:3,name:'Caption linked',start:2,duration:4},
+ {id:'next-v',track:0,name:'Next video',start:8,duration:3,asset:'v2'},
+ {id:'next-a',track:2,name:'Next audio',start:8,duration:3,asset:'a2'},
+ {id:'next-c',track:'3',name:'Next caption',start:8,duration:3},
+ {id:'bed',track:5,name:'Music bed',start:0,duration:15,asset:'music'}
+]};
+const groupedRemoved=ops.rippleDelete(groupedRipple,'gv');
+assert.equal(groupedRemoved?.id,'gv');
+assert.equal(groupedRipple.clips.some(c=>c.groupId==='linked-1'),false,'ripple delete must remove every member of a linked group');
+assert.equal(groupedRipple.clips.find(c=>c.id==='next-v').start,4);
+assert.equal(groupedRipple.clips.find(c=>c.id==='next-a').start,4,'linked audio track must ripple by the same group span');
+assert.equal(groupedRipple.clips.find(c=>c.id==='next-c').start,4,'linked caption track must ripple by the same group span');
+assert.equal(groupedRipple.clips.find(c=>c.id==='bed').start,0,'tracks outside the deleted group must remain untouched');
+
+const unevenGroup={duration:30,clips:[
+ {id:'uv',groupId:'uneven',track:0,start:2,duration:4},
+ {id:'ua',groupId:'uneven',track:2,start:2,duration:5},
+ {id:'uv2',track:0,start:9,duration:2},
+ {id:'ua2',track:2,start:9,duration:2}
+]};
+ops.rippleDelete(unevenGroup,'ua');
+assert.equal(unevenGroup.clips.find(c=>c.id==='uv2').start,4,'group ripple must use the complete shared group envelope');
+assert.equal(unevenGroup.clips.find(c=>c.id==='ua2').start,4,'all represented tracks must keep downstream sync');
+
+const lockedGroup={duration:20,clips:[
+ {id:'lv',groupId:'locked-linked',track:0,start:2,duration:4},
+ {id:'la',groupId:'locked-linked',track:2,start:2,duration:4,locked:true},
+ {id:'lv2',track:0,start:8,duration:2},
+ {id:'la2',track:2,start:8,duration:2}
+]};
+const lockedSnapshot=structuredClone(lockedGroup);
+assert.equal(ops.rippleDelete(lockedGroup,'lv'),null,'one locked group member must block the entire ripple edit');
+assert.deepEqual(lockedGroup,lockedSnapshot,'blocked grouped ripple delete must be atomic');
+
+const lockedDownstream={duration:20,clips:[
+ {id:'dv',groupId:'downstream',track:0,start:2,duration:4},
+ {id:'da',groupId:'downstream',track:2,start:2,duration:4},
+ {id:'dv2',track:0,start:8,duration:2,locked:true},
+ {id:'da2',track:2,start:8,duration:2}
+]};
+const downstreamSnapshot=structuredClone(lockedDownstream);
+assert.equal(ops.rippleDelete(lockedDownstream,'da'),null,'a locked downstream clip that would move must block grouped ripple');
+assert.deepEqual(lockedDownstream,downstreamSnapshot,'downstream lock failure must leave every grouped clip untouched');
 console.log('timeline operations ok');
