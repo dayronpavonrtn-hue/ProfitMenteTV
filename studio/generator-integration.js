@@ -11,13 +11,26 @@
     return true;
   };
   const usableAssets=()=>Array.isArray(assets)?assets.filter(assetUsable):[];
+  const clipsOverlap=(a,b)=>{
+    const aStart=Number(a?.start)||0,bStart=Number(b?.start)||0;
+    const aDuration=Math.max(0,Number(a?.duration)||0),bDuration=Math.max(0,Number(b?.duration)||0);
+    if(aDuration<=0||bDuration<=0)return false;
+    const epsilon=1e-6;
+    return aStart<bStart+bDuration-epsilon&&bStart<aStart+aDuration-epsilon;
+  };
+  const sameTrack=(a,b)=>String(a?.track??'')===String(b?.track??'');
   const applyGeneratedProject=(target,result,duration)=>{
     const previous=Array.isArray(target?.clips)?target.clips:[];
     const preserved=previous.filter(clip=>engine.clipLocked(target,clip));
     const blockedTracks=new Set();
+    let blockedOverlaps=0;
     const generated=(Array.isArray(result?.clips)?result.clips:[]).filter(clip=>{
       if(engine.trackLocked(target,clip?.track)){
         blockedTracks.add(String(clip?.track));
+        return false;
+      }
+      if(preserved.some(locked=>sameTrack(locked,clip)&&clipsOverlap(locked,clip))){
+        blockedOverlaps++;
         return false;
       }
       return true;
@@ -30,7 +43,7 @@
     target.script=result?.script||'';
     target.generatorSeed=result?.seed;
     target.clips=[...preserved,...generated];
-    return {preserved:preserved.length,generated:generated.length,blockedTracks:blockedTracks.size,duration:target.duration};
+    return {preserved:preserved.length,generated:generated.length,blockedTracks:blockedTracks.size,blockedOverlaps,duration:target.duration};
   };
   window.ProfitMenteApplyGeneratedProject=applyGeneratedProject;
   const btn=document.querySelector('#generateBtn');
@@ -53,7 +66,8 @@
     const sfx=assigned.sfx?` ${assigned.sfx} efecto(s) local(es) colocado(s) en transiciones.`:'';
     const protectedEdits=merge.preserved?` ${merge.preserved} clip(s) manual(es) bloqueado(s) conservado(s).`:'';
     const protectedTracks=merge.blockedTracks?` ${merge.blockedTracks} pista(s) bloqueada(s) quedaron fuera de la regeneración.`:'';
-    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${narration}${soundtrack}${sfx}${protectedEdits}${protectedTracks}`);
+    const protectedIntervals=merge.blockedOverlaps?` ${merge.blockedOverlaps} clip(s) generado(s) omitido(s) para no cubrir intervalos manuales bloqueados.`:'';
+    setStatus(`Video automático creado con guion variable, captions animados y transiciones. ${visual}${narration}${soundtrack}${sfx}${protectedEdits}${protectedTracks}${protectedIntervals}`);
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
