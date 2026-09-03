@@ -45,6 +45,9 @@ function makeContext({fail=false,initial=[]}={}){
   const list=await context.getAssets();
   assert.equal(list.map(x=>x.id).join(','),'session-media','uploads remain usable during the degraded session');
   assert.equal(api.memoryCount(),1,'fallback keeps the media in memory');
+  assert.equal(await api.resilientDelete('session-media'),true,'rollback can delete an in-memory asset while IndexedDB is degraded');
+  assert.equal(api.memoryCount(),0,'rollback removes the failed-import asset from the temporary library');
+  assert.deepEqual((await context.getAssets()).map(x=>x.id),[],'deleted fallback media no longer appears in the active library');
   assert.ok(calls.status.some(x=>x.includes('medios en memoria')),'user receives a concrete persistence warning');
   assert.ok(calls.library>0&&calls.form>0&&calls.timeline>0&&calls.render>0,'storage failure no longer blocks Studio initialization');
 }
