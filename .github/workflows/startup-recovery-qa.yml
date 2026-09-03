@@ -2,6 +2,8 @@ name: ProfitMente Studio Startup Recovery QA
 on:
   push:
     paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/index.html'
       - 'studio/history-engine.js'
       - 'studio/test_startup_corruption_guard.mjs'
       - '.github/workflows/startup-recovery-qa.yml'
@@ -15,9 +17,13 @@ jobs:
         with:
           node-version: '22'
       - name: Syntax check
-        run: node --check studio/history-engine.js
+        run: |
+          node --check studio/startup-project-guard.js
+          node --check studio/history-engine.js
       - name: Startup corruption regression
         run: node studio/test_startup_corruption_guard.mjs
+      - name: Startup wiring check
+        run: node -e "const fs=require('fs');const h=fs.readFileSync('studio/index.html','utf8');if(h.indexOf('startup-project-guard.js')<0||h.indexOf('startup-project-guard.js')>h.indexOf('app.js'))process.exit(1)"
       - name: Existing recovery regression
         run: node studio/test_recovery.mjs
       - name: Existing project library regression
