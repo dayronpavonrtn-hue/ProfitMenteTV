@@ -13,13 +13,18 @@ class ProfitMenteProjectImportEngine{
     out.duration=duration;
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
-    out.clips=p.clips.map(c=>{
+    const ids=new Set();
+    out.clips=p.clips.map((c,index)=>{
       if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Clip de proyecto inválido');
-      const start=Number(c.start??0),clipDuration=Number(c.duration??0),track=Number(c.track??0);
-      if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<0)throw new Error('Tiempo de clip inválido');
+      const start=Number(c.start??0),clipDuration=Number(c.duration??0),track=Number(c.track??0),end=start+clipDuration;
+      if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<=0)throw new Error('Tiempo de clip inválido');
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
-      if(!Number.isFinite(start+clipDuration)||start+clipDuration>86400)throw new Error('Tiempo de clip fuera de rango');
-      const copy=structuredClone(c);copy.track=track;return copy;
+      if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
+      if(start>=out.duration||end>out.duration+1e-6)throw new Error('Clip fuera de la duración del proyecto');
+      const copy=structuredClone(c);copy.track=track;
+      let id=typeof copy.id==='string'&&copy.id.trim()?copy.id.trim():`imported-clip-${index+1}`;
+      if(ids.has(id))throw new Error('ID de clip duplicado');ids.add(id);copy.id=id;
+      return copy;
     });
     delete out.libraryId;
     return out;
