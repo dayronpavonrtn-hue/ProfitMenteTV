@@ -8,6 +8,11 @@
   }
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   class ProfitMenteMediaLibraryCrossProjectGuard{
+    static mediaIdKey(value){
+      if(value===undefined||value===null)return null;
+      const key=String(value).trim();
+      return key||null;
+    }
     static readSavedProjects(storage,key='profitmente-project-library'){
       if(!storage?.getItem)return [];
       try{
@@ -26,13 +31,19 @@
       const used=new Set();
       for(const project of projects||[]){
         const clips=Array.isArray(project?.clips)?project.clips:[];
-        for(const clip of clips){const id=clip?.asset;if(id!==undefined&&id!==null&&String(id).trim())used.add(id)}
+        for(const clip of clips){
+          const key=this.mediaIdKey(clip?.asset);
+          if(key!==null)used.add(key);
+        }
       }
       return used;
     }
     static unusedAcross(projects=[],assets=[]){
       const used=this.usedIdsAcross(projects);
-      return (assets||[]).filter(asset=>asset?.id&&!used.has(asset.id));
+      return (assets||[]).filter(asset=>{
+        const key=this.mediaIdKey(asset?.id);
+        return key!==null&&!used.has(key);
+      });
     }
     static install(tools,{storage,key='profitmente-project-library'}={}){
       if(!tools||tools.__crossProjectCleanupGuard)return tools;
