@@ -29,6 +29,8 @@ for(const key of ['speed','sourceOffset','volume','sourceVolume','positionX','po
 assert.equal(editNumbers.clips[0].sourceOffset+1,3.25,'sourceOffset arithmetic must not concatenate after import');
 assert.equal(editNumbers.clips[0].speed*2,3,'speed remains arithmetic-safe after import');
 assert.equal(editNumbers.clips[0].fadeIn+editNumbers.clips[0].fadeOut,.55,'audio envelope values remain arithmetic-safe after import');
+const longSource=engine.normalize({duration:4,format:'9:16',clips:[{id:'long-source',track:0,start:0,duration:4,sourceOffset:'90000'}]});
+assert.equal(longSource.clips[0].sourceOffset,90000,'source offsets belong to source media and may legitimately exceed the 24h project-duration cap');
 assert.throws(()=>engine.normalize(null),/inválido/);
 assert.throws(()=>engine.normalize({duration:0,format:'9:16',clips:[]}),/Duración/,'zero duration must not silently become a different project');
 assert.throws(()=>engine.normalize({duration:10,format:'4:5',clips:[]}),/Formato/,'unsupported 4:5 must be rejected instead of silently becoming 9:16');
