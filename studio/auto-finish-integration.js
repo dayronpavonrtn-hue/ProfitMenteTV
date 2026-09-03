@@ -58,7 +58,12 @@
         }else if(step==='detect-beats'){
           if(window.ProfitMenteBeatDetect?.run){await window.ProfitMenteBeatDetect.run();completed.push('beats')}else skipped.push('beats');
         }else if(step==='sync-beats'){
-          if(window.ProfitMenteBeatSync?.run){window.ProfitMenteBeatSync.run();completed.push('sync')}else skipped.push('sync');
+          if(window.ProfitMenteBeatSync?.run){
+            const r=window.ProfitMenteBeatSync.run();
+            if(r?.reason==='locked-edit')skipped.push('sync protegido');
+            else if(r?.reason)skipped.push('sync');
+            else completed.push('sync');
+          }else skipped.push('sync');
         }else if(step==='auto-transitions'){
           if(window.ProfitMenteAutoTransitions?.run){const r=window.ProfitMenteAutoTransitions.run(false);completed.push(`transiciones ${r?.changed||0}`)}else skipped.push('transiciones');
         }else if(step==='qa'){
