@@ -21,7 +21,12 @@ class ProfitMenteProjectImportEngine{
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
       if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
       if(start>=out.duration||end>out.duration+1e-6)throw new Error('Clip fuera de la duración del proyecto');
-      const copy=structuredClone(c);copy.track=track;
+      const copy=structuredClone(c);
+      // JSON produced by older tools may store numeric timing values as strings.
+      // Validation already accepts those values through Number(...), so persist the
+      // canonical numbers too; otherwise expressions such as start + duration can
+      // concatenate strings ("5" + "3" => "53") and desync preview, timeline and render.
+      copy.track=track;copy.start=start;copy.duration=clipDuration;
       let id=typeof copy.id==='string'&&copy.id.trim()?copy.id.trim():`imported-clip-${index+1}`;
       if(ids.has(id))throw new Error('ID de clip duplicado');ids.add(id);copy.id=id;
       return copy;
