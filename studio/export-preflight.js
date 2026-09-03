@@ -11,11 +11,22 @@
       else if(warnings.length){state='warning';label=`Listo con ${warnings.length} advertencia${warnings.length===1?'':'s'}`}
       return {state,label,canPackage:issues.length===0,canRender:issues.length===0&&!!health.render_ready,score:Number(qa.score)||0,issues,warnings,metrics:qa.metrics||{},health};
     }
+    static audioTrackMuted(project,track){
+      const read=(states,index)=>{const value=states?.[index]??states?.[String(index)]??{};return value&&typeof value==='object'&&!Array.isArray(value)?value:{}};
+      const merged=index=>{
+        const legacy=read(project?.trackStates,index),modern=read(project?.trackState,index),state={...legacy,...modern};
+        for(const flag of ['muted','solo'])if(legacy[flag]===true||modern[flag]===true)state[flag]=true;
+        for(const key of ['_soloMutedBase','_soloAudioActive'])if(!(key in modern)&&key in legacy)state[key]=legacy[key];
+        return state;
+      };
+      const tracks=[4,5,6],states=Object.fromEntries(tracks.map(index=>[index,merged(index)])),hasSolo=tracks.some(index=>!!states[index].solo),state=states[Number(track)]||{};
+      const baseMuted=state._soloAudioActive?!!state._soloMutedBase:!!state.muted;
+      return baseMuted||(hasSolo&&!state.solo);
+    }
     static narrationCoverage(qa,project){
       const next={...(qa||{}),issues:[...(qa?.issues||[])],warnings:[...(qa?.warnings||[])],metrics:{...(qa?.metrics||{})}};
       const duration=Math.max(.001,Number(project?.duration)||0),clips=Array.isArray(project?.clips)?project.clips:[];
-      const readState=states=>{const value=states?.[6]??states?.['6']??{};return value&&typeof value==='object'?value:{}};
-      const modern=readState(project?.trackState),legacy=readState(project?.trackStates),trackMuted=!!(modern.muted||legacy.muted);
+      const trackMuted=this.audioTrackMuted(project,6);
       const voice=trackMuted?[]:clips.filter(c=>Number(c?.track)===6&&c?.asset&&!c?.muted&&Number(c?.duration)>0);
       const ranges=voice.map(c=>[Math.max(0,Number(c.start)||0),Math.min(duration,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0))]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
       let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
