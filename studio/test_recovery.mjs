@@ -33,6 +33,22 @@ assert.equal(r.restore(valid.id).name,valid.project.name,'valid project remains 
 const repaired=r.repair();assert.deepEqual(repaired,{kept:1,removed:3},'repair removes only invalid recovery rows');
 const repairedRows=JSON.parse(storage.getItem('profitmente-recovery-v1'));assert.equal(repairedRows.length,1);assert.equal(repairedRows[0].id,valid.id);
 
+// Corrupt stores can contain repeated snapshot IDs after interrupted/manual storage
+// edits. Only the newest occurrence may survive; otherwise restore(id) is ambiguous
+// and duplicate IDs can bypass the recovery budget because selection is ID-based.
+const dupStorage=new Storage(),dupRecovery=new ProfitMenteRecoveryEngine(dupStorage,{limit:3});
+const newer={id:'same-id',createdAt:'2026-08-28T03:02:00Z',reason:'newer',name:'Newest',libraryId:'lib-dup',group:'library:lib-dup',fingerprint:'new',project:{name:'Newest',libraryId:'lib-dup',duration:22,clips:[]}};
+const olderDuplicate={id:'same-id',createdAt:'2026-08-28T03:01:00Z',reason:'older',name:'Old duplicate',libraryId:'lib-dup',group:'library:lib-dup',fingerprint:'old',project:{name:'Old duplicate',libraryId:'lib-dup',duration:11,clips:[]}};
+const unique={id:'unique-id',createdAt:'2026-08-28T03:00:00Z',reason:'unique',name:'Unique',libraryId:'lib-unique',group:'library:lib-unique',fingerprint:'unique',project:{name:'Unique',libraryId:'lib-unique',duration:8,clips:[]}};
+dupStorage.setItem('profitmente-recovery-v1',JSON.stringify([newer,olderDuplicate,unique]));
+assert.equal(dupRecovery.list().length,2,'duplicate snapshot IDs are rejected during decode');
+assert.equal(dupRecovery.restore('same-id').name,'Newest','the first/newest snapshot wins deterministically');
+assert.equal(dupRecovery.listGroups().find(x=>x.group==='library:lib-dup').count,1,'duplicate IDs do not inflate group counts');
+assert.deepEqual(dupRecovery.repair(),{kept:2,removed:1},'repair reports duplicate IDs as removed corruption');
+const dedupedRows=JSON.parse(dupStorage.getItem('profitmente-recovery-v1'));
+assert.equal(dedupedRows.length,2,'repair persists only unique snapshot identities');
+assert.equal(dedupedRows.filter(x=>x.id==='same-id').length,1);
+
 storage.setItem('profitmente-recovery-v1','{"broken json"');
 assert.deepEqual(r.list(),[],'invalid JSON degrades to an empty recovery history instead of crashing');
 const afterCorruption=r.capture({name:'Recovered after corruption',duration:12,clips:[]},'autoguardado','2026-08-28T00:05:00Z');
