@@ -82,5 +82,10 @@ assert.deepEqual(Tools.unused(project,assets).map(a=>a.id),['old-audio'],'idempo
 
 assert.deepEqual(CrossProjectGuard.readSavedProjects({getItem:()=>'{broken json'}),[],'corrupt project library must fail closed without crashing cleanup');
 assert.deepEqual(CrossProjectGuard.unusedAcross([{clips:[{asset:'x'}]}],[{id:'x'},{id:'y'}]).map(a=>a.id),['y']);
+assert.deepEqual([...CrossProjectGuard.usedIdsAcross([{clips:[{asset:0},{asset:7},{asset:' 8 '}]}])].sort(),['0','7','8'],'legacy numeric media ids must normalize to stable keys');
+assert.deepEqual(CrossProjectGuard.unusedAcross(
+  [{clips:[{asset:0},{asset:7},{asset:' 8 '}]}],
+  [{id:'0'},{id:'7'},{id:8},{id:'unused'},{id:null}]
+).map(a=>a.id),['unused'],'cleanup must preserve numeric/string equivalent ids and ignore invalid asset ids');
 
 console.log('media library cleanup QA ok');
