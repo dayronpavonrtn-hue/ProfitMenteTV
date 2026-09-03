@@ -19,6 +19,14 @@
       );
     }
     lockedMembers(project,anchor){return this.members(project,anchor).filter(c=>this.locked(project,c))}
+    maxEnd(project){
+      return (Array.isArray(project?.clips)?project.clips:[]).reduce((max,clip)=>Math.max(max,(Number(clip?.start)||0)+Math.max(0,Number(clip?.duration)||0)),0);
+    }
+    syncDurationAfterShrink(project,oldMaxEnd){
+      const duration=Math.max(0,Number(project?.duration)||0),previous=Math.max(0,Number(oldMaxEnd)||0);
+      if(duration<=previous+.001)project.duration=this.maxEnd(project);
+      return Math.max(0,Number(project?.duration)||0);
+    }
     duplicate(project,anchor,{idFactory=()=>crypto.randomUUID(),offset=.5}={}){
       const members=this.members(project,anchor);
       if(!members.length)return {copies:[],delta:0};
@@ -45,7 +53,9 @@
       const members=this.members(project,anchor),blocked=this.lockedMembers(project,anchor);if(blocked.length)return [];
       const ids=new Set(members.map(c=>String(c.id)));
       if(!ids.size)return [];
+      const oldMaxEnd=this.maxEnd(project);
       project.clips=(project.clips||[]).filter(c=>!ids.has(String(c.id)));
+      this.syncDurationAfterShrink(project,oldMaxEnd);
       return members;
     }
   }
