@@ -26,4 +26,18 @@ with tempfile.TemporaryDirectory() as td:
     missing_probe=json.loads(subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type','-of','json',str(missing_out)],check=True,capture_output=True,text=True).stdout)
     missing_kinds=[s.get('codec_type') for s in missing_probe.get('streams',[])]
     assert missing_kinds.count('video')==1 and 'audio' not in missing_kinds, missing_kinds
-    print('Track-state render OK:', list(pixel), kinds, 'disabled-missing:', missing_kinds)
+
+    # Legacy/imported JSON can persist track numbers as strings. validate_project.py
+    # intentionally accepts integral numeric strings, so the renderer must consume the
+    # exact same semantic tracks instead of silently dropping video/audio at selection.
+    legacy=d/'legacy-string-tracks.json'; legacy_out=d/'legacy-string-tracks.mp4'
+    legacy_data={'version':'1.0','name':'legacy-string-tracks','format':'9:16','duration':'1.0','trackState':{},'assets':[{'id':'v','name':'source.mp4','type':'video'},{'id':'a','name':'voice.wav','type':'audio'}],'clips':[{'id':'legacy-v','track':'0.0','asset':'v','name':'legacy red','start':'0','duration':'1.0'},{'id':'legacy-a','track':'6','asset':'a','name':'legacy voice','start':'0','duration':'1.0'}]}
+    legacy.write_text(json.dumps(legacy_data),encoding='utf-8')
+    subprocess.run([sys.executable,str(ROOT/'validate_project.py'),str(legacy),str(assets)],check=True)
+    subprocess.run([sys.executable,str(ROOT/'render_mp4.py'),str(legacy),str(assets),str(legacy_out)],check=True)
+    legacy_probe=json.loads(subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type','-of','json',str(legacy_out)],check=True,capture_output=True,text=True).stdout)
+    legacy_kinds=[s.get('codec_type') for s in legacy_probe.get('streams',[])]
+    assert legacy_kinds.count('video')==1 and 'audio' in legacy_kinds, legacy_kinds
+    legacy_pixel=subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-i',str(legacy_out),'-frames:v','1','-vf','scale=1:1','-f','rawvideo','-pix_fmt','rgb24','-'],check=True,capture_output=True).stdout[:3]
+    assert len(legacy_pixel)==3 and legacy_pixel[0]>100 and legacy_pixel[0]>legacy_pixel[1]*2 and legacy_pixel[0]>legacy_pixel[2]*2, list(legacy_pixel)
+    print('Track-state render OK:', list(pixel), kinds, 'disabled-missing:', missing_kinds, 'legacy-string-tracks:', legacy_kinds, list(legacy_pixel))
