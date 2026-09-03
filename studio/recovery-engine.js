@@ -19,8 +19,14 @@ class ProfitMenteRecoveryEngine{
   _decode(){
     let parsed;try{parsed=JSON.parse(this.storage.getItem(this.key)||'[]')}catch{return {rows:[],invalid:1}}
     if(!Array.isArray(parsed))return {rows:[],invalid:1};
-    const rows=[];let invalid=0;
-    for(const row of parsed){try{const normalized=this._normalizeRow(row);if(normalized)rows.push(normalized);else invalid+=1}catch{invalid+=1}}
+    const rows=[],seenIds=new Set();let invalid=0;
+    for(const row of parsed){
+      try{
+        const normalized=this._normalizeRow(row);
+        if(!normalized||seenIds.has(normalized.id)){invalid+=1;continue}
+        seenIds.add(normalized.id);rows.push(normalized)
+      }catch{invalid+=1}
+    }
     return {rows,invalid};
   }
   _read(){return this._decode().rows}
@@ -41,7 +47,7 @@ class ProfitMenteRecoveryEngine{
     for(const row of valid){if(selected.size>=this.limit)break;if(!selected.has(row.id))selected.add(row.id)}
     this.storage.setItem(this.key,JSON.stringify(valid.filter(row=>selected.has(row.id)).slice(0,this.limit)))
   }
-  repair(){const {rows,invalid}=this._decode();this._write(rows);return {kept:rows.length,removed:invalid}}
+  repair(){const {rows,invalid}=this._decode();this._write(rows);return {kept:this._read().length,removed:invalid}}
   capture(project,reason='change',now=new Date().toISOString()){
     if(!this._isProject(project))return null;
     const {rows,invalid}=this._decode();let fingerprint;try{fingerprint=this._fingerprint(project)}catch{return null}
