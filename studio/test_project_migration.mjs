@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import engineModule from './project-migration-engine.js';
-const {ProfitMenteProjectMigrationEngine,CURRENT_VERSION}=engineModule;
+const {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,canonicalTrackStateKey}=engineModule;
 const engine=new ProfitMenteProjectMigrationEngine();
 
 const old={version:'1.3',name:'  Legacy  ',mode:'automatic',duration:'10',format:{width:1080,height:1920},custom:{keep:true},clips:[
@@ -64,6 +64,35 @@ assert.deepEqual(mixedState.project.trackState[0],{locked:true,hidden:true,legac
 assert.deepEqual(mixedState.project.trackState[1],{muted:true,solo:true},'mixed mute/solo state must merge conservatively');
 assert.deepEqual(mixedState.project.trackState[2],{locked:true},'legacy-only tracks must survive migration');
 assert.equal('trackStates' in mixedState.project,false,'mixed projects must finish with only canonical trackState');
+
+const aliasedState=engine.migrate({version:'1.9',name:'Aliased track state',mode:'Manual',duration:5,format:'9:16',trackState:{
+  '0.0':{hidden:true,aliasOnly:'modern-alias',label:'modern alias'},
+  '0':{hidden:false,label:'modern canonical'},
+  '06':{muted:true,aliasModern:true},
+  '':{customBlank:true},
+  '6.5':{customFraction:true}
+},trackStates:{
+  '00':{locked:true,legacyAlias:'keep',label:'legacy alias'},
+  '0':{solo:true,label:'legacy canonical'},
+  '6.0':{muted:false,legacySix:true}
+},clips:[]});
+assert.deepEqual(Object.keys(aliasedState.project.trackState).sort(),['','0','6','6.5'].sort(),'numeric aliases must collapse to canonical track keys without destroying unknown keys');
+assert.deepEqual(aliasedState.project.trackState['0'],{locked:true,legacyAlias:'keep',label:'modern canonical',solo:true,hidden:true,aliasOnly:'modern-alias'},'canonical metadata should win while true safety flags and alias metadata survive');
+assert.deepEqual(aliasedState.project.trackState['6'],{muted:true,legacySix:true,aliasModern:true},'numeric alias state for track 6 must merge conservatively');
+assert.deepEqual(aliasedState.project.trackState[''],{customBlank:true},'blank unknown keys must not collide with track 0');
+assert.deepEqual(aliasedState.project.trackState['6.5'],{customFraction:true},'fractional unknown keys must not be coerced into a real track');
+assert.equal('0.0' in aliasedState.project.trackState,false);
+assert.equal('00' in aliasedState.project.trackState,false);
+assert.equal('06' in aliasedState.project.trackState,false);
+assert.equal('6.0' in aliasedState.project.trackState,false);
+assert.equal('trackStates' in aliasedState.project,false);
+assert.equal(canonicalTrackStateKey('0.0'),'0');
+assert.equal(canonicalTrackStateKey('06'),'6');
+assert.equal(canonicalTrackStateKey(' 6 '),'6');
+assert.equal(canonicalTrackStateKey(''),'');
+assert.equal(canonicalTrackStateKey('   '),'   ');
+assert.equal(canonicalTrackStateKey('6.5'),'6.5');
+assert.equal(canonicalTrackStateKey('7'),'7');
 
 const damaged=engine.migrate({version:'1.8',name:'Damaged identities',mode:'Manual',duration:8,format:'9:16',clips:[
   {id:'dup',track:0,name:'A',start:0,duration:2},
