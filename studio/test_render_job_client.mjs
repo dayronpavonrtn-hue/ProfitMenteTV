@@ -19,6 +19,25 @@ const result=await client.result();assert.equal(result.type,'video/mp4');assert.
 assert.ok(calls.some(([u,m])=>u==='/api/render/jobs'&&m==='POST'));
 client.reset();await client.start(new Blob(['bundle']));const cancelled=await client.cancel();assert.equal(cancelled.status,'cancelled');assert.equal(client.cancelled,true);
 
+let cancelFailureDeletes=0,cancelFailurePolls=0;
+const cancelFailureFetch=async(url,options={})=>{
+  if(url==='/api/render/jobs/cancel-network'&&options.method==='DELETE'){
+    cancelFailureDeletes+=1;
+    throw new TypeError('network dropped during cancel');
+  }
+  if(url==='/api/render/jobs/cancel-network'){
+    cancelFailurePolls+=1;
+    const data=cancelFailurePolls<2?{ok:true,job_id:'cancel-network',status:'rendering',progress:70}:{ok:true,job_id:'cancel-network',status:'done',progress:100,qc:{ok:true,score:100}};
+    return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});
+  }
+  return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+};
+const cancelFailure=new Client({fetchFn:cancelFailureFetch,interval:1});cancelFailure.attach('cancel-network');
+await assert.rejects(()=>cancelFailure.cancel(),/network dropped/i);
+assert.equal(cancelFailureDeletes,1);assert.equal(cancelFailure.cancelled,false,'failed DELETE must not locally cancel an active server render');
+const cancelFailureDone=await cancelFailure.wait();
+assert.equal(cancelFailureDone.status,'done','render must remain trackable/recoverable after a failed cancel request');
+
 polls=1;
 const resumed=new Client({fetchFn,interval:1});
 assert.equal(resumed.attach('job1'),'job1');
