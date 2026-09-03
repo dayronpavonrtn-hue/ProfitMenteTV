@@ -26,7 +26,9 @@ class ProfitMenteProjectImportEngine{
       if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<=0)throw new Error('Tiempo de clip inválido');
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
       if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
-      if(start>=out.duration||end>out.duration+1e-6)throw new Error('Clip fuera de la duración del proyecto');
+      // Do not reject a valid clip merely because an old/imported project carries a stale
+      // declared duration. The migration engine deliberately expands project.duration to
+      // contentDuration(), preserving late media instead of silently clipping or hiding it.
       const copy=structuredClone(c);
       // Imported/legacy JSON commonly serializes editor numbers as strings. Persist a
       // canonical numeric project model so preview, timeline tools and render arithmetic
