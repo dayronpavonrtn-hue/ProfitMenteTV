@@ -38,6 +38,24 @@ assert.equal(cancelFailureDeletes,1);assert.equal(cancelFailure.cancelled,false,
 const cancelFailureDone=await cancelFailure.wait();
 assert.equal(cancelFailureDone.status,'done','render must remain trackable/recoverable after a failed cancel request');
 
+let unconfirmedPolls=0;
+const unconfirmedFetch=async(url,options={})=>{
+  if(url==='/api/render/jobs/cancel-stale'&&options.method==='DELETE'){
+    return new Response(JSON.stringify({ok:true,job_id:'cancel-stale',status:'rendering',progress:81}),{status:200,headers:{'content-type':'application/json'}});
+  }
+  if(url==='/api/render/jobs/cancel-stale'){
+    unconfirmedPolls+=1;
+    const data=unconfirmedPolls<2?{ok:true,job_id:'cancel-stale',status:'rendering',progress:82}:{ok:true,job_id:'cancel-stale',status:'done',progress:100,qc:{ok:true,score:100}};
+    return new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json'}});
+  }
+  return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+};
+const unconfirmed=new Client({fetchFn:unconfirmedFetch,interval:1});unconfirmed.attach('cancel-stale');
+await assert.rejects(()=>unconfirmed.cancel(),error=>error?.code==='CANCEL_NOT_CONFIRMED'&&error?.retryable===true);
+assert.equal(unconfirmed.cancelled,false,'2xx without cancelled status must not discard render recovery');
+const unconfirmedDone=await unconfirmed.wait();
+assert.equal(unconfirmedDone.status,'done','unconfirmed cancellation must leave the server render recoverable');
+
 polls=1;
 const resumed=new Client({fetchFn,interval:1});
 assert.equal(resumed.attach('job1'),'job1');
