@@ -67,7 +67,10 @@
     }
     static normalize(project){
       if(!project||typeof project!=='object')return project;
-      return {...project,trackState:this.applySolo(this.mergeTrackState(project))};
+      // Collapse both modern and legacy maps into one canonical state map before QA.
+      // Leaving the raw legacy object attached would let qa-engine read malformed keys
+      // a second time (for example Number('') === 0) and undo this guard's sanitizing.
+      return {...project,trackState:this.applySolo(this.mergeTrackState(project)),trackStates:{}};
     }
     static resolveQA(){
       if(root.ProfitMenteQAEngine)return root.ProfitMenteQAEngine;
