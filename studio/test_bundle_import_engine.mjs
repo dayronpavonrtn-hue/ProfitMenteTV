@@ -37,7 +37,7 @@ const integration=fs.readFileSync(new URL('./bundle-import-integration.js',impor
 assert.match(integration,/migrateRestoredProject\(restored\.project\)/,'bundle restore must migrate the restored project before media preparation');
 assert.match(integration,/ProfitMenteProjectImportEngine/,'bundle restore must use the same canonical validator as JSON project import');
 assert.match(integration,/new ImportEngine\(\)\.normalize\(value\)/,'bundle restore must canonicalize numeric strings and reject invalid clips before persistence');
-assert.match(integration,/ProfitMenteProjectLibrary\?\.normalizeImportedProject/,'bundle restore needs a library normalizer fallback while bootstrap is still loading');
+assert.match(integration,/Library\?\.normalizeImportedProject/,'bundle restore needs a library normalizer fallback while bootstrap is still loading');
 assert.match(integration,/ProfitMenteProjectMigration\?\.engine/,'bundle restore should reuse the active canonical migration engine');
 assert.match(integration,/ProfitMenteProjectMigrationEngine/,'bundle restore needs a migration fallback when the integration wrapper is unavailable');
 const validateAt=integration.indexOf('normalizeRestoredProject(value)');
