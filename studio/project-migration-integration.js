@@ -21,13 +21,18 @@
   function migrateImportedProject(value){
     return engine.migrate(value).project;
   }
+  function normalizeImportedProject(Library,value){
+    const ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(typeof ImportEngine==='function')return new ImportEngine().normalize(value);
+    return Library.normalizeImportedProject(value);
+  }
   function installProjectLibraryImportMigration(){
     const Library=window.ProfitMenteProjectLibrary,proto=Library?.prototype;
     if(!proto||typeof proto.importSerialized!=='function'||proto.importSerialized.__profitmenteMigrationWrapped)return false;
     const wrapped=function(text){
       let parsed;
       try{parsed=JSON.parse(text)}catch{throw new Error('El archivo no contiene JSON válido')}
-      const normalized=Library.normalizeImportedProject(parsed);
+      const normalized=normalizeImportedProject(Library,parsed);
       return this.save(migrateImportedProject(normalized));
     };
     wrapped.__profitmenteMigrationWrapped=true;
