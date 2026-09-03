@@ -46,10 +46,16 @@ class ProfitMenteRenderJobClient{
   }
   async cancel(){
     if(!this.jobId)return {ok:true,status:'idle'};
-    // Do not mark the client cancelled until the server acknowledges DELETE.
-    // A transient network failure here must leave wait()/recovery alive because
-    // FFmpeg may still be rendering and the finished MP4 can still be recovered.
+    // Do not mark the client cancelled until the server explicitly confirms the
+    // render is cancelled. A 2xx response with stale/rendering state must remain
+    // recoverable just like a network failure because FFmpeg may still finish.
     const result=await this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`,{method:'DELETE'});
+    if(String(result?.status||'').toLowerCase()!=='cancelled'){
+      const error=new Error(result?.error||`El servidor no confirmó la cancelación del render${result?.status?` (estado: ${result.status})`:''}`);
+      error.code='CANCEL_NOT_CONFIRMED';
+      error.retryable=true;
+      throw error;
+    }
     this.cancelled=true;
     return result;
   }
