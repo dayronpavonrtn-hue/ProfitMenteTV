@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Validate a ProfitMente Studio project before MP4 rendering."""
 import json,sys,pathlib,re,subprocess,math
+from track_state_render import normalize_track_solo
 
 if len(sys.argv) not in (2,3):
     raise SystemExit('Usage: validate_project.py project.json [assets_dir]')
-p=pathlib.Path(sys.argv[1]); project=json.loads(p.read_text(encoding='utf-8')); assets_dir=pathlib.Path(sys.argv[2]) if len(sys.argv)==3 else None
+p=pathlib.Path(sys.argv[1]); project=normalize_track_solo(json.loads(p.read_text(encoding='utf-8'))); assets_dir=pathlib.Path(sys.argv[2]) if len(sys.argv)==3 else None
 errors=[]; warnings=[]
 
 def finite_float(value, label, default=0.0):
