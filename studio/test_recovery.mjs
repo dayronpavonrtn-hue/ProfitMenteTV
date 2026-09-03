@@ -3,14 +3,31 @@ import {createRequire} from 'node:module';const require=createRequire(import.met
 class Storage{constructor(){this.m=new Map()}getItem(k){return this.m.has(k)?this.m.get(k):null}setItem(k,v){this.m.set(k,String(v))}removeItem(k){this.m.delete(k)}}
 const storage=new Storage(),r=new ProfitMenteRecoveryEngine(storage,{limit:6});
 let p={name:'Demo',duration:45,clips:[{id:'a',start:0,duration:5}]};
-const a=r.capture(p,'inicio','2026-08-28T00:00:00Z');assert(a);assert.equal(r.list().length,1);
+const a=r.capture(p,'inicio','2026-08-28T00:00:00Z');assert(a);assert.equal(r.list().length,1);assert(p.recoveryMeta?.draftId,'draft capture assigns a stable recovery identity');
+const draftId=p.recoveryMeta.draftId,draftGroup=`draft-id:${draftId}`;
 const duplicate=r.capture(p,'change','2026-08-28T00:01:00Z');assert.equal(duplicate.id,a.id);assert.equal(r.list().length,1,'deduplicates identical project states');
 p.clips[0].start=2;const b=r.capture(p,'change','2026-08-28T00:02:00Z');assert.notEqual(b.id,a.id);assert.equal(r.latest().project.clips[0].start,2);
 p.clips.push({id:'b',start:8,duration:3});const c=r.capture(p,'manual','2026-08-28T00:03:00Z');
+p.name='Demo renombrado';const renamed=r.capture(p,'autoguardado','2026-08-28T00:03:30Z');assert.equal(p.recoveryMeta.draftId,draftId,'renaming does not rotate draft recovery identity');assert.equal(renamed.group,draftGroup);assert.equal(r.list(p).length,4,'all pre-rename recovery points remain visible for the renamed draft');
 const saved={name:'Cliente A',libraryId:'lib-a',duration:30,clips:[{id:'v',start:0,duration:3}]};const d=r.capture(saved,'autoguardado','2026-08-28T00:04:00Z');
-const groups=r.listGroups();assert.equal(groups.length,2,'keeps recovery histories for different projects discoverable');assert.equal(groups[0].group,'library:lib-a');assert.equal(groups[0].latestId,d.id);assert.equal(groups[0].count,1);assert.equal(groups[1].group,'draft:Demo');assert.equal(groups[1].count,3);
-assert.equal(r.list(saved).length,1,'filters snapshots for the selected saved project');assert.equal(r.list(p).length,3,'filters snapshots for the current draft');assert.equal(r.restore(c.id).clips.length,2);assert.equal(r.restore(d.id).libraryId,'lib-a','restores snapshots from another project');
-r.remove(c.id);assert.equal(r.list(p).length,2);r.pruneBefore('2026-08-28T00:02:00Z');assert.equal(r.list().length,2,'prunes the removed snapshot and entries older than the cutoff');
+const groups=r.listGroups();assert.equal(groups.length,2,'keeps recovery histories for different projects discoverable');assert.equal(groups[0].group,'library:lib-a');assert.equal(groups[0].latestId,d.id);assert.equal(groups[0].count,1);assert.equal(groups[1].group,draftGroup);assert.equal(groups[1].count,4);
+assert.equal(r.list(saved).length,1,'filters snapshots for the selected saved project');assert.equal(r.list(p).length,4,'filters snapshots for the current renamed draft');assert.equal(r.restore(c.id).clips.length,2);assert.equal(r.restore(d.id).libraryId,'lib-a','restores snapshots from another project');
+r.remove(c.id);assert.equal(r.list(p).length,3);r.pruneBefore('2026-08-28T00:02:00Z');assert.equal(r.list().length,3,'prunes the removed snapshot and entries older than the cutoff');
+
+// Upgrade recovery rows produced before drafts had stable identities. The same
+// identity must also be recoverable after a reload where the main project record
+// has not yet persisted recoveryMeta.
+const legacyStorage=new Storage(),legacyProject={name:'Legacy draft',duration:18,clips:[{id:'legacy',start:0,duration:2}]};
+const legacyFingerprint=JSON.stringify(legacyProject);
+legacyStorage.setItem('profitmente-recovery-v1',JSON.stringify([{id:'legacy-row',createdAt:'2026-08-28T00:10:00Z',reason:'legacy',name:'Legacy draft',libraryId:null,group:'draft:Legacy draft',fingerprint:legacyFingerprint,project:structuredClone(legacyProject)}]));
+const legacyRecovery=new ProfitMenteRecoveryEngine(legacyStorage,{limit:6}),upgraded=legacyRecovery.capture(legacyProject,'inicio','2026-08-28T00:11:00Z');
+assert.equal(upgraded.id,'legacy-row','identical legacy snapshot is upgraded instead of duplicated');assert(legacyProject.recoveryMeta?.draftId,'legacy draft receives a stable identity');
+const legacyDraftId=legacyProject.recoveryMeta.draftId,legacyGroup=`draft-id:${legacyDraftId}`;
+assert.equal(legacyRecovery.listGroups()[0].group,legacyGroup,'legacy name-based group migrates to stable draft identity');
+legacyProject.name='Legacy renamed';legacyRecovery.capture(legacyProject,'autoguardado','2026-08-28T00:12:00Z');assert.equal(legacyRecovery.list(legacyProject).length,2,'legacy history survives a rename after migration');
+const reloadWithoutMeta={name:'Legacy renamed',duration:18,clips:[{id:'legacy',start:0,duration:2}]};
+const reloadedRecovery=new ProfitMenteRecoveryEngine(legacyStorage,{limit:6});const reloadCapture=reloadedRecovery.capture(reloadWithoutMeta,'inicio','2026-08-28T00:13:00Z');
+assert.equal(reloadWithoutMeta.recoveryMeta?.draftId,legacyDraftId,'reload adopts identity from an exact existing recovery snapshot');assert.equal(reloadCapture.group,legacyGroup);assert.equal(reloadedRecovery.list(reloadWithoutMeta).length,2,'reload does not split the same draft into a new recovery group');
 
 // A single heavily edited project must not consume the entire shared recovery
 // budget and erase every usable point from other projects.
