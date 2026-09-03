@@ -5,7 +5,11 @@
   const btn=document.createElement('button');btn.id='beatDetectBtn';btn.title='Detecta golpes rítmicos localmente y crea marcadores para editar al ritmo';btn.textContent='♫ Beats';toolbar.appendChild(btn);
   const engine=new ProfitMenteBeatDetectEngine();
   const audioContext=()=>{const C=window.AudioContext||window.webkitAudioContext;if(!C)throw new Error('AudioContext no está disponible en este navegador');return new C()};
-  function trackUnavailable(c){const s=project?.trackState?.[c?.track]||project?.trackState?.[String(c?.track)]||{};return !!c?.muted||!!s?.muted||!!s?.hidden}
+  function readTrackState(track){
+    const key=String(track),current=project?.trackState?.[track]??project?.trackState?.[key]??{},legacy=project?.trackStates?.[track]??project?.trackStates?.[key]??{};
+    return {muted:!!(current?.muted||legacy?.muted),hidden:!!(current?.hidden||legacy?.hidden),locked:!!(current?.locked||legacy?.locked)};
+  }
+  function trackUnavailable(c){const s=readTrackState(c?.track);return !!c?.muted||s.muted||s.hidden}
   function chosenClip(){
     const selected=window.ProfitMenteEditTools?.selectedId,byId=(project.clips||[]).find(c=>c.id===selected&&[4,5,6].includes(Number(c.track))&&c.asset&&!trackUnavailable(c));
     if(byId)return byId;
@@ -13,7 +17,7 @@
   }
   async function run(){
     const clip=chosenClip();if(!clip){setStatus?.('Añade o activa un clip de música, voz o SFX para detectar beats');return}
-    if(project.trackState?.[clip.track]?.locked){setStatus?.('La pista de audio seleccionada está bloqueada');return}
+    if(readTrackState(clip.track).locked){setStatus?.('La pista de audio seleccionada está bloqueada');return}
     const asset=assets.find(a=>a.id===clip.asset);if(!asset?.blob){setStatus?.('El archivo de audio seleccionado no está disponible localmente');return}
     btn.disabled=true;setStatus?.(`Analizando ritmo localmente: ${asset.name}…`);let ctx;
     try{
@@ -24,5 +28,5 @@
       setStatus?.(`${merged.added} marcador(es) de beat creados${merged.removed?` · ${merged.removed} detecciones anteriores reemplazadas`:''} · edición al ritmo lista`);
     }catch(err){console.error(err);setStatus?.('No se pudo analizar el ritmo: '+err.message)}finally{try{await ctx?.close?.()}catch{}btn.disabled=false}
   }
-  btn.onclick=run;window.ProfitMenteBeatDetect={engine,run,chosenClip};
+  btn.onclick=run;window.ProfitMenteBeatDetect={engine,run,chosenClip,readTrackState};
 })();
