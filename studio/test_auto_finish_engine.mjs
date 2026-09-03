@@ -5,6 +5,7 @@ const Engine=require('./auto-finish-engine.js');
 
 const base={clips:[],markers:[],trackState:{}};
 assert.deepEqual(Engine.plan(base,[]).steps,['repair','qa']);
+assert.deepEqual(Engine.plan(base,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
 
 const av={...base,clips:[
   {id:'v1',track:0,asset:'img',sceneText:'a'},
@@ -13,6 +14,7 @@ const av={...base,clips:[
   {id:'vo',track:6,asset:'voice'}
 ]};
 assert.deepEqual(Engine.plan(av,[]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','smart-mix','detect-beats','sync-beats','auto-transitions','qa']);
 
 const withBeats={...av,markers:[{time:1,label:'Beat 1'}]};
 assert.deepEqual(Engine.plan(withBeats,[]).steps,['repair','smart-mix','sync-beats','auto-transitions','qa']);
