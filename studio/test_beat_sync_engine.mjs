@@ -16,7 +16,7 @@ const project={duration:10,markers:[
   {id:'c1',track:3,name:'Hook text',start:.15,duration:3.03,wordTimings:[{word:'Hola',start:.15,end:1,duration:.85}]},
   {id:'c2',track:3,name:'Problem text',start:3.48,duration:3.03,wordTimings:[{word:'Problema',start:3.48,end:4.2,duration:.72}]},
   {id:'b1',track:1,name:'B-roll · PROBLEMA',start:4.4,duration:1.2},
-  {id:'manual',track:0,name:'Manual clip',start:8,duration:1}
+  {id:'manual',track:0,name:'Manual clip',start:8,duration:1,locked:true}
 ]};
 
 const result=engine.sync(project,{maxShift:1});
@@ -26,7 +26,7 @@ assert.equal(project.clips.find(c=>c.id==='s2').start,3.7);
 assert.equal(project.clips.find(c=>c.id==='s2').duration,2.65);
 assert.equal(project.clips.find(c=>c.id==='s3').start,6.35);
 assert.equal(project.clips.find(c=>c.id==='s3').start+project.clips.find(c=>c.id==='s3').duration,10);
-assert.deepEqual(project.clips.find(c=>c.id==='manual'),{id:'manual',track:0,name:'Manual clip',start:8,duration:1});
+assert.deepEqual(project.clips.find(c=>c.id==='manual'),{id:'manual',track:0,name:'Manual clip',start:8,duration:1,locked:true});
 const cap=project.clips.find(c=>c.id==='c2');
 assert.ok(cap.start>=3.7&&cap.start<3.9);
 assert.ok(cap.start+cap.duration<=6.35+.001);
@@ -44,5 +44,30 @@ const constrainedResult=engine.sync(constrained,{minScene:1.5,maxShift:3});
 assert.equal(constrainedResult.boundaries,0);
 assert.ok(constrained.clips[0].duration>=1.5);
 assert.ok(constrained.clips[1].duration>=1.5);
+
+function protectedProject(){return {duration:8,markers:[{time:3.6,label:'Beat 1'}],clips:[
+  {id:'pa',track:0,name:'HOOK',sceneId:'a',sceneText:'A',start:0,duration:4},
+  {id:'pb',track:0,name:'SOLUCIÓN',sceneId:'b',sceneText:'B',start:4,duration:4},
+  {id:'pc',track:3,sceneId:'a',name:'A',start:.1,duration:3.8,wordTimings:[{word:'A',start:.1,end:1}]},
+  {id:'pr',track:1,sceneId:'b',name:'B-roll · SOLUCIÓN',start:4.5,duration:1.2}
+]}}
+
+for(const mutate of [
+  p=>{p.clips.find(c=>c.id==='pb').locked=true},
+  p=>{p.trackState={'0':{locked:true}}},
+  p=>{p.trackStates={0:{locked:true}}},
+  p=>{p.clips.find(c=>c.id==='pc').locked=true},
+  p=>{p.trackStates={'3':{locked:true}}},
+  p=>{p.clips.find(c=>c.id==='pr').locked=true},
+  p=>{p.trackState={1:{locked:true}}}
+]){
+  const locked=protectedProject();mutate(locked);const before=structuredClone(locked);
+  const lockedResult=engine.sync(locked,{maxShift:1});
+  assert.equal(lockedResult.reason,'locked-edit');
+  assert.equal(lockedResult.changed,0);
+  assert.equal(lockedResult.boundaries,0);
+  assert.ok(lockedResult.locked>=1);
+  assert.deepEqual(locked,before,'beat sync must be atomic when a linked manual edit is protected');
+}
 
 console.log('beat sync regression ok');
