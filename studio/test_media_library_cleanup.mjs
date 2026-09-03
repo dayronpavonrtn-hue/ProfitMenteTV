@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);
 const Tools=require('./media-library-tools.js');
+const CrossProjectGuard=require('./media-library-cross-project-guard.js');
 
 const project={
   clips:[
@@ -64,5 +65,22 @@ const relinkProject={clips:[{id:'c',asset:'missing'}],assets:[]};
 Tools.preserveMeta(relinkProject,{id:'missing',name:'source.mp4',type:'video',mime:'video/mp4',sourceContentHash:'abc123',sourceFingerprint:'fp'});
 assert.equal(relinkProject.assets[0].sourceContentHash,'abc123');
 assert.equal(relinkProject.assets[0].sourceFingerprint,'fp');
+
+const savedRows=[
+  {id:'other-project',project:{libraryId:'other-project',clips:[{id:'other-c1',asset:'old-image'}]}}
+];
+const storage={getItem:key=>key==='profitmente-project-library'?JSON.stringify(savedRows):null};
+assert.deepEqual(CrossProjectGuard.readSavedProjects(storage).map(p=>p.libraryId),['other-project']);
+assert.deepEqual([...CrossProjectGuard.usedIdsAcross(CrossProjectGuard.projectScope(project,CrossProjectGuard.readSavedProjects(storage)))].sort(),['audio-used','old-image','video-used']);
+CrossProjectGuard.install(Tools,{storage});
+assert.deepEqual(Tools.unused(project,assets).map(a=>a.id),['old-audio'],'cleanup must preserve media referenced by another saved project');
+assert.equal(Tools.unusedBytes(project,assets),4000,'cleanup byte estimate must exclude cross-project media');
+
+const guardedAgain=CrossProjectGuard.install(Tools,{storage:{getItem:()=>'{broken json'}});
+assert.equal(guardedAgain,Tools,'guard installation must be idempotent');
+assert.deepEqual(Tools.unused(project,assets).map(a=>a.id),['old-audio'],'idempotent install must keep the original saved-project storage source');
+
+assert.deepEqual(CrossProjectGuard.readSavedProjects({getItem:()=>'{broken json'}),[],'corrupt project library must fail closed without crashing cleanup');
+assert.deepEqual(CrossProjectGuard.unusedAcross([{clips:[{asset:'x'}]}],[{id:'x'},{id:'y'}]).map(a=>a.id),['y']);
 
 console.log('media library cleanup QA ok');
