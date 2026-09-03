@@ -14,6 +14,12 @@ class ProfitMenteProjectImportEngine{
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
     const ids=new Set();
+    const normalizeOptionalNumber=(copy,key,min,max,label)=>{
+      if(copy[key]===undefined||copy[key]===null)return;
+      const value=Number(copy[key]);
+      if(!Number.isFinite(value)||value<min||value>max)throw new Error(`${label} inválido`);
+      copy[key]=value;
+    };
     out.clips=p.clips.map((c,index)=>{
       if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Clip de proyecto inválido');
       const start=Number(c.start??0),clipDuration=Number(c.duration??0),track=Number(c.track??0),end=start+clipDuration;
@@ -22,11 +28,21 @@ class ProfitMenteProjectImportEngine{
       if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
       if(start>=out.duration||end>out.duration+1e-6)throw new Error('Clip fuera de la duración del proyecto');
       const copy=structuredClone(c);
-      // JSON produced by older tools may store numeric timing values as strings.
-      // Validation already accepts those values through Number(...), so persist the
-      // canonical numbers too; otherwise expressions such as start + duration can
-      // concatenate strings ("5" + "3" => "53") and desync preview, timeline and render.
+      // Imported/legacy JSON commonly serializes editor numbers as strings. Persist a
+      // canonical numeric project model so preview, timeline tools and render arithmetic
+      // cannot disagree (for example sourceOffset + localTime must never concatenate).
       copy.track=track;copy.start=start;copy.duration=clipDuration;
+      normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');
+      normalizeOptionalNumber(copy,'sourceOffset',0,86400,'Punto de entrada del medio');
+      normalizeOptionalNumber(copy,'volume',0,2,'Volumen de clip');
+      normalizeOptionalNumber(copy,'sourceVolume',0,2,'Volumen de audio original');
+      normalizeOptionalNumber(copy,'positionX',-100,100,'Posición X');
+      normalizeOptionalNumber(copy,'positionY',-100,100,'Posición Y');
+      normalizeOptionalNumber(copy,'scale',.25,3,'Escala');
+      normalizeOptionalNumber(copy,'rotation',-180,180,'Rotación');
+      normalizeOptionalNumber(copy,'opacity',0,1,'Opacidad');
+      normalizeOptionalNumber(copy,'fadeIn',0,clipDuration,'Fade de entrada');
+      normalizeOptionalNumber(copy,'fadeOut',0,clipDuration,'Fade de salida');
       let id=typeof copy.id==='string'&&copy.id.trim()?copy.id.trim():`imported-clip-${index+1}`;
       if(ids.has(id))throw new Error('ID de clip duplicado');ids.add(id);copy.id=id;
       return copy;
