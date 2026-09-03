@@ -12,14 +12,30 @@
       return {state,label,canPackage:issues.length===0,canRender:issues.length===0&&!!health.render_ready,score:Number(qa.score)||0,issues,warnings,metrics:qa.metrics||{},health};
     }
     static audioTrackMuted(project,track){
-      const read=(states,index)=>{const value=states?.[index]??states?.[String(index)]??{};return value&&typeof value==='object'&&!Array.isArray(value)?value:{}};
+      const canonicalTrack=value=>{
+        const raw=String(value??'').trim();
+        if(!raw)return null;
+        const n=Number(raw);
+        return Number.isInteger(n)&&n>=0&&n<=6?n:null;
+      };
+      const read=(states,index)=>{
+        if(!states||typeof states!=='object'||Array.isArray(states))return {};
+        let state={};
+        for(const [key,value] of Object.entries(states)){
+          if(canonicalTrack(key)!==index||!value||typeof value!=='object'||Array.isArray(value))continue;
+          const previous=state;
+          state={...state,...value};
+          for(const flag of ['muted','solo'])if(previous[flag]===true||value[flag]===true)state[flag]=true;
+        }
+        return state;
+      };
       const merged=index=>{
         const legacy=read(project?.trackStates,index),modern=read(project?.trackState,index),state={...legacy,...modern};
         for(const flag of ['muted','solo'])if(legacy[flag]===true||modern[flag]===true)state[flag]=true;
         for(const key of ['_soloMutedBase','_soloAudioActive'])if(!(key in modern)&&key in legacy)state[key]=legacy[key];
         return state;
       };
-      const tracks=[4,5,6],states=Object.fromEntries(tracks.map(index=>[index,merged(index)])),hasSolo=tracks.some(index=>!!states[index].solo),state=states[Number(track)]||{};
+      const tracks=[4,5,6],states=Object.fromEntries(tracks.map(index=>[index,merged(index)])),hasSolo=tracks.some(index=>!!states[index].solo),state=states[canonicalTrack(track)]||{};
       const baseMuted=state._soloAudioActive?!!state._soloMutedBase:!!state.muted;
       return baseMuted||(hasSolo&&!state.solo);
     }
