@@ -3,13 +3,19 @@
   class ProfitMenteQALegacyTrackStateGuard{
     static get VISUAL_TRACKS(){return [0,1,2,3]}
     static get AUDIO_TRACKS(){return [4,5,6]}
+    static canonicalTrack(value){
+      const raw=String(value??'').trim();
+      if(!raw)return null;
+      const numeric=Number(raw);
+      return Number.isInteger(numeric)&&numeric>=0&&numeric<=6?numeric:null;
+    }
     static readState(states,track){
       if(!states||typeof states!=='object')return {};
-      const target=Number(track),merged={};
+      const target=this.canonicalTrack(track),merged={};
+      if(target===null)return merged;
       for(const [key,value] of Object.entries(states)){
         if(!value||typeof value!=='object'||Array.isArray(value))continue;
-        const numeric=Number(key);
-        if((Number.isFinite(target)&&Number.isFinite(numeric)&&numeric===target)||key===String(track)){
+        if(this.canonicalTrack(key)===target){
           Object.assign(merged,value);
           for(const flag of ['hidden','muted','locked','solo'])if(value[flag]===true)merged[flag]=true;
         }
