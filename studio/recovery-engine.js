@@ -3,7 +3,14 @@ class ProfitMenteRecoveryEngine{
   constructor(storage,{key='profitmente-recovery-v1',limit=20}={}){this.storage=storage;this.key=key;this.limit=Math.max(3,Math.min(100,limit|0||20))}
   _isProject(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
   _fingerprint(project){const copy=structuredClone(project||{});delete copy.updatedAt;delete copy.recoveryMeta;return JSON.stringify(copy)}
-  _group(project){return project?.libraryId?`library:${project.libraryId}`:`draft:${project?.name||'Sin título'}`}
+  _draftId(project){const id=project?.recoveryMeta?.draftId;return typeof id==='string'&&id.trim()?id.trim():null}
+  _newDraftId(){return globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`}
+  _setDraftId(project,id){
+    if(!this._isProject(project)||project.libraryId||!id)return null;
+    if(!project.recoveryMeta||typeof project.recoveryMeta!=='object'||Array.isArray(project.recoveryMeta))project.recoveryMeta={};
+    project.recoveryMeta.draftId=id;return id;
+  }
+  _group(project){if(project?.libraryId)return `library:${project.libraryId}`;const draftId=this._draftId(project);return draftId?`draft-id:${draftId}`:`draft:${project?.name||'Sin título'}`}
   _normalizeRow(row){
     if(!row||typeof row!=='object'||Array.isArray(row)||!this._isProject(row.project))return null;
     const id=typeof row.id==='string'&&row.id.trim()?row.id.trim():null;if(!id)return null;
@@ -47,12 +54,34 @@ class ProfitMenteRecoveryEngine{
     for(const row of valid){if(selected.size>=this.limit)break;if(!selected.has(row.id))selected.add(row.id)}
     this.storage.setItem(this.key,JSON.stringify(valid.filter(row=>selected.has(row.id)).slice(0,this.limit)))
   }
+  _prepareDraftIdentity(project,rows,fingerprint){
+    if(project?.libraryId)return {group:this._group(project),changed:false};
+    let draftId=this._draftId(project),changed=false;
+    if(!draftId){
+      // When a page reload happens before recoveryMeta reaches the main project
+      // record, adopt the identity from an exact recovery snapshot instead of
+      // starting a second history for the same draft.
+      const exact=rows.find(row=>!row.libraryId&&row.fingerprint===fingerprint&&this._draftId(row.project));
+      const named=rows.filter(row=>!row.libraryId&&(row.name||row.project?.name)===(project?.name||'Sin título')&&this._draftId(row.project));
+      draftId=this._draftId(exact?.project)||(named.length===1?this._draftId(named[0].project):null)||this._newDraftId();
+      this._setDraftId(project,draftId);changed=true;
+    }
+    const group=`draft-id:${draftId}`,legacyGroup=`draft:${project?.name||'Sin título'}`;
+    // Upgrade snapshots produced before draft identities existed. Restrict the
+    // migration to the current legacy name so unrelated unsaved drafts stay
+    // isolated even if the shared recovery store contains many projects.
+    for(const row of rows){
+      if(row.libraryId||row.group!==legacyGroup)continue;
+      this._setDraftId(row.project,draftId);row.group=group;changed=true;
+    }
+    return {group,changed};
+  }
   repair(){const {rows,invalid}=this._decode();this._write(rows);return {kept:this._read().length,removed:invalid}}
   capture(project,reason='change',now=new Date().toISOString()){
     if(!this._isProject(project))return null;
     const {rows,invalid}=this._decode();let fingerprint;try{fingerprint=this._fingerprint(project)}catch{return null}
-    const group=this._group(project),latest=rows.find(x=>x.group===group);
-    if(latest?.fingerprint===fingerprint){if(invalid)this._write(rows);return structuredClone(latest)}
+    const prepared=this._prepareDraftIdentity(project,rows,fingerprint),group=prepared.group,latest=rows.find(x=>x.group===group);
+    if(latest?.fingerprint===fingerprint){if(invalid||prepared.changed)this._write(rows);return structuredClone(latest)}
     const snapshot={id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`),createdAt:now,reason,name:project.name||'Sin título',libraryId:project.libraryId||null,group,fingerprint,project:structuredClone(project)};
     rows.unshift(snapshot);this._write(rows);return structuredClone(snapshot)
   }
