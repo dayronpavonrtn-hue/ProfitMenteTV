@@ -31,8 +31,23 @@ function normalizeClip(input,projectDuration){
   c.start=Math.max(0,Math.min(projectDuration-.05,finite(c.start,0)));
   c.duration=Math.max(.05,Math.min(projectDuration-c.start,finite(c.duration,1)));
   if(c.asset!=null&&typeof c.asset!=='string')c.asset=String(c.asset);
-  if(Number.isFinite(Number(c.sourceOffset)))c.sourceOffset=Math.max(0,Number(c.sourceOffset));
-  if(Number.isFinite(Number(c.speed)))c.speed=Math.max(.25,Math.min(4,Number(c.speed)));
+  const normalizeOptional=(key,min,max)=>{
+    if(c[key]===undefined||c[key]===null)return;
+    const value=Number(c[key]);
+    if(!Number.isFinite(value))return delete c[key];
+    c[key]=Math.max(min,Math.min(max,value));
+  };
+  normalizeOptional('sourceOffset',0,Number.MAX_SAFE_INTEGER);
+  normalizeOptional('speed',.25,4);
+  normalizeOptional('volume',0,2);
+  normalizeOptional('sourceVolume',0,2);
+  normalizeOptional('positionX',-100,100);
+  normalizeOptional('positionY',-100,100);
+  normalizeOptional('scale',.25,3);
+  normalizeOptional('rotation',-180,180);
+  normalizeOptional('opacity',0,1);
+  normalizeOptional('fadeIn',0,c.duration);
+  normalizeOptional('fadeOut',0,c.duration);
   return c;
 }
 function countIdentityRepairs(items=[]){
