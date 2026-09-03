@@ -108,4 +108,32 @@ const lockedDownstream={duration:20,clips:[
 const downstreamSnapshot=structuredClone(lockedDownstream);
 assert.equal(ops.rippleDelete(lockedDownstream,'da'),null,'a locked downstream clip that would move must block grouped ripple');
 assert.deepEqual(lockedDownstream,downstreamSnapshot,'downstream lock failure must leave every grouped clip untouched');
+
+const durationRipple={duration:10,clips:[
+ {id:'dr-a',track:0,start:0,duration:4},
+ {id:'dr-b',track:0,start:4,duration:3},
+ {id:'dr-c',track:0,start:7,duration:3}
+]};
+ops.rippleDelete(durationRipple,'dr-b');
+assert.equal(durationRipple.clips.find(c=>c.id==='dr-c').start,4);
+assert.equal(durationRipple.duration,7,'ripple delete must shrink a content-bound project duration so export has no stale blank tail');
+
+const explicitTail={duration:15,clips:[
+ {id:'et-a',track:0,start:0,duration:4},
+ {id:'et-b',track:0,start:4,duration:3}
+]};
+ops.rippleDelete(explicitTail,'et-b');
+assert.equal(explicitTail.duration,15,'an intentional project tail beyond actual content must be preserved');
+
+const durationClose={duration:10,clips:[
+ {id:'cg-a',track:0,start:0,duration:4},
+ {id:'cg-b',track:0,start:7,duration:3}
+]};
+assert.equal(ops.closeGaps(durationClose,0),1);
+assert.equal(durationClose.clips.find(c=>c.id==='cg-b').start,4);
+assert.equal(durationClose.duration,7,'closing the final gap must update content-bound project duration');
+
+const durationTrim={duration:10,clips:[{id:'dt',track:0,start:2,duration:8}]};
+ops.trimRight(durationTrim,'dt',8);
+assert.equal(durationTrim.duration,8,'trimming the last clip must shrink content-bound project duration');
 console.log('timeline operations ok');
