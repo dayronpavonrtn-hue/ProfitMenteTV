@@ -1,0 +1,30 @@
+name: ProfitMente Studio Media Import Storage QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-import-engine.js'
+      - 'studio/test_media_import_storage_preflight.mjs'
+      - '.github/workflows/media-import-storage-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/media-import-engine.js'
+      - 'studio/test_media_import_storage_preflight.mjs'
+      - '.github/workflows/media-import-storage-qa.yml'
+
+jobs:
+  storage-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check media import syntax
+        run: node --check studio/media-import-engine.js
+      - name: Run media import engine regression
+        run: node studio/test_media_import_engine.mjs
+      - name: Run empty media guard regression
+        run: node studio/test_media_import_empty_guard.mjs
+      - name: Run media storage preflight regression
+        run: node studio/test_media_import_storage_preflight.mjs
