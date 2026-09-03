@@ -85,8 +85,9 @@ function normalizeMarkers(input,projectDuration){
   return markers;
 }
 function canonicalTrackStateKey(key){
-  const raw=String(key);
-  const numeric=Number(raw);
+  const raw=String(key),token=raw.trim();
+  if(!token)return raw;
+  const numeric=Number(token);
   if(Number.isFinite(numeric)&&Number.isInteger(numeric)&&numeric>=0&&numeric<=6)return String(numeric);
   return raw;
 }
