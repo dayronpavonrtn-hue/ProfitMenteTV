@@ -7,6 +7,7 @@ on:
       - 'studio/qa-engine.js'
       - 'studio/media-relink-engine.js'
       - 'studio/test_media_readability_qa.mjs'
+      - 'studio/test_media_integrity_qa.mjs'
       - '.github/workflows/media-readability-qa.yml'
   workflow_dispatch:
 
@@ -25,8 +26,11 @@ jobs:
           node --check studio/media-relink-engine.js
       - name: Media readability regression
         run: node studio/test_media_readability_qa.mjs
+      - name: Media identity regression
+        run: node studio/test_media_integrity_qa.mjs
       - name: Verify QA integration
         run: |
           grep -q "mediaReadable===false" studio/qa-engine.js
+          grep -q "mediaIdKey" studio/qa-engine.js
           grep -q "mediaReadable" studio/media-relink-engine.js
           grep -q "this.version=2" studio/media-inspector.js
