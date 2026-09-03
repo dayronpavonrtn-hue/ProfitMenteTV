@@ -65,7 +65,12 @@
             else completed.push('sync');
           }else skipped.push('sync');
         }else if(step==='auto-transitions'){
-          if(window.ProfitMenteAutoTransitions?.run){const r=window.ProfitMenteAutoTransitions.run(false);completed.push(`transiciones ${r?.changed||0}`)}else skipped.push('transiciones');
+          if(window.ProfitMenteAutoTransitions?.run){
+            const r=window.ProfitMenteAutoTransitions.run(false);
+            if(r?.changed)completed.push(`transiciones ${r.changed}`);
+            else if(r?.locked)skipped.push(`transiciones protegidas ${r.locked}`);
+            else completed.push('transiciones 0');
+          }else skipped.push('transiciones');
         }else if(step==='qa'){
           lastReport=runQA();
           if(lastReport)completed.push(`QA ${lastReport.score}/100`);else skipped.push('QA');
