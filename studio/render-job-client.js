@@ -44,7 +44,15 @@ class ProfitMenteRenderJobClient{
     }
     throw new Error('No se pudo descargar el render');
   }
-  async cancel(){if(!this.jobId)return {ok:true,status:'idle'};this.cancelled=true;return this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`,{method:'DELETE'})}
+  async cancel(){
+    if(!this.jobId)return {ok:true,status:'idle'};
+    // Do not mark the client cancelled until the server acknowledges DELETE.
+    // A transient network failure here must leave wait()/recovery alive because
+    // FFmpeg may still be rendering and the finished MP4 can still be recovered.
+    const result=await this.json(`/api/render/jobs/${encodeURIComponent(this.jobId)}`,{method:'DELETE'});
+    this.cancelled=true;
+    return result;
+  }
   async wait(onProgress=()=>{}){
     if(!this.jobId)throw new Error('No hay trabajo de render activo');
     let failures=0,lastSignature=null,lastAdvanceAt=Date.now();
