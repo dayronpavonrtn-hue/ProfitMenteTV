@@ -1,6 +1,16 @@
 (()=>{
   const baseRender=renderAt;
-  function trackStateValue(map,track){if(!map||typeof map!=='object')return null;const value=map[track]??map[String(track)];return value&&typeof value==='object'?value:null}
+  function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
+  function trackStateValue(map,track){
+    if(!map||typeof map!=='object')return null;
+    const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
+    if(!aliases.length)return null;
+    const merged={};
+    for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
+    for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
+    if(aliases.some(([,value])=>!!value.hidden))merged.hidden=true;
+    return merged;
+  }
   function captionsHidden(){
     const current=trackStateValue(project?.trackState,3),legacy=trackStateValue(project?.trackStates,3);
     return !!(current?.hidden||legacy?.hidden);
@@ -29,8 +39,6 @@
     await baseRender(t);
     if(captionsHidden())return;
     const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
-    // render_mp4.py applies every active word-timed caption in project-array order.
-    // Mirror that instead of stopping at the first word caption during overlaps.
     for(const cap of active){
       if(!Array.isArray(cap.wordTimings))continue;
       const word=cap.wordTimings.find(w=>t>=Number(w.start)&&t<Number(w.end));
