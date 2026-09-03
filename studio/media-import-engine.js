@@ -81,6 +81,14 @@ class ProfitMenteMediaImportEngine{
     }
     return this.findDuplicate(assets,file);
   }
+  static upgradedDuplicateIdentity(asset={},hashes={}){
+    const current=String(hashes?.current||''),legacy=String(hashes?.legacy||''),version=current?String(hashes?.version||'sample-v2'):'';
+    const next={...asset};let changed=false;
+    const assign=(key,value)=>{if(!value||next[key]===value)return;next[key]=value;changed=true};
+    if(current){assign('sourceContentHash',current);assign('sourceHashVersion',version)}
+    if(legacy)assign('sourceLegacyContentHash',legacy);
+    return {asset:next,changed};
+  }
   static async filesFromDataTransfer(dataTransfer={}){
     const items=Array.from(dataTransfer?.items||[]),entries=items.map(item=>typeof item?.webkitGetAsEntry==='function'?item.webkitGetAsEntry():null).filter(Boolean);
     if(!entries.length)return Array.from(dataTransfer?.files||[]);
@@ -111,20 +119,24 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   let folderBtn=document.querySelector('#mediaFolderBtn');
   if(!folderBtn){folderBtn=document.createElement('button');folderBtn.id='mediaFolderBtn';folderBtn.type='button';folderBtn.textContent='📁 Importar carpeta';const uploadBtn=document.querySelector('#uploadBtn');uploadBtn?.insertAdjacentElement('afterend',folderBtn)}
   async function importFiles(files,origin='selector'){
-    const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0;const addedIds=[];
+    const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0,upgraded=0;const addedIds=[];
     for(const file of incoming){
       try{
-        const hashes=await engine.contentHashes(file);
-        if(engine.findDuplicateForHashes(assets,file,hashes)){duplicates++;continue}
+        const hashes=await engine.contentHashes(file),duplicate=engine.findDuplicateForHashes(assets,file,hashes);
+        if(duplicate){
+          const migration=engine.upgradedDuplicateIdentity(duplicate,hashes);
+          if(migration.changed){await putAsset(migration.asset);Object.assign(duplicate,migration.asset);upgraded++}
+          duplicates++;continue
+        }
         const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:hashes.current||'',sourceLegacyContentHash:hashes.legacy||'',sourceHashVersion:hashes.version,sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
         await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++;
       }catch(err){failed++;console.error('No se pudo importar',file?.name,err)}
     }
     drawLibrary?.();
     if(addedIds.length)document.dispatchEvent(new CustomEvent('profitmente:media-imported',{detail:{assetIds:addedIds,origin}}));
-    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
+    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,upgraded?`${upgraded} identidad(es) actualizada(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
     setStatus?.(parts.join(' · ')||'No se encontraron medios compatibles');
-    return {added,duplicates,empty,unsupported,failed,total:incoming.length,assetIds:addedIds};
+    return {added,duplicates,upgraded,empty,unsupported,failed,total:incoming.length,assetIds:addedIds};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
   folderBtn.onclick=()=>folderInput.click();
