@@ -31,6 +31,15 @@ assert(r.warnings.some(x=>x.includes('Pistas desactivadas')),'conflicting legacy
 r=inspect({trackState:{0:{hidden:false},5:{muted:false}},trackStates:{}});
 assert.strictEqual(r.issues.filter(x=>x.includes('Medio faltante')).length,2,'active tracks must still report missing media');
 
+// Imported JSON may preserve numerically-equivalent track keys such as "0.0"
+// or "5.00". QA must resolve them exactly like preview/render do.
+r=inspect({trackStates:{'0.0':{hidden:true},'5.00':{muted:true}}});
+assert(!r.issues.some(x=>x.includes('Medio faltante')),'numeric legacy aliases must disable the same tracks in QA');
+assert(r.metrics.disabledTracks.includes(0)&&r.metrics.disabledTracks.includes(5),'numeric legacy aliases must appear in disabled track metrics');
+
+r=inspect({trackState:{'0.00':{hidden:true},'5.0':{muted:true}}});
+assert(!r.issues.some(x=>x.includes('Medio faltante')),'numeric modern aliases must disable the same tracks in QA');
+
 // Semantic Solo may be the only persisted signal after import/recovery. QA must
 // derive the same effective hidden/muted state as preview and the MP4 renderer.
 r=inspect({trackStates:{1:{solo:true},6:{solo:true}}});
@@ -41,6 +50,10 @@ assert(r.metrics.disabledTracks.includes(0)&&r.metrics.disabledTracks.includes(5
 
 r=inspect({trackState:{0:{hidden:false},5:{muted:false}},trackStates:{1:{solo:true},6:{solo:true}}});
 assert(!r.issues.some(x=>x.includes('Medio faltante')),'legacy semantic Solo must remain effective when current state contains conflicting false flags');
+
+r=inspect({trackStates:{'1.0':{solo:true},'6.00':{solo:true}}});
+assert(!r.issues.some(x=>x.includes('Medio faltante')),'numeric Solo aliases must exclude non-Solo tracks from QA');
+assert(r.metrics.disabledTracks.includes(0)&&r.metrics.disabledTracks.includes(5),'numeric Solo aliases must produce effective disabled tracks');
 
 const normalized=Guard.normalize({trackState:{'0':{hidden:false}},trackStates:{'0':{hidden:true,locked:true},'1':{solo:true},'6':{solo:true}}});
 assert.strictEqual(normalized.trackState['0'].hidden,true);
@@ -76,4 +89,4 @@ assert.strictEqual(openProject.clips[0].duration,.05);
 assert.strictEqual(openProject.clips[0].fitMode,'cover');
 assert.strictEqual(openProject.clips[0].speed,4);
 
-console.log('QA legacy track-state + semantic Solo compatibility + safe repair lock parity OK');
+console.log('QA legacy track-state + numeric alias + semantic Solo compatibility + safe repair lock parity OK');
