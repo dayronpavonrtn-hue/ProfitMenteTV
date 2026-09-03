@@ -83,9 +83,14 @@
       project.clips.push(right);return {left:c,right};
     }
     rippleDelete(project,id){
-      const c=project.clips.find(x=>x.id===id);if(!c)return null;const shift=Number(c.duration)||0,end=(Number(c.start)||0)+shift,track=c.track;
-      const affected=project.clips.filter(x=>x.id===id||(x.track===track&&(Number(x.start)||0)>=end-.001));if(this.anyLocked(project,affected))return null;
-      project.clips=project.clips.filter(x=>x.id!==id);for(const x of project.clips){if(x.track===track&&(Number(x.start)||0)>=end-.001)x.start=Math.max(Number(c.start)||0,(Number(x.start)||0)-shift)}return c
+      const clips=Array.isArray(project?.clips)?project.clips:[],c=clips.find(x=>x.id===id);if(!c)return null;
+      const groupId=String(c.groupId||'').trim(),removed=groupId?clips.filter(x=>String(x.groupId||'').trim()===groupId):[c];
+      const removedIds=new Set(removed.map(x=>String(x.id))),tracks=new Set(removed.map(x=>String(x.track)));
+      const start=Math.min(...removed.map(x=>Math.max(0,Number(x.start)||0))),end=Math.max(...removed.map(x=>(Number(x.start)||0)+Math.max(0,Number(x.duration)||0))),shift=Math.max(0,end-start);
+      const affected=clips.filter(x=>removedIds.has(String(x.id))||(tracks.has(String(x.track))&&(Number(x.start)||0)>=end-.001));if(this.anyLocked(project,affected))return null;
+      project.clips=clips.filter(x=>!removedIds.has(String(x.id)));
+      for(const x of project.clips){if(tracks.has(String(x.track))&&(Number(x.start)||0)>=end-.001)x.start=Math.max(start,(Number(x.start)||0)-shift)}
+      return c
     }
     closeGaps(project,track){
       if(this.trackLocked(project,track))return 0;const clips=project.clips.filter(c=>c.track===track).sort((a,b)=>a.start-b.start);if(!clips.length)return 0;
