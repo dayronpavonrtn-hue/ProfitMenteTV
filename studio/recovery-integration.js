@@ -16,10 +16,26 @@
       card.innerHTML=`<button class="projectOpen" data-recover="${row.id}"><b>${esc(row.name)}</b><small>${esc(row.reason)}${scope} · ${when}</small></button><button class="projectDelete" data-drop="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)
     }
   }
-  function capture(reason='change'){const snap=engine.capture(project,reason);if(snap)render();return snap}
+  function persistRecoveryIdentity(beforeDraftId){
+    const afterDraftId=project?.recoveryMeta?.draftId;
+    if(project?.libraryId||beforeDraftId||!afterDraftId)return;
+    try{
+      // Keep the stable draft identity in the same local project record used on
+      // reload. Use the unwrapped persistence path to avoid recursively taking
+      // another recovery snapshot merely for recovery metadata.
+      if(typeof originalPersist==='function')originalPersist();
+      else localStorage.setItem('profitmente-project',JSON.stringify(project));
+    }catch(err){console.warn('ProfitMente recovery identity persistence failed',err)}
+  }
+  function capture(reason='change'){
+    const beforeDraftId=project?.recoveryMeta?.draftId||null,snap=engine.capture(project,reason);
+    if(snap){persistRecoveryIdentity(beforeDraftId);render()}return snap
+  }
   function ensureCurrentProjectRecovery(){
     showAll=false;
-    if(!engine.latest(project))capture('inicio');else render();
+    // capture() deduplicates identical states. Calling it unconditionally also
+    // upgrades legacy name-based draft snapshots to a stable identity on boot.
+    capture('inicio');
   }
   function flushBeforeRestore(){
     const flush=window.ProfitMenteNewProject?.flushCurrentProject;
