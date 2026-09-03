@@ -40,6 +40,14 @@ assert(r.metrics.disabledTracks.includes(0)&&r.metrics.disabledTracks.includes(5
 r=inspect({trackState:{'0.00':{hidden:true},'5.0':{muted:true}}});
 assert(!r.issues.some(x=>x.includes('Medio faltante')),'numeric modern aliases must disable the same tracks in QA');
 
+// Empty/whitespace and non-integer/out-of-range keys are not track aliases. Number('')
+// is 0 in JavaScript, so these must be rejected explicitly or QA can hide track 0.
+r=inspect({trackStates:{'':{hidden:true},'   ':{hidden:true},'1.5':{hidden:true},'7':{hidden:true}}});
+assert.strictEqual(r.issues.filter(x=>x.includes('Medio faltante')).length,2,'invalid track-state keys must not disable active tracks');
+assert(!r.metrics.disabledTracks.includes(0),'empty or whitespace keys must never alias visual track 0');
+assert.deepStrictEqual(Guard.readState({'':{hidden:true},'   ':{hidden:true}},0),{},'guard must reject empty aliases before numeric coercion');
+assert.deepStrictEqual(Guard.readState({'1.5':{hidden:true},'7':{hidden:true}},1),{},'guard must reject fractional and out-of-range aliases');
+
 // Semantic Solo may be the only persisted signal after import/recovery. QA must
 // derive the same effective hidden/muted state as preview and the MP4 renderer.
 r=inspect({trackStates:{1:{solo:true},6:{solo:true}}});
@@ -89,4 +97,4 @@ assert.strictEqual(openProject.clips[0].duration,.05);
 assert.strictEqual(openProject.clips[0].fitMode,'cover');
 assert.strictEqual(openProject.clips[0].speed,4);
 
-console.log('QA legacy track-state + numeric alias + semantic Solo compatibility + safe repair lock parity OK');
+console.log('QA legacy track-state + strict numeric alias + semantic Solo compatibility + safe repair lock parity OK');
