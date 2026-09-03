@@ -4,7 +4,17 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   function assetById(id){return assets.find(a=>a.id===id)}
-  function trackStateValue(map,track){if(!map||typeof map!=='object')return null;const value=map[track]??map[String(track)];return value&&typeof value==='object'?value:null}
+  function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
+  function trackStateValue(map,track){
+    if(!map||typeof map!=='object')return null;
+    const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
+    if(!aliases.length)return null;
+    const merged={};
+    for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
+    for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
+    if(aliases.some(([,value])=>!!value.hidden))merged.hidden=true;
+    return merged;
+  }
   function trackHidden(track){
     const current=trackStateValue(project?.trackState,track),legacy=trackStateValue(project?.trackStates,track);
     return !!(current?.hidden||legacy?.hidden);
@@ -40,9 +50,6 @@
       if(v.readyState>=2&&Math.abs(v.currentTime-target)<.035){afterSeek();return}
       v.addEventListener('seeked',onSeeked,{once:true});
       try{v.currentTime=target}catch{finish(false);return}
-      // Never paint a previous decoded frame just because a seek is slow. If the
-      // browser cannot produce the requested frame promptly, this clip is skipped
-      // for the current preview epoch and a later render request can retry it.
       seekTimer=setTimeout(()=>finish(false),750);
     });
   }
@@ -68,8 +75,6 @@
     if(['fade','slide','zoom'].includes(transition)&&c.start>0)alpha*=clamp(local/td,0,1);
     if(transition==='slide'&&c.start>0)x+=canvas.width*(1-clamp(local/td,0,1));
     if(transition==='zoom'&&c.start>0)scale*=1+.025*(1-clamp(local/td,0,1));
-    // Explicit start/end keyframes own the transform curve. Do not stack canned motion
-    // on top of them, matching render_mp4.py and avoiding preview/export drift.
     if(!kf){if(motion==='slow-zoom')scale*=1+.065*p;if(motion==='push-in')scale*=1+.10*p}
     return {alpha,x,y,scale,rotation};
   }
@@ -90,32 +95,16 @@
   function wrapCaptionWords(text,maxWidth,maxLines){
     const words=String(text||'').trim().split(/\s+/).filter(Boolean);if(!words.length)return [];
     const lines=[];let line='';
-    for(const word of words){
-      const candidate=line?`${line} ${word}`:word;
-      if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate;
-    }
-    if(line)lines.push(line);
-    if(lines.length>maxLines)return null;
-    return lines;
+    for(const word of words){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}
+    if(line)lines.push(line);if(lines.length>maxLines)return null;return lines;
   }
   function captionLayout(text,baseSize){
     const maxWidth=canvas.width*.88,maxLines=3,minSize=Math.max(18,Math.round(baseSize*.62));
-    for(let size=baseSize;size>=minSize;size-=2){
-      ctx.font=`900 ${size}px Arial`;
-      const lines=wrapCaptionWords(text,maxWidth,maxLines);
-      if(lines&&lines.every(line=>ctx.measureText(line).width<=maxWidth))return {size,lines,lineHeight:Math.round(size*1.16)};
-    }
-    ctx.font=`900 ${minSize}px Arial`;
-    const hard=[];for(const word of String(text||'').trim().split(/\s+/).filter(Boolean)){
-      if(ctx.measureText(word).width<=maxWidth){hard.push(word);continue}
-      let part='';for(const ch of word){const candidate=part+ch;if(part&&ctx.measureText(candidate).width>maxWidth){hard.push(part);part=ch}else part=candidate}if(part)hard.push(part);
-    }
-    const lines=[];let line='';for(const word of hard){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);
-    return {size:minSize,lines:lines.slice(0,maxLines),lineHeight:Math.round(minSize*1.16)};
+    for(let size=baseSize;size>=minSize;size-=2){ctx.font=`900 ${size}px Arial`;const lines=wrapCaptionWords(text,maxWidth,maxLines);if(lines&&lines.every(line=>ctx.measureText(line).width<=maxWidth))return {size,lines,lineHeight:Math.round(size*1.16)}}
+    ctx.font=`900 ${minSize}px Arial`;const hard=[];for(const word of String(text||'').trim().split(/\s+/).filter(Boolean)){if(ctx.measureText(word).width<=maxWidth){hard.push(word);continue}let part='';for(const ch of word){const candidate=part+ch;if(part&&ctx.measureText(candidate).width>maxWidth){hard.push(part);part=ch}else part=candidate}if(part)hard.push(part)}
+    const lines=[];let line='';for(const word of hard){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);return {size:minSize,lines:lines.slice(0,maxLines),lineHeight:Math.round(minSize*1.16)};
   }
-  function activeCaptions(t){
-    return project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
-  }
+  function activeCaptions(t){return project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0))}
   function drawCaptionClip(cap,t){
     const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
@@ -123,29 +112,13 @@
     const compact=window.ProfitMenteCaptionCompactEngine?new window.ProfitMenteCaptionCompactEngine():null,text=compact?compact.textAtTime(cap,t):String(cap.name||'');
     ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';const layout=captionLayout(text,size),padX=18,padY=Math.max(8,Math.round(layout.size*.24)),blockHeight=layout.lineHeight*layout.lines.length+padY*2,top=y-blockHeight/2;ctx.font=`900 ${layout.size}px Arial`;const maxLine=Math.max(0,...layout.lines.map(line=>ctx.measureText(line).width));ctx.fillStyle=hook?'rgba(0,0,0,.48)':'rgba(0,0,0,.42)';ctx.fillRect(canvas.width/2-maxLine/2-padX,top,maxLine+padX*2,blockHeight);ctx.lineWidth=Math.max(4,Math.round(layout.size*.2));ctx.strokeStyle='rgba(0,0,0,.92)';ctx.fillStyle=hook?'#FFE66D':'#fff';layout.lines.forEach((line,i)=>{const ly=top+padY+layout.lineHeight*(i+.5);ctx.strokeText(line,canvas.width/2,ly);ctx.fillText(line,canvas.width/2,ly)});ctx.restore();
   }
-  function drawCaption(t){
-    if(trackHidden(3))return;
-    // Match render_mp4.py: every active caption is composited in project-array order.
-    // This matters for manual overlaps, where later entries must paint on top instead
-    // of the preview silently showing only the first active caption.
-    for(const cap of activeCaptions(t))drawCaptionClip(cap,t);
-  }
-  function drawPreviewFallback(hasActiveMedia){
-    const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;
-    ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';
-    ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2);
-  }
+  function drawCaption(t){if(trackHidden(3))return;for(const cap of activeCaptions(t))drawCaptionClip(cap,t)}
+  function drawPreviewFallback(hasActiveMedia){const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}
   renderAt=async function(t){
-    const epoch=++renderEpoch;
-    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
-    // Match render_mp4.py stacking: lower tracks first, then earlier clip starts.
-    // This makes same-track overlaps deterministic regardless of project array order.
+    const epoch=++renderEpoch;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
     const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>(Number(a.track)-Number(b.track))||(Number(a.start||0)-Number(b.start||0)));
-    let painted=0;
-    for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}
-    if(epoch!==renderEpoch)return;
-    if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}
-    drawCaption(t);
+    let painted=0;for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
+    if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(t);
   };
   window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
