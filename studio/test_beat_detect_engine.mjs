@@ -1,4 +1,6 @@
 import {createRequire} from 'module';const require=createRequire(import.meta.url);const Engine=require('./beat-detect-engine.js');
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 const ok=(v,m)=>{if(!v)throw new Error(m)};
 const near=(a,b,e=.03)=>Math.abs(a-b)<=e;
 const engine=new Engine({windowMs:20,minGap:.22,sensitivity:1.35});
@@ -9,4 +11,10 @@ const silence=engine.detect([new Float32Array(2000)],rate);ok(silence.length===0
 const mapped=engine.mapToTimeline([{time:2,strength:2},{time:3,strength:3},{time:4,strength:2}],{start:10,duration:1,speed:2,sourceOffset:2});ok(mapped.length===3,'Ventana fuente a 2x incorrecta');ok(near(mapped[1].time,10.5,.001),'Mapeo 2x incorrecto');
 const slow=engine.mapToTimeline([{time:1,strength:2},{time:1.5,strength:2},{time:2,strength:2}],{start:4,duration:2,speed:.5,sourceOffset:1});ok(near(slow[2].time,6,.001),'Mapeo 0.5x incorrecto');
 const old=[{id:'manual',time:10.5,label:'Corte manual'},{id:'oldbeat',time:9,label:'Beat 1',autoKind:'beat:audio'}];const merged=engine.mergeMarkers(old,mapped);ok(merged.removed===1,'Debe reemplazar detecciones automáticas previas');ok(merged.markers.some(m=>m.id==='manual'),'Debe conservar marcadores manuales');ok(!merged.markers.some(m=>m.autoKind==='beat:audio'&&near(m.time,10.5,.04)),'No debe solapar beat automático con marcador manual');
+const integration=await readFile(new URL('./beat-detect-integration.js',import.meta.url),'utf8');
+assert.match(integration,/project\?\.trackState/,'Beat detection must inspect modern track state');
+assert.match(integration,/project\?\.trackStates/,'Beat detection must preserve legacy track-state compatibility');
+assert.match(integration,/muted:!!\(current\?\.muted\|\|legacy\?\.muted\)/,'Legacy mute must make audio unavailable for beat detection');
+assert.match(integration,/locked:!!\(current\?\.locked\|\|legacy\?\.locked\)/,'Legacy lock must protect beat-marker automation');
+assert.match(integration,/if\(readTrackState\(clip\.track\)\.locked\)/,'Beat detection must refuse marker edits on protected audio tracks');
 console.log('beat detect regression ok');
