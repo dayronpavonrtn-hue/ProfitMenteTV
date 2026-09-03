@@ -8,6 +8,12 @@
     }
     isLocked(project,clip){return !!clip&&(!!clip.locked||this.trackLocked(project,clip.track))}
     anyLocked(project,clips){return (clips||[]).some(c=>this.isLocked(project,c))}
+    maxEnd(project){return (project?.clips||[]).reduce((m,c)=>Math.max(m,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0)),0)}
+    syncDurationAfterShrink(project,oldMaxEnd){
+      const duration=Math.max(0,Number(project?.duration)||0),previous=Math.max(0,Number(oldMaxEnd)||0);
+      if(duration<=previous+.001)project.duration=this.maxEnd(project);
+      return Math.max(0,Number(project?.duration)||0)
+    }
     cloneClip(clip,start=null){const c=structuredClone(clip);c.id=crypto.randomUUID();c.name=(clip.name||'Clip')+' copia';if(start!==null)c.start=start;return c}
     copy(clip){this.clipboard=structuredClone(clip);return this.clipboard}
     paste(project,at,track=null){
@@ -31,11 +37,11 @@
       this.trimWords(c,target,end);return c;
     }
     trimRight(project,id,at,minDuration=.25){
-      const c=project.clips.find(x=>x.id===id);if(!c||this.isLocked(project,c))return null;const start=Number(c.start)||0,duration=Number(c.duration)||0,end=start+duration,target=Math.min(end,Math.max(start+minDuration,Number(at)));
+      const c=project.clips.find(x=>x.id===id);if(!c||this.isLocked(project,c))return null;const oldMaxEnd=this.maxEnd(project),start=Number(c.start)||0,duration=Number(c.duration)||0,end=start+duration,target=Math.min(end,Math.max(start+minDuration,Number(at)));
       if(!Number.isFinite(target)||target>=end-.001)return null;const original=structuredClone(c),p=duration>0?(target-start)/duration:1;c.duration=target-start;
       if(original.keyframes?.start&&original.keyframes?.end)c.keyframes={start:structuredClone(original.keyframes.start),end:this.interpolateFrame(original.keyframes.start,original.keyframes.end,p)};
       if(Object.prototype.hasOwnProperty.call(original,'fadeIn'))c.fadeIn=Math.min(c.duration,Math.max(0,Number(original.fadeIn)||0));if(Object.prototype.hasOwnProperty.call(original,'fadeOut'))c.fadeOut=Math.min(c.duration,Math.max(0,Number(original.fadeOut)||0));
-      this.trimWords(c,start,target);return c;
+      this.trimWords(c,start,target);this.syncDurationAfterShrink(project,oldMaxEnd);return c;
     }
     split(project,id,at,minDuration=.05){
       const c=project.clips.find(x=>x.id===id);if(!c||this.isLocked(project,c))return null;
@@ -84,18 +90,18 @@
     }
     rippleDelete(project,id){
       const clips=Array.isArray(project?.clips)?project.clips:[],c=clips.find(x=>x.id===id);if(!c)return null;
-      const groupId=String(c.groupId||'').trim(),removed=groupId?clips.filter(x=>String(x.groupId||'').trim()===groupId):[c];
+      const oldMaxEnd=this.maxEnd(project),groupId=String(c.groupId||'').trim(),removed=groupId?clips.filter(x=>String(x.groupId||'').trim()===groupId):[c];
       const removedIds=new Set(removed.map(x=>String(x.id))),tracks=new Set(removed.map(x=>String(x.track)));
       const start=Math.min(...removed.map(x=>Math.max(0,Number(x.start)||0))),end=Math.max(...removed.map(x=>(Number(x.start)||0)+Math.max(0,Number(x.duration)||0))),shift=Math.max(0,end-start);
       const affected=clips.filter(x=>removedIds.has(String(x.id))||(tracks.has(String(x.track))&&(Number(x.start)||0)>=end-.001));if(this.anyLocked(project,affected))return null;
       project.clips=clips.filter(x=>!removedIds.has(String(x.id)));
       for(const x of project.clips){if(tracks.has(String(x.track))&&(Number(x.start)||0)>=end-.001)x.start=Math.max(start,(Number(x.start)||0)-shift)}
-      return c
+      this.syncDurationAfterShrink(project,oldMaxEnd);return c
     }
     closeGaps(project,track){
-      if(this.trackLocked(project,track))return 0;const clips=project.clips.filter(c=>c.track===track).sort((a,b)=>a.start-b.start);if(!clips.length)return 0;
+      if(this.trackLocked(project,track))return 0;const oldMaxEnd=this.maxEnd(project),clips=project.clips.filter(c=>c.track===track).sort((a,b)=>a.start-b.start);if(!clips.length)return 0;
       let cursor=0;const moves=[];for(const c of clips){const start=Number(c.start)||0,duration=Number(c.duration)||0;if(start>cursor+.001){if(this.isLocked(project,c))return 0;moves.push([c,cursor]);cursor=Math.max(cursor,cursor+duration)}else cursor=Math.max(cursor,start+duration)}
-      for(const [c,start] of moves)c.start=start;return moves.length
+      for(const [c,start] of moves)c.start=start;if(moves.length)this.syncDurationAfterShrink(project,oldMaxEnd);return moves.length
     }
     insertGap(project,track,at,gap=1){
       const t=Math.max(0,Number(at)||0),amount=Math.max(.05,Number(gap)||1),clips=(project.clips||[]).filter(c=>c.track===track),affected=clips.filter(c=>(Number(c.start)||0)>=t-.001);
