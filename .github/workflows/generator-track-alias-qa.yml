@@ -1,0 +1,35 @@
+name: ProfitMente Studio Generator Track Alias QA
+
+on:
+  push:
+    paths:
+      - 'studio/generator-engine.js'
+      - 'studio/generator-track-alias-guard.js'
+      - 'studio/generator-integration.js'
+      - 'studio/edit-lock-guard.js'
+      - 'studio/index.html'
+      - 'studio/test_generator_track_alias_guard.mjs'
+      - '.github/workflows/generator-track-alias-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/generator-engine.js
+          node --check studio/generator-track-alias-guard.js
+          node --check studio/generator-integration.js
+          node --check studio/edit-lock-guard.js
+          node --check studio/test_generator_track_alias_guard.mjs
+      - name: Generator legacy track alias regression
+        run: node studio/test_generator_track_alias_guard.mjs
+      - name: Existing generator lock regression
+        run: node studio/test_generator_lock_guard.mjs
+      - name: Existing regeneration preservation regression
+        run: node studio/test_generator_regeneration_locks.mjs
