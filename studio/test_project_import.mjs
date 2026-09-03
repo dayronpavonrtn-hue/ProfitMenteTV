@@ -31,6 +31,10 @@ assert.equal(editNumbers.clips[0].speed*2,3,'speed remains arithmetic-safe after
 assert.equal(editNumbers.clips[0].fadeIn+editNumbers.clips[0].fadeOut,.55,'audio envelope values remain arithmetic-safe after import');
 const longSource=engine.normalize({duration:4,format:'9:16',clips:[{id:'long-source',track:0,start:0,duration:4,sourceOffset:'90000'}]});
 assert.equal(longSource.clips[0].sourceOffset,90000,'source offsets belong to source media and may legitimately exceed the 24h project-duration cap');
+const staleDuration=engine.normalize({duration:10,format:'9:16',clips:[{id:'late',track:0,start:20,duration:6}]});
+assert.equal(staleDuration.duration,10,'import normalization preserves the declared duration for migration accounting');
+assert.equal(staleDuration.clips[0].start,20,'late clips must survive normalization so migration can extend project duration');
+assert.equal(staleDuration.clips[0].duration,6,'late clip duration must survive normalization unchanged');
 assert.throws(()=>engine.normalize(null),/inválido/);
 assert.throws(()=>engine.normalize({duration:0,format:'9:16',clips:[]}),/Duración/,'zero duration must not silently become a different project');
 assert.throws(()=>engine.normalize({duration:10,format:'4:5',clips:[]}),/Formato/,'unsupported 4:5 must be rejected instead of silently becoming 9:16');
@@ -40,8 +44,6 @@ assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:-1,s
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:7,start:0,duration:1}]}),/Pista/,'tracks outside Studio must be rejected');
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,start:-1,duration:1}]}),/Tiempo/,'negative clip times must be rejected');
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,start:0,duration:0}]}),/Tiempo/,'zero-length clips must be rejected');
-assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,start:9.5,duration:1}]}),/duración del proyecto/,'clips extending beyond the project duration must be rejected');
-assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,start:10,duration:1}]}),/duración del proyecto/,'clips starting at or beyond the project end must be rejected');
 assert.throws(()=>engine.normalize({duration:86400,format:'9:16',clips:[{track:0,start:86399,duration:2}]}),/fuera de rango/,'absurd clip endpoints must be rejected');
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{id:'dup',track:0,start:0,duration:1},{id:'dup',track:1,start:1,duration:1}]}),/duplicado/,'duplicate clip ids must be rejected before edit tools can target the wrong clip');
 for(const [field,value] of [['speed','Infinity'],['sourceOffset','NaN'],['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.01],['fadeIn',4.1],['fadeOut',-0.1]]){
