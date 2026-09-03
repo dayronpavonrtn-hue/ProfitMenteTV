@@ -3,8 +3,15 @@
   const input=document.querySelector('#bundleInput'),button=document.querySelector('#importBundleBtn');if(!input||!button)return;
   const bundler=new ProfitMenteBundleEngine(),importer=new ProfitMenteBundleImportEngine();
   const status=t=>{if(typeof setStatus==='function')setStatus(t)};
+  function normalizeRestoredProject(value){
+    const ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(typeof ImportEngine==='function')return new ImportEngine().normalize(value);
+    const Library=window.ProfitMenteProjectLibrary;
+    if(Library?.normalizeImportedProject)return Library.normalizeImportedProject(value);
+    return value;
+  }
   function migrateRestoredProject(value){
-    const normalized=window.ProfitMenteProjectLibrary?.normalizeImportedProject?window.ProfitMenteProjectLibrary.normalizeImportedProject(value):value;
+    const normalized=normalizeRestoredProject(value);
     const migration=window.ProfitMenteProjectMigration?.engine;
     if(migration?.migrate)return migration.migrate(normalized).project;
     const MigrationEngine=window.ProfitMenteProjectMigrationEngine;
