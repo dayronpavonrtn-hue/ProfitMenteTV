@@ -130,6 +130,11 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   if(!folderInput){folderInput=document.createElement('input');folderInput.id='mediaFolderInput';folderInput.type='file';folderInput.multiple=true;folderInput.hidden=true;folderInput.setAttribute('webkitdirectory','');folderInput.setAttribute('directory','');input.insertAdjacentElement('afterend',folderInput)}
   let folderBtn=document.querySelector('#mediaFolderBtn');
   if(!folderBtn){folderBtn=document.createElement('button');folderBtn.id='mediaFolderBtn';folderBtn.type='button';folderBtn.textContent='📁 Importar carpeta';const uploadBtn=document.querySelector('#uploadBtn');uploadBtn?.insertAdjacentElement('afterend',folderBtn)}
+  async function persistBatchAtomic(migrations=[],newAssets=[]){
+    const records=[...migrations.map(item=>item.asset),...newAssets];if(!records.length)return;
+    if(typeof db!=='function'||typeof STORE==='undefined'){for(const record of records)await putAsset(record);return}
+    const database=await db();await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite'),store=tx.objectStore(STORE);for(const record of records)store.put(record);tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error||new Error('La transacción de medios fue cancelada'));tx.onerror=()=>reject(tx.error||new Error('No se pudieron guardar los medios'))})
+  }
   async function importFiles(files,origin='selector'){
     const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0,upgraded=0;const addedIds=[],pendingNew=[],pendingMigrations=[];
     for(const file of incoming){
@@ -144,15 +149,18 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
       let estimate={};try{if(globalThis.navigator?.storage?.estimate)estimate=await globalThis.navigator.storage.estimate()}catch(err){console.warn('No se pudo estimar el espacio local disponible',err)}
       try{engine.assertStorageCapacity(pendingNew,estimate)}catch(err){console.error(err);setStatus?.(err.message);return {added:0,duplicates,upgraded:0,empty,unsupported,failed,total:incoming.length,assetIds:[],blocked:true,error:err.message}}
     }
-    for(const migration of pendingMigrations){try{await putAsset(migration.asset);Object.assign(migration.duplicate,migration.asset);upgraded++}catch(err){failed++;console.error('No se pudo actualizar la identidad del medio duplicado',migration.asset?.name,err)}}
-    for(const asset of pendingNew){
-      try{await putAsset(asset);assets.push(asset);addedIds.push(asset.id);added++}catch(err){failed++;console.error('No se pudo importar',asset?.name,err)}
+    if(pendingMigrations.length||pendingNew.length){
+      try{await persistBatchAtomic(pendingMigrations,pendingNew)}catch(err){
+        failed+=pendingMigrations.length+pendingNew.length;console.error('No se pudo completar la importación atómica de medios',err);const message='No se guardó ningún medio nuevo: falló el almacenamiento local durante la importación';setStatus?.(message);return {added:0,duplicates,upgraded:0,empty,unsupported,failed,total:incoming.length,assetIds:[],blocked:false,transactionFailed:true,error:message}
+      }
     }
+    for(const migration of pendingMigrations){Object.assign(migration.duplicate,migration.asset);upgraded++}
+    for(const asset of pendingNew){assets.push(asset);addedIds.push(asset.id);added++}
     drawLibrary?.();
     if(addedIds.length)document.dispatchEvent(new CustomEvent('profitmente:media-imported',{detail:{assetIds:addedIds,origin}}));
     const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,upgraded?`${upgraded} identidad(es) actualizada(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
     setStatus?.(parts.join(' · ')||'No se encontraron medios compatibles');
-    return {added,duplicates,upgraded,empty,unsupported,failed,total:incoming.length,assetIds:addedIds,blocked:false};
+    return {added,duplicates,upgraded,empty,unsupported,failed,total:incoming.length,assetIds:addedIds,blocked:false,transactionFailed:false};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
   folderBtn.onclick=()=>folderInput.click();
