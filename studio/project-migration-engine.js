@@ -84,21 +84,38 @@ function normalizeMarkers(input,projectDuration){
   markers.sort((a,b)=>a.time-b.time);
   return markers;
 }
+function canonicalTrackStateKey(key){
+  const raw=String(key);
+  const numeric=Number(raw);
+  if(Number.isFinite(numeric)&&Number.isInteger(numeric)&&numeric>=0&&numeric<=6)return String(numeric);
+  return raw;
+}
 function normalizeTrackStateMap(current,legacy){
   const modern=current&&typeof current==='object'&&!Array.isArray(current)?current:{};
   const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
-  const keys=new Set([...Object.keys(old),...Object.keys(modern)]);
   const result={};
-  for(const key of keys){
-    const legacyState=old[key]&&typeof old[key]==='object'&&!Array.isArray(old[key])?old[key]:{};
-    const currentState=modern[key]&&typeof modern[key]==='object'&&!Array.isArray(modern[key])?modern[key]:{};
-    const merged={...clone(legacyState),...clone(currentState)};
-    for(const flag of ['hidden','muted','locked','solo']){
-      if(Boolean(legacyState[flag])||Boolean(currentState[flag]))merged[flag]=true;
-      else if(flag in legacyState||flag in currentState)merged[flag]=false;
+  const safetyFlags=['hidden','muted','locked','solo'];
+  const applyMap=map=>{
+    const entries=Object.entries(map)
+      .filter(([,state])=>state&&typeof state==='object'&&!Array.isArray(state))
+      .sort(([a],[b])=>{
+        const aCanonical=canonicalTrackStateKey(a),bCanonical=canonicalTrackStateKey(b);
+        const aExact=a===aCanonical?1:0,bExact=b===bCanonical?1:0;
+        return aExact-bExact;
+      });
+    for(const [key,state] of entries){
+      const canonical=canonicalTrackStateKey(key);
+      const previous=result[canonical]&&typeof result[canonical]==='object'?result[canonical]:{};
+      const merged={...previous,...clone(state)};
+      for(const flag of safetyFlags){
+        if(previous[flag]===true||state[flag]===true)merged[flag]=true;
+        else if(flag in previous||flag in state)merged[flag]=false;
+      }
+      result[canonical]=merged;
     }
-    if(Object.keys(merged).length)result[key]=merged;
-  }
+  };
+  applyMap(old);
+  applyMap(modern);
   return result;
 }
 class ProfitMenteProjectMigrationEngine{
@@ -130,5 +147,5 @@ class ProfitMenteProjectMigrationEngine{
     return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds,durationExtended:duration>declaredDuration}};
   }
 }
-return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,normalizeTrackStateMap,ensureUniqueIds,countIdentityRepairs,contentDuration};
+return {ProfitMenteProjectMigrationEngine,CURRENT_VERSION,normalizeMode,normalizeFormat,normalizeClip,normalizeMarkers,normalizeTrackStateMap,canonicalTrackStateKey,ensureUniqueIds,countIdentityRepairs,contentDuration};
 });
