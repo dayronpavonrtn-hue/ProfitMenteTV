@@ -9,6 +9,7 @@ semantic ``solo`` flag, stale internal Solo bookkeeping, or the legacy
 """
 from __future__ import annotations
 import copy
+import math
 
 VISUAL_TRACKS=(0,1,2,3)
 AUDIO_TRACKS=(4,5,6)
@@ -54,6 +55,24 @@ def _base_muted(state):
     return bool(state.get('muted',False))
 
 
+def _canonical_track(value):
+    """Return an integer for legacy numeric track values when that is lossless.
+
+    Older/imported JSON can contain ``"0"`` or ``"0.0"``. The validator accepts
+    those as integral track numbers, while several FFmpeg selection paths use exact
+    integer membership checks. Canonicalizing the render copy prevents a validated
+    project from silently losing its visual/audio clips during export. Invalid or
+    fractional values stay untouched so downstream validation can reject them.
+    """
+    try:
+        parsed=float(value)
+    except (TypeError,ValueError):
+        return value
+    if not math.isfinite(parsed) or not parsed.is_integer():
+        return value
+    return int(parsed)
+
+
 def normalize_track_solo(project):
     """Return a deep-copied project with one effective canonical trackState.
 
@@ -62,8 +81,14 @@ def normalize_track_solo(project):
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
+    Numeric legacy clip tracks are also canonicalized to integers in this copy.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
+    clips=out.get('clips')
+    if isinstance(clips,list):
+        for clip in clips:
+            if isinstance(clip,dict) and 'track' in clip:
+                clip['track']=_canonical_track(clip.get('track'))
     current=out.get('trackState')
     current=current if isinstance(current,dict) else {}
     legacy=out.get('trackStates')
