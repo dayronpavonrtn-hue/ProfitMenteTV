@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'studio/media-library-tools.js'
+      - 'studio/media-library-cross-project-guard.js'
       - 'studio/media-inspector.js'
       - 'studio/test_media_library_cleanup.mjs'
       - '.github/workflows/media-library-cleanup-qa.yml'
@@ -22,9 +23,13 @@ jobs:
           node-version: '22'
       - name: Check engine syntax
         run: node --check studio/media-library-tools.js
+      - name: Check cross-project cleanup guard syntax
+        run: node --check studio/media-library-cross-project-guard.js
       - name: Check library integration syntax
         run: node --check studio/media-inspector.js
       - name: Test unused media cleanup
         run: node studio/test_media_library_cleanup.mjs
-      - name: Verify Studio loads library tools
-        run: grep -q "media-library-tools.js" studio/media-inspector.js
+      - name: Verify Studio loads library tools and cleanup guard
+        run: |
+          grep -q "media-library-tools.js" studio/media-inspector.js
+          grep -q "media-library-cross-project-guard.js" studio/media-inspector.js
