@@ -33,6 +33,7 @@
     }
     static plan(project,assets=[]){
       const s=this.inspect(project,assets),steps=['repair'];
+      if(s.assets)steps.push('fill-visual-gaps');
       if(s.voice&&s.music)steps.push('smart-mix');
       if(s.music||s.voice||s.sfx){if(!s.beats)steps.push('detect-beats');if(s.generated>1)steps.push('sync-beats')}
       if(s.generated>1)steps.push('auto-transitions');
