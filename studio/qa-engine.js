@@ -4,7 +4,22 @@ class ProfitMenteQAEngine{
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>a.id));
     const VISUAL_TRACKS=[0,1,2,3],AUDIO_TRACKS=[4,5,6];
     const state=track=>{
-      const read=states=>{const value=states?.[track]??states?.[String(track)]??{};return value&&typeof value==='object'?value:{}};
+      const target=Number(track);
+      const read=states=>{
+        if(!states||typeof states!=='object')return {};
+        const merged={hidden:false,muted:false,locked:false,solo:false};
+        for(const [key,value] of Object.entries(states)){
+          if(!value||typeof value!=='object')continue;
+          const numeric=Number(key);
+          if((Number.isFinite(target)&&Number.isFinite(numeric)&&numeric===target)||key===String(track)){
+            merged.hidden=merged.hidden||!!value.hidden;
+            merged.muted=merged.muted||!!value.muted;
+            merged.locked=merged.locked||!!value.locked;
+            merged.solo=merged.solo||!!value.solo;
+          }
+        }
+        return merged;
+      };
       const modern=read(project.trackState),legacy=read(project.trackStates);
       return {hidden:!!(modern.hidden||legacy.hidden),muted:!!(modern.muted||legacy.muted),locked:!!(modern.locked||legacy.locked),solo:!!(modern.solo||legacy.solo)};
     };
