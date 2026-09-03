@@ -15,9 +15,52 @@ VISUAL_TRACKS=(0,1,2,3)
 AUDIO_TRACKS=(4,5,6)
 
 
+def _canonical_track(value):
+    """Return an integer for legacy numeric track values when that is lossless.
+
+    Older/imported JSON can contain ``"0"`` or ``"0.0"``. The validator accepts
+    those as integral track numbers, while several FFmpeg selection paths use exact
+    integer membership checks. Canonicalizing the render copy prevents a validated
+    project from silently losing its visual/audio clips during export. Invalid or
+    fractional values stay untouched so downstream validation can reject them.
+    """
+    try:
+        parsed=float(value)
+    except (TypeError,ValueError):
+        return value
+    if not math.isfinite(parsed) or not parsed.is_integer():
+        return value
+    return int(parsed)
+
+
 def _state(states, track):
-    value=states.get(str(track),states.get(track,{}))
-    return dict(value) if isinstance(value,dict) else {}
+    """Read one semantic track even when persisted map keys use legacy numerics.
+
+    JSON object keys are strings, and old/imported projects can therefore carry
+    aliases such as ``"0.0"`` or ``"06"``. Merge every lossless numeric alias so
+    safety flags cannot be bypassed by a duplicate key, while the canonical key
+    remains authoritative for ordinary values.
+    """
+    if not isinstance(states,dict):
+        return {}
+    aliases=[]
+    for key,value in states.items():
+        if _canonical_track(key)==track and isinstance(value,dict):
+            aliases.append((key,value))
+    if not aliases:
+        return {}
+    merged={}
+    canonical_key=str(track)
+    for key,value in aliases:
+        if key!=canonical_key:
+            merged.update(value)
+    for key,value in aliases:
+        if key==canonical_key:
+            merged.update(value)
+    for flag in ('hidden','muted','solo'):
+        if any(bool(value.get(flag,False)) for _,value in aliases):
+            merged[flag]=True
+    return merged
 
 
 def _merged_state(current, legacy, track):
@@ -55,24 +98,6 @@ def _base_muted(state):
     return bool(state.get('muted',False))
 
 
-def _canonical_track(value):
-    """Return an integer for legacy numeric track values when that is lossless.
-
-    Older/imported JSON can contain ``"0"`` or ``"0.0"``. The validator accepts
-    those as integral track numbers, while several FFmpeg selection paths use exact
-    integer membership checks. Canonicalizing the render copy prevents a validated
-    project from silently losing its visual/audio clips during export. Invalid or
-    fractional values stay untouched so downstream validation can reject them.
-    """
-    try:
-        parsed=float(value)
-    except (TypeError,ValueError):
-        return value
-    if not math.isfinite(parsed) or not parsed.is_integer():
-        return value
-    return int(parsed)
-
-
 def normalize_track_solo(project):
     """Return a deep-copied project with one effective canonical trackState.
 
@@ -81,7 +106,7 @@ def normalize_track_solo(project):
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
-    Numeric legacy clip tracks are also canonicalized to integers in this copy.
+    Numeric legacy clip tracks and track-state keys are canonicalized in this copy.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
     clips=out.get('clips')
