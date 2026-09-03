@@ -26,6 +26,26 @@ assert.ok(migrated.project.clips[1].id);
 assert.ok(migrated.project.clips[1].duration>=.05);
 assert.equal(old.version,'1.3','migration must not mutate the source object');
 
+const numericStrings=engine.migrate({version:'1.7',name:'Legacy numeric strings',mode:'Manual',duration:'8',format:'9:16',clips:[
+  {id:'legacy-values',track:'0',name:'Legacy clip',start:'1.5',duration:'4',sourceOffset:'2.25',speed:'1.5',volume:'0.8',sourceVolume:'1.2',positionX:'-12',positionY:'18',scale:'1.25',rotation:'-45',opacity:'0.65',fadeIn:'0.2',fadeOut:'0.35'}
+]});
+const migratedValues=numericStrings.project.clips[0];
+for(const key of ['track','start','duration','sourceOffset','speed','volume','sourceVolume','positionX','positionY','scale','rotation','opacity','fadeIn','fadeOut'])assert.equal(typeof migratedValues[key],'number',`${key} must be numeric after browser-storage migration`);
+assert.equal(migratedValues.start+migratedValues.duration,5.5,'migrated timeline timing must remain arithmetic-safe');
+assert.equal(migratedValues.sourceOffset+1,3.25,'migrated source offsets must not concatenate');
+assert.equal(migratedValues.fadeIn+migratedValues.fadeOut,.55,'migrated fades must remain arithmetic-safe');
+
+const malformedEditNumbers=engine.migrate({version:'1.7',name:'Malformed edit values',mode:'Manual',duration:4,format:'9:16',clips:[
+  {id:'bad-values',track:0,start:0,duration:4,volume:'not-a-number',opacity:'Infinity',scale:'NaN',rotation:'999',fadeIn:'99',fadeOut:'-2'}
+]});
+const repairedValues=malformedEditNumbers.project.clips[0];
+assert.equal('volume' in repairedValues,false,'invalid optional numeric fields should be removed during recovery');
+assert.equal('opacity' in repairedValues,false,'non-finite optional numeric fields should be removed during recovery');
+assert.equal('scale' in repairedValues,false,'NaN optional numeric fields should be removed during recovery');
+assert.equal(repairedValues.rotation,180,'recoverable edit numbers should clamp to Studio limits');
+assert.equal(repairedValues.fadeIn,4,'fade in should clamp to recovered clip duration');
+assert.equal(repairedValues.fadeOut,0,'fade out should clamp to zero instead of remaining negative');
+
 const overhang=engine.migrate({version:'1.6',name:'Recovered long edit',mode:'Manual',duration:12,format:'16:9',trackStates:{0:{locked:true}},clips:[
   {id:'early',track:0,name:'Early',start:0,duration:5,locked:true},
   {id:'late',track:0,name:'Late protected take',start:40,duration:7,locked:true,asset:'camera-a'}
