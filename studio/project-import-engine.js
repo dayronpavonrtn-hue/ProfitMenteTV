@@ -33,7 +33,9 @@ class ProfitMenteProjectImportEngine{
       // cannot disagree (for example sourceOffset + localTime must never concatenate).
       copy.track=track;copy.start=start;copy.duration=clipDuration;
       normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');
-      normalizeOptionalNumber(copy,'sourceOffset',0,86400,'Punto de entrada del medio');
+      // sourceOffset belongs to the source asset, not the project timeline. Long source
+      // files may legitimately start past 24h, so only require a finite non-negative value.
+      normalizeOptionalNumber(copy,'sourceOffset',0,Infinity,'Punto de entrada del medio');
       normalizeOptionalNumber(copy,'volume',0,2,'Volumen de clip');
       normalizeOptionalNumber(copy,'sourceVolume',0,2,'Volumen de audio original');
       normalizeOptionalNumber(copy,'positionX',-100,100,'Posición X');
