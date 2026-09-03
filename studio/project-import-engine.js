@@ -1,11 +1,19 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectImportEngine=api.ProfitMenteProjectImportEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectImportEngine{
   constructor(defaults={version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}){this.defaults=defaults}
-  normalize(input){
+  unwrap(input){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Proyecto JSON inválido');
-    if(!Array.isArray(input.clips))throw new Error('Timeline de proyecto inválida');
-    if(input.clips.length>10000)throw new Error('Timeline demasiado grande para importar');
-    const p=structuredClone(input),out={...structuredClone(this.defaults),...p};
+    if(input.kind==='profitmente-studio-project'){
+      if(!input.project||typeof input.project!=='object'||Array.isArray(input.project))throw new Error('Contenido de proyecto inválido');
+      return input.project;
+    }
+    return input;
+  }
+  normalize(input){
+    const source=this.unwrap(input);
+    if(!Array.isArray(source.clips))throw new Error('Timeline de proyecto inválida');
+    if(source.clips.length>10000)throw new Error('Timeline demasiado grande para importar');
+    const p=structuredClone(source),out={...structuredClone(this.defaults),...p};
     out.name=typeof p.name==='string'&&p.name.trim()?p.name.trim().slice(0,160):'Proyecto importado';
     out.mode=p.mode==='Automático'?'Automático':'Manual';
     const duration=Number(p.duration);
