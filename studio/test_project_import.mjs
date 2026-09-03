@@ -24,6 +24,11 @@ assert.equal(stringTiming.clips[0].track,1,'track is canonicalized to a number')
 assert.equal(stringTiming.clips[0].start,2.5,'clip start is canonicalized to a number');
 assert.equal(stringTiming.clips[0].duration,3.25,'clip duration is canonicalized to a number');
 assert.equal(stringTiming.clips[0].start+stringTiming.clips[0].duration,5.75,'canonical timing must remain arithmetic-safe after import');
+const editNumbers=engine.normalize({duration:12,format:'9:16',clips:[{id:'legacy-edit',track:'0',start:'1',duration:'4',speed:'1.5',sourceOffset:'2.25',volume:'0.8',sourceVolume:'1.2',positionX:'-12',positionY:'18',scale:'1.25',rotation:'-45',opacity:'0.65',fadeIn:'0.2',fadeOut:'0.35'}]});
+for(const key of ['speed','sourceOffset','volume','sourceVolume','positionX','positionY','scale','rotation','opacity','fadeIn','fadeOut'])assert.equal(typeof editNumbers.clips[0][key],'number',`${key} must be canonicalized to a number`);
+assert.equal(editNumbers.clips[0].sourceOffset+1,3.25,'sourceOffset arithmetic must not concatenate after import');
+assert.equal(editNumbers.clips[0].speed*2,3,'speed remains arithmetic-safe after import');
+assert.equal(editNumbers.clips[0].fadeIn+editNumbers.clips[0].fadeOut,.55,'audio envelope values remain arithmetic-safe after import');
 assert.throws(()=>engine.normalize(null),/inválido/);
 assert.throws(()=>engine.normalize({duration:0,format:'9:16',clips:[]}),/Duración/,'zero duration must not silently become a different project');
 assert.throws(()=>engine.normalize({duration:10,format:'4:5',clips:[]}),/Formato/,'unsupported 4:5 must be rejected instead of silently becoming 9:16');
@@ -37,6 +42,9 @@ assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,st
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{track:0,start:10,duration:1}]}),/duración del proyecto/,'clips starting at or beyond the project end must be rejected');
 assert.throws(()=>engine.normalize({duration:86400,format:'9:16',clips:[{track:0,start:86399,duration:2}]}),/fuera de rango/,'absurd clip endpoints must be rejected');
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{id:'dup',track:0,start:0,duration:1},{id:'dup',track:1,start:1,duration:1}]}),/duplicado/,'duplicate clip ids must be rejected before edit tools can target the wrong clip');
+for(const [field,value] of [['speed','Infinity'],['sourceOffset','NaN'],['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.01],['fadeIn',4.1],['fadeOut',-0.1]]){
+  assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:[{id:`bad-${field}`,track:0,start:0,duration:4,[field]:value}]}),/inválido/,`${field} outside Studio's editable range must be rejected during import`);
+}
 const tooMany=Array.from({length:10001},(_,i)=>({id:`c${i}`,track:0,start:0,duration:1}));
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:tooMany}),/demasiado grande/,'huge timelines must be bounded before cloning every clip');
 console.log('Safe project import QA passed');
