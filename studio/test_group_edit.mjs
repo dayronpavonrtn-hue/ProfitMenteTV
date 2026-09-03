@@ -27,6 +27,7 @@ const removed=engine.remove(project,anchor);
 assert.equal(removed.length,2);
 assert.equal(project.clips.some(c=>c.groupId==='g1'),false);
 assert.equal(project.clips.length,3);
+assert.equal(project.duration,12,'an intentional tail beyond content must survive a normal grouped delete');
 
 const solo=project.clips.find(c=>c.id==='solo');
 const soloDup=engine.duplicate(project,solo,{idFactory,offset:.5});
@@ -55,4 +56,34 @@ assert.equal(legacyDup.reason,'locked');
 assert.equal(legacyDup.copies.length,0);
 assert.deepEqual(engine.remove(legacyLocked,legacyLocked.clips[0]),[]);
 assert.equal(JSON.stringify(legacyLocked),legacyBefore,'blocked grouped edits must not mutate legacy-locked projects');
+
+const contentBound={duration:12,clips:[
+  {id:'keep',track:0,start:0,duration:5},
+  {id:'tail-v',groupId:'tail',track:0,start:5,duration:7},
+  {id:'tail-a',groupId:'tail',track:5,start:5.5,duration:6.5}
+]};
+const tailRemoved=engine.remove(contentBound,contentBound.clips[1]);
+assert.equal(tailRemoved.length,2);
+assert.equal(contentBound.clips.length,1);
+assert.equal(contentBound.duration,5,'normal grouped delete must shrink content-bound duration and prevent a stale blank render tail');
+
+const explicitTail={duration:20,clips:[
+  {id:'keep-tail',track:0,start:0,duration:5},
+  {id:'remove-tail',track:0,start:5,duration:7}
+]};
+engine.remove(explicitTail,explicitTail.clips[1]);
+assert.equal(explicitTail.duration,20,'normal delete must preserve an explicit project tail beyond prior content');
+
+const middleDelete={duration:12,clips:[
+  {id:'first',track:0,start:0,duration:4},
+  {id:'middle',track:0,start:4,duration:3},
+  {id:'last',track:0,start:7,duration:5}
+]};
+engine.remove(middleDelete,middleDelete.clips[1]);
+assert.equal(middleDelete.duration,12,'deleting a middle clip must not shorten duration while later content still reaches the project end');
+
+const lastClip={duration:4,clips:[{id:'only',track:0,start:0,duration:4}]};
+engine.remove(lastClip,lastClip.clips[0]);
+assert.equal(lastClip.duration,0,'deleting the final content-bound clip must clear stale duration');
+
 console.log('ProfitMente grouped edit QA passed');
