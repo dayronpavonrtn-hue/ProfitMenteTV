@@ -63,13 +63,19 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIn
       el.appendChild(card)
     }
   };
-  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}
   async function upgradeExisting(){
     let changed=0,unreadable=0;
     for(let i=0;i<assets.length;i++)if(assets[i]?.blob&&assets[i].metadataVersion!==inspector.version){const next=await inspector.inspect(assets[i]);assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}
     if(changed){drawLibrary();setStatus(unreadable?`${changed} medios analizados · ${unreadable} no se pueden decodificar`:`${changed} medios analizados · duración, resolución y miniaturas listas`)}
   }
+  function loadCleanupGuard(){
+    if(window.ProfitMenteMediaLibraryCrossProjectGuard||document.querySelector('script[data-profitmente-media-cross-project-guard]'))return;
+    const s=document.createElement('script');s.src='media-library-cross-project-guard.js';s.dataset.profitmenteMediaCrossProjectGuard='1';document.body.appendChild(s);
+  }
   setTimeout(upgradeExisting,50);
   window.profitMenteMediaInspector=inspector;
-  if(!document.querySelector('script[data-profitmente-media-library-tools]')){const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';document.body.appendChild(s)}
+  if(!document.querySelector('script[data-profitmente-media-library-tools]')){
+    const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';s.onload=loadCleanupGuard;document.body.appendChild(s)
+  }else if(window.ProfitMenteMediaLibraryTools)loadCleanupGuard();
 })();
