@@ -33,11 +33,16 @@ assert.equal(noNewBytes.checked,false,'duplicates/zero-byte persistence plans sh
 
 const estimateIndex=source.indexOf('navigator?.storage?.estimate');
 const gateIndex=source.indexOf('engine.assertStorageCapacity(pendingNew,estimate)');
-const persistIndex=source.indexOf('for(const migration of pendingMigrations)');
+const atomicIndex=source.indexOf('persistBatchAtomic(pendingMigrations,pendingNew)');
+const memoryCommitIndex=source.indexOf('for(const migration of pendingMigrations){Object.assign');
 assert.ok(estimateIndex>=0,'browser storage estimate must be wired into normal media import');
 assert.ok(gateIndex>estimateIndex,'capacity gate must run after obtaining the estimate');
-assert.ok(persistIndex>gateIndex,'capacity gate must run before duplicate migrations or new media writes');
+assert.ok(atomicIndex>gateIndex,'atomic persistence must run after capacity preflight');
+assert.ok(memoryCommitIndex>atomicIndex,'in-memory library state must change only after the IndexedDB transaction succeeds');
+assert.match(source,/database\.transaction\(STORE,'readwrite'\)/,'new media and identity migrations must share one IndexedDB transaction');
+assert.match(source,/tx\.onabort=.*reject/,'aborted batch transactions must reject the import');
+assert.match(source,/transactionFailed:true/,'storage transaction failures must be explicit to callers');
 assert.match(source,/pendingNew\.push\(asset\)/,'new media must be staged before persistence');
 assert.match(source,/blocked:true/,'blocked imports must return an explicit non-destructive result');
 
-console.log('normal media import storage preflight regression passed');
+console.log('normal media import storage preflight and atomic persistence regression passed');
