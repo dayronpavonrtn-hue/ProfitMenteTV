@@ -11,10 +11,20 @@
     values(){return [...this.ids]}
     get count(){return this.ids.size}
     clips(project){const ids=this.ids;return (project?.clips||[]).filter(c=>ids.has(String(c.id)))}
-    trackState(project,track){const state=project?.trackState||{};const value=state[track]??state[String(track)]??{};return value&&typeof value==='object'?value:{}}
-    isLocked(project,clip){return !!this.trackState(project,Number(clip?.track)).locked}
+    trackState(project,track){
+      const key=String(track),modern=project?.trackState||{},legacy=project?.trackStates||{};
+      const a=modern[track]??modern[key]??{},b=legacy[track]??legacy[key]??{};
+      return {...(b&&typeof b==='object'?b:{}),...(a&&typeof a==='object'?a:{})}
+    }
+    isLocked(project,clip){return !!clip?.locked||!!this.trackState(project,Number(clip?.track)).locked}
     editable(project){return this.clips(project).filter(c=>!this.isLocked(project,c))}
     bounds(clip){const start=Math.max(0,Number(clip?.start)||0),duration=Math.max(0,Number(clip?.duration)||0);return {start,end:start+duration}}
+    maxEnd(project){return (project?.clips||[]).reduce((max,c)=>Math.max(max,this.bounds(c).end),0)}
+    syncDurationAfterShrink(project,oldMaxEnd){
+      const duration=Math.max(0,Number(project?.duration)||0),previous=Math.max(0,Number(oldMaxEnd)||0);
+      if(duration<=previous+.001)project.duration=+this.maxEnd(project).toFixed(3);
+      return Math.max(0,Number(project?.duration)||0)
+    }
     overlaps(a,b){const x=this.bounds(a),y=this.bounds(b);return x.start<y.end-1e-6&&y.start<x.end-1e-6}
     arrangementSelection(project,minCount=2,{sameTrack=false}={}){
       const clips=this.clips(project);
@@ -68,7 +78,9 @@
     }
     remove(project){
       const selected=this.clips(project),removable=selected.filter(c=>!this.isLocked(project,c)),removeIds=new Set(removable.map(c=>String(c.id)));
+      const oldMaxEnd=this.maxEnd(project);
       project.clips=(project.clips||[]).filter(c=>!removeIds.has(String(c.id)));
+      if(removable.length)this.syncDurationAfterShrink(project,oldMaxEnd);
       const locked=selected.filter(c=>this.isLocked(project,c)).map(c=>c.id);this.set(locked);
       return {removed:removable.length,blocked:locked.length,remaining:this.values()}
     }
@@ -84,12 +96,14 @@
       if(blockers.length)return {removed:0,shifted:0,gap:+gap.toFixed(3),blocked:blockers.length,blockers:blockers.map(c=>c.id),reason:'overlap'};
       const lockedAfter=(project?.clips||[]).filter(c=>!selectedIds.has(String(c.id))&&this.isLocked(project,c)&&this.bounds(c).start>=end-1e-6);
       if(lockedAfter.length)return {removed:0,shifted:0,gap:+gap.toFixed(3),blocked:lockedAfter.length,blockers:lockedAfter.map(c=>c.id),reason:'locked-after'};
+      const oldMaxEnd=this.maxEnd(project);
       project.clips=(project.clips||[]).filter(c=>!selectedIds.has(String(c.id)));
       let shifted=0;
       for(const c of project.clips){
         if(this.isLocked(project,c))continue;
         const b=this.bounds(c);if(b.start>=end-1e-6){c.start=+(Math.max(0,b.start-gap)).toFixed(3);shifted++}
       }
+      this.syncDurationAfterShrink(project,oldMaxEnd);
       this.clear();
       return {removed:selected.length,shifted,gap:+gap.toFixed(3),blocked:0,start:+start.toFixed(3),end:+end.toFixed(3),reason:'ok'}
     }
