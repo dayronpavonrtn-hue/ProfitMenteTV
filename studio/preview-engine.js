@@ -130,21 +130,22 @@
     // of the preview silently showing only the first active caption.
     for(const cap of activeCaptions(t))drawCaptionClip(cap,t);
   }
+  function drawPreviewFallback(hasActiveMedia){
+    const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;
+    ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';
+    ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2);
+  }
   renderAt=async function(t){
     const epoch=++renderEpoch;
     ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
     // Match render_mp4.py stacking: lower tracks first, then earlier clip starts.
     // This makes same-track overlaps deterministic regardless of project array order.
     const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>(Number(a.track)-Number(b.track))||(Number(a.start||0)-Number(b.start||0)));
-    if(!active.length){
-      if(epoch!==renderEpoch)return;
-      $('#placeholder').hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2);
-    }else{
-      $('#placeholder').hidden=true;
-      for(const c of active){await drawClip(c,t,epoch);if(epoch!==renderEpoch)return}
-    }
+    let painted=0;
+    for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}
     if(epoch!==renderEpoch)return;
+    if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}
     drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
