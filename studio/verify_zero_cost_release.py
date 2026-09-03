@@ -6,7 +6,8 @@ Checks the critical editor/runtime pieces together without paid services:
 - JavaScript editor integrity and automatic mode regressions
 - media import/library identity, storage fallback and safe relinking
 - multilayer timeline placement and preview freshness
-- project persistence/recovery/JSON transfer and portable bundles
+- project persistence/recovery/migration/JSON transfer and portable bundles
+- render-job recovery plus legacy project/render compatibility
 - export preflight, render-quality/parity configuration and output QC
 - local server API
 - real FFmpeg end-to-end MP4 smoke render
@@ -63,6 +64,7 @@ def main() -> None:
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
+        ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
@@ -70,13 +72,19 @@ def main() -> None:
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
+        ("proyectos", "Persistencia después de restaurar recuperación", [node, "test_recovery_restore_persistence.mjs"]),
+        ("proyectos", "Migración canónica de proyectos heredados", [node, "test_project_migration.mjs"]),
         ("proyectos", "Importación JSON heredada segura", [node, "test_project_import.mjs"]),
         ("proyectos", "Transferencia JSON segura", [node, "project-transfer-regression.test.js"]),
         ("portabilidad", "Paquete con identidad de medios", [node, "test_bundle_media_identity.mjs"]),
+        ("portabilidad", "Preflight de espacio al restaurar paquete completo", [node, "test_bundle_import_storage_preflight.mjs"]),
         ("exportacion", "Preflight antes de exportar", [node, "test_export_preflight.mjs"]),
+        ("render", "Recuperación de trabajo MP4 tras recarga/red", [node, "test_render_job_recovery.mjs"]),
+        ("render", "Compatibilidad de estados de pista heredados", [node, "test_track_state_legacy_parity.mjs"]),
         ("render", "Configuración de calidad MP4", [node, "test_render_quality.mjs"]),
         ("render", "Presets de render Python", [py, "test_render_quality.py"]),
         ("render", "Paridad Preview a MP4", [py, "test_render_parity_preflight.py"]),
+        ("render", "Render MP4 con pistas heredadas normalizadas", [py, "test_render_mp4_legacy_state.py"]),
         ("servidor", "API local de Studio", [py, "test_server_api.py"]),
         ("exportacion", "Render MP4 real end-to-end", [py, "smoke_test.py"]),
         ("calidad", "Control de calidad del MP4 final", [py, "test_output_qc.py"]),
