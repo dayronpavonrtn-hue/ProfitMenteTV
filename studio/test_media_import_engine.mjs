@@ -56,6 +56,18 @@ assert.equal(E.findDuplicateForHashes([modernAsset],largeA,hashesA)?.id,'modern-
 const legacyAsset={id:'legacy-a',name:'large-a.mp4',mime:'video/mp4',blob:{size:largeSize},sourceLastModified:123,sourceFingerprint:E.signature(largeA),sourceContentHash:legacyA};
 assert.equal(E.findDuplicateForHashes([legacyAsset],largeA,hashesA)?.id,'legacy-a','same legacy asset with matching metadata must remain deduplicated after hash upgrade');
 assert.equal(E.findDuplicateForHashes([legacyAsset],largeB,hashesB),null,'ambiguous legacy hash collision with different metadata must import safely instead of dropping media');
+const migrated=E.upgradedDuplicateIdentity(legacyAsset,hashesA);
+assert.equal(migrated.changed,true,'legacy duplicate must request an identity upgrade');
+assert.notEqual(migrated.asset,legacyAsset,'identity migration must be copy-on-write so persistence can fail atomically');
+assert.equal(legacyAsset.sourceContentHash,legacyA,'migration must not mutate the live asset before persistence succeeds');
+assert.equal(migrated.asset.sourceContentHash,modernA,'legacy duplicate must adopt the modern sample-v2 identity');
+assert.equal(migrated.asset.sourceLegacyContentHash,legacyA,'legacy identity must remain available for backwards compatibility');
+assert.equal(migrated.asset.sourceHashVersion,'sample-v2');
+const alreadyModern=E.upgradedDuplicateIdentity(modernAsset,hashesA);
+assert.equal(alreadyModern.changed,false,'already migrated media must not trigger redundant IndexedDB writes');
+assert.equal(alreadyModern.asset.sourceFingerprint,modernAsset.sourceFingerprint,'migration must preserve original file metadata and fingerprint');
+const unavailableHashMigration=E.upgradedDuplicateIdentity(legacyAsset,{current:'',legacy:'',version:'sample-v2'});
+assert.equal(unavailableHashMigration.changed,false,'signature-only fallback must not invent a modern identity when hashing is unavailable');
 
 function mediaBlob(name,type='video/mp4',bytes=name){const blob=new Blob([bytes],{type});Object.defineProperty(blob,'name',{value:name});Object.defineProperty(blob,'lastModified',{value:77});return blob}
 function fileEntry(path,file){return {isFile:true,isDirectory:false,fullPath:path,file(resolve){resolve(file)}}}
