@@ -44,4 +44,13 @@ const validateAt=integration.indexOf('normalizeRestoredProject(value)');
 const migrateAt=integration.indexOf('migrateRestoredProject(restored.project)');
 const prepareAt=integration.indexOf('importer.prepare(normalized');
 assert.ok(validateAt>=0&&migrateAt>=0&&prepareAt>migrateAt,'validation and migration must finish before asset remapping and project persistence');
+
+assert.match(integration,/const previousAssets=.*previousProject=/s,'bundle restore must snapshot the active Studio state before persistence');
+assert.match(integration,/persistedIds\.push\(asset\.id\)/,'every newly persisted bundle asset must be tracked for rollback');
+assert.match(integration,/rollbackPersistedAssets\(persistedIds\)/,'failed imports must delete media already written by the same attempt');
+assert.match(integration,/library\.remove\(createdLibraryId\)/,'a newly created library project must be removed when activation fails');
+assert.match(integration,/project=previousProject/,'failed activation must restore the previous project in memory');
+assert.match(integration,/assets=previousAssets/,'failed activation must restore the previous media library in memory');
+assert.match(integration,/\.reverse\(\)/,'rollback should unwind newly persisted assets in reverse write order');
+assert.match(integration,/ProfitMenteMediaStorageResilience/,'bundle rollback should use the resilient storage delete path when available');
 console.log('Safe bundle import regression OK');
