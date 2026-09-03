@@ -5,8 +5,16 @@
     static get AUDIO_TRACKS(){return [4,5,6]}
     static readState(states,track){
       if(!states||typeof states!=='object')return {};
-      const value=states[String(track)]??states[track];
-      return value&&typeof value==='object'&&!Array.isArray(value)?{...value}:{};
+      const target=Number(track),merged={};
+      for(const [key,value] of Object.entries(states)){
+        if(!value||typeof value!=='object'||Array.isArray(value))continue;
+        const numeric=Number(key);
+        if((Number.isFinite(target)&&Number.isFinite(numeric)&&numeric===target)||key===String(track)){
+          Object.assign(merged,value);
+          for(const flag of ['hidden','muted','locked','solo'])if(value[flag]===true)merged[flag]=true;
+        }
+      }
+      return merged;
     }
     static mergeTrackState(project){
       const current=project?.trackState&&typeof project.trackState==='object'?project.trackState:{};
