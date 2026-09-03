@@ -33,6 +33,15 @@
     const ph=document.querySelector('#playhead');if(ph)ph.value=0;
     if(typeof renderAt==='function')await renderAt(0);
   }
+  async function storageEstimate(){
+    try{if(typeof navigator!=='undefined'&&navigator.storage?.estimate)return await navigator.storage.estimate()}catch(err){console.warn('ProfitMente storage estimate unavailable',err)}
+    return null;
+  }
+  async function assertImportStorageCapacity(persistAssets=[]){
+    if(!persistAssets.length)return {ok:true,checked:false,required:0};
+    const estimate=await storageEstimate();if(!estimate)return {ok:true,checked:false,required:importer.requiredPersistBytes?.(persistAssets)||0};
+    return importer.assertStorageCapacity?importer.assertStorageCapacity(persistAssets,estimate):{ok:true,checked:false};
+  }
   async function removePersistedAsset(id){
     const resilient=window.ProfitMenteMediaStorageResilience;
     if(resilient?.resilientDelete)return resilient.resilientDelete(id);
@@ -53,6 +62,8 @@
       const restored=await bundler.parse(file);
       const normalized=migrateRestoredProject(restored.project);
       const prepared=importer.prepare(normalized,restored.assets,Array.isArray(previousAssets)?previousAssets:[]);
+      const storage=await assertImportStorageCapacity(prepared.assetsToPersist);
+      if(storage?.checked&&storage.required)status(`Espacio local verificado · restaurando ${(storage.required/1048576).toFixed(1)} MB de medios…`);
       for(const asset of prepared.assetsToPersist){if(typeof putAsset!=='function')throw new Error('El almacén local de medios no está disponible');await putAsset(asset);persistedIds.push(asset.id)}
       const library=window.profitMenteProjectLibrary,nextProject=library?.save?library.save(prepared.project):prepared.project;
       createdLibraryId=nextProject?.libraryId||null;
@@ -72,5 +83,5 @@
     }
   }
   button.onclick=()=>input.click();input.onchange=e=>{const file=e.target.files?.[0];e.target.value='';void importBundleFile(file)};
-  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets};
+  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets,assertImportStorageCapacity};
 })();
