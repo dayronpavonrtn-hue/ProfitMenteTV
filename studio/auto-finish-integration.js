@@ -53,6 +53,16 @@
       for(const step of plan.steps){
         if(step==='repair'){
           const r=window.ProfitMenteQAAutofix?.repair?.(project,assets);if(r){completed.push(`reparación ${r.changed||0}`)}else skipped.push('reparación');
+        }else if(step==='fill-visual-gaps'){
+          if(window.profitMenteVisualGapFill?.run){
+            const r=window.profitMenteVisualGapFill.run(true),created=Array.isArray(r?.created)?r.created.length:0,unresolved=Array.isArray(r?.unresolved)?r.unresolved:[];
+            const reasons=new Set(unresolved.map(item=>item?.reason).filter(Boolean));
+            if(created)completed.push(`huecos visuales ${created}`);
+            else if(reasons.has('visual-tracks-locked'))skipped.push('huecos visuales protegidos');
+            else if(reasons.has('visual-tracks-hidden'))skipped.push('huecos visuales ocultos');
+            else if(unresolved.length)skipped.push('huecos visuales sin medios');
+            else completed.push('huecos visuales 0');
+          }else skipped.push('huecos visuales');
         }else if(step==='smart-mix'){
           if(window.ProfitMenteSmartMix?.apply){await window.ProfitMenteSmartMix.apply();completed.push('mezcla')}else skipped.push('mezcla');
         }else if(step==='detect-beats'){
@@ -121,7 +131,7 @@
   function install(){
     const anchor=$('#generateBtn')||$('#qaBtn');if(!anchor)return;
     let btn=$('#autoFinishBtn');
-    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, mezcla, ritmo, transiciones, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
+    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, relleno visual, mezcla, ritmo, transiciones, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
     if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
