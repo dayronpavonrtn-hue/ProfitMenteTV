@@ -40,4 +40,18 @@ with tempfile.TemporaryDirectory() as td:
     assert legacy_kinds.count('video')==1 and 'audio' in legacy_kinds, legacy_kinds
     legacy_pixel=subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-i',str(legacy_out),'-frames:v','1','-vf','scale=1:1','-f','rawvideo','-pix_fmt','rgb24','-'],check=True,capture_output=True).stdout[:3]
     assert len(legacy_pixel)==3 and legacy_pixel[0]>100 and legacy_pixel[0]>legacy_pixel[1]*2 and legacy_pixel[0]>legacy_pixel[2]*2, list(legacy_pixel)
-    print('Track-state render OK:', list(pixel), kinds, 'disabled-missing:', missing_kinds, 'legacy-string-tracks:', legacy_kinds, list(legacy_pixel))
+
+    # Track-state map keys can be legacy numeric aliases too. The state must apply to
+    # the same canonical track, and a canonical duplicate must not override a safety
+    # flag carried only by an alias.
+    alias=d/'legacy-state-alias.json'; alias_out=d/'legacy-state-alias.mp4'
+    alias_data={'version':'1.0','name':'legacy-state-alias','format':'9:16','duration':'1.0','trackState':{'0.0':{'hidden':True},'0':{'hidden':False},'06':{'muted':True}},'assets':[{'id':'v','name':'source.mp4','type':'video'},{'id':'a','name':'voice.wav','type':'audio'}],'clips':[{'id':'alias-v','track':0,'asset':'v','name':'hidden red','start':0,'duration':1.0},{'id':'alias-a','track':6,'asset':'a','name':'muted voice','start':0,'duration':1.0}]}
+    alias.write_text(json.dumps(alias_data),encoding='utf-8')
+    subprocess.run([sys.executable,str(ROOT/'validate_project.py'),str(alias),str(assets)],check=True)
+    subprocess.run([sys.executable,str(ROOT/'render_mp4.py'),str(alias),str(assets),str(alias_out)],check=True)
+    alias_probe=json.loads(subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type','-of','json',str(alias_out)],check=True,capture_output=True,text=True).stdout)
+    alias_kinds=[s.get('codec_type') for s in alias_probe.get('streams',[])]
+    assert alias_kinds.count('video')==1 and 'audio' not in alias_kinds, alias_kinds
+    alias_pixel=subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-i',str(alias_out),'-frames:v','1','-vf','scale=1:1','-f','rawvideo','-pix_fmt','rgb24','-'],check=True,capture_output=True).stdout[:3]
+    assert len(alias_pixel)==3 and max(alias_pixel)<20, list(alias_pixel)
+    print('Track-state render OK:', list(pixel), kinds, 'disabled-missing:', missing_kinds, 'legacy-string-tracks:', legacy_kinds, list(legacy_pixel), 'legacy-state-alias:', alias_kinds, list(alias_pixel))
