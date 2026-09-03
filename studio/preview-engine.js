@@ -3,7 +3,8 @@
   let renderEpoch=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
-  function assetById(id){return assets.find(a=>a.id===id)}
+  const mediaIdKey=value=>{if(value===undefined||value===null)return null;const key=String(value).trim();return key||null};
+  function assetById(id){const key=mediaIdKey(id);return key===null?undefined:assets.find(a=>mediaIdKey(a?.id)===key)}
   function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
@@ -22,9 +23,9 @@
   function transitionDuration(c,duration){const fallback=Math.min(.28,Math.max(.08,duration*.12)),raw=Number(c?.transitionDuration);return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,Math.max(.05,duration)))}
   function previewBlobFor(a){return a?.type==='video'&&a.previewBlob instanceof Blob&&a.previewBlob.size?a.previewBlob:a?.blob}
   function cachedMedia(a){
-    const blob=previewBlobFor(a),cached=mediaCache.get(a.id);
+    const blob=previewBlobFor(a),cacheKey=mediaIdKey(a?.id)??a?.id,cached=mediaCache.get(cacheKey);
     if(cached&&cached.blob===blob)return cached;
-    if(cached){try{URL.revokeObjectURL(cached.url)}catch{}mediaCache.delete(a.id)}
+    if(cached){try{URL.revokeObjectURL(cached.url)}catch{}mediaCache.delete(cacheKey)}
     const url=URL.createObjectURL(blob); let entry={url,type:a.type,blob,usingProxy:blob!==a.blob,ready:null,el:null};
     if(a.type==='image'){
       const im=new Image(); entry.el=im; entry.ready=new Promise((resolve,reject)=>{im.onload=()=>resolve(im);im.onerror=reject;im.src=url});
@@ -32,7 +33,7 @@
       const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.src=url;entry.el=v;
       entry.ready=new Promise((resolve,reject)=>{if(v.readyState>=1)resolve(v);else{v.onloadedmetadata=()=>resolve(v);v.onerror=reject;v.load()}});
     }
-    mediaCache.set(a.id,entry);return entry;
+    mediaCache.set(cacheKey,entry);return entry;
   }
   async function seekVideo(v,time){
     return new Promise(resolve=>{
@@ -116,9 +117,9 @@
   function drawPreviewFallback(hasActiveMedia){const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}
   renderAt=async function(t){
     const epoch=++renderEpoch;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&c.asset&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>(Number(a.track)-Number(b.track))||(Number(a.start||0)-Number(b.start||0)));
+    const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&mediaIdKey(c?.asset)!==null&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>(Number(a.track)-Number(b.track))||(Number(a.start||0)-Number(b.start||0)));
     let painted=0;for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
     if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
