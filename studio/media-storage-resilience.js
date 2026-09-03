@@ -27,6 +27,21 @@
     return [...memory.values()];
   }
 
+  async function resilientDelete(id){
+    const key=String(id||'').trim();if(!key)return false;
+    memory.delete(key);
+    if(degraded)return true;
+    try{
+      const d=await db();
+      await new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)});
+      return true;
+    }catch(err){
+      // Deletion is used by rollback/cleanup paths. If persistent storage has failed,
+      // keep the session internally consistent and switch to the existing memory fallback.
+      markDegraded(err);return false;
+    }
+  }
+
   // Replace the base app helpers so uploads after an IndexedDB failure remain
   // usable for the current Studio session instead of repeatedly throwing.
   if(originalPut)putAsset=resilientPut;
@@ -51,7 +66,7 @@
   window.ProfitMenteMediaStorageResilience={
     get degraded(){return degraded},
     get lastError(){return lastError},
-    resilientPut,resilientGet,recoverStartup,
+    resilientPut,resilientGet,resilientDelete,recoverStartup,
     memoryCount:()=>memory.size
   };
   recoverStartup();
