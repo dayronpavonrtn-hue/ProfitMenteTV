@@ -1,0 +1,30 @@
+name: ProfitMente Studio Bundle Import Storage QA
+
+on:
+  push:
+    paths:
+      - 'studio/bundle-import-engine.js'
+      - 'studio/bundle-import-integration.js'
+      - 'studio/test_bundle_import_storage_preflight.mjs'
+      - '.github/workflows/bundle-import-storage-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/bundle-import-engine.js'
+      - 'studio/bundle-import-integration.js'
+      - 'studio/test_bundle_import_storage_preflight.mjs'
+      - '.github/workflows/bundle-import-storage-qa.yml'
+
+jobs:
+  storage-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check bundle import syntax
+        run: |
+          node --check studio/bundle-import-engine.js
+          node --check studio/bundle-import-integration.js
+      - name: Run bundle storage preflight regression
+        run: node studio/test_bundle_import_storage_preflight.mjs
