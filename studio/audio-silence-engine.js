@@ -1,10 +1,40 @@
 class ProfitMenteAudioSilenceEngine{
+  static AUDIO_TRACKS=[4,5,6]
+  static canonicalTrack(track){
+    if(track===null||track===undefined)return null;
+    if(typeof track==='string'&&track.trim()==='')return null;
+    const value=Number(track);
+    return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
+  }
+  static canonicalMediaId(value){
+    if(value===null||value===undefined)return null;
+    if(typeof value==='string'){
+      const trimmed=value.trim();if(!trimmed)return null;
+      const numeric=Number(trimmed);
+      return Number.isFinite(numeric)?String(numeric):trimmed;
+    }
+    if(typeof value==='number'&&Number.isFinite(value))return String(value);
+    return String(value);
+  }
+  static hasAsset(value){return this.canonicalMediaId(value)!==null}
+  static sameMediaId(a,b){
+    const left=this.canonicalMediaId(a),right=this.canonicalMediaId(b);
+    return left!==null&&right!==null&&left===right;
+  }
+  static findAsset(assets,id){
+    const wanted=this.canonicalMediaId(id);if(wanted===null)return null;
+    return (assets||[]).find(asset=>this.canonicalMediaId(asset?.id)===wanted)||null;
+  }
+  static isAudioTrack(track){const t=this.canonicalTrack(track);return t!==null&&this.AUDIO_TRACKS.includes(t)}
+  static stateLocked(map,track){
+    if(!map||typeof map!=='object')return false;
+    const canonical=this.canonicalTrack(track);if(canonical===null)return false;
+    return Object.entries(map).some(([key,state])=>this.canonicalTrack(key)===canonical&&!!state?.locked);
+  }
   static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
   static trackLocked(project,track){
-    const n=Number(track);if(!Number.isFinite(n))return false;
-    const modern=project?.trackState?.[n]??project?.trackState?.[String(n)]??null;
-    const legacy=project?.trackStates?.[n]??project?.trackStates?.[String(n)]??null;
-    return !!(modern?.locked||legacy?.locked);
+    const canonical=this.canonicalTrack(track);if(canonical===null)return false;
+    return this.stateLocked(project?.trackState,canonical)||this.stateLocked(project?.trackStates,canonical);
   }
   static clipWindow(clip,bufferDuration){
     const speed=Math.max(.25,Math.min(4,Number(clip?.speed)||1));
