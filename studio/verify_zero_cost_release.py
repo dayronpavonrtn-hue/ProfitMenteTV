@@ -5,7 +5,7 @@ Checks the critical editor/runtime pieces together without paid services:
 - browser startup wiring and corrupt-state isolation
 - JavaScript editor integrity and automatic mode regressions
 - media import/library identity, storage fallback and safe relinking
-- multilayer timeline placement and preview freshness
+- multilayer timeline placement, legacy track aliases and preview freshness
 - project persistence/recovery/migration/JSON transfer and portable bundles
 - render-job recovery plus legacy project/render compatibility
 - export preflight, render-quality/parity configuration and output QC
@@ -71,6 +71,7 @@ def main() -> None:
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
         ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
+        ("timeline", "Alias heredados de pista en operaciones manuales", [node, "test_timeline_track_alias_guard.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
