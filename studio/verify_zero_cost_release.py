@@ -64,6 +64,7 @@ def main() -> None:
         ("inicio", "Carga real de herramientas avanzadas", [node, "test_feature_bootstrap_wiring.mjs"]),
         ("inicio", "Aislamiento de proyecto corrupto al arrancar", [node, "test_startup_corruption_guard.mjs"]),
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
+        ("editor", "Identidad canónica de medios y pistas en el núcleo", [node, "test_core_app_identity.mjs"]),
         ("editor", "Copiar, pegar y duplicar preservan aislamiento de grupos", [node, "test_clipboard_engine.mjs"]),
         ("editor", "Edición agrupada duplica y elimina sin romper locks", [node, "test_group_edit.mjs"]),
         ("editor", "Arrastre agrupado mantiene offsets y restricciones", [node, "test_group_drag.mjs"]),
