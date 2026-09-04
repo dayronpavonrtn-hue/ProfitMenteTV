@@ -6,11 +6,17 @@
   class ProfitMenteFrameNudgeEngine{
     static fps(project){const n=Math.round(Number(project?.fps)||30);return [24,30,60].includes(n)?n:30}
     static frame(project){return 1/this.fps(project)}
+    static canonicalTrack(value){
+      if(value===undefined||value===null)return null;
+      if(typeof value==='string'&&!value.trim())return null;
+      const n=Number(value);
+      return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?String(n):null;
+    }
     static locked(project,clip){
       if(clip?.locked)return true;
-      const track=clip?.track;if(track===undefined||track===null)return false;
-      const keys=[track,String(track)],maps=[project?.trackState,project?.trackStates];
-      return maps.some(map=>map&&keys.some(key=>!!map[key]?.locked));
+      const canonical=this.canonicalTrack(clip?.track);if(canonical===null)return false;
+      const maps=[project?.trackState,project?.trackStates];
+      return maps.some(map=>map&&typeof map==='object'&&Object.entries(map).some(([key,state])=>this.canonicalTrack(key)===canonical&&!!state?.locked));
     }
     static members(project,clipId){
       const clips=Array.isArray(project?.clips)?project.clips:[],seed=clips.find(c=>String(c.id)===String(clipId));if(!seed)return [];
