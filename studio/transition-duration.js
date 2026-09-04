@@ -22,6 +22,7 @@
   function applicable(c){return !!c&&[0,1].includes(Number(c.track))&&['fade','slide','zoom'].includes(c.transition||'cut')}
   function syncAutomatic(c){if(!applicable(c))return false;const missing=c.transitionDuration===undefined||c.transitionDuration===null||String(c.transitionDuration).trim()==='';if(c.transitionDurationAuto!==true&&!missing)return false;const next=automaticValue(c),changed=c.transitionDurationAuto!==true||Number(c.transitionDuration)!==next;c.transitionDurationAuto=true;c.transitionDuration=next;return changed}
   function syncProjectAutomatic(){let changed=false;for(const c of project?.clips||[])if(syncAutomatic(c))changed=true;return changed}
+  window.ProfitMenteTransitionDuration={normalize,automaticValue,applicable,syncAutomatic,syncProjectAutomatic};
   syncProjectAutomatic();
   const props=$('.props');if(!props)return;
   const section=document.createElement('section');section.className='transitionDurationPanel';section.innerHTML=`<div id="transitionDurationWrap" hidden><label>Duración transición <input id="transitionDurationInput" type="number" min="0.05" max="2" step="0.05"><small id="transitionDurationInfo"></small></label><div class="ciActions"><button id="transitionFast">Rápida 0.15s</button><button id="transitionSmooth">Suave 0.45s</button><button id="transitionAuto">Automática</button></div></div>`;props.appendChild(section);
@@ -34,5 +35,5 @@
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){syncProjectAutomatic();oldDraw();requestAnimationFrame(render)};
   setInterval(()=>{if((window.ProfitMenteEditTools?.selectedId||null)!==currentId)render()},400);
   const QA=window.ProfitMenteQAEngine;if(QA&&!QA.prototype.__transitionDurationPatched){const oldInspect=QA.prototype.inspect;QA.prototype.inspect=function(p,a){const r=oldInspect.call(this,p,a);let added=0;for(const c of p?.clips||[]){if(![0,1].includes(Number(c.track))||!['fade','slide','zoom'].includes(c.transition||'cut')||c.transitionDuration==null)continue;const v=Number(c.transitionDuration),d=Math.max(.05,Number(c.duration)||.05);if(!Number.isFinite(v)||v<.05||v>Math.min(2,d)+.001){r.issues.push(`Duración de transición fuera de rango: ${c.name||c.id}`);added++}}if(added){r.ok=false;r.score=Math.max(0,Number(r.score||0)-25*added)}return r};QA.prototype.__transitionDurationPatched=true}
-  window.ProfitMenteTransitionDuration={normalize,automaticValue,applicable,syncAutomatic,syncProjectAutomatic};render();
+  render();
 })();
