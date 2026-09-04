@@ -4,6 +4,11 @@ class ProfitMenteMediaRelinkEngine{
     const mime=String(file.type||file.mime||'').toLowerCase(),top=mime.split('/')[0];
     return ['video','image','audio'].includes(top)?top:null;
   }
+  static mediaIdKey(value){
+    if(value===undefined||value===null)return null;
+    const key=String(value).trim();
+    return key||null;
+  }
   static fileSize(value={}){return Math.max(0,Number(value.size??value.blob?.size??value.sourceSize??0)||0)}
   static normalizedName(value={}){return String(value.name||'').trim().toLowerCase()}
   static isOffline(asset={}){
@@ -94,9 +99,14 @@ class ProfitMenteMediaRelinkEngine{
     return {ok:true,asset,before,identity};
   }
   static sourceWindowIssues(project={},assets=[]){
-    const map=new Map((assets||[]).map(a=>[a.id,a])),issues=[];
+    const map=new Map(),issues=[];
+    for(const asset of assets||[]){
+      const key=this.mediaIdKey(asset?.id);
+      if(key!==null&&!map.has(key))map.set(key,asset);
+    }
     for(const clip of project.clips||[]){
-      const asset=map.get(clip.asset);if(!asset||!['video','audio'].includes(asset.type))continue;
+      const key=this.mediaIdKey(clip?.asset),asset=key===null?null:map.get(key);
+      if(!asset||!['video','audio'].includes(asset.type))continue;
       const native=Math.max(0,Number(asset.duration)||0);if(!native)continue;
       const offset=Math.max(0,Number(clip.sourceOffset)||0),duration=Math.max(0,Number(clip.duration)||0),speed=Math.max(.01,Number(clip.speed)||1),end=offset+duration*speed;
       if(end>native+.15)issues.push({clipId:clip.id,assetId:asset.id,required:end,available:native});
