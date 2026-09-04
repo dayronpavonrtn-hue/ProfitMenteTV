@@ -7,6 +7,7 @@ on:
       - 'studio/media-placement-integration.js'
       - 'studio/media-timeline-dnd.js'
       - 'studio/test_media_placement.mjs'
+      - 'studio/test_media_placement_legacy_lock.mjs'
       - 'studio/test_media_timeline_dnd.mjs'
       - 'studio/track-lock-placement-guard.js'
       - 'studio/test_track_lock_placement_guard.mjs'
@@ -33,6 +34,7 @@ jobs:
       - name: Placement regressions
         run: |
           node studio/test_media_placement.mjs
+          node studio/test_media_placement_legacy_lock.mjs
           node studio/test_media_timeline_dnd.mjs
           node studio/test_track_lock_placement_guard.mjs
       - name: Existing timeline regressions
