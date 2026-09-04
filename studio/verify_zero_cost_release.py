@@ -7,6 +7,7 @@ Checks the critical editor/runtime pieces together without paid services:
 - media import/library identity, storage fallback and safe relinking
 - multilayer timeline placement, legacy track aliases and preview freshness
 - advanced manual edits honoring clip/track locks, including legacy aliases
+- synchronized ripple/remove-time edits for clips, captions, markers and work ranges
 - project persistence/recovery/migration/JSON transfer and portable bundles
 - render-job recovery plus legacy project/render compatibility
 - export preflight, render-quality/parity configuration and output QC
@@ -65,6 +66,7 @@ def main() -> None:
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
         ("editor", "Edición avanzada respeta locks y alias heredados", [node, "test_advanced_edit_lock_guard.mjs"]),
         ("editor", "Locks de clips y grupos con alias heredados", [node, "test_clip_lock.mjs"]),
+        ("editor", "Remove-time sincroniza clips, captions, marcadores y rango", [node, "test_remove_time.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
