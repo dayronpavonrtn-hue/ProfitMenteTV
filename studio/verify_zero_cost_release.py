@@ -81,6 +81,7 @@ def main() -> None:
         ("timeline", "Alias heredados de pista en operaciones manuales", [node, "test_timeline_track_alias_guard.mjs"]),
         ("preview", "Identidad legacy de medios coincide con render", [node, "test_preview_media_identity.mjs"]),
         ("preview", "Audio preview respeta identidad de medios y estados heredados", [node, "test_audio_preview_identity.mjs"]),
+        ("preview", "Waveform respeta identidad de medios y aliases de pistas", [node, "test_audio_waveform_engine.mjs"]),
         ("audio", "Ducking respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_ducking.mjs"]),
         ("audio", "Normalización respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_normalize_identity.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
