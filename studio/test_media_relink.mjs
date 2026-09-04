@@ -69,4 +69,20 @@ assert.equal(Engine.bestMatch([unsafeLegacy],rolloutFile,upgradedHashes).asset,n
 
 const project={clips:[{id:'c1',asset:'v1',duration:4,speed:2,sourceOffset:3},{id:'c2',asset:'a1',duration:1,speed:1,sourceOffset:0}]};
 assert.equal(Engine.sourceWindowIssues(project,assets).length,1,'source overrun must be reported after relink');
+
+const legacyIdAssets=[
+  {id:'7',name:'legacy.mp4',type:'video',duration:3},
+  {id:0,name:'zero.wav',type:'audio',duration:1}
+];
+const legacyIdProject={clips:[
+  {id:'legacy-number',asset:7,duration:2,speed:2,sourceOffset:0},
+  {id:'legacy-spaces',asset:' 7 ',duration:2,speed:2,sourceOffset:0},
+  {id:'legacy-zero',asset:'0',duration:2,speed:1,sourceOffset:0},
+  {id:'empty-id',asset:'   ',duration:20,speed:4,sourceOffset:0}
+]};
+const legacyIdIssues=Engine.sourceWindowIssues(legacyIdProject,legacyIdAssets);
+assert.deepEqual(legacyIdIssues.map(issue=>issue.clipId),['legacy-number','legacy-spaces','legacy-zero'],'relink validation must normalize numeric/string/whitespace media ids and preserve id 0');
+assert.equal(legacyIdIssues[0].assetId,'7','reported issue must retain the canonical asset record id');
+assert.equal(legacyIdIssues[2].assetId,0,'reported issue must preserve a valid numeric zero asset id');
+
 console.log('Media relink regression: OK');
