@@ -1,0 +1,29 @@
+name: ProfitMente Studio Core App Identity QA
+
+on:
+  push:
+    paths:
+      - 'studio/app.js'
+      - 'studio/test_core_app_identity.mjs'
+      - '.github/workflows/core-app-identity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/app.js'
+      - 'studio/test_core_app_identity.mjs'
+      - '.github/workflows/core-app-identity-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  core-app-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check core app syntax
+        run: node --check studio/app.js
+      - name: Verify canonical media and track identity
+        run: node studio/test_core_app_identity.mjs
+      - name: Verify Studio integrity
+        run: node studio/test_studio_integrity.mjs
