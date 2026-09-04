@@ -1,15 +1,22 @@
 class ProfitMenteGroupSplitEngine{
   constructor(splitEngine=globalThis.ProfitMenteSplitEditEngine){this.Split=splitEngine}
   members(project,clip){const gid=String(clip?.groupId||'').trim();return gid?(project?.clips||[]).filter(c=>String(c.groupId||'').trim()===gid):clip?[clip]:[]}
+  canonicalTrackKey(value){
+    if(value===null||value===undefined)return null;
+    const raw=String(value).trim();if(!raw)return null;
+    const n=Number(raw);return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?String(n):null;
+  }
   locked(project,clip){
-    if(!clip)return false;
-    const track=clip.track,key=String(track);
-    const modern=project?.trackState?.[track]??project?.trackState?.[key];
-    const legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
-    return !!clip.locked||!!(
-      (modern&&typeof modern==='object'&&modern.locked)||
-      (legacy&&typeof legacy==='object'&&legacy.locked)
-    );
+    if(!clip)return false;if(clip.locked)return true;
+    const raw=String(clip.track??'').trim();if(!raw)return false;
+    const canonical=this.canonicalTrackKey(clip.track);
+    for(const state of [project?.trackState,project?.trackStates]){
+      if(!state||typeof state!=='object')continue;
+      if(state[raw]?.locked)return true;
+      if(canonical&&state[canonical]?.locked)return true;
+      if(canonical&&Object.entries(state).some(([key,value])=>value?.locked&&this.canonicalTrackKey(key)===canonical))return true;
+    }
+    return false;
   }
   id(prefix='group'){return globalThis.crypto?.randomUUID?.()||`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`}
   split(project,clip,time,{idFactory,groupIdFactory}={}){
