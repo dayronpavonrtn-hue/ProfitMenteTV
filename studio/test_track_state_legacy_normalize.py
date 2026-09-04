@@ -51,4 +51,24 @@ out=normalize_track_solo(stale)
 assert out['trackState']['0']['hidden'] is True, out  # hidden by track 1 Solo
 assert '_soloVisualActive' not in out['trackState']['0'], out
 assert '_soloHiddenBase' not in out['trackState']['0'], out
-print('Legacy track-state render normalization OK')
+
+# Direct render entrypoints call normalize_track_solo before building their asset
+# maps. Keep media identity canonical here too so numeric/string legacy IDs and
+# the valid zero ID cannot disappear between browser QA/preview and FFmpeg.
+media={
+    'assets':[
+        {'id':0,'name':'zero.mp4','type':'video'},
+        {'id':' 7 ','name':'seven.mp4','type':'video'},
+    ],
+    'clips':[
+        {'id':'c0','track':'0.0','asset':'0','start':0,'duration':1},
+        {'id':'c7','track':1,'asset':7,'start':1,'duration':1},
+    ],
+}
+out=normalize_track_solo(media)
+assert [a['id'] for a in out['assets']]==['0','7'], out
+assert [c['asset'] for c in out['clips']]==['0','7'], out
+assert [c['track'] for c in out['clips']]==[0,1], out
+assert media['assets'][0]['id']==0, media  # render normalization remains non-mutating
+assert media['clips'][1]['asset']==7, media
+print('Legacy track-state/media render normalization OK')
