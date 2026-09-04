@@ -66,6 +66,7 @@ def main() -> None:
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
         ("medios", "Identidad canónica sin colisiones antes del render", [py, "test_media_identity_collision.py"]),
+        ("calidad", "Preflight del editor bloquea colisiones de IDs de medios", [node, "test_qa_media_identity_collision.mjs"]),
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
