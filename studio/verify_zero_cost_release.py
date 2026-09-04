@@ -6,6 +6,7 @@ Checks the critical editor/runtime pieces together without paid services:
 - JavaScript editor integrity and automatic mode regressions
 - media import/library identity, storage fallback and safe relinking
 - multilayer timeline placement, legacy track aliases and preview freshness
+- advanced manual edits honoring clip/track locks, including legacy aliases
 - project persistence/recovery/migration/JSON transfer and portable bundles
 - render-job recovery plus legacy project/render compatibility
 - export preflight, render-quality/parity configuration and output QC
@@ -62,6 +63,7 @@ def main() -> None:
         ("inicio", "Carga real de herramientas avanzadas", [node, "test_feature_bootstrap_wiring.mjs"]),
         ("inicio", "Aislamiento de proyecto corrupto al arrancar", [node, "test_startup_corruption_guard.mjs"]),
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
+        ("editor", "Edición avanzada respeta locks y alias heredados", [node, "test_advanced_edit_lock_guard.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
