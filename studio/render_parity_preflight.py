@@ -12,6 +12,8 @@ import math
 import pathlib
 import sys
 
+from track_state_render import _canonical_track
+
 ALLOWED_TRANSITIONS = {'cut', 'fade', 'zoom', 'slide'}
 ALLOWED_FIT_MODES = {'cover', 'contain'}
 ALLOWED_TEXT_STYLES = {'title', 'label', 'callout'}
@@ -51,10 +53,11 @@ def inspect(project):
             continue
         clip_id = str(clip.get('id') or f'#{index + 1}')
         name = str(clip.get('name') or clip_id)
-        try:
-            track = int(clip.get('track', -1))
-        except (TypeError, ValueError):
-            track = -1
+        # The FFmpeg render path canonicalizes legacy numeric aliases such as
+        # "01", "1.0" and "02" before composition. Parity checks must classify
+        # those clips identically or unsupported visual/text settings can bypass
+        # preflight and then be silently rendered with a fallback behavior.
+        track = _canonical_track(clip.get('track', -1))
 
         if track in (0, 1):
             transition = str(clip.get('transition', 'cut') or 'cut')
