@@ -6,6 +6,7 @@ on:
       - 'studio/render_mp4.py'
       - 'studio/preview-engine.js'
       - 'studio/transition-duration.js'
+      - 'studio/test_transition_duration.mjs'
       - 'studio/test_first_clip_transition_render.py'
       - '.github/workflows/transition-render-parity-qa.yml'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'studio/render_mp4.py'
       - 'studio/preview-engine.js'
       - 'studio/transition-duration.js'
+      - 'studio/test_transition_duration.mjs'
       - 'studio/test_first_clip_transition_render.py'
       - '.github/workflows/transition-render-parity-qa.yml'
 
@@ -27,5 +29,7 @@ jobs:
           sudo apt-get install -y ffmpeg
       - name: Python syntax
         run: python -m py_compile studio/render_mp4.py studio/test_first_clip_transition_render.py
+      - name: Transition duration integration and automatic parity
+        run: node studio/test_transition_duration.mjs
       - name: First clip transition render regression
         run: python studio/test_first_clip_transition_render.py
