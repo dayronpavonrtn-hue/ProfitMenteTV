@@ -53,6 +53,46 @@ project.trackState[0]={locked:true};
 assert.throws(()=>engine.extract(project,3,6),/Desbloquea/);
 assert.equal(project.clips.length,3);
 
+// Range edits must honor legacy track aliases and both track-state maps.
+project=base();
+project.clips[0].track='0.0';
+project.trackStates={'00':{locked:true}};
+assert.throws(()=>engine.extract(project,3,6),/Desbloquea/);
+assert.equal(project.duration,12);
+assert.equal(project.clips.length,3);
+
+project=base();
+project.clips[0].track='01';
+project.trackState={'1.0':{locked:true}};
+assert.throws(()=>engine.insert(project,2,1),/Desbloquea/);
+assert.equal(project.duration,12);
+
+// Individual clip locks are destructive-edit blockers too.
+project=base();
+project.clips[1].locked=true;
+assert.throws(()=>engine.extract(project,3,6),/Desbloquea/);
+assert.equal(project.clips.find(x=>x.id==='b').start,8);
+
+// Invalid aliases must not accidentally lock a valid track.
+project=base();
+project.trackStates={'0.5':{locked:true},'7':{locked:true},'':{locked:true}};
+result=engine.extract(project,3,6);
+assert.equal(result.split,1);
+assert.equal(project.duration,9);
+
+// Asset id 0 is a valid media reference and must retain source-window math.
+project={duration:8,trackState:{},markers:[],workRange:null,clips:[
+  {id:'zero',track:0,start:0,duration:8,asset:0,speed:2,sourceOffset:1}
+]};
+result=engine.extract(project,3,6);
+assert.equal(result.split,1);
+left=project.clips.find(x=>x.id==='zero');
+right=project.clips.find(x=>x.id!=='zero'&&x.asset===0);
+assert.equal(left.sourceOffset,1);
+assert.equal(right.start,3);
+assert.equal(right.duration,2);
+assert.equal(right.sourceOffset,13);
+
 project=base();
 project.clips=[{id:'cap',track:3,start:1,duration:5,name:'one two three',wordTimings:[{word:'one',start:1,end:2},{word:'two',start:3,end:4},{word:'three',start:5,end:6}]}];
 engine.extract(project,2,5);
