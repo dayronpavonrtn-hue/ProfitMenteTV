@@ -68,6 +68,7 @@ def main() -> None:
         ("editor", "Locks de clips y grupos con alias heredados", [node, "test_clip_lock.mjs"]),
         ("editor", "Remove-time sincroniza clips, captions, marcadores y rango", [node, "test_remove_time.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
+        ("automatico", "Motor automático protege IDs 0 y locks heredados", [node, "test_generator_engine_guards.mjs"]),
         ("automatico", "Duración automática de transiciones coincide entre Preview y Render", [node, "test_transition_duration.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
