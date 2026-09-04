@@ -1,5 +1,9 @@
 class ProfitMenteMediaInspector{
-  constructor(){this.version=2}
+  constructor(options={}){
+    this.version=2;
+    const timeout=Number(options.timeoutMs);
+    this.timeoutMs=Number.isFinite(timeout)&&timeout>0?Math.min(timeout,60000):12000;
+  }
   async inspect(asset){
     if(!asset?.blob) return asset;
     if(asset.metadataVersion===this.version) return asset;
@@ -16,21 +20,33 @@ class ProfitMenteMediaInspector{
     }
   }
   inspectImage(blob){return new Promise((resolve,reject)=>{
-    const url=URL.createObjectURL(blob),img=new Image();
-    img.onload=()=>{try{resolve({width:img.naturalWidth,height:img.naturalHeight,duration:5,thumbnail:this.thumb(img,img.naturalWidth,img.naturalHeight)})}finally{URL.revokeObjectURL(url)}};
-    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Imagen inválida o formato no compatible'))};img.src=url;
+    const url=URL.createObjectURL(blob),img=new Image();let done=false,timer=null;
+    const cleanup=()=>{if(timer)clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url)};
+    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)};
+    const fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
+    timer=setTimeout(()=>fail('Tiempo de espera agotado al leer la imagen'),this.timeoutMs);
+    img.onload=()=>{try{finish({width:img.naturalWidth,height:img.naturalHeight,duration:5,thumbnail:this.thumb(img,img.naturalWidth,img.naturalHeight)})}catch(e){fail(e?.message||'No se pudo generar la miniatura de la imagen')}};
+    img.onerror=()=>fail('Imagen inválida o formato no compatible');img.src=url;
   })}
   inspectAudio(blob){return new Promise((resolve,reject)=>{
-    const url=URL.createObjectURL(blob),el=document.createElement('audio');el.preload='metadata';
-    el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0;URL.revokeObjectURL(url);if(duration<=0)return reject(new Error('Audio sin duración válida'));resolve({duration})};
-    el.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Audio inválido o códec no compatible'))};el.src=url;
+    const url=URL.createObjectURL(blob),el=document.createElement('audio');el.preload='metadata';let done=false,timer=null;
+    const cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onerror=null;URL.revokeObjectURL(url)};
+    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)};
+    const fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
+    timer=setTimeout(()=>fail('Tiempo de espera agotado al leer el audio'),this.timeoutMs);
+    el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0;if(duration<=0)return fail('Audio sin duración válida');finish({duration})};
+    el.onerror=()=>fail('Audio inválido o códec no compatible');el.src=url;
   })}
   inspectVideo(blob){return new Promise((resolve,reject)=>{
     const url=URL.createObjectURL(blob),el=document.createElement('video');el.preload='metadata';el.muted=true;el.playsInline=true;
-    let done=false;const finish=meta=>{if(done)return;done=true;URL.revokeObjectURL(url);resolve(meta)},fail=message=>{if(done)return;done=true;URL.revokeObjectURL(url);reject(new Error(message))};
+    let done=false,timer=null;
+    const armTimeout=message=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>fail(message),this.timeoutMs)};
+    const cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onseeked=null;el.onerror=null;URL.revokeObjectURL(url)};
+    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)},fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
+    armTimeout('Tiempo de espera agotado al leer el video');
     el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0,width=el.videoWidth,height=el.videoHeight;if(duration<=0||!width||!height){fail('Video sin duración o dimensiones válidas');return}const target=Math.min(Math.max(.05,duration*.08),Math.max(.05,duration-.05));
       const capture=()=>{let thumbnail=null;try{thumbnail=this.thumb(el,width,height)}catch{}finish({duration,width,height,thumbnail})};
-      if(duration>.1){el.onseeked=capture;try{el.currentTime=target}catch{capture()}}else capture();
+      if(duration>.1){armTimeout('Tiempo de espera agotado al buscar un fotograma del video');el.onseeked=capture;try{el.currentTime=target}catch{capture()}}else capture();
     };
     el.onerror=()=>fail('Video inválido o códec no compatible');el.src=url;
   })}
