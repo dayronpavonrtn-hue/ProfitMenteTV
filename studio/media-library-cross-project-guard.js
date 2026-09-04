@@ -10,8 +10,9 @@
   class ProfitMenteMediaLibraryCrossProjectGuard{
     static mediaIdKey(value){
       if(value===undefined||value===null)return null;
-      const key=String(value).trim();
-      return key||null;
+      const raw=String(value).trim();if(!raw)return null;
+      const numeric=Number(raw);
+      return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
     }
     static readSavedProjects(storage,key='profitmente-project-library'){
       if(!storage?.getItem)return [];
