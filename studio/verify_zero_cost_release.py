@@ -108,6 +108,7 @@ def main() -> None:
         ("render", "Recuperación de trabajo MP4 tras recarga/red", [node, "test_render_job_recovery.mjs"]),
         ("render", "Descarga MP4 reintenta fallos transitorios y valida integridad", [node, "test_render_result_retry.mjs"]),
         ("render", "Render asíncrono conserva sesión recuperable y exige QA post-render", [node, "test_async_render_validation.mjs"]),
+        ("render", "Puente Studio conserva decisiones manuales y aliases hacia el motor existente", [py, "test_studio_bridge.py"]),
         ("render", "Compatibilidad de estados de pista heredados", [node, "test_track_state_legacy_parity.mjs"]),
         ("render", "Configuración de calidad MP4", [node, "test_render_quality.mjs"]),
         ("render", "Presets de render Python", [py, "test_render_quality.py"]),
