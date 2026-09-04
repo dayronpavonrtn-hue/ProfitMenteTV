@@ -22,6 +22,20 @@ project.trackState[1].locked=false;
 assert.equal(engine.toggle(a),true);
 assert.equal(engine.toggle(a),false);
 
+const legacyAlias={id:'legacy',track:1,start:0,duration:1};
+assert.equal(engine.canonicalTrackKey('01'),'1');
+assert.equal(engine.canonicalTrackKey('1.0'),'1');
+assert.equal(engine.canonicalTrackKey(' 06 '),'6');
+assert.equal(engine.canonicalTrackKey('1.5'),null);
+assert.equal(engine.canonicalTrackKey('7'),null);
+assert.equal(engine.canonicalTrackKey(''),null);
+assert.equal(engine.trackLocked({trackState:{'01':{locked:true}}},legacyAlias),true,'trackState alias must protect canonical clip track');
+assert.equal(engine.trackLocked({trackStates:{'1.0':{locked:true}}},legacyAlias),true,'legacy trackStates map must be honored');
+assert.equal(engine.trackLocked({trackState:{1:{locked:true}}},{...legacyAlias,track:'01'}),true,'legacy clip track alias must resolve canonical lock');
+assert.equal(engine.trackLocked({trackState:{'1.5':{locked:true}}},legacyAlias),false,'invalid alias must not lock a valid track');
+assert.equal(engine.trackLocked({trackState:{7:{locked:true}}},{...legacyAlias,track:7}),true,'an explicitly locked invalid raw track remains protected without aliasing');
+assert.equal(engine.trackLocked({trackState:{0:{locked:true}}},{...legacyAlias,track:''}),false,'blank track must not alias track zero');
+
 b.locked=true;
 const groupEdit=new ProfitMenteGroupEditEngine();
 const before=project.clips.length;
