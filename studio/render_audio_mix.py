@@ -7,12 +7,13 @@ music ducking that only applies while voice clips overlap. Uses only FFmpeg.
 from __future__ import annotations
 import json, pathlib, shutil, subprocess, sys, tempfile
 from render_quality import resolve_render_quality
+from track_state_render import normalize_track_solo
 
 if len(sys.argv) != 5:
     raise SystemExit('Usage: render_audio_mix.py project.json assets_dir video_only.mp4 output.mp4')
 
 project_path=pathlib.Path(sys.argv[1]); assets_dir=pathlib.Path(sys.argv[2]); video_in=pathlib.Path(sys.argv[3]); out=pathlib.Path(sys.argv[4])
-project=json.loads(project_path.read_text(encoding='utf-8'))
+project=normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8')))
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
 duration=max(.25,float(project.get('duration',45) or 45)); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
