@@ -29,4 +29,27 @@ assert.ok(fast.at(-1)>normal.at(-1),'speed debe ampliar la ventana fuente repres
 
 const clamped=Engine.drawable([-1,.5,2,Number.NaN]);
 assert.deepEqual(clamped,[0,.5,1,0]);
+
+assert.equal(Engine.canonicalTrack('04'),4);
+assert.equal(Engine.canonicalTrack('5.0'),5);
+assert.equal(Engine.canonicalTrack('06'),6);
+assert.equal(Engine.canonicalTrack('6.5'),null);
+assert.equal(Engine.canonicalTrack(7),null);
+assert.equal(Engine.isAudioTrack('04'),true);
+assert.equal(Engine.isAudioTrack('03'),false);
+
+assert.equal(Engine.canonicalMediaId(0),'0');
+assert.equal(Engine.canonicalMediaId(' 0 '),'0');
+assert.equal(Engine.canonicalMediaId(' 7 '),'7');
+assert.equal(Engine.canonicalMediaId('   '),null);
+assert.equal(Engine.hasAsset(0),true);
+assert.equal(Engine.hasAsset(''),false);
+assert.equal(Engine.sameIdentity(7,' 7 '),true);
+assert.equal(Engine.sameIdentity(0,'0'),true);
+assert.equal(Engine.sameIdentity('',0),false);
+const items=[{id:0,name:'zero'},{id:' 7 ',name:'seven'}];
+assert.equal(Engine.findById(items,'0')?.name,'zero');
+assert.equal(Engine.findById(items,7)?.name,'seven');
+assert.equal(Engine.findById(items,'missing'),null);
+
 console.log('audio waveform regression: ok');
