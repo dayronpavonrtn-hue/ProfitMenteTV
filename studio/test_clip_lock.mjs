@@ -36,8 +36,24 @@ assert.equal(engine.trackLocked({trackState:{'1.5':{locked:true}}},legacyAlias),
 assert.equal(engine.trackLocked({trackState:{7:{locked:true}}},{...legacyAlias,track:7}),true,'an explicitly locked invalid raw track remains protected without aliasing');
 assert.equal(engine.trackLocked({trackState:{0:{locked:true}}},{...legacyAlias,track:''}),false,'blank track must not alias track zero');
 
-b.locked=true;
 const groupEdit=new ProfitMenteGroupEditEngine();
+const fakeSplit={split(clip,time){return {ok:true,left:{...clip,duration:time-clip.start},right:{...clip,id:clip.id+'-r',start:time,duration:clip.start+clip.duration-time},speed:1,sourceCut:time}}};
+const groupSplit=new ProfitMenteGroupSplitEngine(fakeSplit);
+const aliasA={id:'alias-a',track:0,start:0,duration:4,groupId:'legacy-g'};
+const aliasB={id:'alias-b',track:1,start:0,duration:4,groupId:'legacy-g'};
+const aliasProject={duration:10,clips:[aliasA,aliasB],trackStates:{'01':{locked:true}}};
+const aliasBefore=JSON.stringify(aliasProject.clips);
+const aliasDuplicate=groupEdit.duplicate(aliasProject,aliasA,{idFactory:()=> 'should-not-exist'});
+assert.equal(aliasDuplicate.reason,'locked','group duplicate must honor a legacy alias lock on any member');
+assert.equal(JSON.stringify(aliasProject.clips),aliasBefore,'blocked group duplicate must be atomic');
+const aliasSplit=groupSplit.split(aliasProject,aliasA,2,{idFactory:()=> 'should-not-split',groupIdFactory:x=>x});
+assert.equal(aliasSplit.ok,false);
+assert.equal(aliasSplit.reason,'locked','group split must honor a legacy alias lock on any member');
+assert.equal(JSON.stringify(aliasProject.clips),aliasBefore,'blocked group split must be atomic');
+const invalidAliasProject={duration:10,clips:[{...aliasA},{...aliasB}],trackState:{'1.5':{locked:true}}};
+assert.notEqual(groupEdit.duplicate(invalidAliasProject,invalidAliasProject.clips[0],{idFactory:(()=>{let n=0;return()=>`valid-copy-${++n}`})()}).reason,'locked','invalid aliases must not lock valid tracks');
+
+b.locked=true;
 const before=project.clips.length;
 const duplicated=groupEdit.duplicate(project,a,{idFactory:(()=>{let n=0;return()=>`copy-${++n}`})()});
 assert.equal(duplicated.reason,'locked');
@@ -46,8 +62,6 @@ assert.equal(project.clips.length,before,'locked group must not duplicate');
 assert.equal(groupEdit.remove(project,a).length,0);
 assert.equal(project.clips.length,before,'locked group must not delete');
 
-const fakeSplit={split(clip,time){return {ok:true,left:{...clip,duration:time-clip.start},right:{...clip,id:clip.id+'-r',start:time,duration:clip.start+clip.duration-time},speed:1,sourceCut:time}}};
-const groupSplit=new ProfitMenteGroupSplitEngine(fakeSplit);
 const splitResult=groupSplit.split(project,a,2,{idFactory:()=> 'right',groupIdFactory:x=>x});
 assert.equal(splitResult.ok,false);
 assert.equal(splitResult.reason,'locked');
