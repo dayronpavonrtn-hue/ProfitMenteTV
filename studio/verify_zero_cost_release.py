@@ -4,7 +4,7 @@
 Checks the critical editor/runtime pieces together without paid services:
 - browser startup wiring and corrupt-state isolation
 - JavaScript editor integrity and automatic mode regressions
-- media import/library identity, storage fallback, safe relinking and cleanup
+- media import/library identity, storage fallback, safe relinking, readability and cleanup
 - multilayer timeline placement, legacy track aliases and preview freshness
 - advanced manual edits honoring clip/track locks, including legacy aliases
 - synchronized ripple/remove-time edits for clips, captions, markers and work ranges
@@ -80,6 +80,7 @@ def main() -> None:
         ("automatico", "Duración automática de transiciones coincide entre Preview y Render", [node, "test_transition_duration.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
+        ("medios", "Inspección de medios falla segura ante decoder colgado o corrupto", [node, "test_media_readability_qa.mjs"]),
         ("medios", "Identidad canónica sin colisiones antes del render", [py, "test_media_identity_collision.py"]),
         ("calidad", "Preflight del editor bloquea colisiones de IDs de medios", [node, "test_qa_media_identity_collision.mjs"]),
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
