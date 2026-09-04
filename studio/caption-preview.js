@@ -1,5 +1,6 @@
 (()=>{
   const baseRender=renderAt;
+  let captionRenderEpoch=0;
   function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
@@ -36,14 +37,20 @@
     ctx.fillStyle='#FFE66D';ctx.fillText(text,x,y);ctx.restore();
   }
   renderAt=async function(t){
+    const epoch=++captionRenderEpoch;
     await baseRender(t);
+    // baseRender can wait for image decode/video seek. A newer playhead request may
+    // already have painted the correct frame while this older request is still
+    // pending. Never let an obsolete word overlay land on top of that newer frame.
+    if(epoch!==captionRenderEpoch)return;
     if(captionsHidden())return;
     const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
     for(const cap of active){
+      if(epoch!==captionRenderEpoch)return;
       if(!Array.isArray(cap.wordTimings))continue;
       const word=cap.wordTimings.find(w=>t>=Number(w.start)&&t<Number(w.end));
       if(word)drawWord(word,t);
     }
   };
-  window.ProfitMenteCaptionPreview={captionsHidden,fitWordFont,drawWord};
+  window.ProfitMenteCaptionPreview={captionsHidden,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
 })();
