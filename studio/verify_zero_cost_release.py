@@ -64,6 +64,7 @@ def main() -> None:
         ("inicio", "Aislamiento de proyecto corrupto al arrancar", [node, "test_startup_corruption_guard.mjs"]),
         ("editor", "Integridad general del editor", [node, "test_studio_integrity.mjs"]),
         ("editor", "Edición avanzada respeta locks y alias heredados", [node, "test_advanced_edit_lock_guard.mjs"]),
+        ("editor", "Locks de clips y grupos con alias heredados", [node, "test_clip_lock.mjs"]),
         ("automatico", "Modo automático y autofill", [node, "test_generator_autofill.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
