@@ -80,6 +80,7 @@ def main() -> None:
         ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
         ("timeline", "Alias heredados de pista en operaciones manuales", [node, "test_timeline_track_alias_guard.mjs"]),
         ("preview", "Identidad legacy de medios coincide con render", [node, "test_preview_media_identity.mjs"]),
+        ("preview", "Audio preview respeta identidad de medios y estados heredados", [node, "test_audio_preview_identity.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
