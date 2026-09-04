@@ -1,41 +1,115 @@
-import argparse, json
+import argparse, json, math
 from pathlib import Path
 
 TRACKS = ['video','overlay','motion','captions','sfx','music','voice']
+SUPPORTED_FPS = (24, 30, 60)
+
+
+def finite_number(value, default=None):
+    if value is None or isinstance(value, bool):
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
+
+
+def normalize_track(value):
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    number = finite_number(value)
+    if number is None or not number.is_integer():
+        return None
+    index = int(number)
+    return index if 0 <= index < len(TRACKS) else None
+
+
+def normalize_fps(value, fallback=30):
+    number = finite_number(value)
+    if number is not None:
+        rounded = int(round(number))
+        if rounded in SUPPORTED_FPS:
+            return rounded
+    fallback_number = finite_number(fallback, 30)
+    rounded = int(round(fallback_number)) if fallback_number is not None else 30
+    return rounded if rounded in SUPPORTED_FPS else 30
+
 
 def convert(project):
-    duration=float(project.get('duration',45))
-    fmt=project.get('format','9:16')
-    sizes={'9:16':(1080,1920),'16:9':(1920,1080),'1:1':(1080,1080)}
-    width,height=sizes.get(fmt,(1080,1920))
+    if not isinstance(project, dict):
+        raise TypeError('Proyecto inválido')
+
+    duration = finite_number(project.get('duration'), 45.0)
+    if duration is None or duration <= 0:
+        duration = 45.0
+
+    fmt = str(project.get('format') or '9:16').strip()
+    sizes = {'9:16':(1080,1920),'16:9':(1920,1080),'1:1':(1080,1080)}
+    if fmt not in sizes:
+        fmt = '9:16'
+    width,height = sizes[fmt]
+    fps = normalize_fps(project.get('fps'), 30)
+
     tracks={k:[] for k in TRACKS}
-    for clip in project.get('clips',[]):
-        idx=int(clip.get('track',0))
-        if idx<0 or idx>=len(TRACKS):
+    clips = project.get('clips', [])
+    if not isinstance(clips, list):
+        clips = []
+
+    for clip in clips:
+        if not isinstance(clip, dict):
             continue
-        start=max(0,float(clip.get('start',0)))
-        dur=max(.05,float(clip.get('duration',1)))
+        idx = normalize_track(clip.get('track'))
+        if idx is None:
+            continue
+        start = max(0.0, finite_number(clip.get('start'), 0.0))
+        if start >= duration:
+            continue
+        clip_duration = finite_number(clip.get('duration'), 1.0)
+        if clip_duration is None:
+            clip_duration = 1.0
+        clip_duration = max(0.05, clip_duration)
+        end = min(duration, start + clip_duration)
+        if end <= start:
+            continue
+
+        name = clip.get('name', 'Clip')
+        if not isinstance(name, str):
+            name = str(name) if name is not None else 'Clip'
         item={
             'id':clip.get('id'),
-            'name':clip.get('name','Clip'),
+            'name':name,
             'start':start,
-            'end':min(duration,start+dur),
+            'end':end,
             'asset_id':clip.get('asset'),
         }
         if idx==0:
-            item.update({'transition':'cut','zoom_from':1.0,'zoom_to':1.03})
+            transition = clip.get('transition')
+            item.update({
+                'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut',
+                'zoom_from':1.0,
+                'zoom_to':1.03,
+            })
         elif idx==3:
-            item.update({'text':clip.get('name',''),'animation':'pop_word','highlight_keywords':True})
+            text = clip.get('text', name)
+            item.update({
+                'text': text if isinstance(text, str) else str(text or ''),
+                'animation':clip.get('animation') or 'pop_word',
+                'highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True))),
+            })
         tracks[TRACKS[idx]].append(item)
     return {
         'source':'ProfitMente Studio',
         'project_name':project.get('name','Nuevo video'),
         'mode':project.get('mode','Manual'),
-        'format':{'width':width,'height':height,'fps':30},
+        'format':{'width':width,'height':height,'fps':fps},
         'duration':duration,
         'tracks':tracks,
         'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True},
     }
+
 
 def main():
     ap=argparse.ArgumentParser(description='Convierte un proyecto exportado por ProfitMente Studio al edit_plan v5.')
@@ -48,4 +122,6 @@ def main():
     out.write_text(json.dumps(plan,ensure_ascii=False,indent=2),encoding='utf-8')
     print(out)
 
-if __name__=='__main__': main()
+
+if __name__=='__main__':
+    main()
