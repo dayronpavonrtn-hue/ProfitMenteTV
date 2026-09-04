@@ -16,10 +16,15 @@ class ProfitMenteAudioNormalizeEngine{
     if(typeof value==='number'&&Number.isFinite(value))return String(value);
     return String(value);
   }
+  static canonicalClipId(value){return this.canonicalMediaId(value)}
   static hasAsset(value){return this.canonicalMediaId(value)!==null}
   static findAsset(assets,id){
     const wanted=this.canonicalMediaId(id);if(wanted===null)return null;
     return (assets||[]).find(asset=>this.canonicalMediaId(asset?.id)===wanted)||null;
+  }
+  static findClip(clips,id){
+    const wanted=this.canonicalClipId(id);if(wanted===null)return null;
+    return (clips||[]).find(clip=>this.canonicalClipId(clip?.id)===wanted)||null;
   }
   static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
   static linearToDb(v){const n=Math.max(1e-9,Number(v)||0);return 20*Math.log10(n)}
@@ -31,12 +36,12 @@ class ProfitMenteAudioNormalizeEngine{
       if(this.canonicalTrack(key)===canonical&&value&&typeof value==='object')states.push(value);
     }
     const merged=Object.assign({},...states);
-    for(const key of ['muted','solo'])if(states.some(state=>!!state?.[key]))merged[key]=true;
+    for(const key of ['muted','solo','locked'])if(states.some(state=>!!state?.[key]))merged[key]=true;
     return merged;
   }
   static trackState(project,track){
     const current=this.stateFrom(project?.trackState,track),legacy=this.stateFrom(project?.trackStates,track),merged={...legacy,...current};
-    for(const key of ['muted','solo'])if(legacy?.[key]||current?.[key])merged[key]=true;
+    for(const key of ['muted','solo','locked'])if(legacy?.[key]||current?.[key])merged[key]=true;
     return merged;
   }
   static audioSoloSet(project){return new Set(this.AUDIO_TRACKS.filter(track=>!!this.trackState(project,track).solo))}
@@ -45,8 +50,14 @@ class ProfitMenteAudioNormalizeEngine{
     const state=this.trackState(project,t);if(state.muted)return false;
     const solos=this.audioSoloSet(project);return !solos.size||solos.has(t);
   }
+  static trackLocked(project,track){
+    const t=this.canonicalTrack(track);if(t===null)return false;
+    return !!this.trackState(project,t).locked;
+  }
+  static clipLocked(project,clip){return !!clip&&(clip.locked===true||this.trackLocked(project,clip.track))}
   static clipActive(project,clip){return !!clip&&this.trackActive(project,clip.track)&&clip.muted!==true}
   static activeAudioClips(project){return (project?.clips||[]).filter(clip=>this.clipActive(project,clip)&&this.hasAsset(clip.asset))}
+  static mutableAudioClips(project){return this.activeAudioClips(project).filter(clip=>!this.clipLocked(project,clip))}
   static targets(track){
     const t=this.canonicalTrack(track);
     if(t===4)return {rmsDb:-18,peakDb:-1,label:'voz'};
