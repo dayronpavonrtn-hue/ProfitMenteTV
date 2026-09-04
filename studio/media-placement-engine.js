@@ -1,21 +1,30 @@
 class ProfitMenteMediaPlacementEngine{
+  static trackKey(track){
+    if(track===null||track===undefined||track==='')return null;
+    const n=Number(track);if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return String(n);
+  }
   static range(project,at,duration){
     const total=Math.max(.25,Number(project?.duration)||.25),start=Math.max(0,Math.min(total,Number(at)||0));
     const requested=Math.max(.25,Number(duration)||.25),available=Math.max(0,total-start),length=Math.min(available,requested);
     return {start,end:start+length,duration:length,total,available,valid:length>=.25-.001};
   }
   static trackLocked(project,track){
+    const key=this.trackKey(track);if(key===null)return false;
     const states=[project?.trackState,project?.trackStates];
     return states.some(state=>{
       if(!state||typeof state!=='object')return false;
-      const value=state[track]??state[String(track)];
-      return !!(value&&typeof value==='object'&&value.locked);
+      return Object.entries(state).some(([candidate,value])=>this.trackKey(candidate)===key&&!!(value&&typeof value==='object'&&value.locked));
     });
   }
   static clipLocked(clip){return !!clip?.locked}
-  static onTrack(project,track){return (project?.clips||[]).filter(c=>Number(c?.track)===Number(track))}
+  static onTrack(project,track){
+    const key=this.trackKey(track);if(key===null)return [];
+    return (project?.clips||[]).filter(c=>this.trackKey(c?.track)===key);
+  }
   static insertSpace(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split)return {ok:false,reason:'missing-engine',shifted:0};
+    if(this.trackKey(track)===null)return {ok:false,reason:'invalid-track',shifted:0};
     if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',shifted:0};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',shifted:0,required:.25,total:r.total,available:r.available};
     const clips=this.onTrack(project,track),after=clips.filter(c=>(Number(c.start)||0)>=r.start-.001),crossing=clips.find(c=>(Number(c.start)||0)<r.start-.001&&(Number(c.start)||0)+(Number(c.duration)||0)>r.start+.001);
@@ -31,6 +40,7 @@ class ProfitMenteMediaPlacementEngine{
   }
   static overwriteRange(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split||!ops?.trimLeft||!ops?.trimRight)return {ok:false,reason:'missing-engine',removed:0,trimmed:0};
+    if(this.trackKey(track)===null)return {ok:false,reason:'invalid-track',removed:0,trimmed:0};
     if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',removed:0,trimmed:0};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',removed:0,trimmed:0,total:r.total,available:r.available};
     const affected=this.onTrack(project,track).filter(c=>{const s=Number(c.start)||0,e=s+(Number(c.duration)||0);return s<r.end-.001&&e>r.start+.001});
