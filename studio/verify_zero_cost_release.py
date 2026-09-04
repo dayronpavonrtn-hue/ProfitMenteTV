@@ -9,8 +9,8 @@ Checks the critical editor/runtime pieces together without paid services:
 - advanced manual edits honoring clip/track locks, including legacy aliases
 - synchronized ripple/remove-time edits for clips, captions, markers and work ranges
 - project persistence/recovery/migration/JSON transfer and portable bundles
-- render-job recovery plus legacy project/render compatibility
-- export preflight, render-quality/parity configuration and output QC
+- render-job recovery, resilient result delivery and legacy project/render compatibility
+- export preflight, render-quality/parity configuration, failure cleanup and output QC
 - local server API
 - real FFmpeg end-to-end MP4 smoke render
 
@@ -100,12 +100,15 @@ def main() -> None:
         ("portabilidad", "Preflight de espacio al restaurar paquete completo", [node, "test_bundle_import_storage_preflight.mjs"]),
         ("exportacion", "Preflight antes de exportar", [node, "test_export_preflight.mjs"]),
         ("render", "Recuperación de trabajo MP4 tras recarga/red", [node, "test_render_job_recovery.mjs"]),
+        ("render", "Descarga MP4 reintenta fallos transitorios y valida integridad", [node, "test_render_result_retry.mjs"]),
+        ("render", "Render asíncrono conserva sesión recuperable y exige QA post-render", [node, "test_async_render_validation.mjs"]),
         ("render", "Compatibilidad de estados de pista heredados", [node, "test_track_state_legacy_parity.mjs"]),
         ("render", "Configuración de calidad MP4", [node, "test_render_quality.mjs"]),
         ("render", "Presets de render Python", [py, "test_render_quality.py"]),
         ("render", "Paridad Preview a MP4", [py, "test_render_parity_preflight.py"]),
         ("render", "Primer clip no recibe transición de entrada en MP4", [py, "test_first_clip_transition_render.py"]),
         ("render", "Render MP4 con pistas heredadas normalizadas", [py, "test_render_mp4_legacy_state.py"]),
+        ("render", "Fallos de render liberan archivos temporales", [py, "test_render_failure_cleanup.py"]),
         ("servidor", "API local de Studio", [py, "test_server_api.py"]),
         ("exportacion", "Render MP4 real end-to-end", [py, "smoke_test.py"]),
         ("calidad", "Control de calidad del MP4 final", [py, "test_output_qc.py"]),
