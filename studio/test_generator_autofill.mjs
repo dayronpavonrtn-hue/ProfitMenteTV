@@ -85,4 +85,39 @@ assert.equal(trackResult.before,0);
 assert.equal(lockedTracks.clips[0].asset,null);
 assert.equal(lockedTracks.clips[1].asset,null);
 
+const legacyLockedTracks={mode:'Automático',trackStates:{'00':{locked:true},'04':{locked:true},'05':{locked:true},'6.0':{locked:true}},clips:[
+  {id:'legacy-scene',track:0,asset:null},
+  {id:'legacy-voice',track:6,asset:null},
+  {id:'legacy-scene-two',track:0,asset:'existing'}
+]};
+const legacyLockResult=helper.fill(legacyLockedTracks,[...visuals,...voice],[...visuals,...voice]);
+assert.equal(legacyLockResult.changed,false,'legacy track aliases in trackStates must block automatic visual/audio mutation');
+assert.equal(legacyLockResult.before,0,'legacy-locked primary scenes are not pending automatic work');
+assert.equal(legacyLockedTracks.clips[0].asset,null);
+assert.equal(legacyLockedTracks.clips[1].asset,null);
+
+const zeroAlreadyAssigned={mode:'Automático',clips:[
+  {id:'zero-scene',track:0,asset:0},
+  {id:'open-scene',track:0,asset:null}
+]};
+const zeroResult=helper.fill(zeroAlreadyAssigned,visuals,visuals);
+assert.equal(zeroResult.changed,true,'other missing scenes should still be filled');
+assert.equal(zeroResult.before,1,'numeric media ID 0 must count as an existing assignment');
+assert.equal(zeroAlreadyAssigned.clips[0].asset,0,'automatic fill must never replace an existing numeric media ID 0');
+assert.equal(zeroAlreadyAssigned.clips[1].asset,'new-video');
+
+const zeroOnly={mode:'Automático',clips:[{id:'only-zero',track:0,asset:0}]};
+assert.equal(helper.fill(zeroOnly,visuals,visuals).changed,false,'numeric media ID 0 must not create false pending automation');
+assert.equal(helper.missing(zeroOnly),0);
+
+const importedByCanonicalIdentity=helper.assetsFromIds([
+  {id:' 7 ',type:'video'},
+  {id:0,type:'audio'},
+  {id:'other',type:'image'}
+],[7,'0']);
+assert.deepEqual(importedByCanonicalIdentity.map(asset=>asset.id),[' 7 ',0],'media-import events must match numeric/string IDs using canonical identity');
+
+assert.equal(helper.trackLocked({trackState:{'1.5':{locked:true}}},1),false,'invalid fractional track aliases must not lock a valid track');
+assert.equal(helper.trackLocked({trackState:{'07':{locked:true}}},0),false,'out-of-range aliases must not collapse onto a valid track');
+
 console.log('generator autofill tests passed');
