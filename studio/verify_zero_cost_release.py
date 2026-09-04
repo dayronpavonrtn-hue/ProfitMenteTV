@@ -82,6 +82,7 @@ def main() -> None:
         ("preview", "Identidad legacy de medios coincide con render", [node, "test_preview_media_identity.mjs"]),
         ("preview", "Audio preview respeta identidad de medios y estados heredados", [node, "test_audio_preview_identity.mjs"]),
         ("audio", "Ducking respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_ducking.mjs"]),
+        ("audio", "Normalización respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_normalize_identity.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
