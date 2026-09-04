@@ -19,6 +19,21 @@ const mixedReverse={trackState:{'4':{locked:true}},trackStates:{4:{locked:false}
 assert.equal(ProfitMenteEditLockGuard.isLocked(mixedReverse,{track:4}),true,'current-map lock must not be masked by legacy unlocked state');
 assert.equal(ProfitMenteEditLockGuard.trackLocked({},{}),false,'missing track metadata must remain editable');
 
+const aliasCases=[
+  [{trackState:{'0.0':{locked:true}}},{track:0},true],
+  [{trackState:{'01':{locked:true}}},{track:1},true],
+  [{trackStates:{'05':{locked:true}}},{track:'5.0'},true],
+  [{trackStates:{'06':{locked:true}}},{track:6},true],
+  [{trackState:{'1.5':{locked:true}}},{track:1},false],
+  [{trackState:{'7':{locked:true}}},{track:7},false],
+  [{trackState:{'':{locked:true}}},{track:0},false]
+];
+for(const [p,c,expected] of aliasCases)assert.equal(ProfitMenteEditLockGuard.isLocked(p,c),expected,`advanced edit alias lock mismatch for ${JSON.stringify(p)} / ${JSON.stringify(c)}`);
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack('00'), '0');
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack('4.0'), '4');
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack('1.5'), null);
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack(''), null);
+
 const project={fps:30,duration:10,trackState:{0:{locked:false}},clips:[
   {id:'a',track:0,start:1,duration:2,groupId:'g'},
   {id:'b',track:0,start:4,duration:2,groupId:'g',locked:true}
@@ -43,6 +58,22 @@ const legacyBlocked=ProfitMenteFrameNudgeEngine.apply(legacyProject,'legacy-a',1
 assert.equal(legacyBlocked.ok,false,'advanced edit must reject a legacy-map locked track');
 assert.equal(legacyBlocked.reason,'locked');
 assert.deepEqual(legacyProject.clips.map(c=>c.start),legacyBefore,'legacy track lock rejection must be atomic');
+
+const aliasProject={fps:30,duration:10,trackState:{'01':{locked:true}},clips:[
+  {id:'alias-a',track:'1.0',start:1,duration:2},
+  {id:'alias-b',track:1,start:4,duration:2}
+]};
+const aliasBefore=aliasProject.clips.map(c=>c.start);
+const aliasBlocked=ProfitMenteFrameNudgeEngine.apply(aliasProject,'alias-a',1);
+assert.equal(aliasBlocked.ok,false,'frame nudge must honor canonical legacy track aliases');
+assert.equal(aliasBlocked.reason,'locked');
+assert.deepEqual(aliasProject.clips.map(c=>c.start),aliasBefore,'alias lock rejection must not move any clip');
+
+const invalidAliasProject={fps:30,duration:10,trackState:{'1.5':{locked:true},'7':{locked:true},'':{locked:true}},clips:[
+  {id:'invalid-a',track:1,start:1,duration:2}
+]};
+const invalidMoved=ProfitMenteFrameNudgeEngine.apply(invalidAliasProject,'invalid-a',1);
+assert.equal(invalidMoved.ok,true,'invalid legacy track keys must not lock unrelated valid tracks');
 
 for(const file of ['slip-edit-integration.js','roll-edit-integration.js','rate-stretch-integration.js','freeze-frame-integration.js']){
   const src=fs.readFileSync(new URL(file,import.meta.url),'utf8');
