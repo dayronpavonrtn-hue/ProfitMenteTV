@@ -9,6 +9,20 @@
     speed(c){return Math.max(.25,Math.min(4,this.num(c?.speed,1)||1))}
     clone(v){return structuredClone(v)}
     end(c){return this.num(c?.start)+Math.max(0,this.num(c?.duration))}
+    canonicalTrack(value){
+      if(value===undefined||value===null)return null;
+      if(typeof value==='string'&&!value.trim())return null;
+      const n=Number(value);return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?String(n):null
+    }
+    trackLocked(project,clip){
+      const canonical=this.canonicalTrack(clip?.track);if(canonical===null)return false;
+      return [project?.trackState,project?.trackStates].some(map=>{
+        if(!map||typeof map!=='object')return false;
+        return Object.entries(map).some(([key,state])=>this.canonicalTrack(key)===canonical&&!!(state&&typeof state==='object'&&state.locked))
+      })
+    }
+    clipLocked(project,clip){return !!clip?.locked||this.trackLocked(project,clip)}
+    hasAssetReference(clip){const value=clip?.asset;return value!==undefined&&value!==null&&!(typeof value==='string'&&!value.trim())}
     interpolate(a,b,p){
       const out={};for(const key of new Set([...Object.keys(a||{}),...Object.keys(b||{})])){const x=Number(a?.[key]),y=Number(b?.[key]);if(Number.isFinite(x)&&Number.isFinite(y))out[key]=x+(y-x)*p;else if(a?.[key]!==undefined)out[key]=this.clone(a[key]);else out[key]=this.clone(b[key])}return out
     }
@@ -20,7 +34,7 @@
     segment(original,sourceStart,sourceEnd,newStart,{keepId=false,leftEdge=false,rightEdge=false}={}){
       const os=this.num(original.start),oe=this.end(original),od=Math.max(.000001,oe-os),ss=Math.max(os,sourceStart),se=Math.min(oe,sourceEnd);if(se<=ss+.000001)return null;
       const c=this.clone(original);if(!keepId)c.id=this.idFactory();c.start=newStart;c.duration=se-ss;
-      if(original.asset)c.sourceOffset=Math.max(0,this.num(original.sourceOffset)+(ss-os)*this.speed(original));
+      if(this.hasAssetReference(original))c.sourceOffset=Math.max(0,this.num(original.sourceOffset)+(ss-os)*this.speed(original));
       if(original.keyframes?.start&&original.keyframes?.end){const p1=(ss-os)/od,p2=(se-os)/od;c.keyframes={start:this.interpolate(original.keyframes.start,original.keyframes.end,p1),end:this.interpolate(original.keyframes.start,original.keyframes.end,p2)}}
       if(Object.prototype.hasOwnProperty.call(original,'fadeIn'))c.fadeIn=leftEdge?Math.min(c.duration,Math.max(0,this.num(original.fadeIn))):0;
       if(Object.prototype.hasOwnProperty.call(original,'fadeOut'))c.fadeOut=rightEdge?Math.min(c.duration,Math.max(0,this.num(original.fadeOut))):0;
@@ -40,9 +54,7 @@
         }
       }
     }
-    lockedBlockers(project,from){
-      const states=project?.trackState||{};return (project?.clips||[]).filter(c=>states?.[c.track]?.locked&&this.end(c)>from+.001)
-    }
+    lockedBlockers(project,from){return (project?.clips||[]).filter(c=>this.clipLocked(project,c)&&this.end(c)>from+.001)}
     mapTimeExtract(t,start,end){t=this.num(t);if(t<=start)return t;if(t>=end)return t-(end-start);return start}
     mapTimeInsert(t,at,duration){t=this.num(t);return t>=at?t+duration:t}
     remapMarkers(project,fn,{dropStart=null,dropEnd=null}={}){
