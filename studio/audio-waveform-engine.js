@@ -1,5 +1,21 @@
 class ProfitMenteAudioWaveformEngine{
+  static AUDIO_TRACKS=[4,5,6]
   static clamp(value,min=0,max=1){const n=Number(value);return Math.min(max,Math.max(min,Number.isFinite(n)?n:min))}
+  static canonicalTrack(value){
+    if(value===null||value===undefined)return null;
+    const raw=typeof value==='string'?value.trim():value;if(raw==='')return null;
+    const n=Number(raw);return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?n:null;
+  }
+  static canonicalMediaId(value){
+    if(value===null||value===undefined)return null;
+    if(typeof value==='string'){const s=value.trim();return s===''?null:s}
+    if(typeof value==='number')return Number.isFinite(value)?String(value):null;
+    const s=String(value).trim();return s===''?null:s;
+  }
+  static hasAsset(value){return this.canonicalMediaId(value)!==null}
+  static sameIdentity(a,b){const left=this.canonicalMediaId(a),right=this.canonicalMediaId(b);return left!==null&&right!==null&&left===right}
+  static findById(items=[],id){return (items||[]).find(item=>this.sameIdentity(item?.id,id))||null}
+  static isAudioTrack(value){return this.AUDIO_TRACKS.includes(this.canonicalTrack(value))}
   static channels(input=[]){
     if(!input)return [];
     if(Array.isArray(input))return input.filter(Boolean);
