@@ -38,4 +38,19 @@ assert_bad({**base, 'clips': [{**base['clips'][0], 'speed': .1}]}, 'velocidad')
 assert_bad({**base, 'clips': [{**base['clips'][0], 'speed': 5}]}, 'velocidad')
 assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': .25}, {**base['clips'][1]}, {**base['clips'][2]}]})
 assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': 4}, {**base['clips'][1]}, {**base['clips'][2]}]})
+
+# Imported/legacy projects can carry integral numeric aliases as strings. The
+# FFmpeg renderer canonicalizes these before composition, so preflight must inspect
+# the same semantic tracks instead of letting unsupported settings slip through.
+for alias in ('00', '0.0', '01', '1.0'):
+    assert_bad({**base, 'clips': [{**base['clips'][0], 'track': alias, 'transition': 'wipe'}]}, 'transición')
+    assert_bad({**base, 'clips': [{**base['clips'][0], 'track': alias, 'fitMode': 'stretch'}]}, 'ajuste')
+for alias in ('02', '2.0'):
+    assert_bad({**base, 'clips': [{**base['clips'][1], 'track': alias, 'textAnimation': 'bounce'}]}, 'animación')
+    assert_bad({**base, 'clips': [{**base['clips'][1], 'track': alias, 'textStyle': 'lower-third'}]}, 'estilo')
+
+# Fractional/non-numeric tracks remain non-canonical and are handled by the project
+# validator; preflight must not misclassify them as a valid visual/title track.
+assert_ok({**base, 'clips': [{**base['clips'][0], 'track': '1.5', 'transition': 'wipe'}]})
+assert_ok({**base, 'clips': [{**base['clips'][1], 'track': 'two', 'textAnimation': 'bounce'}]})
 print('Render parity preflight regression OK')
