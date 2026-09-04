@@ -1,0 +1,30 @@
+name: ProfitMente Studio Audio Preview Identity QA
+
+on:
+  push:
+    paths:
+      - 'studio/audio-engine.js'
+      - 'studio/test_audio_preview_identity.mjs'
+      - '.github/workflows/audio-preview-identity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/audio-engine.js'
+      - 'studio/test_audio_preview_identity.mjs'
+      - '.github/workflows/audio-preview-identity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audio-preview-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node version
+        run: node --version
+      - name: Audio engine syntax
+        run: node --check studio/audio-engine.js
+      - name: Audio preview identity regression
+        run: node studio/test_audio_preview_identity.mjs
