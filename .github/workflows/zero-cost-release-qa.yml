@@ -31,5 +31,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
+      - name: Verify clip inspector lock and identity safety
+        run: node studio/test_clip_lock_track_inspector.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
