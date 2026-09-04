@@ -5,8 +5,10 @@ on:
     paths:
       - 'studio/preview-engine.js'
       - 'studio/motion-text-engine.js'
+      - 'studio/caption-preview.js'
       - 'studio/test_preview_stale_frames.mjs'
       - 'studio/test_motion_preview_stale_frames.mjs'
+      - 'studio/test_caption_preview_stale_frames.mjs'
       - '.github/workflows/preview-stale-frame-qa.yml'
   workflow_dispatch:
 
@@ -22,9 +24,12 @@ jobs:
         run: |
           node --check studio/preview-engine.js
           node --check studio/motion-text-engine.js
+          node --check studio/caption-preview.js
           node --check studio/test_preview_stale_frames.mjs
           node --check studio/test_motion_preview_stale_frames.mjs
+          node --check studio/test_caption_preview_stale_frames.mjs
       - name: Run stale-frame regressions
         run: |
           node studio/test_preview_stale_frames.mjs
           node studio/test_motion_preview_stale_frames.mjs
+          node studio/test_caption_preview_stale_frames.mjs
