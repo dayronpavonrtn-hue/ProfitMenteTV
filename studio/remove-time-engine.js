@@ -30,7 +30,6 @@
         if(!word||typeof word!=='object')continue;
         if(Number.isFinite(Number(word.start)))word.start=Math.max(0,Number(word.start)+delta);
         if(Number.isFinite(Number(word.end)))word.end=Math.max(0,Number(word.end)+delta);
-        if(Number.isFinite(Number(word.start))&&Number.isFinite(Number(word.end)))word.duration=Math.max(0,Number(word.end)-Number(word.start));
       }
     }
     mapTime(value,start,end,amount){
