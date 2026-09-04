@@ -1,0 +1,39 @@
+name: ProfitMente Studio Audio Envelope QA
+
+on:
+  push:
+    paths:
+      - 'studio/audio-envelope-engine.js'
+      - 'studio/audio-envelope-integration.js'
+      - 'studio/index.html'
+      - 'studio/test_audio_envelope_engine.mjs'
+      - '.github/workflows/audio-envelope-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/audio-envelope-engine.js'
+      - 'studio/audio-envelope-integration.js'
+      - 'studio/index.html'
+      - 'studio/test_audio_envelope_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  audio-envelope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/audio-envelope-engine.js
+          node --check studio/audio-envelope-integration.js
+          node --check studio/test_audio_envelope_engine.mjs
+      - name: Audio envelope regression
+        run: node studio/test_audio_envelope_engine.mjs
+      - name: Verify Studio wiring
+        run: |
+          grep -q "audio-envelope-engine.js" studio/index.html
+          grep -q "audio-envelope-integration.js" studio/index.html
+          grep -q "ciAudioEnvelopeWrap" studio/audio-envelope-integration.js
+          grep -q "clipLocked" studio/audio-envelope-engine.js
