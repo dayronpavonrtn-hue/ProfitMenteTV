@@ -1,10 +1,35 @@
 class ProfitMenteAudioEnvelopeEngine{
+  canonicalTrack(track){
+    if(track===null||track===undefined||String(track).trim()==='')return null;
+    const n=Number(track);
+    if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return n;
+  }
+  canonicalId(value){
+    if(value===null||value===undefined)return null;
+    const raw=String(value).trim();
+    if(!raw)return null;
+    if(/^[+-]?\d+(?:\.0+)?$/.test(raw))return String(Number(raw));
+    return raw;
+  }
+  sameId(a,b){const ca=this.canonicalId(a),cb=this.canonicalId(b);return ca!==null&&cb!==null&&ca===cb}
+  hasAsset(value){return this.canonicalId(value)!==null}
+  findAsset(assets,value){return (Array.isArray(assets)?assets:[]).find(a=>this.sameId(a?.id,value))||null}
   trackLocked(project,track){
-    const t=Number(track);
-    if(!Number.isFinite(t))return false;
-    const modern=project?.trackState?.[t]??project?.trackState?.[String(t)];
-    const legacy=project?.trackStates?.[t]??project?.trackStates?.[String(t)];
-    return modern?.locked===true||legacy?.locked===true;
+    const target=this.canonicalTrack(track);
+    if(target===null)return false;
+    for(const state of [project?.trackState,project?.trackStates]){
+      if(!state||typeof state!=='object')continue;
+      for(const [key,value] of Object.entries(state))if(this.canonicalTrack(key)===target&&value?.locked===true)return true;
+    }
+    return false;
+  }
+  clipLocked(project,clip){return !!clip?.locked||this.trackLocked(project,clip?.track)}
+  isAudioEligible(clip,assets){
+    if(!clip||!this.hasAsset(clip.asset))return false;
+    const t=this.canonicalTrack(clip.track),asset=this.findAsset(assets,clip.asset);
+    if(t===null||!asset)return false;
+    return [4,5,6].includes(t)||([0,1].includes(t)&&asset?.type==='video');
   }
   normalize(duration,fadeIn=0.18,fadeOut=0.25){
     const d=Math.max(.001,Number(duration)||.001);
@@ -20,7 +45,7 @@ class ProfitMenteAudioEnvelopeEngine{
   }
   apply(project,clip,fadeIn,fadeOut){
     if(!clip)return {ok:false,reason:'missing-clip'};
-    if(this.trackLocked(project,clip.track))return {ok:false,reason:'locked'};
+    if(this.clipLocked(project,clip))return {ok:false,reason:'locked'};
     const e=this.normalize(clip.duration,fadeIn,fadeOut);
     clip.fadeIn=+e.fadeIn.toFixed(3);
     clip.fadeOut=+e.fadeOut.toFixed(3);
