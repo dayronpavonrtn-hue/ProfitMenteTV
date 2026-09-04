@@ -17,7 +17,7 @@
   const $=s=>document.querySelector(s);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function selectedClip(){const id=window.ProfitMenteEditTools?.selectedId;return (project?.clips||[]).find(c=>c.id===id)||null}
-  function normalize(c){const d=Math.max(.05,Number(c?.duration)||.05),fallback=Math.min(.28,Math.max(.08,d*.12)),raw=Number(c?.transitionDuration);return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,d))}
+  function normalize(c){const d=Math.max(.05,Number(c?.duration)||.05),fallback=Math.min(.28,Math.max(.08,d*.12)),explicit=c?.transitionDuration!==undefined&&c?.transitionDuration!==null&&String(c.transitionDuration).trim()!=='';const raw=explicit?Number(c.transitionDuration):NaN;return clamp(Number.isFinite(raw)?raw:fallback,.05,Math.min(2,d))}
   function applicable(c){return !!c&&[0,1].includes(Number(c.track))&&['fade','slide','zoom'].includes(c.transition||'cut')}
   const props=$('.props');if(!props)return;
   const section=document.createElement('section');section.className='transitionDurationPanel';section.innerHTML=`<div id="transitionDurationWrap" hidden><label>Duración transición <input id="transitionDurationInput" type="number" min="0.05" max="2" step="0.05"><small id="transitionDurationInfo"></small></label><div class="ciActions"><button id="transitionFast">Rápida 0.15s</button><button id="transitionSmooth">Suave 0.45s</button><button id="transitionAuto">Automática</button></div></div>`;props.appendChild(section);
