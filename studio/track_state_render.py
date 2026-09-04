@@ -10,6 +10,7 @@ semantic ``solo`` flag, stale internal Solo bookkeeping, or the legacy
 from __future__ import annotations
 import copy
 import math
+from media_identity import normalize_project_media_ids
 
 VISUAL_TRACKS=(0,1,2,3)
 AUDIO_TRACKS=(4,5,6)
@@ -99,14 +100,15 @@ def _base_muted(state):
 
 
 def normalize_track_solo(project):
-    """Return a deep-copied project with one effective canonical trackState.
+    """Return a deep-copied project with canonical render state.
 
     Visual Solo affects tracks 0-3 only; audio Solo affects tracks 4-6 only,
     matching ``track-controls.js``. Manual hidden/muted state from either current
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
-    Numeric legacy clip tracks and track-state keys are canonicalized in this copy.
+    Numeric legacy clip tracks and media IDs are canonicalized in this copy so
+    standalone render entrypoints match browser preview/QA identity rules.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
     clips=out.get('clips')
@@ -133,4 +135,4 @@ def normalize_track_solo(project):
 
     out['trackState']={str(i):states[i] for i in range(7)}
     out.pop('trackStates',None)
-    return out
+    return normalize_project_media_ids(out)
