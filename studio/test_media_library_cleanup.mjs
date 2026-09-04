@@ -31,6 +31,57 @@ assert.equal(Tools.unusedBytes(project,assets),7000);
 assert.equal(Tools.usage(project,'video-used').length,1);
 assert.equal(Tools.usage(project,'old-image').length,0);
 
+const legacyIdentityProject={
+  clips:[
+    {id:'zero-number',asset:0},
+    {id:'seven-number',asset:7},
+    {id:'eight-spaced',asset:' 08 '},
+    {id:'plain-text',asset:'clip-media'}
+  ],
+  assets:[
+    {id:'00',name:'zero.mp4'},
+    {id:'07',name:'seven.mp4'},
+    {id:8,name:'eight.mp4'},
+    {id:'clip-media',name:'text.mp4'},
+    {id:'unused',name:'unused.mp4'}
+  ]
+};
+const legacyIdentityAssets=[
+  {id:'00',name:'zero.mp4',size:10},
+  {id:'7.0',name:'seven.mp4',size:20},
+  {id:8,name:'eight.mp4',size:30},
+  {id:'clip-media',name:'text.mp4',size:40},
+  {id:'unused',name:'unused.mp4',size:50},
+  {id:null,name:'invalid.mp4',size:60}
+];
+assert.equal(Tools.mediaKey(0),'0');
+assert.equal(Tools.mediaKey('00'),'0');
+assert.equal(Tools.mediaKey('7.0'),'7');
+assert.equal(Tools.mediaKey(' 08 '),'8');
+assert.equal(Tools.mediaKey('clip-media'),'clip-media');
+assert.equal(Tools.mediaKey(''),null);
+assert.equal(Tools.mediaKey(null),null);
+assert.equal(Tools.sameMediaId(7,'07'),true);
+assert.equal(Tools.sameMediaId(7,'7.0'),true);
+assert.equal(Tools.sameMediaId('clip-media',' clip-media '),true);
+assert.deepEqual([...Tools.usedIds(legacyIdentityProject)].sort(),['0','7','8','clip-media']);
+assert.equal(Tools.usage(legacyIdentityProject,'00').length,1,'asset id 0 must count as used');
+assert.equal(Tools.usage(legacyIdentityProject,'07').length,1,'numeric/string aliases must resolve to the same used asset');
+assert.deepEqual(Tools.unused(legacyIdentityProject,legacyIdentityAssets).map(a=>a.id),['unused'],'cleanup must never classify canonical aliases or asset 0 as unused');
+assert.equal(Tools.unusedBytes(legacyIdentityProject,legacyIdentityAssets),50);
+
+const zeroMetaProject={clips:[{id:'z',asset:0}],assets:[]};
+Tools.preserveMeta(zeroMetaProject,{id:0,name:'zero.mp4',type:'video',mime:'video/mp4'});
+assert.equal(zeroMetaProject.assets.length,1,'asset id 0 metadata must be preserved');
+assert.equal(zeroMetaProject.assets[0].id,0);
+Tools.preserveMeta(zeroMetaProject,{id:'00',name:'zero-renamed.mp4',type:'video'});
+assert.equal(zeroMetaProject.assets.length,1,'canonical aliases must update metadata instead of duplicating it');
+assert.equal(zeroMetaProject.assets[0].name,'zero-renamed.mp4');
+
+const legacyMetaProject={assets:[{id:0},{id:'07'},{id:'keep'}]};
+Tools.pruneProjectAssetMeta(legacyMetaProject,['00',7]);
+assert.deepEqual(legacyMetaProject.assets.map(a=>a.id),['keep'],'metadata pruning must use canonical media identity');
+
 const proxyAsset={
   id:'proxy-video',type:'video',name:'source.mov',
   blob:new Blob([new Uint8Array(12)]),previewBlob:new Blob([new Uint8Array(5)]),
@@ -82,10 +133,10 @@ assert.deepEqual(Tools.unused(project,assets).map(a=>a.id),['old-audio'],'idempo
 
 assert.deepEqual(CrossProjectGuard.readSavedProjects({getItem:()=>'{broken json'}),[],'corrupt project library must fail closed without crashing cleanup');
 assert.deepEqual(CrossProjectGuard.unusedAcross([{clips:[{asset:'x'}]}],[{id:'x'},{id:'y'}]).map(a=>a.id),['y']);
-assert.deepEqual([...CrossProjectGuard.usedIdsAcross([{clips:[{asset:0},{asset:7},{asset:' 8 '}]}])].sort(),['0','7','8'],'legacy numeric media ids must normalize to stable keys');
+assert.deepEqual([...CrossProjectGuard.usedIdsAcross([{clips:[{asset:0},{asset:7},{asset:' 8 '},{asset:'09'},{asset:'10.0'}]}])].sort(),['0','10','7','8','9'],'legacy numeric media ids must normalize to stable keys');
 assert.deepEqual(CrossProjectGuard.unusedAcross(
-  [{clips:[{asset:0},{asset:7},{asset:' 8 '}]}],
-  [{id:'0'},{id:'7'},{id:8},{id:'unused'},{id:null}]
-).map(a=>a.id),['unused'],'cleanup must preserve numeric/string equivalent ids and ignore invalid asset ids');
+  [{clips:[{asset:0},{asset:7},{asset:' 8 '},{asset:'09'},{asset:'10.0'}]}],
+  [{id:'00'},{id:'07'},{id:8},{id:9},{id:10},{id:'unused'},{id:null}]
+).map(a=>a.id),['unused'],'cleanup must preserve numeric/string equivalent ids and aliases across saved projects while ignoring invalid ids');
 
 console.log('media library cleanup QA ok');
