@@ -85,6 +85,7 @@ def main() -> None:
         ("audio", "Ducking respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_ducking.mjs"]),
         ("audio", "Normalización respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_normalize_identity.mjs"]),
         ("audio", "Recorte de silencios respeta identidad, aliases y locks heredados", [node, "test_audio_silence_engine.mjs"]),
+        ("audio", "Envolventes y fades respetan identidad y locks heredados", [node, "test_audio_envelope_engine.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
