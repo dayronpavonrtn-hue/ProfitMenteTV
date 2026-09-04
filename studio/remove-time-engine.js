@@ -75,7 +75,8 @@
       this.remapWorkRange(project,t,end,amount);
       const maxEnd=clips.reduce((m,c)=>Math.max(m,this.num(c?.start)+Math.max(0,this.num(c?.duration))),0);
       project.duration=Math.max(maxEnd,Math.max(0,duration-amount));
-      return {ok:true,moved:affected.length,gap:amount,at:t,duration:project.duration,tracks:[...new Set(affected.map(c=>this.canonicalTrack(c.track)??c.track)]};
+      const tracks=[...new Set(affected.map(c=>this.canonicalTrack(c.track)??c.track))];
+      return {ok:true,moved:affected.length,gap:amount,at:t,duration:project.duration,tracks};
     }
   }
   root.ProfitMenteRemoveTimeEngine=ProfitMenteRemoveTimeEngine;
