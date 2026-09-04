@@ -4,6 +4,27 @@ class ProfitMenteMediaTimelineDnD{
     if(type==='audio')return [4,5,6];
     return [];
   }
+  static trackKey(track){
+    if(track===null||track===undefined||track==='')return null;
+    const n=Number(track);if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return String(n);
+  }
+  static mediaKey(id){
+    if(id===null||id===undefined||id==='')return null;
+    if(typeof id==='boolean')return `s:${String(id)}`;
+    const raw=String(id).trim();if(!raw)return null;
+    const n=Number(raw);
+    if(Number.isFinite(n)&&Number.isInteger(n))return `n:${n}`;
+    return `s:${raw}`;
+  }
+  static sameMediaId(a,b){
+    const left=this.mediaKey(a),right=this.mediaKey(b);
+    return left!==null&&right!==null&&left===right;
+  }
+  static findAsset(list,id){
+    const key=this.mediaKey(id);if(key===null)return null;
+    return (Array.isArray(list)?list:[]).find(asset=>this.mediaKey(asset?.id)===key)||null;
+  }
   static assetUsable(asset,{browser=typeof document!=='undefined'}={}){
     if(!asset)return false;
     if(asset.mediaReadable===false)return false;
@@ -12,7 +33,10 @@ class ProfitMenteMediaTimelineDnD{
     if(browser&&(!blob||typeof blob.arrayBuffer!=='function'))return false;
     return true;
   }
-  static canDrop(type,track){return this.allowedTracks(type).includes(Number(track))}
+  static canDrop(type,track){
+    const key=this.trackKey(track);if(key===null)return false;
+    return this.allowedTracks(type).includes(Number(key));
+  }
   static canDropAsset(asset,track,options){return this.assetUsable(asset,options)&&this.canDrop(asset?.type,track)}
   static placement(asset,clientX,laneLeft,laneWidth,projectDuration){
     const total=Math.max(.25,Number(projectDuration)||.25),width=Math.max(1,Number(laneWidth)||1);
@@ -38,8 +62,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaTi
   function unusableMessage(asset){return asset?.mediaReadable===false?`${asset.name||'El medio'} no se puede decodificar. Reconéctalo o reemplázalo antes de añadirlo al timeline.`:`${asset?.name||'El medio'} no está disponible localmente. Reconéctalo antes de añadirlo al timeline.`}
   const baseAddClip=addClip;
   addClip=function(track,name='Nuevo clip',assetId=null,start=0,duration=5){
-    if(assetId){
-      const asset=assets.find(a=>a?.id===assetId);
+    if(ProfitMenteMediaTimelineDnD.mediaKey(assetId)!==null){
+      const asset=ProfitMenteMediaTimelineDnD.findAsset(assets,assetId);
       if(!ProfitMenteMediaTimelineDnD.assetUsable(asset)){setStatus?.(unusableMessage(asset||{name}));return null}
     }
     return baseAddClip(track,name,assetId,start,duration);
@@ -49,7 +73,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaTi
     cards.forEach((card,index)=>{
       const asset=assets[index];if(!asset)return;
       const usable=ProfitMenteMediaTimelineDnD.assetUsable(asset);
-      card.draggable=usable;card.dataset.assetId=asset.id;card.dataset.mediaUnusable=usable?'false':'true';
+      card.draggable=usable;card.dataset.assetId=String(asset.id);card.dataset.mediaUnusable=usable?'false':'true';
       if('disabled'in card)card.disabled=!usable;
       card.title=usable?`Arrastra ${asset.name} a una pista compatible o haz clic para añadirlo al cursor`:unusableMessage(asset);
     });
@@ -59,24 +83,25 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaTi
   markCards();
   library.addEventListener('dragstart',e=>{
     const card=e.target.closest?.('.mediaCard');if(!card)return;
-    const asset=assets.find(a=>a.id===card.dataset.assetId);if(!ProfitMenteMediaTimelineDnD.assetUsable(asset)){e.preventDefault();setStatus?.(unusableMessage(asset));return}
-    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('application/x-profitmente-asset',asset.id);e.dataTransfer.setData('text/plain',asset.id);
+    const asset=ProfitMenteMediaTimelineDnD.findAsset(assets,card.dataset.assetId);if(!ProfitMenteMediaTimelineDnD.assetUsable(asset)){e.preventDefault();setStatus?.(unusableMessage(asset));return}
+    const transferId=String(asset.id);
+    e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData('application/x-profitmente-asset',transferId);e.dataTransfer.setData('text/plain',transferId);
   });
   tracksHost.addEventListener('dragover',e=>{
     const lane=e.target.closest?.('.lane');if(!lane)return;
-    const id=e.dataTransfer.getData('application/x-profitmente-asset')||e.dataTransfer.getData('text/plain'),asset=assets.find(a=>a.id===id);
+    const id=e.dataTransfer.getData('application/x-profitmente-asset')||e.dataTransfer.getData('text/plain'),asset=ProfitMenteMediaTimelineDnD.findAsset(assets,id);
     if(!ProfitMenteMediaTimelineDnD.canDropAsset(asset,lane.dataset.track))return;
     e.preventDefault();e.dataTransfer.dropEffect='copy';lane.classList.add('mediaAssetDrop');
   });
   tracksHost.addEventListener('dragleave',e=>{const lane=e.target.closest?.('.lane');if(lane&&!lane.contains(e.relatedTarget))lane.classList.remove('mediaAssetDrop')});
   tracksHost.addEventListener('drop',e=>{
     const lane=e.target.closest?.('.lane');if(!lane)return;
-    const id=e.dataTransfer.getData('application/x-profitmente-asset')||e.dataTransfer.getData('text/plain'),asset=assets.find(a=>a.id===id),track=Number(lane.dataset.track);
+    const id=e.dataTransfer.getData('application/x-profitmente-asset')||e.dataTransfer.getData('text/plain'),asset=ProfitMenteMediaTimelineDnD.findAsset(assets,id),trackKey=ProfitMenteMediaTimelineDnD.trackKey(lane.dataset.track);
     lane.classList.remove('mediaAssetDrop');if(!asset)return;
     if(!ProfitMenteMediaTimelineDnD.assetUsable(asset)){e.preventDefault();setStatus?.(unusableMessage(asset));return}
-    if(!ProfitMenteMediaTimelineDnD.canDrop(asset.type,track)){setStatus?.('Ese tipo de medio no es compatible con esta pista');return}
+    if(trackKey===null||!ProfitMenteMediaTimelineDnD.canDrop(asset.type,trackKey)){setStatus?.('Ese tipo de medio no es compatible con esta pista');return}
     e.preventDefault();
-    const rect=lane.getBoundingClientRect(),place=ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration),previousDuration=Number(project.duration)||.25;
+    const track=Number(trackKey),rect=lane.getBoundingClientRect(),place=ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration),previousDuration=Number(project.duration)||.25;
     const expandedDuration=Math.max(previousDuration,place.end);
     if(expandedDuration>previousDuration){project.duration=expandedDuration;if(typeof syncForm==='function')syncForm()}
     let created;
