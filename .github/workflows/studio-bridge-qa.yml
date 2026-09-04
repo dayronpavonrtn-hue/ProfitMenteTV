@@ -1,0 +1,32 @@
+name: ProfitMente Studio Bridge QA
+
+on:
+  push:
+    paths:
+      - 'studio_bridge.py'
+      - 'studio/test_studio_bridge.py'
+      - '.github/workflows/studio-bridge-qa.yml'
+  pull_request:
+    paths:
+      - 'studio_bridge.py'
+      - 'studio/test_studio_bridge.py'
+      - '.github/workflows/studio-bridge-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio_bridge.py studio/test_studio_bridge.py
+      - name: Studio bridge regression tests
+        run: python studio/test_studio_bridge.py
