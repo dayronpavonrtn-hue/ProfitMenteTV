@@ -80,6 +80,7 @@ def main() -> None:
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
+        ("timeline", "Drag-and-drop de biblioteca respeta identidad y pistas heredadas", [node, "test_media_timeline_dnd.mjs"]),
         ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
         ("timeline", "Alias heredados de pista en operaciones manuales", [node, "test_timeline_track_alias_guard.mjs"]),
         ("preview", "Identidad legacy de medios coincide con render", [node, "test_preview_media_identity.mjs"]),
