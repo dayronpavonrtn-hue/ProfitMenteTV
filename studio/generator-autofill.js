@@ -19,14 +19,34 @@
 
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
+  canonicalTrack(value){
+    if(value==null||(typeof value==='string'&&!value.trim()))return null;
+    const number=Number(value);
+    return Number.isFinite(number)&&Number.isInteger(number)&&number>=0&&number<=6?String(number):null;
+  }
   trackLocked(project,track){
-    const keys=[track,String(track)],maps=[project?.trackState,project?.trackStates];
-    return maps.some(map=>keys.some(key=>!!(map?.[key]&&typeof map[key]==='object'&&map[key].locked)));
+    const target=this.canonicalTrack(track),exact=String(track),maps=[project?.trackState,project?.trackStates];
+    return maps.some(map=>Object.entries(map||{}).some(([key,state])=>{
+      if(!state||typeof state!=='object'||!state.locked)return false;
+      const candidate=this.canonicalTrack(key);
+      return target!=null?candidate===target:key===exact;
+    }));
   }
   locked(project,clip){
     const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;
     if(guard?.isLocked)return guard.isLocked(project,clip);
     return !!clip?.locked||this.trackLocked(project,clip?.track);
+  }
+  mediaKey(value){
+    if(value==null)return null;
+    if(typeof value==='string'){const trimmed=value.trim();return trimmed?trimmed:null}
+    if(typeof value==='number')return Number.isFinite(value)?String(value):null;
+    return String(value);
+  }
+  hasAsset(clip){return this.mediaKey(clip?.asset)!=null}
+  assetsFromIds(allAssets=[],ids=[]){
+    const wanted=new Set((Array.isArray(ids)?ids:[]).map(id=>this.mediaKey(id)).filter(id=>id!=null));
+    return (Array.isArray(allAssets)?allAssets:[]).filter(asset=>wanted.has(this.mediaKey(asset?.id)));
   }
   assetUsable(asset){
     if(!asset||asset.mediaReadable===false)return false;
@@ -39,15 +59,15 @@ class ProfitMenteGeneratorAutoFill {
     return true;
   }
   usableAssets(list=[]){return (Array.isArray(list)?list:[]).filter(asset=>this.assetUsable(asset))}
-  missing(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&!c.asset&&!this.locked(project,c)).length}
+  missing(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&!this.hasAsset(c)&&!this.locked(project,c)).length}
   importedVisuals(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='video'||a?.type==='image')}
   importedAudio(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='audio')}
   needsAudio(project){
     const clips=project?.clips||[];
-    const narration=clips.some(c=>Number(c.track)===6&&!c.asset&&!this.locked(project,c));
-    const music=!this.trackLocked(project,5)&&!clips.some(c=>Number(c.track)===5&&c.asset);
+    const narration=clips.some(c=>Number(c.track)===6&&!this.hasAsset(c)&&!this.locked(project,c));
+    const music=!this.trackLocked(project,5)&&!clips.some(c=>Number(c.track)===5&&this.hasAsset(c));
     const scenes=clips.filter(c=>Number(c.track)===0).length;
-    const sfx=!this.trackLocked(project,4)&&scenes>1&&!clips.some(c=>Number(c.track)===4&&c.asset);
+    const sfx=!this.trackLocked(project,4)&&scenes>1&&!clips.some(c=>Number(c.track)===4&&this.hasAsset(c));
     return narration||music||sfx;
   }
   shouldRun(project,importedAssets=[]){
@@ -63,7 +83,12 @@ class ProfitMenteGeneratorAutoFill {
     const hasNewVisual=this.importedVisuals(importedAssets).length>0;
     let assigned={};
     if(hasNewVisual&&before>0){
-      assigned=this.engine.assignAssets(project,usable)||{};
+      // Legacy generator internals used truthiness for asset references. Preserve
+      // an already-assigned numeric ID 0 while the engine fills other scenes.
+      const protectedZero=new Map();
+      for(const clip of project?.clips||[])if(clip?.asset===0){protectedZero.set(clip,0);clip.asset='__profitmente_asset_zero__'}
+      try{assigned=this.engine.assignAssets(project,usable)||{}}
+      finally{for(const [clip,value] of protectedZero)if(clip.asset==='__profitmente_asset_zero__')clip.asset=value}
     }else{
       assigned={
         primary:0,broll:0,skipped:before,
@@ -83,9 +108,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteGenerat
   if(typeof document==='undefined'||typeof project==='undefined'||typeof assets==='undefined'||typeof ProfitMenteGeneratorEngine==='undefined')return;
   const helper=new ProfitMenteGeneratorAutoFill(new ProfitMenteGeneratorEngine());
   document.addEventListener('profitmente:media-imported',e=>{
-    const ids=new Set(e.detail?.assetIds||[]);
-    if(!ids.size)return;
-    const imported=assets.filter(a=>ids.has(a.id));
+    const imported=helper.assetsFromIds(assets,e.detail?.assetIds||[]);
+    if(!imported.length)return;
     const result=helper.fill(project,assets,imported);
     if(!result.changed)return;
     save?.();
