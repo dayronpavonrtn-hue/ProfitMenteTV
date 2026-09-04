@@ -41,5 +41,34 @@ assert.deepEqual(Ducking.intervals(legacySoloMusic,music),[]);
 const soloSourceAudio={...project,trackState:{4:{solo:true}}};
 assert.deepEqual(Ducking.intervals(soloSourceAudio,music),[]);
 
+// Canonical aliases from older projects must behave exactly like tracks 5/6.
+const aliasMusic={...music,track:'05'};
+const aliasProject={clips:[aliasMusic,{id:'legacy-v',track:'6.0',asset:'voice',start:1,duration:2}]};
+assert.deepEqual(Ducking.intervals(aliasProject,aliasMusic),[{start:1,end:3}]);
+assert.equal(Ducking.prepareForRender(aliasProject).clips.filter(c=>Ducking.canonicalTrack(c.track)===5).length,3);
+
+// Legacy state maps may store aliases instead of canonical numeric keys.
+const aliasMuted={...aliasProject,trackStates:{'06':{muted:true}}};
+assert.deepEqual(Ducking.intervals(aliasMuted,aliasMusic),[]);
+const aliasSolo={...aliasProject,trackState:{'5.0':{solo:true}}};
+assert.deepEqual(Ducking.intervals(aliasSolo,aliasMusic),[]);
+
+// Numeric media id 0 is a valid reference and must never be treated as empty.
+const zeroMusic={...music,id:'m0',asset:0};
+const zeroProject={clips:[zeroMusic,{id:'v0',track:6,asset:0,start:2,duration:2}]};
+assert.deepEqual(Ducking.intervals(zeroProject,zeroMusic),[{start:2,end:4}]);
+const zeroRender=Ducking.prepareForRender(zeroProject),zeroParts=zeroRender.clips.filter(c=>c.id.startsWith('m0-duck-'));
+assert.equal(zeroParts.length,3);
+assert.deepEqual(zeroParts.map(c=>c.volume),[.3,.1,.3]);
+assert.equal(zeroProject.clips.length,2,'zero-id render preparation must remain immutable');
+
+// Empty assets and invalid track aliases must not create phantom ducking.
+assert.deepEqual(Ducking.intervals({clips:[music,{track:6,asset:'',start:2,duration:2}]},music),[]);
+assert.deepEqual(Ducking.intervals({clips:[music,{track:'6.5',asset:'voice',start:2,duration:2}]},music),[]);
+assert.deepEqual(Ducking.intervals({clips:[music,{track:7,asset:'voice',start:2,duration:2}]},music),[]);
+assert.equal(Ducking.canonicalTrack(''),null);
+assert.equal(Ducking.canonicalTrack('6.5'),null);
+assert.equal(Ducking.canonicalTrack(7),null);
+
 const noVoice={clips:[music]};assert.equal(Ducking.prepareForRender(noVoice).clips.length,1);
 console.log('audio ducking ok');
