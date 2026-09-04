@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'studio/clip-lock-*.js'
+      - 'studio/clip-inspector.js'
       - 'studio/group-edit-engine.js'
       - 'studio/group-split-engine.js'
       - 'studio/feature-bootstrap.js'
@@ -22,6 +23,7 @@ jobs:
         run: |
           node --check studio/clip-lock-engine.js
           node --check studio/clip-lock-integration.js
+          node --check studio/clip-inspector.js
           node --check studio/group-edit-engine.js
           node --check studio/group-split-engine.js
       - name: Clip lock regression
