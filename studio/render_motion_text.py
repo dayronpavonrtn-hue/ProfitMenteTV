@@ -7,6 +7,7 @@ MP4 matches WebAudio preview ducking, track gain, fades and source-video audio.
 """
 import copy,json,pathlib,subprocess,sys,tempfile
 from caption_compact import compact_project_captions
+from media_identity import normalize_project_media_ids
 from motion_text_layout import expand_motion_text
 from render_progress import write_progress
 from track_state_render import normalize_track_solo
@@ -15,7 +16,10 @@ if len(sys.argv)!=4:
     raise SystemExit('Usage: render_motion_text.py project.json assets_dir output.mp4')
 root=pathlib.Path(__file__).resolve().parent
 project_path=pathlib.Path(sys.argv[1])
-project=normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8')))
+# This entrypoint is also used directly by tests/tools, so normalize media IDs
+# here rather than relying only on render_bundle.py. Numeric/string legacy IDs
+# (including id 0) then reach video and audio renderers with one canonical key.
+project=normalize_project_media_ids(normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8'))))
 render_project=expand_motion_text(compact_project_captions(project))
 
 # render_mp4.py remains the visual compositor. Suppress every audio source in

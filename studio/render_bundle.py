@@ -6,6 +6,7 @@ happen on a sibling candidate file first. The previous good MP4 is therefore
 preserved if FFmpeg, decode verification or post-render QA fails.
 """
 import json,pathlib,sys,tarfile,tempfile,subprocess,os,uuid
+from media_identity import normalize_project_media_ids
 from track_state_render import normalize_track_solo
 from render_progress import write_progress
 
@@ -62,8 +63,12 @@ try:
         # Solo is semantic state, not just a browser UI effect. Re-derive hidden/muted
         # before validation so non-Solo offline media is not required and preview,
         # validation, FFmpeg and post-render QA all consume the same effective tracks.
+        # Canonicalize media identities at this boundary too: browser preview/QA treats
+        # numeric/string legacy IDs (including 0) as the same asset, so every Python
+        # stage must receive the same canonical references before strict lookups begin.
         data=json.loads(project.read_text(encoding='utf-8'))
-        project.write_text(json.dumps(normalize_track_solo(data),ensure_ascii=False),encoding='utf-8')
+        data=normalize_project_media_ids(normalize_track_solo(data))
+        project.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
         write_progress(18,'Validando estructura del proyecto')
         subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
         # Imported/legacy JSON can contain arbitrary visual enum values. The renderer
