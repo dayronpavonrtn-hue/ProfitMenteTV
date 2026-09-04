@@ -1,5 +1,12 @@
 class ProfitMenteMediaLibraryTools{
   static normalize(value=''){return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()}
+  static mediaKey(value){
+    if(value===undefined||value===null)return null;
+    const raw=String(value).trim();if(!raw)return null;
+    const numeric=Number(raw);
+    return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
+  }
+  static sameMediaId(a,b){const left=this.mediaKey(a),right=this.mediaKey(b);return left!==null&&right!==null&&left===right}
   static filter(assets=[],query='',type='all'){
     const q=this.normalize(query),wanted=String(type||'all');
     return (assets||[]).filter(a=>{
@@ -9,9 +16,16 @@ class ProfitMenteMediaLibraryTools{
       return hay.includes(q);
     });
   }
-  static usage(project,id){return (project?.clips||[]).filter(c=>c?.asset===id)}
-  static usedIds(project){return new Set((project?.clips||[]).map(c=>c?.asset).filter(Boolean))}
-  static unused(project,assets=[]){const used=this.usedIds(project);return (assets||[]).filter(a=>a?.id&&!used.has(a.id))}
+  static usage(project,id){const key=this.mediaKey(id);return key===null?[]:(project?.clips||[]).filter(c=>this.mediaKey(c?.asset)===key)}
+  static usedIds(project){
+    const used=new Set();
+    for(const clip of project?.clips||[]){const key=this.mediaKey(clip?.asset);if(key!==null)used.add(key)}
+    return used;
+  }
+  static unused(project,assets=[]){
+    const used=this.usedIds(project);
+    return (assets||[]).filter(a=>{const key=this.mediaKey(a?.id);return key!==null&&!used.has(key)});
+  }
   static assetBytes(asset={}){return Math.max(0,Number(asset?.size??asset?.blob?.size??0)||0)+Math.max(0,Number(asset?.previewBlob?.size??asset?.proxySize??0)||0)}
   static unusedBytes(project,assets=[]){return this.unused(project,assets).reduce((sum,a)=>sum+this.assetBytes(a),0)}
   static proxyAssets(assets=[]){return (assets||[]).filter(a=>a?.previewBlob instanceof Blob&&a.previewBlob.size>0)}
@@ -25,17 +39,18 @@ class ProfitMenteMediaLibraryTools{
   }
   static enableProxy(asset={}){delete asset.proxyAutoDisabled;return asset}
   static preserveMeta(project,asset){
-    if(!project||!asset?.id)return project;
+    const key=this.mediaKey(asset?.id);if(!project||key===null)return project;
     const keys=['id','name','type','mime','size','duration','width','height','metadataVersion','sourceFingerprint','sourceContentHash','sourceLastModified'],meta={};
     for(const k of keys)if(asset[k]!==undefined&&asset[k]!==null)meta[k]=asset[k];
     const list=Array.isArray(project.assets)?project.assets:[];
-    const i=list.findIndex(a=>a?.id===asset.id);
+    const i=list.findIndex(a=>this.mediaKey(a?.id)===key);
     if(i>=0)list[i]={...list[i],...meta};else list.push(meta);
     project.assets=list;return project;
   }
   static pruneProjectAssetMeta(project,removedIds=[]){
     if(!project||!Array.isArray(project.assets))return project;
-    const removed=new Set(removedIds);project.assets=project.assets.filter(a=>!removed.has(a?.id));return project;
+    const removed=new Set((removedIds||[]).map(id=>this.mediaKey(id)).filter(key=>key!==null));
+    project.assets=project.assets.filter(a=>{const key=this.mediaKey(a?.id);return key===null||!removed.has(key)});return project;
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaLibraryTools=ProfitMenteMediaLibraryTools;
@@ -59,8 +74,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
     restoreProxies.disabled=!suppressed.length;restoreProxies.textContent=suppressed.length?`Regenerar ${suppressed.length} proxy${suppressed.length===1?'':'s'}`:'Proxies automáticos';restoreProxies.title=suppressed.length?`Volver a habilitar y regenerar proxies de preview para ${suppressed.length} video(s)`:'No hay proxies desactivados manualmente';
   }
   function applyFilter(){
-    const allowed=new Set(tools.filter(assets,search.value,filter.value).map(a=>a.id));
-    let visible=0;library.querySelectorAll('.mediaRow[data-asset-id]').forEach(row=>{const show=allowed.has(row.dataset.assetId);row.hidden=!show;if(show)visible++});
+    const allowed=new Set(tools.filter(assets,search.value,filter.value).map(a=>tools.mediaKey(a?.id)).filter(key=>key!==null));
+    let visible=0;library.querySelectorAll('.mediaRow[data-asset-id]').forEach(row=>{const show=allowed.has(tools.mediaKey(row.dataset.assetId));row.hidden=!show;if(show)visible++});
     count.textContent=`${visible}/${assets.length}`;
     if(!visible&&assets.length){let empty=library.querySelector('.mediaFilterEmpty');if(!empty){empty=document.createElement('small');empty.className='mediaFilterEmpty';empty.textContent='Sin coincidencias';library.appendChild(empty)}empty.hidden=false}else{const empty=library.querySelector('.mediaFilterEmpty');if(empty)empty.hidden=true}
     cleanupStats();
@@ -68,11 +83,11 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
   function enhanceRows(){
     [...library.querySelectorAll(':scope > .mediaCard')].forEach((card,index)=>{
       const asset=assets[index];if(!asset)return;
-      const row=document.createElement('div');row.className='mediaRow';row.dataset.assetId=asset.id;
+      const row=document.createElement('div');row.className='mediaRow';row.dataset.assetId=String(asset.id??'');
       card.parentNode.insertBefore(row,card);row.appendChild(card);
       const del=document.createElement('button');del.type='button';del.className='mediaDelete';del.textContent='×';del.title=`Eliminar ${asset.name} de la biblioteca`;
       del.onclick=async e=>{e.preventDefault();e.stopPropagation();const used=tools.usage(project,asset.id);const msg=used.length?`Este medio se usa en ${used.length} clip(s). Si lo eliminas, esos clips quedarán marcados como medio faltante y podrás reconectarlo después. ¿Eliminar ${asset.name}?`:`¿Eliminar ${asset.name} de la biblioteca local?`;if(!confirm(msg))return;
-        try{if(used.length)tools.preserveMeta(project,asset);else tools.pruneProjectAssetMeta(project,[asset.id]);await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url);assets=assets.filter(a=>a.id!==asset.id);persist?.();drawLibrary();drawTimeline?.();renderAt?.(+document.querySelector('#playhead')?.value||0);setStatus?.(used.length?`Medio eliminado · ${used.length} clip(s) requieren reconexión`:'Medio eliminado de la biblioteca')}
+        try{if(used.length)tools.preserveMeta(project,asset);else tools.pruneProjectAssetMeta(project,[asset.id]);await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url);assets=assets.filter(a=>a!==asset);persist?.();drawLibrary();drawTimeline?.();renderAt?.(+document.querySelector('#playhead')?.value||0);setStatus?.(used.length?`Medio eliminado · ${used.length} clip(s) requieren reconexión`:'Medio eliminado de la biblioteca')}
         catch(err){console.error(err);setStatus?.('No se pudo eliminar el medio: '+(err?.message||err))}
       };
       row.appendChild(del);
@@ -85,8 +100,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
     if(!confirm(`Eliminar ${unused.length} medio(s) no usados del almacenamiento local (${(bytes/1048576).toFixed(1)} MB aprox.)?\n\n${names}${more}\n\nLos clips del timeline no se modificarán.`))return;
     cleanup.disabled=true;
     try{
-      const ids=[];for(const asset of unused){await removeStoredAsset(asset.id);ids.push(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url)}
-      const removed=new Set(ids);assets=assets.filter(a=>!removed.has(a.id));tools.pruneProjectAssetMeta(project,ids);persist?.();drawLibrary();drawTimeline?.();setStatus?.(`Limpieza completada · ${ids.length} medio(s) eliminados · ${(bytes/1048576).toFixed(1)} MB liberables`)
+      for(const asset of unused){await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url)}
+      const removedAssets=new Set(unused);const ids=unused.map(asset=>asset.id);assets=assets.filter(a=>!removedAssets.has(a));tools.pruneProjectAssetMeta(project,ids);persist?.();drawLibrary();drawTimeline?.();setStatus?.(`Limpieza completada · ${ids.length} medio(s) eliminados · ${(bytes/1048576).toFixed(1)} MB liberables`)
     }catch(err){console.error(err);setStatus?.('La limpieza no pudo completarse: '+(err?.message||err));drawLibrary()}
   };
   cleanupProxies.onclick=async()=>{
