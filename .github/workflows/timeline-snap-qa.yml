@@ -6,18 +6,22 @@ on:
       - 'studio/timeline-snap-engine.js'
       - 'studio/timeline-snap-integration.js'
       - 'studio/timeline-left-trim.js'
+      - 'studio/timeline-right-trim.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_timeline_snap.mjs'
       - 'studio/test_timeline_left_trim.mjs'
+      - 'studio/test_timeline_right_trim.mjs'
       - '.github/workflows/timeline-snap-qa.yml'
   pull_request:
     paths:
       - 'studio/timeline-snap-engine.js'
       - 'studio/timeline-snap-integration.js'
       - 'studio/timeline-left-trim.js'
+      - 'studio/timeline-right-trim.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_timeline_snap.mjs'
       - 'studio/test_timeline_left_trim.mjs'
+      - 'studio/test_timeline_right_trim.mjs'
       - '.github/workflows/timeline-snap-qa.yml'
 
 jobs:
@@ -33,10 +37,13 @@ jobs:
           node --check studio/timeline-snap-engine.js
           node --check studio/timeline-snap-integration.js
           node --check studio/timeline-left-trim.js
+          node --check studio/timeline-right-trim.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_timeline_snap.mjs
           node --check studio/test_timeline_left_trim.mjs
+          node --check studio/test_timeline_right_trim.mjs
       - name: Timeline snap regression
         run: |
           node studio/test_timeline_snap.mjs
           node studio/test_timeline_left_trim.mjs
+          node studio/test_timeline_right_trim.mjs
