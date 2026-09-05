@@ -43,5 +43,14 @@ jobs:
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
+      - name: Verify resilient project library persistence
+        run: node studio/test_project_library.mjs
+
+      - name: Verify safe project switching
+        run: node studio/test_project_switch_wiring.mjs
+
+      - name: Verify active project is flushed before reopen
+        run: node studio/test_project_reopen_flush_order.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
