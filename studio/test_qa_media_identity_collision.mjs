@@ -6,8 +6,11 @@ const {ProfitMenteQAEngine}=require('./qa-engine.js');
 globalThis.ProfitMenteQAEngine=ProfitMenteQAEngine;
 const guard=require('./qa-media-identity-guard.js');
 
-assert.equal(guard.mediaIdKey(0),'0');
-assert.equal(guard.mediaIdKey(' 7 '),'7');
+assert.equal(guard.mediaIdKey(0),'n:0');
+assert.equal(guard.mediaIdKey('0'),'n:0');
+assert.equal(guard.mediaIdKey(' 7 '),'n:7');
+assert.equal(guard.mediaIdKey('007.0'),'n:7');
+assert.equal(guard.mediaIdKey('asset-7'),'s:asset-7');
 assert.equal(guard.mediaIdKey('   '),null);
 assert.equal(guard.finiteNumber('10.5'),10.5);
 assert.equal(guard.finiteNumber('bad'),'bad');
@@ -54,13 +57,13 @@ const ambiguousAssets=[
   {id:' 7 ',name:'second.mp4',type:'video',blob:readableBlob,width:1080,height:1920,duration:10}
 ];
 const collisions=guard.findCanonicalMediaCollisions(ambiguousAssets);
-assert.deepEqual(collisions,[{key:'7',firstIndex:0,secondIndex:1}]);
+assert.deepEqual(collisions,[{key:'n:7',firstIndex:0,secondIndex:1}]);
 
 const blocked=qa.inspect(baseProject,ambiguousAssets);
 assert.equal(blocked.ok,false,blocked);
 assert.equal(blocked.metrics.mediaIdentityCollisions,1,blocked.metrics);
 assert.equal(blocked.issues.filter(x=>x.includes('IDs de medio ambiguos')).length,1,blocked.issues);
-assert.ok(blocked.issues.some(x=>x.includes('first.mp4')&&x.includes('second.mp4')&&x.includes('"7"')),blocked.issues);
+assert.ok(blocked.issues.some(x=>x.includes('first.mp4')&&x.includes('second.mp4')&&x.includes('"n:7"')),blocked.issues);
 assert.ok(blocked.score<=clean.score-25,{clean:clean.score,blocked:blocked.score});
 
 const zeroCollision=qa.inspect({...baseProject,clips:[{...baseProject.clips[0],asset:0}]},[
@@ -69,5 +72,6 @@ const zeroCollision=qa.inspect({...baseProject,clips:[{...baseProject.clips[0],a
 ]);
 assert.equal(zeroCollision.metrics.mediaIdentityCollisions,1,zeroCollision.metrics);
 assert.equal(zeroCollision.ok,false,zeroCollision);
+assert.ok(zeroCollision.issues.some(x=>x.includes('"n:0"')),zeroCollision.issues);
 
 console.log('QA media identity + legacy timing preflight OK');
