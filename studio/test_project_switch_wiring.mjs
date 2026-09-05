@@ -16,7 +16,7 @@ assert.match(src,/project\.format=format\.value/,'project switch must capture th
 assert.match(src,/project\.mode=mode\.value/,'project switch must capture the current editor mode before leaving');
 assert.match(src,/if\(typeof persist==='function'\)persist\(\)/,'project switch flush must persist through the wrapped autosave path');
 assert.match(src,/catch\(err\).*?return false/s,'project switch must fail closed when the current project cannot be flushed');
-assert.match(src,/async function openProject\(id\).*?stopPlayback\(\);if\(!flushCurrentProject\(\)\)return;project=next;await syncAll\(\);resetHistory\(\)/s,'pending edits must flush before replacing and rendering the project');
+assert.match(src,/async function openProject\(id\).*?stopPlayback\(\);if\(!flushCurrentProject\(\)\)return;const next=lib\.load\(id\);if\(!next\).*?project=next;await syncAll\(\);resetHistory\(\)/s,'pending edits must flush before loading, replacing and rendering the requested project');
 
 assert.match(src,/profitmente:project-opened/,'project switch must publish a project-opened event for dependent tools');
 assert.match(src,/async function syncAll\(\).*?await renderAt\(0\)/s,'project switch must wait for the first preview frame before reporting completion');
