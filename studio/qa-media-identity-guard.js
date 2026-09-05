@@ -4,8 +4,13 @@
 
   const mediaIdKey=value=>{
     if(value===undefined||value===null)return null;
-    const key=String(value).trim();
-    return key||null;
+    const raw=String(value).trim();
+    if(!raw)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
+      const numeric=Number(raw);
+      if(Number.isFinite(numeric))return `n:${numeric}`;
+    }
+    return `s:${raw}`;
   };
   const finiteNumber=value=>{
     if(value===undefined||value===null||value==='')return value;
@@ -31,6 +36,24 @@
     };
   }
 
+  function normalizeMediaIdentity(project,assets){
+    const normalizedAssets=(Array.isArray(assets)?assets:[]).map(asset=>{
+      if(!asset||typeof asset!=='object')return asset;
+      const key=mediaIdKey(asset.id);
+      return key===null?{...asset}:{...asset,id:key};
+    });
+    if(!project||typeof project!=='object')return {project,assets:normalizedAssets};
+    const normalizedProject={
+      ...project,
+      clips:(Array.isArray(project.clips)?project.clips:[]).map(clip=>{
+        if(!clip||typeof clip!=='object')return clip;
+        const key=mediaIdKey(clip.asset);
+        return key===null?{...clip}:{...clip,asset:key};
+      })
+    };
+    return {project:normalizedProject,assets:normalizedAssets};
+  }
+
   function timingIssues(project){
     const issues=[];
     const duration=Number(project?.duration);
@@ -54,17 +77,17 @@
       if(!asset||typeof asset!=='object')continue;
       const key=mediaIdKey(asset.id);
       if(key===null)continue;
-      if(seen.has(key)){
-        collisions.push({key,firstIndex:seen.get(key),secondIndex:index});
-      }else seen.set(key,index);
+      if(seen.has(key))collisions.push({key,firstIndex:seen.get(key),secondIndex:index});
+      else seen.set(key,index);
     }
     return collisions;
   }
 
   const originalInspect=QA.prototype.inspect;
   QA.prototype.inspect=function(project,assets){
-    const normalizedProject=normalizeTimingProject(project);
-    const result=originalInspect.call(this,normalizedProject,assets);
+    const timingProject=normalizeTimingProject(project);
+    const normalized=normalizeMediaIdentity(timingProject,assets);
+    const result=originalInspect.call(this,normalized.project,normalized.assets);
     const collisions=findCanonicalMediaCollisions(assets);
     const malformedTiming=timingIssues(project);
     if(!collisions.length&&!malformedTiming.length)return result;
@@ -90,6 +113,6 @@
   };
   QA.prototype.__profitMenteMediaIdentityGuard=true;
 
-  root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,normalizeTimingProject,timingIssues,findCanonicalMediaCollisions};
-  if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,normalizeTimingProject,timingIssues,findCanonicalMediaCollisions};
+  root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
 })(typeof window!=='undefined'?window:globalThis);
