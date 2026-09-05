@@ -99,6 +99,7 @@ def main() -> None:
         ("audio", "Recorte de silencios respeta identidad, aliases y locks heredados", [node, "test_audio_silence_engine.mjs"]),
         ("audio", "Envolventes y fades respetan identidad y locks heredados", [node, "test_audio_envelope_engine.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
+        ("preview", "Captions asíncronos no reaparecen tras mover el cursor", [node, "test_caption_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
         ("proyectos", "Recuperación de proyectos", [node, "test_recovery.mjs"]),
         ("proyectos", "Persistencia después de restaurar recuperación", [node, "test_recovery_restore_persistence.mjs"]),
