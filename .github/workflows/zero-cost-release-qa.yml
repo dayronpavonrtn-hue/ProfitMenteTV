@@ -34,5 +34,8 @@ jobs:
       - name: Verify clip inspector lock and identity safety
         run: node studio/test_clip_lock_track_inspector.mjs
 
+      - name: Verify safe QA report rendering
+        run: node studio/test_qa_report_safe_render.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
