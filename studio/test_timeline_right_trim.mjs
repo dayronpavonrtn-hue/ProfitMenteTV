@@ -25,6 +25,12 @@ r=Engine.calculate(project,clip,19,{sourceDuration:5});
 assert.equal(r.maxEnd,6,'sourceOffset must reduce available source duration');
 assert.equal(r.end,6);
 
+r=Engine.calculate(project,{id:'short-tail',start:4,duration:.1,sourceOffset:9.9,speed:1},8,{sourceDuration:10,minDuration:.25});
+assert.equal(r.maxEnd,4.1,'short remaining source tail must define the hard trim boundary');
+assert.equal(r.minEnd,4.1,'minimum trim duration must yield to a shorter real source tail');
+assert.equal(r.end,4.1,'right trim must never extend beyond the available source just to satisfy minimum duration');
+assert.equal(r.duration,.1);
+
 r=Engine.calculate(project,{id:'x',start:19.9,duration:.1},20,{minDuration:.25});
 assert.equal(r.end,20,'minimum duration must remain valid at project boundary');
 assert.ok(r.duration>0);
