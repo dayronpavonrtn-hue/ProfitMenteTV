@@ -1,8 +1,8 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectLibrary=api.ProfitMenteProjectLibrary})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectLibrary{
-  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.memory=[];this.storageAvailable=true}
-  _read(){try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');const items=Array.isArray(v)?v:[];this.memory=structuredClone(items);this.storageAvailable=true;return items}catch{this.storageAvailable=false;return structuredClone(this.memory)}}
-  _write(items){this.memory=structuredClone(items);try{this.storage.setItem(this.key,JSON.stringify(items));this.storageAvailable=true;return true}catch{this.storageAvailable=false;return false}}
+  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.memory=[];this.storageAvailable=true;this.memoryDirty=false}
+  _read(){if(this.memoryDirty)return structuredClone(this.memory);try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');const items=Array.isArray(v)?v:[];this.memory=structuredClone(items);this.storageAvailable=true;return items}catch{this.storageAvailable=false;return structuredClone(this.memory)}}
+  _write(items){this.memory=structuredClone(items);try{this.storage.setItem(this.key,JSON.stringify(items));this.storageAvailable=true;this.memoryDirty=false;return true}catch{this.storageAvailable=false;this.memoryDirty=true;return false}}
   list(){return this._read().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''))}
   save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>x.id===id);if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   saveExisting(project){if(!project?.libraryId)return null;const items=this._read(),row=items.find(x=>x.id===project.libraryId);if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
@@ -60,8 +60,19 @@ if(typeof document!=='undefined')(()=>{
   const lib=new ProfitMenteProjectLibrary(localStorage),section=document.createElement('section');section.className='projectLibrary';section.innerHTML='<h3>Mis proyectos</h3><div class="projectLibraryActions"><button id="librarySaveBtn">＋ Guardar proyecto</button><button id="libraryExportBtn" title="Exportar respaldo JSON">⇩ Exportar</button><button id="libraryImportBtn" title="Importar respaldo JSON">⇧ Importar</button><button id="libraryRefreshBtn">↻ Actualizar</button><input id="libraryImportFile" type="file" accept="application/json,.json" hidden></div><div id="projectLibraryList" class="projectLibraryList"></div>';aside.insertBefore(section,aside.firstChild);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function persistenceStatus(ok,normal,fallback){status(ok?normal:fallback)}
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]))}
-  function render(){const el=$('#projectLibraryList'),rows=lib.list();el.innerHTML=rows.length?'':'<small>Sin proyectos guardados todavía.</small>';for(const row of rows){const card=document.createElement('div');card.className='projectLibraryCard';card.innerHTML=`<button class="projectOpen" data-open="${row.id}"><b>${escapeHtml(row.name)}</b><small>${new Date(row.updatedAt).toLocaleString()}</small></button><button class="projectDuplicate" data-duplicate="${row.id}" title="Duplicar proyecto">⧉</button><button class="projectDelete" data-delete="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)}}
+  function render(){
+    const el=$('#projectLibraryList'),rows=lib.list();el.replaceChildren();
+    if(!rows.length){const empty=document.createElement('small');empty.textContent='Sin proyectos guardados todavía.';el.appendChild(empty);return}
+    for(const row of rows){
+      const card=document.createElement('div');card.className='projectLibraryCard';
+      const open=document.createElement('button');open.className='projectOpen';open.dataset.open=String(row.id??'');
+      const title=document.createElement('b');title.textContent=String(row.name||'Sin título');
+      const updated=document.createElement('small');updated.textContent=new Date(row.updatedAt).toLocaleString();open.append(title,updated);
+      const duplicate=document.createElement('button');duplicate.className='projectDuplicate';duplicate.dataset.duplicate=String(row.id??'');duplicate.title='Duplicar proyecto';duplicate.textContent='⧉';
+      const del=document.createElement('button');del.className='projectDelete';del.dataset.delete=String(row.id??'');del.title='Eliminar';del.textContent='×';
+      card.append(open,duplicate,del);el.appendChild(card);
+    }
+  }
   async function syncAll(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();const ph=$('#playhead');if(ph)ph.value=0;if(typeof renderAt==='function')await renderAt(0)}
   function stopPlayback(){
     try{if(typeof playing!=='undefined')playing=false}catch{}
