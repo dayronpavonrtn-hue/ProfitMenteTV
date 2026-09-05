@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {ProfitMenteProjectImportEngine}=require('./project-import-engine.js');
@@ -59,4 +60,15 @@ for(const [field,value] of [['speed','Infinity'],['sourceOffset','NaN'],['volume
 }
 const tooMany=Array.from({length:10001},(_,i)=>({id:`c${i}`,track:0,start:0,duration:1}));
 assert.throws(()=>engine.normalize({duration:10,format:'9:16',clips:tooMany}),/demasiado grande/,'huge timelines must be bounded before cloning every clip');
-console.log('Safe project import QA passed');
+
+// The visible Importar proyecto JSON action must use the same durable route as
+// Mis proyectos. This keeps imported edits in the persistent project library
+// instead of leaving them only as a detached localStorage working copy.
+const integration=fs.readFileSync(new URL('./project-import-integration.js',import.meta.url),'utf8');
+const delegateAt=integration.indexOf("transfer?.importProjectFile==='function'");
+const fallbackParseAt=integration.indexOf('JSON.parse(await f.text())');
+assert.match(integration,/ProfitMenteProjectTransfer/,'primary JSON import must discover the persistent project transfer integration');
+assert.ok(delegateAt>=0,'primary JSON import must delegate to project-library import when available');
+assert.ok(fallbackParseAt>=0&&delegateAt<fallbackParseAt,'persistent project-library import must run before the detached fallback path');
+assert.match(integration,/await transfer\.importProjectFile\(f\)/,'main import must await the guarded persistent project-library import');
+console.log('Safe and persistent project import QA passed');
