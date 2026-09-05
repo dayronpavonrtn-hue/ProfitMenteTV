@@ -31,11 +31,8 @@ class ProfitMenteFilmstripEngine{
       const clip=(project?.clips||[]).find(c=>this.sameId(c.id,el.dataset.id));if(!clip||![0,1].includes(Number(clip.track))||clip.asset===null||clip.asset===undefined)return;
       const asset=(assets||[]).find(a=>this.sameId(a.id,clip.asset));if(!asset||!['video','image'].includes(asset.type))return;
       let strip=el.querySelector('.filmstrip');if(!strip){strip=document.createElement('span');strip.className='filmstrip';el.prepend(strip)}
-      if(asset.type==='image'){
-        strip.replaceChildren();strip.classList.add('single');strip.style.backgroundImage=asset.thumbnail?`url("${asset.thumbnail}")`:'';return;
-      }
-      strip.style.backgroundImage='';
-      const count=Math.max(2,Math.min(this.maxFrames,Math.ceil(Math.max(1,el.clientWidth)/70))),frames=await this.frames(asset,count);if(!el.isConnected||!frames.length)return;
+      if(asset.type==='image'){if(asset.thumbnail)strip.style.backgroundImage=`url("${asset.thumbnail}")`;strip.classList.add('single');return}
+      const count=Math.max(2,Math.min(this.maxFrames,Math.ceil(el.clientWidth/70))),frames=await this.frames(asset,count);if(!el.isConnected||!frames.length)return;
       strip.classList.toggle('single',frames.length===1);strip.replaceChildren(...frames.map(src=>{const img=document.createElement('img');img.src=src;img.alt='';img.draggable=false;return img}));
     }))
   }
@@ -49,7 +46,7 @@ window.ProfitMenteFilmstripEngine=ProfitMenteFilmstripEngine;
   const install=()=>{
     const tracks=document.querySelector('#tracks');if(!tracks)return false;
     if(!tracks.__filmstripObserver){
-      const observer=new MutationObserver(schedule);observer.observe(tracks,{childList:true,subtree:true});tracks.__filmstripObserver=observer;
+      const observer=new MutationObserver(schedule);observer.observe(tracks,{childList:true});tracks.__filmstripObserver=observer;
     }
     schedule();return true;
   };
