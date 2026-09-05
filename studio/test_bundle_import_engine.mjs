@@ -33,6 +33,22 @@ assert.deepEqual(conflict.stats,{added:1,reused:0,remapped:1,totalIncoming:2});
 assert.throws(()=>conflictEngine.prepare({clips:[]},[{name:'sin-id'}],[]),/sin identificador/);
 assert.throws(()=>conflictEngine.prepare({clips:null},[],[]),/timeline válida/);
 
+function tarEntry(name,body='{}'){
+  const enc=new TextEncoder(),data=enc.encode(body),h=new Uint8Array(512),put=(s,o,l)=>h.set(enc.encode(s).slice(0,l),o);
+  put(name,0,100);put(data.length.toString(8).padStart(11,'0')+'\0',124,12);h[156]=48;
+  return [h,data,new Uint8Array((512-data.length%512)%512)];
+}
+function tarBlob(entries){return new Blob([...entries.flatMap(([name,body])=>tarEntry(name,body)),new Uint8Array(1024)],{type:'application/x-tar'})}
+
+const tarEngine=new ProfitMenteBundleImportEngine();
+const validTar=await tarEngine.assertSafeTar(tarBlob([['project.json','{"clips":[]}'],['assets/a.mp4','x']]));
+assert.deepEqual(validTar,{ok:true,entries:2},'a canonical portable bundle must pass TAR safety preflight');
+await assert.rejects(()=>tarEngine.assertSafeTar(tarBlob([['project.json','{"clips":[]}'],['project.json','{"clips":[]}']])),/duplicada/,'duplicate project.json entries must be rejected before parsing');
+await assert.rejects(()=>tarEngine.assertSafeTar(tarBlob([['project.json','{"clips":[]}'],['assets\/..\/evil.txt','x']])),/Ruta insegura/,'path traversal entries must be rejected before restoration');
+await assert.rejects(()=>tarEngine.assertSafeTar(tarBlob([['project.json','{"clips":[]}'],['\/absolute.mp4','x']])),/Ruta insegura/,'absolute TAR paths must be rejected');
+await assert.rejects(()=>tarEngine.assertSafeTar(tarBlob([['project.json','{"clips":[]}'],['assets\\evil.mp4','x']])),/Ruta insegura/,'backslash paths must be rejected');
+await assert.rejects(()=>tarEngine.assertSafeTar(tarBlob([['assets/a.mp4','x']])),/exactamente un project\.json/,'bundle must contain exactly one project.json');
+
 const integration=fs.readFileSync(new URL('./bundle-import-integration.js',import.meta.url),'utf8');
 assert.match(integration,/migrateRestoredProject\(restored\.project\)/,'bundle restore must migrate the restored project before media preparation');
 assert.match(integration,/ProfitMenteProjectImportEngine/,'bundle restore must use the same canonical validator as JSON project import');
@@ -41,8 +57,11 @@ assert.match(integration,/Library\?\.normalizeImportedProject/,'bundle restore n
 assert.match(integration,/ProfitMenteProjectMigration\?\.engine/,'bundle restore should reuse the active canonical migration engine');
 assert.match(integration,/ProfitMenteProjectMigrationEngine/,'bundle restore needs a migration fallback when the integration wrapper is unavailable');
 const validateAt=integration.indexOf('normalizeRestoredProject(value)');
+const tarSafetyAt=integration.indexOf('await importer.assertSafeTar(file)');
+const parseAt=integration.indexOf('await bundler.parse(file)');
 const migrateAt=integration.indexOf('migrateRestoredProject(restored.project)');
 const prepareAt=integration.indexOf('importer.prepare(normalized');
+assert.ok(tarSafetyAt>=0&&parseAt>tarSafetyAt,'TAR safety validation must finish before the generic bundle parser sees the archive');
 assert.ok(validateAt>=0&&migrateAt>=0&&prepareAt>migrateAt,'validation and migration must finish before asset remapping and project persistence');
 
 assert.match(integration,/const previousAssets=.*previousProject=/s,'bundle restore must snapshot the active Studio state before persistence');
