@@ -11,6 +11,7 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_generator.mjs'
       - 'studio/test_generator_autofill.mjs'
+      - 'studio/test_generator_media_identity.mjs'
       - 'studio/test_generator_voice_asset.mjs'
       - 'studio/test_generator_lock_guard.mjs'
       - 'studio/test_generator_regeneration_locks.mjs'
@@ -36,6 +37,7 @@ jobs:
           node --check studio/feature-bootstrap.js
           node --check studio/test_generator.mjs
           node --check studio/test_generator_autofill.mjs
+          node --check studio/test_generator_media_identity.mjs
           node --check studio/test_generator_voice_asset.mjs
           node --check studio/test_generator_lock_guard.mjs
           node --check studio/test_generator_regeneration_locks.mjs
@@ -44,6 +46,8 @@ jobs:
         run: node studio/test_generator.mjs
       - name: Generator auto fill regression
         run: node studio/test_generator_autofill.mjs
+      - name: Generator media identity regression
+        run: node studio/test_generator_media_identity.mjs
       - name: Local narration assignment regression
         run: node studio/test_generator_voice_asset.mjs
       - name: Generator edit lock regression
