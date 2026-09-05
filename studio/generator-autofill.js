@@ -38,10 +38,14 @@ class ProfitMenteGeneratorAutoFill {
     return !!clip?.locked||this.trackLocked(project,clip?.track);
   }
   mediaKey(value){
-    if(value==null)return null;
-    if(typeof value==='string'){const trimmed=value.trim();return trimmed?trimmed:null}
-    if(typeof value==='number')return Number.isFinite(value)?String(value):null;
-    return String(value);
+    if(value==null||typeof value==='boolean')return null;
+    const text=String(value).trim();
+    if(!text)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
+      const number=Number(text);
+      if(Number.isFinite(number))return `n:${number}`;
+    }
+    return `s:${text}`;
   }
   hasAsset(clip){return this.mediaKey(clip?.asset)!=null}
   assetsFromIds(allAssets=[],ids=[]){
