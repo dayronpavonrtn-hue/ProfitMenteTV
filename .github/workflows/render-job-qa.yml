@@ -12,6 +12,7 @@ on:
       - 'studio/test_render_job_client.mjs'
       - 'studio/test_render_job_recovery.mjs'
       - 'studio/test_render_project_identity.mjs'
+      - 'studio/test_render_media_identity.mjs'
       - 'studio/test_render_preflight_gate.mjs'
       - 'studio/test_server_api.py'
       - '.github/workflows/render-job-qa.yml'
@@ -37,6 +38,7 @@ jobs:
           node --check studio/generator-integration.js
           node --check studio/test_render_job_recovery.mjs
           node --check studio/test_render_project_identity.mjs
+          node --check studio/test_render_media_identity.mjs
           node --check studio/test_render_preflight_gate.mjs
       - name: Check Python syntax
         run: python -m py_compile studio/studio_server.py
@@ -46,6 +48,8 @@ jobs:
         run: node studio/test_render_job_recovery.mjs
       - name: Test render project identity
         run: node studio/test_render_project_identity.mjs
+      - name: Test canonical render media identity
+        run: node studio/test_render_media_identity.mjs
       - name: Test canonical MP4 preflight gate
         run: node studio/test_render_preflight_gate.mjs
       - name: Test local server API
