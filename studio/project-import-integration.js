@@ -27,10 +27,19 @@
     const f=e.target.files?.[0];if(!f)return;
     try{
       if(f.size>10*1024*1024)throw new Error('Archivo de proyecto demasiado grande (máximo 10 MB)');
+      // Keep the primary Importar proyecto JSON action on the same guarded,
+      // persistent path as Mis proyectos. ProjectTransfer flushes the current
+      // edit, validates the JSON, saves the imported copy in the project
+      // library, and dispatches project-opened. Its library importer is also
+      // migration-wrapped once advanced features are ready.
+      const transfer=window.ProfitMenteProjectTransfer;
+      if(typeof transfer?.importProjectFile==='function'){
+        await transfer.importProjectFile(f);
+        return;
+      }
       const parsed=JSON.parse(await f.text());
-      // Never replace the active timeline until the current project has been
-      // flushed to its draft/library entry. This matches bundle import and
-      // project switching, preventing silent loss of unsaved local edits.
+      // Fallback for partial/module-load failures: never replace the active
+      // timeline until the current project has been flushed safely.
       if(!flushCurrentProject())return;
       project=migrateImported(engine.normalize(parsed));
       if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
