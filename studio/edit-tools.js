@@ -1,7 +1,17 @@
 (()=>{
   let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null,groupSplitEnginePromise=null;
   const $=s=>document.querySelector(s);
-  const clipById=id=>(project.clips||[]).find(c=>c.id===id);
+  const clipIdKey=value=>{
+    if(value===undefined||value===null)return null;
+    const raw=String(value).trim();if(!raw)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
+      const numeric=Number(raw);if(Number.isFinite(numeric))return `n:${numeric}`;
+    }
+    return `s:${raw}`;
+  };
+  const sameClipId=(a,b)=>{const left=clipIdKey(a),right=clipIdKey(b);return left!==null&&left===right};
+  const clipMatches=id=>{const key=clipIdKey(id);return key===null?[]:(project.clips||[]).filter(c=>clipIdKey(c?.id)===key)};
+  const clipById=id=>{const matches=clipMatches(id);return matches.length===1?matches[0]:null};
   const locked=c=>{
     if(!c)return false;
     if(window.ProfitMenteEditLockGuard?.isLocked)return window.ProfitMenteEditLockGuard.isLocked(project,c);
@@ -34,7 +44,7 @@
     return groupSplitEnginePromise;
   }
   function refresh(){
-    document.querySelectorAll('.clip').forEach(el=>el.classList.toggle('selected',el.dataset.id===selectedId));
+    document.querySelectorAll('.clip').forEach(el=>el.classList.toggle('selected',sameClipId(el.dataset.id,selectedId)));
     const c=clipById(selectedId),has=!!c,editable=has&&!locked(c);
     ['splitBtn','duplicateBtn','deleteClipBtn'].forEach(id=>{const b=$('#'+id);if(b)b.disabled=!editable});
   }
@@ -44,7 +54,12 @@
     if(typeof renderAt==='function')renderAt(+$('#playhead').value||0);
     requestAnimationFrame(refresh);status(message);
   }
-  function select(id){selectedId=id;refresh();const c=clipById(id);if(c)status(`Clip seleccionado: ${c.name||'sin nombre'}`)}
+  function select(id){
+    if(id===undefined||id===null){selectedId=null;refresh();return}
+    const matches=clipMatches(id);
+    if(matches.length>1){selectedId=null;refresh();status('No se puede seleccionar el clip: su ID es ambiguo en este proyecto');return}
+    const c=matches[0]||null;selectedId=c?c.id:id;refresh();if(c)status(`Clip seleccionado: ${c.name||'sin nombre'}`)
+  }
   async function split(){
     const c=clipById(selectedId);if(!c)return;
     if(locked(c)){status('La pista está bloqueada');return}
@@ -67,7 +82,7 @@
     if(clipById(selectedId)!==c){status('El clip cambió antes de completar el duplicado');return}
     const engine=new Engine(),members=engine.members(project,c),lockedGroup=engine.lockedMembers(project,c);
     if(lockedGroup.length){status(members.length>1?'No se puede duplicar: el grupo contiene una pista bloqueada':'La pista está bloqueada');return}
-    const anchorIndex=Math.max(0,members.findIndex(x=>x.id===c.id)),result=engine.duplicate(project,c,{idFactory:()=>crypto.randomUUID(),offset:.5});
+    const anchorIndex=Math.max(0,members.findIndex(x=>sameClipId(x.id,c.id))),result=engine.duplicate(project,c,{idFactory:()=>crypto.randomUUID(),offset:.5});
     if(!result.copies.length)return;selectedId=(result.copies[anchorIndex]||result.copies[0]).id;
     commit(result.copies.length>1?`Grupo duplicado · ${result.copies.length} clips`:'Clip duplicado');
   }
@@ -91,5 +106,6 @@
   const originalDraw=window.drawTimeline;
   if(typeof originalDraw==='function')window.drawTimeline=function(){originalDraw();requestAnimationFrame(refresh)};
   getSplitEngine().catch(err=>console.warn(err));getGroupEditEngine().catch(err=>console.warn(err));getGroupSplitEngine().catch(err=>console.warn(err));refresh();
+  window.ProfitMenteClipIdentity={key:clipIdKey,same:sameClipId,find:clipById,matches:clipMatches};
   window.ProfitMenteEditTools={select,split,duplicate,remove,get selectedId(){return selectedId}};
 })();
