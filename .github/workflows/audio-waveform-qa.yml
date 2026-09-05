@@ -7,6 +7,7 @@ on:
       - 'studio/audio-waveform-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_audio_waveform_engine.mjs'
+      - 'studio/test_audio_waveform_decode_timeout.mjs'
       - '.github/workflows/audio-waveform-qa.yml'
   workflow_dispatch:
 
@@ -23,8 +24,11 @@ jobs:
           node --check studio/audio-waveform-engine.js
           node --check studio/audio-waveform-integration.js
           node --check studio/feature-bootstrap.js
+          node --check studio/test_audio_waveform_decode_timeout.mjs
       - name: Audio waveform regression
         run: node studio/test_audio_waveform_engine.mjs
+      - name: Stalled waveform decoder recovery
+        run: node studio/test_audio_waveform_decode_timeout.mjs
       - name: Verify Studio bootstrap integration
         run: |
           grep -q "audio-waveform-engine.js" studio/feature-bootstrap.js
