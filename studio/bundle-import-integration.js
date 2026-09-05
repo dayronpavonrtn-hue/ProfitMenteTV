@@ -59,6 +59,7 @@
     try{
       if(window.ProfitMenteNewProject?.flushCurrentProject&&!window.ProfitMenteNewProject.flushCurrentProject())return false;
       stopPlayback();status('Verificando y restaurando paquete completo…');
+      if(importer.assertSafeTar)await importer.assertSafeTar(file);
       const restored=await bundler.parse(file);
       const normalized=migrateRestoredProject(restored.project);
       const prepared=importer.prepare(normalized,restored.assets,Array.isArray(previousAssets)?previousAssets:[]);
