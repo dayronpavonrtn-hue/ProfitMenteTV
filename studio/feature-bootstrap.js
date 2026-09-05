@@ -27,6 +27,7 @@
     ['timeline-snap-engine.js','ProfitMenteTimelineSnapEngine'],
     ['timeline-snap-integration.js','ProfitMenteTimelineSnap'],
     ['timeline-left-trim.js','ProfitMenteTimelineLeftTrimEngine','ProfitMenteTimelineLeftTrim'],
+    ['timeline-right-trim.js','ProfitMenteTimelineRightTrimEngine','ProfitMenteTimelineRightTrim'],
     ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
     ['preview-format-integration.js','ProfitMentePreviewFormat'],
     ['webm-render-engine.js','ProfitMenteWebMRenderEngine'],
