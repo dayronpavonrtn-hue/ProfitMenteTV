@@ -64,6 +64,7 @@
     ['project-version-engine.js','ProfitMenteProjectVersionEngine'],
     ['project-version-integration.js','ProfitMenteProjectVersions'],
     ['qa-legacy-track-state-guard.js','ProfitMenteQALegacyTrackStateGuard'],
+    ['qa-report-integration.js','ProfitMenteQAReport'],
     ['qa-autofix.js','ProfitMenteQAAutofix'],
     ['qa-source-window-guard.js','ProfitMenteQASourceWindowGuard'],
     ['recovery-engine.js','ProfitMenteRecoveryEngine'],
