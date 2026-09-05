@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const source=fs.readFileSync(new URL('./render-job-client.js',import.meta.url),'utf8');
-const context={console,module:{exports:{}},exports:{},setTimeout,Blob,globalThis:{}};
+const context={console,module:{exports:{}},exports:{},setTimeout,clearTimeout,Blob,globalThis:{}};
 vm.createContext(context);
 vm.runInContext(source,context,{filename:'render-job-client.js'});
 const Client=context.module.exports;
