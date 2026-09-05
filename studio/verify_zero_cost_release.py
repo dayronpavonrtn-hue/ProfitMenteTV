@@ -83,6 +83,7 @@ def main() -> None:
         ("medios", "Inspección de medios falla segura ante decoder colgado o corrupto", [node, "test_media_readability_qa.mjs"]),
         ("medios", "Identidad canónica sin colisiones antes del render", [py, "test_media_identity_collision.py"]),
         ("calidad", "Preflight del editor bloquea colisiones de IDs de medios", [node, "test_qa_media_identity_collision.mjs"]),
+        ("calidad", "QA resuelve identidad canónica antes de validar medios", [node, "test_qa_canonical_media_identity.mjs"]),
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
         ("medios", "Reconexión preserva identidad canónica y media ID 0", [node, "relink-manifest-regression.js"]),
