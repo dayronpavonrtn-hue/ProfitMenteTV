@@ -21,7 +21,9 @@ assert.ok(integration.includes('const usableAssets=()'),'la generación inicial 
 assert.ok(integration.includes('engine.assignAssets(project,usableAssets())'),'la generación inicial no debe entregar medios offline al motor');
 assert.ok(autoFill.includes('if(!result.changed)return'),'no debe guardar ni redibujar cuando el proyecto no cambia');
 assert.ok(autoFill.includes('save?.()'),'un relleno efectivo debe persistir y refrescar el proyecto');
-assert.ok(generator.includes("project.clips.filter(c=>Number(c.track)===0&&!c.asset&&!this.clipLocked(project,c))"),'el generador debe limitar la asignación a escenas visuales vacías y editables');
+assert.ok(generator.includes('mediaKey(value)'),'el generador debe normalizar identidad de medios antes de decidir si un clip ya está asignado');
+assert.ok(generator.includes('hasAsset(clip)'),'el generador debe centralizar la comprobación de medios asignados');
+assert.ok(generator.includes("project.clips.filter(c=>Number(c.track)===0&&!this.hasAsset(c)&&!this.clipLocked(project,c))"),'el generador debe limitar la asignación a escenas visuales vacías y editables usando identidad canónica');
 assert.ok(generator.includes('!brollLocked&&c.duration>=4'),'B-roll automático debe respetar el bloqueo de su pista');
 assert.ok(generator.includes('if(this.trackLocked(project,6))return 0'),'narración automática debe respetar el bloqueo de pista');
 assert.ok(generator.includes('if(this.trackLocked(project,5)'),'música automática debe respetar el bloqueo de pista');
