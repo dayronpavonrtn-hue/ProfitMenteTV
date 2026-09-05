@@ -6,12 +6,14 @@ on:
       - 'studio/project-library.js'
       - 'studio/test_project_library.mjs'
       - 'studio/test_project_switch_wiring.mjs'
+      - 'studio/test_project_reopen_flush_order.mjs'
       - '.github/workflows/project-switch-qa.yml'
   pull_request:
     paths:
       - 'studio/project-library.js'
       - 'studio/test_project_library.mjs'
       - 'studio/test_project_switch_wiring.mjs'
+      - 'studio/test_project_reopen_flush_order.mjs'
 
 jobs:
   project-switch:
@@ -27,3 +29,5 @@ jobs:
         run: node studio/test_project_library.mjs
       - name: Safe switch wiring regression
         run: node studio/test_project_switch_wiring.mjs
+      - name: Reopen flush ordering regression
+        run: node studio/test_project_reopen_flush_order.mjs
