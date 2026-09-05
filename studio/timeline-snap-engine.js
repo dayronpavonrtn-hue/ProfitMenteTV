@@ -1,10 +1,19 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteTimelineSnapEngine=api.ProfitMenteTimelineSnapEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteTimelineSnapEngine{
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+  static idKey(value){
+    if(value===null||value===undefined||typeof value==='boolean')return null;
+    const text=String(value).trim();if(!text)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
+      const number=Number(text);if(Number.isFinite(number))return `n:${number}`;
+    }
+    return `s:${text}`;
+  }
+  static sameId(a,b){const x=this.idKey(a),y=this.idKey(b);return x!==null&&x===y}
   static points(project={},excludeId=null,playhead=null){
     const duration=Math.max(.001,Number(project.duration)||1),out=[0,duration];
     for(const c of Array.isArray(project.clips)?project.clips:[]){
-      if(!c||c.id===excludeId)continue;
+      if(!c||this.sameId(c.id,excludeId))continue;
       const s=Number(c.start),d=Number(c.duration);
       if(Number.isFinite(s))out.push(this.clamp(s,0,duration));
       if(Number.isFinite(s)&&Number.isFinite(d))out.push(this.clamp(s+d,0,duration));
