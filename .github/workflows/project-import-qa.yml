@@ -12,6 +12,7 @@ on:
       - 'studio/index.html'
       - 'studio/generator-integration.js'
       - 'studio/test_project_import.mjs'
+      - 'studio/test_project_import_runtime_wiring.mjs'
       - 'studio/test_project_import_migration.mjs'
       - 'studio/test_project_library_import_migration.mjs'
       - 'studio/test_feature_bootstrap_wiring.mjs'
@@ -36,6 +37,8 @@ jobs:
           node --check studio/generator-integration.js
       - name: Test safe import
         run: node studio/test_project_import.mjs
+      - name: Test primary import runtime wiring
+        run: node studio/test_project_import_runtime_wiring.mjs
       - name: Test import migration parity
         run: node studio/test_project_import_migration.mjs
       - name: Test project library import migration
