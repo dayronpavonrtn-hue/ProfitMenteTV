@@ -65,7 +65,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
   library.insertAdjacentElement('beforebegin',controls);
   const search=controls.querySelector('#mediaSearch'),filter=controls.querySelector('#mediaTypeFilter'),count=controls.querySelector('#mediaCount'),cleanup=controls.querySelector('#cleanupUnusedMedia'),cleanupProxies=controls.querySelector('#cleanupProxyCache'),restoreProxies=controls.querySelector('#restoreProxyCache');
   async function removeStoredAsset(id){
-    const d=await db();return new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(id);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})
+    if(typeof mediaStore!=='undefined'&&mediaStore?.delete){await mediaStore.delete(id);return mediaStore.storageAvailable}
+    const d=await db();return new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(id);tx.oncomplete=()=>{d.close?.();resolve(true)};tx.onerror=()=>{d.close?.();reject(tx.error)}})
   }
   function cleanupStats(){
     const unused=tools.unused(project,assets),bytes=tools.unusedBytes(project,assets),proxyAssets=tools.proxyAssets(assets),proxyBytes=tools.proxyBytes(assets),suppressed=tools.suppressedProxyAssets(assets);
@@ -87,7 +88,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
       card.parentNode.insertBefore(row,card);row.appendChild(card);
       const del=document.createElement('button');del.type='button';del.className='mediaDelete';del.textContent='×';del.title=`Eliminar ${asset.name} de la biblioteca`;
       del.onclick=async e=>{e.preventDefault();e.stopPropagation();const used=tools.usage(project,asset.id);const msg=used.length?`Este medio se usa en ${used.length} clip(s). Si lo eliminas, esos clips quedarán marcados como medio faltante y podrás reconectarlo después. ¿Eliminar ${asset.name}?`:`¿Eliminar ${asset.name} de la biblioteca local?`;if(!confirm(msg))return;
-        try{if(used.length)tools.preserveMeta(project,asset);else tools.pruneProjectAssetMeta(project,[asset.id]);await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url);assets=assets.filter(a=>a!==asset);persist?.();drawLibrary();drawTimeline?.();renderAt?.(+document.querySelector('#playhead')?.value||0);setStatus?.(used.length?`Medio eliminado · ${used.length} clip(s) requieren reconexión`:'Medio eliminado de la biblioteca')}
+        try{if(used.length)tools.preserveMeta(project,asset);else tools.pruneProjectAssetMeta(project,[asset.id]);const persisted=await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url);assets=assets.filter(a=>a!==asset);persist?.();drawLibrary();drawTimeline?.();renderAt?.(+document.querySelector('#playhead')?.value||0);setStatus?.(persisted?(used.length?`Medio eliminado · ${used.length} clip(s) requieren reconexión`:'Medio eliminado de la biblioteca'):'Medio eliminado de esta sesión · se sincronizará cuando vuelva el almacenamiento')}
         catch(err){console.error(err);setStatus?.('No se pudo eliminar el medio: '+(err?.message||err))}
       };
       row.appendChild(del);
@@ -100,8 +101,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaLi
     if(!confirm(`Eliminar ${unused.length} medio(s) no usados del almacenamiento local (${(bytes/1048576).toFixed(1)} MB aprox.)?\n\n${names}${more}\n\nLos clips del timeline no se modificarán.`))return;
     cleanup.disabled=true;
     try{
-      for(const asset of unused){await removeStoredAsset(asset.id);if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url)}
-      const removedAssets=new Set(unused);const ids=unused.map(asset=>asset.id);assets=assets.filter(a=>!removedAssets.has(a));tools.pruneProjectAssetMeta(project,ids);persist?.();drawLibrary();drawTimeline?.();setStatus?.(`Limpieza completada · ${ids.length} medio(s) eliminados · ${(bytes/1048576).toFixed(1)} MB liberables`)
+      let persisted=true;for(const asset of unused){persisted=(await removeStoredAsset(asset.id))&&persisted;if(asset.url?.startsWith?.('blob:'))URL.revokeObjectURL(asset.url)}
+      const removedAssets=new Set(unused);const ids=unused.map(asset=>asset.id);assets=assets.filter(a=>!removedAssets.has(a));tools.pruneProjectAssetMeta(project,ids);persist?.();drawLibrary();drawTimeline?.();setStatus?.(persisted?`Limpieza completada · ${ids.length} medio(s) eliminados · ${(bytes/1048576).toFixed(1)} MB liberables`:`Limpieza aplicada a la sesión · ${ids.length} medio(s) · se sincronizará cuando vuelva el almacenamiento`)
     }catch(err){console.error(err);setStatus?.('La limpieza no pudo completarse: '+(err?.message||err));drawLibrary()}
   };
   cleanupProxies.onclick=async()=>{
