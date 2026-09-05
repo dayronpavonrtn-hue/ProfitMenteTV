@@ -55,4 +55,36 @@ assert.strictEqual(project.assets[0].fingerprint,'sha256:legacy','existing finge
 assert.strictEqual(project.assets[0].sourceRelativePath,'Campaign A/Video/Hook Final.mp4','source path must survive a manifest refresh when the runtime asset temporarily lacks it');
 assert.strictEqual(project.assets[0].sourceContentHash,'abc123','source hash must survive a manifest refresh when the runtime asset temporarily lacks it');
 
+assert.strictEqual(engine.canonicalId(0),'n:0');
+assert.strictEqual(engine.canonicalId('00'),'n:0');
+assert.strictEqual(engine.canonicalId('7.0'),'n:7');
+assert.ok(engine.sameId(7,'07'),'numeric legacy aliases must resolve to the same media identity');
+assert.ok(!engine.sameId('',0),'blank ids must never alias media zero');
+
+const legacyProject={
+  clips:[{id:0,asset:0},{id:'01',asset:'07'},{id:'other',asset:'custom-id'}],
+  assets:[
+    {id:'00',name:'Zero.mp4',type:'video',mime:'video/mp4',size:1000,sourceRelativePath:'Legacy/Zero.mp4'},
+    {id:7,name:'Seven.mp4',type:'video',mime:'video/mp4',size:2000,sourceRelativePath:'Legacy/Seven.mp4'},
+    {id:'custom-id',name:'Custom.wav',type:'audio',mime:'audio/wav',size:3000}
+  ]
+};
+const runtimeLegacy=[
+  {id:'0.0',name:'Zero.mp4',type:'video',mime:'video/mp4',size:1000},
+  {id:'007',name:'Seven.mp4',type:'video',mime:'video/mp4',size:2000}
+];
+assert.deepStrictEqual(engine.referenced(legacyProject),[0,'07','custom-id'],'referenced media must include asset 0 and deduplicate canonical aliases');
+let legacyMissing=engine.missing(legacyProject,runtimeLegacy);
+assert.deepStrictEqual(legacyMissing.map(x=>x.id),['custom-id'],'available numeric aliases must satisfy legacy project references');
+assert.strictEqual(legacyMissing[0].name,'Custom.wav');
+
+const zeroManifest=engine.manifest([{id:0,name:'Zero.mp4',type:'video'}]);
+assert.strictEqual(zeroManifest.length,1,'manifest must preserve media id 0');
+assert.strictEqual(zeroManifest[0].id,0);
+
+const preserved={assets:[{id:'07',name:'Seven.mp4',sourceRelativePath:'Legacy/Seven.mp4',sourceContentHash:'keep-me'}]};
+engine.syncManifest(preserved,[{id:7,name:'Seven.mp4',type:'video',mime:'video/mp4'}]);
+assert.strictEqual(preserved.assets[0].sourceRelativePath,'Legacy/Seven.mp4','manifest metadata must survive canonical id aliases');
+assert.strictEqual(preserved.assets[0].sourceContentHash,'keep-me');
+
 console.log('ProfitMente Studio relink manifest regression: PASS');
