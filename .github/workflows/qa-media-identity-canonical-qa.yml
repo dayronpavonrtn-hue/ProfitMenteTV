@@ -1,0 +1,27 @@
+name: ProfitMente Studio QA Media Identity
+
+on:
+  push:
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-media-identity-guard.js'
+      - 'studio/test_qa_canonical_media_identity.mjs'
+      - '.github/workflows/qa-media-identity-canonical-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-media-identity-guard.js'
+      - 'studio/test_qa_canonical_media_identity.mjs'
+      - '.github/workflows/qa-media-identity-canonical-qa.yml'
+
+jobs:
+  qa-media-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check studio/qa-engine.js
+      - run: node --check studio/qa-media-identity-guard.js
+      - run: node studio/test_qa_canonical_media_identity.mjs
