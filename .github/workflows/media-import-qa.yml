@@ -6,11 +6,15 @@ on:
       - 'studio/media-import-engine.js'
       - 'studio/media-library-tools.js'
       - 'studio/media-timeline-dnd.js'
+      - 'studio/media-store.js'
+      - 'studio/app.js'
+      - 'studio/index.html'
       - 'studio/generator-autofill.js'
       - 'studio/generator-integration.js'
       - 'studio/test_media_import_engine.mjs'
       - 'studio/test_media_import_empty_guard.mjs'
       - 'studio/test_media_timeline_dnd.mjs'
+      - 'studio/test_media_store.mjs'
       - 'studio/test_generator_autofill.mjs'
       - '.github/workflows/media-import-qa.yml'
   workflow_dispatch:
@@ -29,6 +33,11 @@ jobs:
         run: node --check studio/media-library-tools.js
       - name: Syntax check timeline drag drop
         run: node --check studio/media-timeline-dnd.js
+      - name: Syntax check resilient media store
+        run: |
+          node --check studio/media-store.js
+          node --check studio/app.js
+          node --check studio/test_media_store.mjs
       - name: Syntax check generator autofill
         run: node --check studio/generator-autofill.js
       - name: Syntax check generator integration
@@ -39,6 +48,8 @@ jobs:
         run: node studio/test_media_import_empty_guard.mjs
       - name: Test timeline media placement
         run: node studio/test_media_timeline_dnd.mjs
+      - name: Test resilient browser media storage
+        run: node studio/test_media_store.mjs
       - name: Test automatic refill after import
         run: node studio/test_generator_autofill.mjs
       - name: Verify importer is loaded by Studio library
