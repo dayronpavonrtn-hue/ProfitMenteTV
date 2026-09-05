@@ -43,6 +43,12 @@ jobs:
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
+      - name: Verify source-aware left trim
+        run: node studio/test_timeline_left_trim.mjs
+
+      - name: Verify source-aware right trim
+        run: node studio/test_timeline_right_trim.mjs
+
       - name: Verify resilient filmstrip thumbnails across timeline rerenders
         run: node studio/test_filmstrip.mjs
 
