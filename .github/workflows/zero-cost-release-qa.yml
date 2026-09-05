@@ -43,6 +43,9 @@ jobs:
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
+      - name: Verify resilient filmstrip thumbnails across timeline rerenders
+        run: node studio/test_filmstrip.mjs
+
       - name: Verify resilient project library persistence
         run: node studio/test_project_library.mjs
 
