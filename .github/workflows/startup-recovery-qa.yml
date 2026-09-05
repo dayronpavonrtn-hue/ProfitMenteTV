@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'studio/startup-project-guard.js'
+      - 'studio/app.js'
       - 'studio/index.html'
       - 'studio/history-engine.js'
       - 'studio/test_startup_corruption_guard.mjs'
@@ -19,6 +20,7 @@ jobs:
       - name: Syntax check
         run: |
           node --check studio/startup-project-guard.js
+          node --check studio/app.js
           node --check studio/history-engine.js
       - name: Startup corruption regression
         run: node studio/test_startup_corruption_guard.mjs
