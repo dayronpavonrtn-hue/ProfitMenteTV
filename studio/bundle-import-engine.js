@@ -20,6 +20,30 @@ class ProfitMenteBundleImportEngine{
     const mb=n=>Math.max(0,n/1048576).toFixed(1);
     throw new Error(`Espacio local insuficiente para restaurar los medios: se requieren ${mb(result.required+result.reserve)} MB y hay ${mb(result.available)} MB disponibles`);
   }
+  readTarString(bytes,start,len){return new TextDecoder().decode(bytes.slice(start,start+len)).replace(/\0.*$/s,'').trim()}
+  isSafeTarPath(name){
+    const value=String(name||'');if(!value||value.length>180||value.includes('\\')||value.startsWith('/')||value.includes('\0'))return false;
+    const parts=value.split('/');if(parts.some(part=>!part||part==='.'||part==='..'))return false;
+    if(value==='project.json')return true;
+    return parts.length===2&&parts[0]==='assets'&&parts[1]!=='project.json';
+  }
+  async assertSafeTar(blob){
+    if(!blob||typeof blob.arrayBuffer!=='function')throw new Error('Paquete TAR inválido');
+    const bytes=new Uint8Array(await blob.arrayBuffer()),seen=new Set();let offset=0,entries=0,projectCount=0;
+    while(offset+512<=bytes.length){
+      const header=bytes.slice(offset,offset+512);if(header.every(x=>x===0))break;
+      const name=this.readTarString(header,0,100),sizeRaw=this.readTarString(header,124,12),size=parseInt(sizeRaw||'0',8),type=header[156];
+      if(!name||!Number.isFinite(size)||size<0)throw new Error('Paquete TAR inválido');
+      if(type&&type!==48)throw new Error(`Entrada TAR no soportada: ${name}`);
+      if(!this.isSafeTarPath(name))throw new Error(`Ruta insegura en paquete: ${name}`);
+      if(seen.has(name))throw new Error(`Entrada TAR duplicada: ${name}`);seen.add(name);
+      entries++;if(entries>10000)throw new Error('Paquete TAR con demasiadas entradas');
+      if(name==='project.json'){projectCount++;if(size>16*1024*1024)throw new Error('project.json excede el límite seguro de 16 MB')}
+      offset+=512;if(offset+size>bytes.length)throw new Error('Paquete TAR truncado');offset+=Math.ceil(size/512)*512;
+    }
+    if(projectCount!==1)throw new Error('El paquete debe contener exactamente un project.json');
+    return {ok:true,entries};
+  }
   rewriteProjectAssetIds(project,idMap){
     const next=structuredClone(project||{});delete next.libraryId;
     if(Array.isArray(next.clips))for(const clip of next.clips){if(clip?.asset&&idMap.has(clip.asset))clip.asset=idMap.get(clip.asset)}
