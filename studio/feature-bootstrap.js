@@ -2,6 +2,7 @@
   if(typeof document==='undefined'||window.__profitmenteFeatureBootstrap)return;
   window.__profitmenteFeatureBootstrap=true;
   const modules=[
+    ['timeline-safe-render.js','ProfitMenteTimelineSafeRender'],
     ['caption-compact-engine.js','ProfitMenteCaptionCompactEngine'],
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
     ['media-storage-resilience.js','ProfitMenteMediaStorageResilience'],
