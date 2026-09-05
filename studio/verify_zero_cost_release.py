@@ -85,6 +85,7 @@ def main() -> None:
         ("calidad", "Preflight del editor bloquea colisiones de IDs de medios", [node, "test_qa_media_identity_collision.mjs"]),
         ("medios", "Fallback cuando IndexedDB no está disponible", [node, "test_media_storage_resilience.mjs"]),
         ("medios", "Reconexión verificada por contenido", [node, "relink-content-hash-regression.js"]),
+        ("medios", "Reconexión preserva identidad canónica y media ID 0", [node, "relink-manifest-regression.js"]),
         ("medios", "Limpieza conserva medios usados y aliases entre proyectos", [node, "test_media_library_cleanup.mjs"]),
         ("timeline", "Colocación segura en timeline multicapa", [node, "test_media_placement.mjs"]),
         ("timeline", "Drag-and-drop de biblioteca respeta identidad y pistas heredadas", [node, "test_media_timeline_dnd.mjs"]),
