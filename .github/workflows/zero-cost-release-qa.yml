@@ -40,5 +40,8 @@ jobs:
       - name: Verify safe timeline rendering
         run: node studio/test_timeline_safe_render.mjs
 
+      - name: Verify timeline magnetic snapping and canonical clip identity
+        run: node studio/test_timeline_snap.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
