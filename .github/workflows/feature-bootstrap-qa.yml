@@ -5,13 +5,17 @@ on:
     paths:
       - 'studio/feature-bootstrap.js'
       - 'studio/transition-duration.js'
+      - 'studio/qa-report-integration.js'
       - 'studio/test_feature_bootstrap.mjs'
+      - 'studio/test_qa_report_safe_render.mjs'
       - '.github/workflows/feature-bootstrap-qa.yml'
   pull_request:
     paths:
       - 'studio/feature-bootstrap.js'
       - 'studio/transition-duration.js'
+      - 'studio/qa-report-integration.js'
       - 'studio/test_feature_bootstrap.mjs'
+      - 'studio/test_qa_report_safe_render.mjs'
 
 jobs:
   feature-bootstrap:
@@ -25,6 +29,10 @@ jobs:
         run: |
           node --check studio/feature-bootstrap.js
           node --check studio/transition-duration.js
+          node --check studio/qa-report-integration.js
           node --check studio/test_feature_bootstrap.mjs
+          node --check studio/test_qa_report_safe_render.mjs
       - name: Bootstrap regression
         run: node studio/test_feature_bootstrap.mjs
+      - name: Safe QA report regression
+        run: node studio/test_qa_report_safe_render.mjs
