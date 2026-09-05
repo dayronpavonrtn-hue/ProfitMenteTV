@@ -87,6 +87,32 @@ assert.equal(stalledDone.status,'done');
 assert.ok(stalledStates.some(s=>s.status==='rendering'&&s.progress_stale===true),'unchanged render progress should surface a non-fatal stale warning');
 assert.ok(stalledStates.some(s=>Number(s.progress_stale_seconds)>=1),'stale warning should include an age');
 
+let timeoutPolls=0;
+const timeoutFetch=async(url)=>{
+  if(url!=='/api/render/jobs/timeout-recover')return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+  timeoutPolls+=1;
+  if(timeoutPolls===1)return new Promise(()=>{});
+  return new Response(JSON.stringify({ok:true,job_id:'timeout-recover',status:'done',progress:100,qc:{ok:true,score:100}}),{status:200,headers:{'content-type':'application/json'}});
+};
+const timeoutRecover=new Client({fetchFn:timeoutFetch,interval:1,maxRetryDelay:1,maxConsecutiveErrors:2,requestTimeoutMs:5});timeoutRecover.attach('timeout-recover');
+const timeoutStates=[];const timeoutDone=await timeoutRecover.wait(s=>timeoutStates.push(s));
+assert.equal(timeoutDone.status,'done','a stalled status request must time out and allow polling to recover');
+assert.equal(timeoutPolls,2);
+assert.ok(timeoutStates.some(s=>s.status==='reconnecting'&&s.code==='REQUEST_TIMEOUT'),'request timeout must be surfaced as a retryable reconnect state');
+
+let resultRequests=0;
+const timeoutResultFetch=async(url)=>{
+  if(url!=='/api/render/jobs/result-timeout/result')return new Response('{}',{status:404,headers:{'content-type':'application/json'}});
+  resultRequests+=1;
+  if(resultRequests===1)return new Promise(()=>{});
+  return new Response(new Blob([mp4Bytes],{type:'video/mp4'}),{status:200,headers:{'content-type':'video/mp4'}});
+};
+const timeoutResult=new Client({fetchFn:timeoutResultFetch,interval:1,maxRetryDelay:1,resultMaxAttempts:2,requestTimeoutMs:3,resultTimeoutMs:5});timeoutResult.attach('result-timeout');
+const resultRetries=[];const recoveredBlob=await timeoutResult.result({onRetry:event=>resultRetries.push(event)});
+assert.equal(recoveredBlob.size,mp4Bytes.length,'a stalled result download must retry instead of hanging forever');
+assert.equal(resultRequests,2);
+assert.equal(resultRetries[0]?.code,'REQUEST_TIMEOUT');
+
 const missing=new Client({fetchFn:async()=>new Response(JSON.stringify({error:'Trabajo de render no encontrado.'}),{status:404,headers:{'content-type':'application/json'}}),interval:1});missing.attach('missing');
 await assert.rejects(()=>missing.wait(),/no encontrado/i);
 console.log('render job client ok');
