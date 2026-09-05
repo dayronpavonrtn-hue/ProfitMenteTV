@@ -14,9 +14,15 @@
     if(!value||typeof value!=='object')return value;
     const out={};for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);return out;
   }
+  function canonicalMediaId(value){
+    if(value===null||value===undefined)return '';
+    const raw=String(value).trim();if(!raw)return '';
+    const numeric=Number(raw);
+    return Number.isFinite(numeric)&&Number.isInteger(numeric)&&numeric>=0?String(numeric):raw;
+  }
   function mediaIdentity(assetList){
     return (Array.isArray(assetList)?assetList:[]).map(a=>({
-      id:String(a?.id||''),name:String(a?.name||''),type:String(a?.type||''),mime:String(a?.mime||''),
+      id:canonicalMediaId(a?.id),name:String(a?.name||''),type:String(a?.type||''),mime:String(a?.mime||''),
       size:Number.isFinite(Number(a?.size))?Number(a.size):null,
       duration:Number.isFinite(Number(a?.duration))?Number(a.duration):null,
       width:Number.isFinite(Number(a?.width))?Number(a.width):null,
@@ -133,5 +139,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,canonicalMediaId,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
 })();
