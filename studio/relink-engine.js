@@ -1,8 +1,16 @@
 class ProfitMenteRelinkEngine{
+  canonicalId(value){
+    if(value===null||value===undefined)return null;
+    const text=String(value).trim();if(!text)return null;
+    const n=Number(text);
+    if(Number.isFinite(n)&&Number.isInteger(n)&&n>=0)return `n:${n}`;
+    return `s:${text}`;
+  }
+  sameId(a,b){const ka=this.canonicalId(a),kb=this.canonicalId(b);return ka!==null&&ka===kb}
   referenced(project){
-    const ids=new Set();
-    for(const c of project?.clips||[]) if(c?.asset) ids.add(c.asset);
-    return [...ids];
+    const ids=new Map();
+    for(const c of project?.clips||[]){const key=this.canonicalId(c?.asset);if(key!==null&&!ids.has(key))ids.set(key,c.asset)}
+    return [...ids.values()];
   }
   cleanPath(path=''){
     return String(path||'').replace(/^[/\\]+/,'').replace(/\\/g,'/').replace(/\/+/g,'/').toLowerCase();
@@ -11,7 +19,7 @@ class ProfitMenteRelinkEngine{
     return this.cleanPath(file?.sourceRelativePath||file?.webkitRelativePath||file?.name||'');
   }
   manifest(assets=[]){
-    return (assets||[]).filter(a=>a?.id).map(a=>{
+    return (assets||[]).filter(a=>this.canonicalId(a?.id)!==null).map(a=>{
       const row={id:a.id,name:a.name||'',type:a.type||'',mime:a.mime||''};
       for(const key of ['size','duration','width','height','lastModified','metadataVersion']){
         const value=Number(a?.[key]);if(Number.isFinite(value)&&value>=0)row[key]=value;
@@ -24,17 +32,17 @@ class ProfitMenteRelinkEngine{
   }
   syncManifest(project,assets=[]){
     if(!project||typeof project!=='object')return [];
-    const next=this.manifest(assets),previous=new Map((project.assets||[]).map(a=>[a?.id,a]));
+    const next=this.manifest(assets),previous=new Map((project.assets||[]).map(a=>[this.canonicalId(a?.id),a]).filter(([key])=>key!==null));
     for(const row of next){
-      const old=previous.get(row.id);if(!old)continue;
+      const old=previous.get(this.canonicalId(row.id));if(!old)continue;
       for(const key of ['fingerprint','sourceRelativePath','sourceContentHash','sourceLegacyContentHash','sourceHashVersion','sourceFingerprint'])if(old?.[key]&&!row[key])row[key]=old[key];
     }
     project.assets=next;return next;
   }
   missing(project,assets=[]){
-    const available=new Set((assets||[]).map(a=>a?.id).filter(Boolean));
-    const meta=new Map((project?.assets||[]).map(a=>[a?.id,a]));
-    return this.referenced(project).filter(id=>!available.has(id)).map(id=>({id,...(meta.get(id)||{})}));
+    const available=new Set((assets||[]).map(a=>this.canonicalId(a?.id)).filter(x=>x!==null));
+    const meta=new Map((project?.assets||[]).map(a=>[this.canonicalId(a?.id),a]).filter(([key])=>key!==null));
+    return this.referenced(project).filter(id=>!available.has(this.canonicalId(id))).map(id=>({id,...(meta.get(this.canonicalId(id))||{})}));
   }
   normalize(name=''){
     return String(name).toLowerCase().replace(/\.[a-z0-9]{1,8}$/i,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
@@ -113,7 +121,7 @@ class ProfitMenteRelinkEngine{
       remaining.forEach((file,i)=>{const s=this.score(expected,file);if(s>bestScore){bestScore=s;best=i}});
       if(best>=0&&bestScore>=65){matches.push({expected,file:remaining[best],score:bestScore});remaining.splice(best,1)}
     }
-    return {missing,matches,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
+    return {missing,matches,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
   }
   async matchVerified(project,assets,files){
     const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],hashRejected=[];
@@ -138,7 +146,7 @@ class ProfitMenteRelinkEngine{
       }
       if(accepted){matches.push({expected,file:accepted.file,score:accepted.score,hash:accepted.hash,hashes:accepted.hashes});remaining.splice(remaining.indexOf(accepted.file),1)}
     }
-    return {missing,matches,hashRejected,unmatchedMissing:missing.filter(m=>!matches.some(x=>x.expected.id===m.id)),unusedFiles:remaining};
+    return {missing,matches,hashRejected,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteRelinkEngine=ProfitMenteRelinkEngine;
@@ -154,8 +162,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
   const folderButton=document.createElement('button');folderButton.id='relinkFolderBtn';folderButton.textContent='📁 Reconectar carpeta';folderButton.hidden=true;
   const info=document.createElement('div');info.id='relinkInfo';info.className='relinkInfo';info.hidden=true;
   const anchor=document.querySelector('#importBundleBtn')||document.querySelector('#importBtn');anchor?.insertAdjacentElement('afterend',info);info.insertAdjacentElement('beforebegin',folderButton);folderButton.insertAdjacentElement('beforebegin',button);button.insertAdjacentElement('beforebegin',folderInput);folderInput.insertAdjacentElement('beforebegin',input);
-  function markMissing(){const missing=engine.missing(project,assets),ids=new Set(missing.map(x=>x.id));document.querySelectorAll('.clip[data-id]').forEach(el=>{const c=(project.clips||[]).find(x=>x.id===el.dataset.id);el.classList.toggle('missingMedia',!!c?.asset&&ids.has(c.asset));if(c?.asset&&ids.has(c.asset))el.title=`Medio faltante: ${missing.find(x=>x.id===c.asset)?.name||c.asset}`});return missing}
-  function refresh(){engine.syncManifest(project,assets);const missing=markMissing();button.hidden=!missing.length;folderButton.hidden=!missing.length;info.hidden=!missing.length;if(missing.length){info.className='relinkInfo';info.textContent=`${missing.length} medio${missing.length===1?'':'s'} faltante${missing.length===1?'':'s'}: ${missing.map(x=>x.name||x.id).join(', ')}`}return missing}
+  function markMissing(){const missing=engine.missing(project,assets),ids=new Set(missing.map(x=>engine.canonicalId(x.id)).filter(x=>x!==null));document.querySelectorAll('.clip[data-id]').forEach(el=>{const c=(project.clips||[]).find(x=>engine.sameId(x?.id,el.dataset.id)),assetKey=engine.canonicalId(c?.asset),isMissing=assetKey!==null&&ids.has(assetKey);el.classList.toggle('missingMedia',isMissing);if(isMissing)el.title=`Medio faltante: ${missing.find(x=>engine.sameId(x.id,c.asset))?.name||c.asset}`});return missing}
+  function refresh(){engine.syncManifest(project,assets);const missing=markMissing();button.hidden=!missing.length;folderButton.hidden=!missing.length;info.hidden=!missing.length;if(missing.length){info.className='relinkInfo';info.textContent=`${missing.length} medio${missing.length===1?'':'s'} faltante${missing.length===1?'':'s'}: ${missing.map(x=>x.name??x.id).join(', ')}`}return missing}
   const baseDraw=drawTimeline;drawTimeline=function(){baseDraw();requestAnimationFrame(refresh)};
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist)persist=function(){engine.syncManifest(project,assets);return basePersist()};
@@ -163,7 +171,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
     files=[...(files||[])];if(!files.length)return;
     const result=await engine.matchVerified(project,assets,files);if(!result.matches.length){const detail=result.hashRejected?.length?' Los candidatos parecidos no coinciden con la huella del archivo original.':'';setStatus?.(`No encontré coincidencias seguras.${detail} Selecciona los archivos originales o la carpeta raíz donde fueron importados.`);return}
     let restored=0;
-    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||'',sourceLegacyContentHash:m.hashes?.legacy||m.expected.sourceLegacyContentHash||'',sourceHashVersion:m.expected.sourceHashVersion||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>a.id===asset.id);if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
+    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||'',sourceLegacyContentHash:m.hashes?.legacy||m.expected.sourceLegacyContentHash||'',sourceHashVersion:m.expected.sourceHashVersion||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>engine.sameId(a?.id,asset.id));if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
     engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);
   }
   button.onclick=()=>input.click();folderButton.onclick=()=>folderInput.click();
