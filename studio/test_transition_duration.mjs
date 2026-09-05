@@ -25,6 +25,14 @@ vm.runInContext(ui,vm.createContext(context));
 const core=context.ProfitMenteTransitionDuration;
 assert.ok(core,'transition timing core must be available without rendering the properties UI');
 
+assert.equal(core.sameId(0,'00'),true,'numeric zero aliases must resolve to the same clip');
+assert.equal(core.sameId(7,'7.0'),true,'legacy numeric clip aliases must resolve canonically');
+assert.equal(core.sameId('clip-7','clip-7'),true,'text clip ids must remain exact and stable');
+assert.equal(core.sameId(0,null),false,'a valid zero clip id must never collide with a missing selection');
+assert.equal(core.findSelected([{id:0,name:'zero'},{id:'clip-7',name:'text'}],'0.0')?.name,'zero','transition editor must find id 0 through a legacy dataset alias');
+assert.equal(core.findSelected([{id:7,name:'seven'}],'07')?.name,'seven','transition editor must find numeric legacy ids through canonical identity');
+assert.equal(core.findSelected([{id:'clip-7',name:'text'}],'clip-7')?.name,'text','transition editor must still find string ids exactly');
+
 assert.equal(core.automaticValue({duration:2}),0.24,'2s clip should resolve to 12% automatic transition');
 assert.equal(core.automaticValue({duration:5}),0.28,'automatic transition must respect the 0.28s ceiling');
 assert.equal(core.automaticValue({duration:.2}),0.08,'short clips should use the automatic 0.08s floor when possible');
@@ -45,4 +53,4 @@ const manual={track:1,transition:'slide',duration:2,transitionDuration:.4,transi
 assert.equal(core.syncAutomatic(manual),false,'manual transition timing must never be overwritten');
 assert.equal(manual.transitionDuration,.4);
 
-console.log('Transition duration integration + automatic parity OK');
+console.log('Transition duration integration + automatic parity + canonical clip identity OK');
