@@ -30,6 +30,30 @@ assert.ok(conflict.assets.some(a=>a.id==='asset-c'),'los medios nuevos del paque
 assert.deepEqual(conflict.assetsToPersist.map(a=>a.id),['asset-imported-safe','asset-c']);
 assert.deepEqual(conflict.stats,{added:1,reused:0,remapped:1,totalIncoming:2});
 
+const canonicalLocal={id:7,name:'canonical.mp4',type:'video',mime:'video/mp4',size:12,sourceContentHash:'canonical-hash',blob:new Blob(['canonical'])};
+const canonicalProject={name:'Canonical portable',duration:3,format:'9:16',clips:[{id:'canonical-clip',track:0,start:0,duration:3,asset:'007'}],assets:[{id:'7.0',name:'canonical.mp4'}]};
+const canonicalReuse=new ProfitMenteBundleImportEngine({idFactory:()=>{throw new Error('canonical reuse must not remap')}}).prepare(
+  canonicalProject,
+  [{...canonicalLocal,id:'007',blob:new Blob(['same canonical package media'])}],
+  [canonicalLocal]
+);
+assert.equal(canonicalReuse.assets.length,1,'IDs numéricos equivalentes no deben duplicar un medio ya local');
+assert.equal(canonicalReuse.assetsToPersist.length,0,'reutilizar una identidad canónica no debe reescribir IndexedDB');
+assert.equal(canonicalReuse.project.clips[0].asset,7,'la timeline restaurada debe apuntar al ID local canónico real');
+assert.equal(canonicalReuse.project.assets[0].id,7,'la metadata restaurada debe usar el mismo ID local canónico');
+assert.deepEqual(canonicalReuse.stats,{added:0,reused:1,remapped:0,totalIncoming:1});
+
+const canonicalConflict=new ProfitMenteBundleImportEngine({idFactory:()=> 'canonical-import-safe'}).prepare(
+  canonicalProject,
+  [{id:'007',name:'different.mp4',type:'video',mime:'video/mp4',size:99,sourceContentHash:'different-canonical-hash',blob:new Blob(['different'])}],
+  [canonicalLocal]
+);
+assert.equal(canonicalConflict.assets.length,2,'una colisión canónica con contenido distinto debe aislar ambos medios');
+assert.equal(canonicalConflict.project.clips[0].asset,'canonical-import-safe','la timeline debe seguir el remapeo de una colisión canónica');
+assert.equal(canonicalConflict.project.assets[0].id,'canonical-import-safe');
+assert.deepEqual(canonicalConflict.assetsToPersist.map(a=>a.id),['canonical-import-safe']);
+assert.deepEqual(canonicalConflict.stats,{added:0,reused:0,remapped:1,totalIncoming:1});
+
 assert.throws(()=>conflictEngine.prepare({clips:[]},[{name:'sin-id'}],[]),/sin identificador/);
 assert.throws(()=>conflictEngine.prepare({clips:null},[],[]),/timeline válida/);
 
