@@ -3,7 +3,16 @@
   let renderEpoch=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
-  const mediaIdKey=value=>{if(value===undefined||value===null)return null;const key=String(value).trim();return key||null};
+  const mediaIdKey=value=>{
+    if(value===undefined||value===null)return null;
+    const raw=String(value).trim();
+    if(!raw)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
+      const numeric=Number(raw);
+      if(Number.isFinite(numeric))return `n:${numeric}`;
+    }
+    return `s:${raw}`;
+  };
   function assetById(id){const key=mediaIdKey(id);return key===null?undefined:assets.find(a=>mediaIdKey(a?.id)===key)}
   function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
   function trackStateValue(map,track){
