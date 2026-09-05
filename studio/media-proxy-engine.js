@@ -1,6 +1,21 @@
 class ProfitMenteMediaProxyEngine{
   static thresholdBytes=24*1024*1024;
   static extension(name=''){const m=String(name).toLowerCase().match(/\.([a-z0-9]+)$/);return m?m[1]:''}
+  static mediaKey(value){
+    if(value==null||typeof value==='boolean')return null;
+    const text=String(value).trim();
+    if(!text)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
+      const number=Number(text);
+      if(Number.isFinite(number))return `n:${number}`;
+    }
+    return `s:${text}`;
+  }
+  static requestedKeys(ids=[]){return new Set((Array.isArray(ids)?ids:[]).map(id=>this.mediaKey(id)).filter(key=>key!=null))}
+  static candidates(allAssets=[],ids=[]){
+    const list=Array.isArray(allAssets)?allAssets:[],requested=this.requestedKeys(ids);
+    return list.filter(asset=>(!requested.size||requested.has(this.mediaKey(asset?.id)))&&this.shouldProxy(asset)&&!this.proxyCurrent(asset));
+  }
   static shouldProxy(asset={}){
     if(asset?.proxyAutoDisabled)return false;
     if(asset?.type!=='video'||!(asset?.blob instanceof Blob))return false;
@@ -46,7 +61,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaPr
     }catch(err){console.warn('Proxy local no disponible para',asset?.name,err);return false}
   }
   function enqueue(ids=[]){
-    const requested=new Set(ids||[]);const list=(assets||[]).filter(a=>(!requested.size||requested.has(a.id))&&engine.shouldProxy(a)&&!engine.proxyCurrent(a));
+    const list=engine.candidates(assets,ids);
     for(const asset of list)chain=chain.then(()=>prepareAsset(asset));return chain;
   }
   document.addEventListener('profitmente:media-imported',e=>enqueue(e.detail?.assetIds||[]));
