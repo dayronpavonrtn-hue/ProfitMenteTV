@@ -1,5 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteTimelineSnapEngine=api.ProfitMenteTimelineSnapEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteTimelineSnapEngine{
+  static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
   static idKey(value){
     if(value===null||value===undefined||typeof value==='boolean')return null;
@@ -19,7 +20,7 @@ class ProfitMenteTimelineSnapEngine{
       if(Number.isFinite(s)&&Number.isFinite(d))out.push(this.clamp(s+d,0,duration));
     }
     if(Number.isFinite(Number(playhead)))out.push(this.clamp(Number(playhead),0,duration));
-    return [...new Set(out.map(v=>Math.round(v*1000000)/1000000))].sort((a,b)=>a-b);
+    return [...new Set(out.map(v=>this.round(v)))].sort((a,b)=>a-b);
   }
   static nearest(value,points=[],tolerance=.15){
     const v=Number(value),tol=Math.max(0,Number(tolerance)||0);if(!Number.isFinite(v))return {value:0,snapped:false,target:null,distance:Infinity};
@@ -31,12 +32,12 @@ class ProfitMenteTimelineSnapEngine{
     const startSnap=this.nearest(raw,points,tolerance),endSnap=this.nearest(raw+clipDuration,points,tolerance);
     let chosen=startSnap;
     if(endSnap.snapped&&(!startSnap.snapped||endSnap.distance<startSnap.distance))chosen={...endSnap,value:endSnap.value-clipDuration};
-    return {...chosen,value:this.clamp(chosen.value,0,Math.max(0,duration-clipDuration))};
+    return {...chosen,value:this.round(this.clamp(chosen.value,0,Math.max(0,duration-clipDuration)))};
   }
   static trim(project={},clip={},candidateDuration=.25,{playhead=null,tolerance=.15,minDuration=.25}={}){
-    const duration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,duration),available=Math.max(.001,duration-start),requestedMin=Math.max(.001,Number(minDuration)||.25),min=Math.min(requestedMin,available),rawDuration=this.clamp(candidateDuration,min,available),rawEnd=start+rawDuration;
-    const snap=this.nearest(rawEnd,this.points(project,clip.id,playhead),tolerance),snappedDuration=snap.value-start;
-    return {...snap,value:this.clamp(snappedDuration,min,available),target:snap.snapped?snap.target:null};
+    const duration=Math.max(.001,Number(project.duration)||1),start=this.round(this.clamp(clip.start,0,duration)),available=this.round(Math.max(.001,duration-start)),requestedMin=Math.max(.001,Number(minDuration)||.25),min=Math.min(requestedMin,available),rawDuration=this.clamp(candidateDuration,min,available),rawEnd=this.round(start+rawDuration);
+    const snap=this.nearest(rawEnd,this.points(project,clip.id,playhead),tolerance),snappedDuration=this.round(snap.value-start);
+    return {...snap,value:this.round(this.clamp(snappedDuration,min,available)),target:snap.snapped?snap.target:null};
   }
 }
 return {ProfitMenteTimelineSnapEngine};
