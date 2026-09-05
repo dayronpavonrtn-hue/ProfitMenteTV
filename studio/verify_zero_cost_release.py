@@ -111,6 +111,7 @@ def main() -> None:
         ("portabilidad", "Preflight de espacio al restaurar paquete completo", [node, "test_bundle_import_storage_preflight.mjs"]),
         ("exportacion", "Preflight antes de exportar", [node, "test_export_preflight.mjs"]),
         ("render", "Recuperación de trabajo MP4 tras recarga/red", [node, "test_render_job_recovery.mjs"]),
+        ("render", "Trabajos de render reemplazados quedan aislados del trabajo activo", [node, "test_render_job_supersede.mjs"]),
         ("render", "Descarga MP4 reintenta fallos transitorios y valida integridad", [node, "test_render_result_retry.mjs"]),
         ("render", "Render asíncrono conserva sesión recuperable y exige QA post-render", [node, "test_async_render_validation.mjs"]),
         ("render", "Identidad canónica de medios mantiene vigente el render correcto", [node, "test_render_media_identity.mjs"]),
