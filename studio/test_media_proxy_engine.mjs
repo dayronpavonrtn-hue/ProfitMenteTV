@@ -18,6 +18,19 @@ assert.equal(suppressedFetch,false,'suppressed proxy must not contact local enco
 const highRes={id:'hi',name:'hi.mp4',type:'video',mime:'video/mp4',width:3840,height:2160,blob:new Blob([new Uint8Array(2048)]),sourceFingerprint:'hi-v1'};
 assert.equal(ProxyEngine.shouldProxy(highRes),true,'high-resolution MP4 should get proxy');
 
+// Imported media IDs must use the same canonical identity as preview/generator/render.
+const legacyNumeric={id:'007',name:'legacy.MOV',type:'video',mime:'video/quicktime',blob:new Blob([new Uint8Array(2048)]),sourceFingerprint:'legacy'};
+assert.equal(ProxyEngine.mediaKey('007'),'n:7');
+assert.equal(ProxyEngine.mediaKey('+07.000'),'n:7');
+assert.equal(ProxyEngine.mediaKey(-0),'n:0');
+assert.equal(ProxyEngine.mediaKey(false),null,'booleans are not valid media IDs');
+assert.equal(ProxyEngine.mediaKey('Asset'),'s:Asset');
+assert.notEqual(ProxyEngine.mediaKey('Asset'),ProxyEngine.mediaKey('asset'),'text IDs remain case-sensitive');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],[7]),[legacyNumeric],'numeric alias should select imported proxy candidate');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],['+07.000']),[legacyNumeric],'decimal numeric alias should select imported proxy candidate');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],['8']),[],'unrelated imported ID must not enqueue proxy work');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],[]),[legacyNumeric],'empty ID list preserves startup proxy scan');
+
 const original=mov.blob;
 let persisted=null;
 const fetchImpl=async(url,options)=>{
