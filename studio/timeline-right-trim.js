@@ -3,10 +3,10 @@ class ProfitMenteTimelineRightTrimEngine{
   static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
   static calculate(project={},clip={},candidateEnd=0,{playhead=null,tolerance=.15,minDuration=.25,sourceDuration=0,snapEngine=null}={}){
-    const projectDuration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,projectDuration),speed=Math.max(.01,Number(clip.speed)||1),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0),requestedMin=Math.max(.001,Number(minDuration)||.25),minEnd=this.round(Math.min(projectDuration,start+requestedMin));
+    const projectDuration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,projectDuration),speed=Math.max(.01,Number(clip.speed)||1),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0),requestedMin=Math.max(.001,Number(minDuration)||.25),requestedMinEnd=this.round(Math.min(projectDuration,start+requestedMin));
     let maxEnd=projectDuration;const source=Number(sourceDuration);
     if(Number.isFinite(source)&&source>0){const available=Math.max(0,source-sourceOffset)/speed;maxEnd=this.round(Math.min(projectDuration,start+available))}
-    if(maxEnd<minEnd)maxEnd=minEnd;
+    const minEnd=this.round(Math.min(requestedMinEnd,maxEnd));
     let next=this.round(this.clamp(candidateEnd,minEnd,maxEnd)),snapped=false,target=null;
     if(snapEngine?.points&&snapEngine?.nearest){const result=snapEngine.nearest(next,snapEngine.points(project,clip.id,playhead),tolerance);if(result.snapped&&result.value>=minEnd&&result.value<=maxEnd){next=this.round(result.value);snapped=true;target=result.target}}
     return {duration:this.round(Math.max(.001,next-start)),end:next,snapped,target,minEnd,maxEnd,sourceLimited:maxEnd<projectDuration};
