@@ -10,6 +10,7 @@ on:
       - 'studio/studio_server.py'
       - 'studio/generator-integration.js'
       - 'studio/test_render_job_client.mjs'
+      - 'studio/test_render_job_supersede.mjs'
       - 'studio/test_render_job_recovery.mjs'
       - 'studio/test_render_project_identity.mjs'
       - 'studio/test_render_media_identity.mjs'
@@ -36,6 +37,7 @@ jobs:
           node --check studio/feature-bootstrap.js
           node --check studio/export-preflight.js
           node --check studio/generator-integration.js
+          node --check studio/test_render_job_supersede.mjs
           node --check studio/test_render_job_recovery.mjs
           node --check studio/test_render_project_identity.mjs
           node --check studio/test_render_media_identity.mjs
@@ -44,6 +46,8 @@ jobs:
         run: python -m py_compile studio/studio_server.py
       - name: Test render job client
         run: node studio/test_render_job_client.mjs
+      - name: Test render job supersede isolation
+        run: node studio/test_render_job_supersede.mjs
       - name: Test render recovery after reload
         run: node studio/test_render_job_recovery.mjs
       - name: Test render project identity
