@@ -1,8 +1,8 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectLibrary=api.ProfitMenteProjectLibrary})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectLibrary{
-  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key}
-  _read(){try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');return Array.isArray(v)?v:[]}catch{return []}}
-  _write(items){this.storage.setItem(this.key,JSON.stringify(items))}
+  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.memory=[];this.storageAvailable=true}
+  _read(){try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');const items=Array.isArray(v)?v:[];this.memory=structuredClone(items);this.storageAvailable=true;return items}catch{this.storageAvailable=false;return structuredClone(this.memory)}}
+  _write(items){this.memory=structuredClone(items);try{this.storage.setItem(this.key,JSON.stringify(items));this.storageAvailable=true;return true}catch{this.storageAvailable=false;return false}}
   list(){return this._read().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''))}
   save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>x.id===id);if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   saveExisting(project){if(!project?.libraryId)return null;const items=this._read(),row=items.find(x=>x.id===project.libraryId);if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
@@ -59,7 +59,8 @@ if(typeof document!=='undefined')(()=>{
   const $=s=>document.querySelector(s),aside=$('aside');if(!aside||typeof project==='undefined')return;
   const lib=new ProfitMenteProjectLibrary(localStorage),section=document.createElement('section');section.className='projectLibrary';section.innerHTML='<h3>Mis proyectos</h3><div class="projectLibraryActions"><button id="librarySaveBtn">＋ Guardar proyecto</button><button id="libraryExportBtn" title="Exportar respaldo JSON">⇩ Exportar</button><button id="libraryImportBtn" title="Importar respaldo JSON">⇧ Importar</button><button id="libraryRefreshBtn">↻ Actualizar</button><input id="libraryImportFile" type="file" accept="application/json,.json" hidden></div><div id="projectLibraryList" class="projectLibraryList"></div>';aside.insertBefore(section,aside.firstChild);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+  function persistenceStatus(ok,normal,fallback){status(ok?normal:fallback)}
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]))}
   function render(){const el=$('#projectLibraryList'),rows=lib.list();el.innerHTML=rows.length?'':'<small>Sin proyectos guardados todavía.</small>';for(const row of rows){const card=document.createElement('div');card.className='projectLibraryCard';card.innerHTML=`<button class="projectOpen" data-open="${row.id}"><b>${escapeHtml(row.name)}</b><small>${new Date(row.updatedAt).toLocaleString()}</small></button><button class="projectDuplicate" data-duplicate="${row.id}" title="Duplicar proyecto">⧉</button><button class="projectDelete" data-delete="${row.id}" title="Eliminar">×</button>`;el.appendChild(card)}}
   async function syncAll(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();const ph=$('#playhead');if(ph)ph.value=0;if(typeof renderAt==='function')await renderAt(0)}
   function stopPlayback(){
@@ -85,7 +86,7 @@ if(typeof document!=='undefined')(()=>{
       return true;
     }catch(err){console.error('ProfitMente project flush failed',err);status('No se pudo guardar el proyecto actual; cambio cancelado');return false}
   }
-  async function saveCurrent(){if(typeof save==='function')save();project=lib.save(project);await syncAll();render();status('Proyecto guardado en Mis proyectos · autoguardado activo')}
+  async function saveCurrent(){if(typeof save==='function')save();project=lib.save(project);await syncAll();render();persistenceStatus(lib.storageAvailable,'Proyecto guardado en Mis proyectos · autoguardado activo','Proyecto guardado solo en esta sesión · almacenamiento del navegador no disponible')}
   function resetHistory(){if(window.ProfitMenteProjectHistory?.reset)window.ProfitMenteProjectHistory.reset();else if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project)}
   async function openProject(id){const next=lib.load(id);if(!next)return;stopPlayback();if(!flushCurrentProject())return;project=next;await syncAll();resetHistory();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título'}}));status(`Proyecto abierto: ${project.name||'Sin título'} · autoguardado activo`)}
   async function duplicateProject(id){if(!flushCurrentProject())return;const next=lib.duplicate(id);if(!next){status('No se pudo duplicar el proyecto');return}stopPlayback();project=next;await syncAll();resetHistory();render();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',duplicated:true}}));status(`Proyecto duplicado y abierto: ${project.name}`)}
@@ -95,7 +96,7 @@ if(typeof document!=='undefined')(()=>{
     const qa=$('#qaReport');if(qa){qa.hidden=true;qa.innerHTML=''}
     await syncAll();resetHistory();render();
     window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:null,name:project.name,newProject:true}}));
-    status('Proyecto nuevo listo · el proyecto anterior quedó guardado');return true;
+    persistenceStatus(lib.storageAvailable,'Proyecto nuevo listo · el proyecto anterior quedó guardado','Proyecto nuevo listo · respaldo anterior disponible solo durante esta sesión');return true;
   }
   function safeFileName(name){return String(name||'profitmente-project').normalize('NFKD').replace(/[^\w\-. ]+/g,'').trim().replace(/\s+/g,'-').slice(0,80)||'profitmente-project'}
   function exportCurrent(){
@@ -105,7 +106,7 @@ if(typeof document!=='undefined')(()=>{
   async function importProjectFile(file){
     if(!file)return false;if(file.size>10*1024*1024){status('Archivo de proyecto demasiado grande (máximo 10 MB)');return false}
     if(!flushCurrentProject())return false;
-    try{const text=await file.text(),next=lib.importSerialized(text);stopPlayback();project=next;await syncAll();resetHistory();render();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',imported:true}}));status(`Proyecto importado y abierto: ${project.name}`);return true}catch(err){console.error('ProfitMente project import failed',err);status(`No se pudo importar: ${err?.message||'archivo inválido'}`);return false}
+    try{const text=await file.text(),next=lib.importSerialized(text);stopPlayback();project=next;await syncAll();resetHistory();render();window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',imported:true}}));persistenceStatus(lib.storageAvailable,`Proyecto importado y abierto: ${project.name}`,`Proyecto importado: ${project.name} · disponible solo durante esta sesión`);return true}catch(err){console.error('ProfitMente project import failed',err);status(`No se pudo importar: ${err?.message||'archivo inválido'}`);return false}
   }
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
