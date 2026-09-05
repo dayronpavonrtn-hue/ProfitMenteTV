@@ -1,6 +1,12 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteBundleImportEngine=api.ProfitMenteBundleImportEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteBundleImportEngine{
   constructor({idFactory}={}){this.idFactory=idFactory||(()=>crypto.randomUUID())}
+  mediaIdKey(value){
+    if(value===undefined||value===null)return null;
+    const raw=String(value).trim();if(!raw)return null;
+    const numeric=Number(raw);
+    return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
+  }
   identity(asset={}){
     const hash=String(asset.sourceContentHash||'').trim();if(hash)return `hash:${hash}`;
     const fingerprint=String(asset.sourceFingerprint||'').trim();if(fingerprint)return `fingerprint:${fingerprint}`;
@@ -46,24 +52,32 @@ class ProfitMenteBundleImportEngine{
   }
   rewriteProjectAssetIds(project,idMap){
     const next=structuredClone(project||{});delete next.libraryId;
-    if(Array.isArray(next.clips))for(const clip of next.clips){if(clip?.asset&&idMap.has(clip.asset))clip.asset=idMap.get(clip.asset)}
-    if(Array.isArray(next.assets))for(const asset of next.assets){if(asset?.id&&idMap.has(asset.id))asset.id=idMap.get(asset.id)}
+    const mapped=value=>{const key=this.mediaIdKey(value);return key!==null&&idMap.has(key)?idMap.get(key):value};
+    if(Array.isArray(next.clips))for(const clip of next.clips){if(clip?.asset!==undefined&&clip?.asset!==null)clip.asset=mapped(clip.asset)}
+    if(Array.isArray(next.assets))for(const asset of next.assets){if(asset?.id!==undefined&&asset?.id!==null)asset.id=mapped(asset.id)}
     return next;
   }
   prepare(project,incomingAssets=[],existingAssets=[]){
     if(!project||typeof project!=='object'||Array.isArray(project))throw new Error('Proyecto del paquete inválido');
     if(!Array.isArray(project.clips))throw new Error('El paquete no contiene una timeline válida');
     const existing=Array.isArray(existingAssets)?existingAssets:[],incoming=Array.isArray(incomingAssets)?incomingAssets:[];
-    const byId=new Map(existing.filter(a=>a?.id).map(a=>[a.id,a]));
+    const byId=new Map();
+    for(const asset of existing){const key=this.mediaIdKey(asset?.id);if(key!==null&&!byId.has(key))byId.set(key,asset)}
     const merged=existing.map(a=>this.cloneAsset(a)),toPersist=[],idMap=new Map();let reused=0,remapped=0,added=0;
     for(const source of incoming){
-      if(!source?.id)throw new Error('Medio del paquete sin identificador');
-      const local=byId.get(source.id);
-      if(local&&this.identity(local)===this.identity(source)){reused++;continue}
-      let next=this.cloneAsset(source);
-      if(local){const oldId=next.id,newId=this.idFactory();if(!newId||byId.has(newId))throw new Error('No se pudo crear un identificador seguro para el medio importado');next.id=newId;idMap.set(oldId,newId);remapped++}
-      else added++;
-      merged.push(next);toPersist.push(next);byId.set(next.id,next);
+      const sourceKey=this.mediaIdKey(source?.id);if(sourceKey===null)throw new Error('Medio del paquete sin identificador');
+      const local=byId.get(sourceKey);
+      if(local&&this.identity(local)===this.identity(source)){
+        const localId=local.id;if(String(localId)!==String(source.id))idMap.set(sourceKey,localId);
+        reused++;continue
+      }
+      let next=this.cloneAsset(source),nextKey=sourceKey;
+      if(local){
+        const newId=this.idFactory(),newKey=this.mediaIdKey(newId);
+        if(newKey===null||byId.has(newKey))throw new Error('No se pudo crear un identificador seguro para el medio importado');
+        next.id=newId;nextKey=newKey;idMap.set(sourceKey,newId);remapped++
+      }else added++;
+      merged.push(next);toPersist.push(next);byId.set(nextKey,next);
     }
     const nextProject=this.rewriteProjectAssetIds(project,idMap);
     return {project:nextProject,assets:merged,assetsToPersist:toPersist,stats:{added,reused,remapped,totalIncoming:incoming.length}};
