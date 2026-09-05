@@ -1,6 +1,16 @@
 class ProfitMenteFilmstripEngine{
   constructor(){this.cache=new Map();this.pending=new Map();this.maxFrames=8}
-  key(asset,count){return `${asset.id}:${asset.blob?.size||0}:${count}`}
+  identity(value){
+    if(value===null||value===undefined||typeof value==='boolean')return '';
+    if(typeof value==='number')return Number.isFinite(value)?`n:${Object.is(value,-0)?0:value}`:'';
+    const text=String(value).trim();if(!text)return '';
+    if(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)){
+      const number=Number(text);if(Number.isFinite(number))return `n:${Object.is(number,-0)?0:number}`;
+    }
+    return `s:${text}`;
+  }
+  sameId(left,right){const a=this.identity(left),b=this.identity(right);return !!a&&a===b}
+  key(asset,count){return `${this.identity(asset.id)}:${asset.blob?.size||0}:${count}`}
   async frames(asset,count=6){
     if(!asset?.blob||asset.type!=='video')return [];
     count=Math.max(2,Math.min(this.maxFrames,Math.round(count)));
@@ -18,11 +28,14 @@ class ProfitMenteFilmstripEngine{
   async decorate(project,assets,root=document){
     const clips=[...root.querySelectorAll('.clip[data-id]')];
     await Promise.all(clips.map(async el=>{
-      const clip=project.clips.find(c=>c.id===el.dataset.id);if(!clip||![0,1].includes(clip.track)||!clip.asset)return;
-      const asset=assets.find(a=>a.id===clip.asset);if(!asset||!['video','image'].includes(asset.type))return;
+      const clip=(project?.clips||[]).find(c=>this.sameId(c.id,el.dataset.id));if(!clip||![0,1].includes(Number(clip.track))||clip.asset===null||clip.asset===undefined)return;
+      const asset=(assets||[]).find(a=>this.sameId(a.id,clip.asset));if(!asset||!['video','image'].includes(asset.type))return;
       let strip=el.querySelector('.filmstrip');if(!strip){strip=document.createElement('span');strip.className='filmstrip';el.prepend(strip)}
-      if(asset.type==='image'){if(asset.thumbnail)strip.style.backgroundImage=`url("${asset.thumbnail}")`;strip.classList.add('single');return}
-      const count=Math.max(2,Math.min(this.maxFrames,Math.ceil(el.clientWidth/70))),frames=await this.frames(asset,count);if(!el.isConnected||!frames.length)return;
+      if(asset.type==='image'){
+        strip.replaceChildren();strip.classList.add('single');strip.style.backgroundImage=asset.thumbnail?`url("${asset.thumbnail}")`:'';return;
+      }
+      strip.style.backgroundImage='';
+      const count=Math.max(2,Math.min(this.maxFrames,Math.ceil(Math.max(1,el.clientWidth)/70))),frames=await this.frames(asset,count);if(!el.isConnected||!frames.length)return;
       strip.classList.toggle('single',frames.length===1);strip.replaceChildren(...frames.map(src=>{const img=document.createElement('img');img.src=src;img.alt='';img.draggable=false;return img}));
     }))
   }
@@ -31,6 +44,14 @@ window.ProfitMenteFilmstripEngine=ProfitMenteFilmstripEngine;
 (()=>{
   const css=document.createElement('style');css.textContent='.clip{isolation:isolate}.clip .filmstrip{position:absolute;inset:0 6px 0 0;display:flex;overflow:hidden;opacity:.58;pointer-events:none;z-index:-1;border-radius:3px}.clip .filmstrip img{height:100%;min-width:0;flex:1 1 0;object-fit:cover}.clip .filmstrip.single{background-size:cover;background-position:center}.clip .filmstrip.single img{width:100%}.clip:has(.filmstrip){text-shadow:0 1px 3px #000,0 0 2px #000;background:#1a2431}';document.head.appendChild(css);
   const engine=new ProfitMenteFilmstripEngine();window.profitMenteFilmstrip=engine;
-  const install=()=>{if(typeof window.drawTimeline!=='function')return false;const original=window.drawTimeline;if(original.__filmstripPatched)return true;function patched(){const result=original.apply(this,arguments);requestAnimationFrame(()=>engine.decorate(project,assets).catch(console.warn));return result}patched.__filmstripPatched=true;window.drawTimeline=patched;requestAnimationFrame(()=>engine.decorate(project,assets).catch(console.warn));return true};
+  let queued=false;
+  const schedule=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;if(typeof project==='undefined'||typeof assets==='undefined')return;engine.decorate(project,assets).catch(console.warn)})};
+  const install=()=>{
+    const tracks=document.querySelector('#tracks');if(!tracks)return false;
+    if(!tracks.__filmstripObserver){
+      const observer=new MutationObserver(schedule);observer.observe(tracks,{childList:true,subtree:true});tracks.__filmstripObserver=observer;
+    }
+    schedule();return true;
+  };
   if(!install())window.addEventListener('DOMContentLoaded',install,{once:true});
 })();
