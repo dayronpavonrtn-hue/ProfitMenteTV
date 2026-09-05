@@ -1,8 +1,38 @@
 class ProfitMenteRenderJobClient{
-  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000,resultMaxAttempts=3,minResultBytes=24,staleProgressMs=300000}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.resultMaxAttempts=Math.max(1,Number(resultMaxAttempts)||3);this.minResultBytes=Math.max(16,Number(minResultBytes)||24);this.staleProgressMs=Math.max(1,Number(staleProgressMs)||300000);this.jobId=null;this.cancelled=false}
+  constructor({fetchFn,interval=750,maxConsecutiveErrors=8,maxRetryDelay=5000,resultMaxAttempts=3,minResultBytes=24,staleProgressMs=300000,requestTimeoutMs=15000,resultTimeoutMs=120000}={}){this.fetchFn=fetchFn||globalThis.fetch?.bind(globalThis);this.interval=interval;this.maxConsecutiveErrors=maxConsecutiveErrors;this.maxRetryDelay=maxRetryDelay;this.resultMaxAttempts=Math.max(1,Number(resultMaxAttempts)||3);this.minResultBytes=Math.max(16,Number(minResultBytes)||24);this.staleProgressMs=Math.max(1,Number(staleProgressMs)||300000);this.requestTimeoutMs=Math.max(1,Number(requestTimeoutMs)||15000);this.resultTimeoutMs=Math.max(this.requestTimeoutMs,Number(resultTimeoutMs)||120000);this.jobId=null;this.cancelled=false}
+  async fetchWithTimeout(url,options={},timeoutMs=this.requestTimeoutMs){
+    if(!this.fetchFn)throw new Error('Fetch no disponible');
+    const timeout=Math.max(1,Number(timeoutMs)||this.requestTimeoutMs);
+    const controller=typeof AbortController==='function'?new AbortController():null;
+    const externalSignal=options?.signal||null;
+    let relayAbort=null,timer=null,timedOut=false;
+    const requestOptions={...options};
+    if(controller){
+      relayAbort=()=>controller.abort(externalSignal?.reason);
+      if(externalSignal?.aborted)relayAbort();
+      else externalSignal?.addEventListener?.('abort',relayAbort,{once:true});
+      requestOptions.signal=controller.signal;
+    }
+    let rejectTimeout;
+    const timeoutPromise=new Promise((_,reject)=>{rejectTimeout=reject;timer=setTimeout(()=>{timedOut=true;try{controller?.abort()}catch{}const error=new Error(`Tiempo de espera agotado al contactar el motor de render (${timeout} ms)`);error.name='TimeoutError';error.code='REQUEST_TIMEOUT';error.retryable=true;reject(error)},timeout)});
+    try{
+      return await Promise.race([Promise.resolve().then(()=>this.fetchFn(url,requestOptions)),timeoutPromise]);
+    }catch(error){
+      if(timedOut&&error?.code!=='REQUEST_TIMEOUT'){
+        const timeoutError=new Error(`Tiempo de espera agotado al contactar el motor de render (${timeout} ms)`);timeoutError.name='TimeoutError';timeoutError.code='REQUEST_TIMEOUT';timeoutError.retryable=true;throw timeoutError;
+      }
+      if(error?.name==='AbortError'&&externalSignal?.aborted)throw error;
+      if(!Number.isFinite(Number(error?.status)))error.retryable=true;
+      throw error;
+    }finally{
+      if(timer)clearTimeout(timer);
+      if(relayAbort)externalSignal?.removeEventListener?.('abort',relayAbort);
+      rejectTimeout=null;
+    }
+  }
   async json(url,options){
     let r;
-    try{r=await this.fetchFn(url,options)}catch(error){error.retryable=true;throw error}
+    try{r=await this.fetchWithTimeout(url,options,this.requestTimeoutMs)}catch(error){error.retryable=true;throw error}
     let data={};try{data=await r.json()}catch{}
     if(!r.ok){const error=new Error(data.error||`Error HTTP ${r.status}`);error.status=r.status;error.retryable=r.status===408||r.status===425||r.status===429||r.status>=500;throw error}
     return data;
@@ -31,7 +61,7 @@ class ProfitMenteRenderJobClient{
     const attempts=Math.max(1,Number(maxAttempts)||1);
     for(let attempt=1;attempt<=attempts;attempt+=1){
       try{
-        const r=await this.fetchFn(`/api/render/jobs/${encodeURIComponent(this.jobId)}/result`);
+        const r=await this.fetchWithTimeout(`/api/render/jobs/${encodeURIComponent(this.jobId)}/result`,{},this.resultTimeoutMs);
         if(!r.ok){let data={};try{data=await r.json()}catch{}const error=new Error(data.error||`Error HTTP ${r.status}`);error.status=r.status;error.retryable=r.status===408||r.status===425||r.status===429||r.status>=500;throw error}
         return await this.validateResultBlob(await r.blob());
       }catch(error){
@@ -70,7 +100,7 @@ class ProfitMenteRenderJobClient{
         if(!error?.retryable||failures>=this.maxConsecutiveErrors)throw error;
         failures+=1;
         const retryDelay=Math.min(this.maxRetryDelay,Math.max(this.interval,this.interval*(2**Math.min(failures-1,4))));
-        onProgress({status:'reconnecting',progress:null,retry:failures,retryDelay,error:error?.message||String(error)});
+        onProgress({status:'reconnecting',progress:null,retry:failures,retryDelay,error:error?.message||String(error),code:error?.code||null});
         await new Promise(resolve=>setTimeout(resolve,retryDelay));
         continue;
       }
