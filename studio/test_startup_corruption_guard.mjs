@@ -25,6 +25,7 @@ function boot(seed){
   assert.ok(Array.isArray(result.project.clips));
   assert.equal(localStorage.getItem('profitmente-project'),raw,'valid startup project remains untouched');
   assert.equal(localStorage.getItem('profitmente-project-corrupt-backup'),null);
+  assert.equal(JSON.parse(localStorage.getItem('profitmente-project-last-good')).name,'Bien','valid startup state refreshes the last-known-good snapshot');
   assert.equal(recovered,undefined);
 }
 
@@ -36,6 +37,35 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
   assert.equal(localStorage.getItem('profitmente-project-corrupt-backup'),raw,'raw corrupt value is preserved for forensic/manual recovery');
   assert.equal(recovered?.reason,'corrupt-project-storage');
   assert.equal(document.documentElement.dataset.projectRecovered,'corrupt-startup');
+}
+
+{
+  const good={version:'1.3',name:'Recuperable',mode:'Manual',duration:61,format:'16:9',clips:[{id:'c1',track:0,start:0,duration:4}]};
+  const {api,localStorage}=boot({});
+  api.persist(localStorage,good);
+  assert.equal(JSON.parse(localStorage.getItem(api.PRIMARY_KEY)).name,'Recuperable');
+  assert.equal(JSON.parse(localStorage.getItem(api.LAST_GOOD_KEY)).name,'Recuperable','every successful save keeps a valid recovery snapshot');
+  localStorage.setItem(api.PRIMARY_KEY,'{"truncated"');
+  const next=boot(Object.fromEntries(localStorage.m));
+  assert.equal(next.result.ok,true,'last-known-good recovery should boot successfully');
+  assert.equal(next.result.recoveredLastGood,true);
+  assert.equal(next.result.quarantined,true,'damaged primary is still quarantined for diagnosis');
+  assert.equal(next.result.project.name,'Recuperable');
+  assert.equal(next.result.project.duration,61);
+  assert.equal(next.recovered?.reason,'last-good-project-recovered');
+  assert.equal(next.document.documentElement.dataset.projectRecovered,'last-good-startup');
+  assert.equal(JSON.parse(next.localStorage.getItem(api.PRIMARY_KEY)).name,'Recuperable','recovery repairs the primary project slot');
+  assert.equal(next.localStorage.getItem(api.BACKUP_KEY),'{"truncated"','corrupt raw primary is preserved even when automatic recovery succeeds');
+}
+
+{
+  const raw='{"broken"';
+  const {result,recovered,localStorage}=boot({'profitmente-project':raw,'profitmente-project-last-good':'[]'});
+  assert.equal(result.ok,false,'invalid recovery snapshot must not be trusted');
+  assert.equal(result.fallback,true);
+  assert.equal(result.project.name,'Nuevo video');
+  assert.equal(recovered?.reason,'corrupt-project-storage');
+  assert.equal(localStorage.getItem('profitmente-project'),null);
 }
 
 {
@@ -59,6 +89,15 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
+  const lastGood=JSON.stringify({name:'Último válido',mode:'Manual',duration:24,format:'1:1',clips:[]});
+  const {result,recovered,localStorage}=boot({'profitmente-project-last-good':lastGood});
+  assert.equal(result.recoveredLastGood,true,'a missing primary can be restored from the last-known-good snapshot');
+  assert.equal(result.project.name,'Último válido');
+  assert.equal(recovered?.reason,'last-good-project-recovered');
+  assert.equal(JSON.parse(localStorage.getItem('profitmente-project')).name,'Último válido');
+}
+
+{
   const storage={getItem(){throw new Error('denied')}};
   const context={globalThis:{localStorage:storage},document:{documentElement:{dataset:{}}},console:{warn(){}},Date};
   vm.runInNewContext(source,context);
@@ -71,6 +110,7 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 
 assert.match(appSource,/__profitmenteStartupProjectGuard/,'app runtime must consume the startup guard result');
 assert.doesNotMatch(appSource,/JSON\.parse\(localStorage\.getItem\(/,'app runtime must not repeat the unsafe startup localStorage read');
-assert.match(appSource,/try\{localStorage\.setItem\('profitmente-project'/,'project persistence must tolerate localStorage write failures');
+assert.match(appSource,/guardApi\?\.persist\)guardApi\.persist\(localStorage,project\)/,'project persistence must use the guarded last-known-good writer');
+assert.match(appSource,/catch\(error\)\{globalThis\.__profitmenteStartupRecovered=/,'project persistence must tolerate localStorage write failures');
 
 console.log('Startup corruption guard OK');
