@@ -2,15 +2,19 @@ class ProfitMenteAudioWaveformEngine{
   static AUDIO_TRACKS=[4,5,6]
   static clamp(value,min=0,max=1){const n=Number(value);return Math.min(max,Math.max(min,Number.isFinite(n)?n:min))}
   static canonicalTrack(value){
-    if(value===null||value===undefined)return null;
+    if(value===null||value===undefined||typeof value==='boolean')return null;
     const raw=typeof value==='string'?value.trim():value;if(raw==='')return null;
-    const n=Number(raw);return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?n:null;
+    const n=Number(raw);return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?(Object.is(n,-0)?0:n):null;
   }
   static canonicalMediaId(value){
-    if(value===null||value===undefined)return null;
-    if(typeof value==='string'){const s=value.trim();return s===''?null:s}
-    if(typeof value==='number')return Number.isFinite(value)?String(value):null;
-    const s=String(value).trim();return s===''?null:s;
+    if(value===null||value===undefined||typeof value==='boolean')return null;
+    if(typeof value==='string'){
+      const raw=value.trim();if(raw==='')return null;
+      const numeric=Number(raw);
+      return Number.isFinite(numeric)?String(Object.is(numeric,-0)?0:numeric):raw;
+    }
+    if(typeof value==='number'&&Number.isFinite(value))return String(Object.is(value,-0)?0:value);
+    return null;
   }
   static hasAsset(value){return this.canonicalMediaId(value)!==null}
   static sameIdentity(a,b){const left=this.canonicalMediaId(a),right=this.canonicalMediaId(b);return left!==null&&right!==null&&left===right}
