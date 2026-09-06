@@ -12,6 +12,7 @@ on:
       - 'studio/generator-autofill.js'
       - 'studio/generator-integration.js'
       - 'studio/test_media_import_engine.mjs'
+      - 'studio/test_media_import_batch_dedupe.mjs'
       - 'studio/test_media_import_empty_guard.mjs'
       - 'studio/test_media_timeline_dnd.mjs'
       - 'studio/test_media_store.mjs'
@@ -44,6 +45,8 @@ jobs:
         run: node --check studio/generator-integration.js
       - name: Test classification and deduplication
         run: node studio/test_media_import_engine.mjs
+      - name: Test same-batch media deduplication
+        run: node studio/test_media_import_batch_dedupe.mjs
       - name: Test empty media rejection
         run: node studio/test_media_import_empty_guard.mjs
       - name: Test timeline media placement
