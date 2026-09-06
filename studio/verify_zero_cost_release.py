@@ -98,6 +98,7 @@ def main() -> None:
         ("timeline", "Drag-and-drop de biblioteca respeta identidad y pistas heredadas", [node, "test_media_timeline_dnd.mjs"]),
         ("timeline", "Locks heredados en colocación de medios", [node, "test_media_placement_legacy_lock.mjs"]),
         ("timeline", "Alias heredados de pista en operaciones manuales", [node, "test_timeline_track_alias_guard.mjs"]),
+        ("timeline", "Filmstrip refleja la ventana recortada real del medio", [node, "test_filmstrip.mjs"]),
         ("preview", "Identidad legacy de medios coincide con render", [node, "test_preview_media_identity.mjs"]),
         ("preview", "Audio preview respeta identidad de medios y estados heredados", [node, "test_audio_preview_identity.mjs"]),
         ("preview", "Waveform respeta identidad de medios y aliases de pistas", [node, "test_audio_waveform_engine.mjs"]),
