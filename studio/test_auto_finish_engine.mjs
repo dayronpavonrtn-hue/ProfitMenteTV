@@ -59,4 +59,26 @@ const legacyHiddenGenerated={...av,trackState:{0:{hidden:false}},trackStates:{0:
 assert.equal(Engine.inspect(legacyHiddenGenerated,[]).generated,0);
 assert.deepEqual(Engine.plan(legacyHiddenGenerated,[]).steps,['repair','smart-mix','detect-beats','qa']);
 
+// Canonical track aliases must inherit state instead of bypassing hidden/muted/solo controls.
+const paddedLegacyMusic={...av,trackState:{'05':{muted:true}}};
+assert.equal(Engine.inspect(paddedLegacyMusic,[]).music,0);
+assert.deepEqual(Engine.plan(paddedLegacyMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','qa']);
+const paddedLegacyVisual={...av,trackStates:{'+00.0':{hidden:true}}};
+assert.equal(Engine.inspect(paddedLegacyVisual,[]).generated,0);
+assert.deepEqual(Engine.plan(paddedLegacyVisual,[]).steps,['repair','smart-mix','detect-beats','qa']);
+
+// A numeric zero is a valid persisted media ID and must not disappear from automation planning.
+const zeroMedia={...base,clips:[{track:'00',asset:0,sceneText:'generated'}]};
+assert.equal(Engine.inspect(zeroMedia,[{id:0,type:'image'}]).visual,1);
+assert.equal(Engine.inspect(zeroMedia,[{id:0,type:'image'}]).visualAssets,1);
+assert.deepEqual(Engine.plan(zeroMedia,[{id:0,type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
+
+// Invalid identifiers/tracks stay excluded instead of being coerced into track/media zero.
+assert.equal(Engine.hasMediaId(false),false);
+assert.equal(Engine.hasMediaId('   '),false);
+assert.equal(Engine.canonicalTrack(false),null);
+assert.equal(Engine.canonicalTrack(''),null);
+assert.equal(Engine.inspect({...base,clips:[{track:false,asset:'bad'},{track:'',asset:'bad'}]},[{id:false,type:'image'},{id:'   ',type:'video'}]).visual,0);
+assert.equal(Engine.inspect(base,[{id:false,type:'image'},{id:'   ',type:'video'}]).visualAssets,0);
+
 console.log('auto-finish-engine regression: ok');
