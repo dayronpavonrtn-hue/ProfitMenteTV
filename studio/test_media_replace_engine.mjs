@@ -60,4 +60,14 @@ r=Engine.replace(conflictingSameTrackMaps,'same-track-conflict',{id:'replacement
 assert.equal(r.ok,false);assert.equal(r.reason,'locked');assert.deepEqual(conflictingSameTrackMaps,conflictingSameTrackMapsBefore);
 
 assert.equal(Engine.replace({clips:[]},'missing',{id:'a',type:'audio'}).reason,'clip-missing');
+
+const legacyIds={clips:[{id:'007',track:0,asset:'old',duration:2,sourceOffset:0,speed:1}]};
+r=Engine.replace(legacyIds,'+07.000',{id:0,name:'Zero ID image',type:'image'});
+assert.equal(r.ok,true);assert.equal(legacyIds.clips[0].asset,0);assert.equal(Engine.findClip(legacyIds,7),legacyIds.clips[0]);
+assert.equal(Engine.sameId('007',7),true);assert.equal(Engine.sameId('+07.000',7),true);assert.equal(Engine.sameId('-0',0),true);
+assert.equal(Engine.sameId('ClipA','clipa'),false);assert.equal(Engine.sameId(true,1),false);
+const legacyAssets=[{id:'007',name:'Legacy'},{id:'ClipA',name:'Text'}];
+assert.equal(Engine.findAsset(legacyAssets,7),legacyAssets[0]);assert.equal(Engine.findAsset(legacyAssets,'clipa'),null);
+assert.equal(Engine.replace({clips:[{id:1,track:0,duration:1}]},1,{id:true,type:'image'}).reason,'asset-missing');
+
 console.log('media replace engine ok');
