@@ -6,13 +6,13 @@
     style.textContent='.mediaRow.mediaReplaceReady{grid-template-columns:1fr 30px 30px}.mediaReplace{width:30px!important;margin:0!important;padding:3px!important;text-align:center!important;font-size:14px;background:#142029;border-color:#305166}.mediaReplace:disabled{opacity:.35;cursor:not-allowed}.mediaReplaceHint{font-size:9px;color:#7ad7ff;margin:4px 0 0}';document.head.appendChild(style);
   }
   const library=document.querySelector('#mediaLibrary');if(!library)return;
-  function selectedClip(){const id=window.ProfitMenteEditTools?.selectedId;return (project?.clips||[]).find(c=>c?.id===id)||null}
-  function assetForRow(row){return (assets||[]).find(a=>a?.id===row?.dataset?.assetId)||null}
+  function selectedClip(){const id=window.ProfitMenteEditTools?.selectedId;return engine.findClip(project,id)}
+  function assetForRow(row){return engine.findAsset(assets,row?.dataset?.assetId)}
   async function replaceWith(asset){
     const clip=selectedClip();if(!clip){setStatus?.('Selecciona primero un clip del timeline');return}
     const result=engine.replace(project,clip.id,asset);
     if(!result.ok){
-      const msg=result.reason==='locked'?'El clip o su pista está bloqueado 🔒. Desbloquéalo para reemplazar el medio':result.reason==='incompatible'?'Ese medio no es compatible con la pista del clip seleccionado':result.reason==='source-too-short'?`Ese medio es demasiado corto para un clip editable · disponible ${Number(result.available||0).toFixed(2)}s · mínimo ${Number(result.required||.25).toFixed(2)}s`:'No se pudo reemplazar el medio';
+      const msg=result.reason==='locked'?'El clip o su pista está bloqueado. Desbloquéalo para reemplazar el medio':result.reason==='incompatible'?'Ese medio no es compatible con la pista del clip seleccionado':result.reason==='source-too-short'?`Ese medio es demasiado corto para un clip editable · disponible ${Number(result.available||0).toFixed(2)}s · mínimo ${Number(result.required||.25).toFixed(2)}s`:'No se pudo reemplazar el medio';
       setStatus?.(msg);return;
     }
     if(typeof persist==='function')persist();
