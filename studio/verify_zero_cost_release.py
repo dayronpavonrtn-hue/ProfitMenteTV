@@ -81,6 +81,8 @@ def main() -> None:
         ("automatico", "Auto Finish espera el render local antes de continuar", [node, "test_auto_finish_render_wait.mjs"]),
         ("automatico", "Transiciones automáticas respetan locks, gaps y aliases heredados", [node, "test_auto_transition_engine.mjs"]),
         ("automatico", "Duración automática de transiciones coincide entre Preview y Render", [node, "test_transition_duration.mjs"]),
+        ("automatico", "Detección automática de beats funciona sin servicios externos", [node, "test_beat_detect_engine.mjs"]),
+        ("automatico", "Sincronización automática al beat respeta pistas, locks y aliases heredados", [node, "test_beat_sync_engine.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Proxies locales respetan identidad canónica de medios", [node, "test_media_proxy_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
