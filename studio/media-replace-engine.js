@@ -54,9 +54,12 @@ class ProfitMenteMediaReplaceEngine{
     const before={asset:clip.asset,name:clip.name,duration:clip.duration,sourceOffset:clip.sourceOffset};
     clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';
     if(asset.type==='image')clip.sourceOffset=0;
-    else{
-      clip.sourceOffset=window.offset;
-      if(Number.isFinite(window.maxDuration)&&Number(clip.duration)>window.maxDuration)clip.duration=Math.max(this.MIN_CLIP_DURATION,window.maxDuration);
+    else clip.sourceOffset=window.offset;
+    const currentDuration=Number(clip.duration);
+    if(!Number.isFinite(currentDuration)||currentDuration<this.MIN_CLIP_DURATION){
+      clip.duration=window.known?Math.min(this.MIN_CLIP_DURATION,window.maxDuration):this.MIN_CLIP_DURATION;
+    }else if(Number.isFinite(window.maxDuration)&&currentDuration>window.maxDuration){
+      clip.duration=Math.max(this.MIN_CLIP_DURATION,window.maxDuration);
     }
     if(Number(clip.fadeIn)>Number(clip.duration))clip.fadeIn=Number(clip.duration);
     if(Number(clip.fadeOut)>Number(clip.duration))clip.fadeOut=Number(clip.duration);
