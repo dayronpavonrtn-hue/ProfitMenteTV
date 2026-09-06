@@ -2,12 +2,33 @@ class ProfitMenteGeneratorEngine{
   hash(text){let h=2166136261;for(const ch of text){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
   pick(list,seed,offset=0){return list[(seed+offset)%list.length]}
   words(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>3)}
-  canonicalTrack(value){if(value==null||(typeof value==='string'&&!value.trim()))return null;const number=Number(value);return Number.isFinite(number)&&Number.isInteger(number)&&number>=0&&number<=6?String(number):null}
-  mediaKey(value){if(value==null)return null;if(typeof value==='string'){const trimmed=value.trim();return trimmed?trimmed:null}if(typeof value==='number')return Number.isFinite(value)?String(value):null;return String(value)}
+  canonicalTrack(value){
+    if(value==null||typeof value==='boolean'||(typeof value==='string'&&!value.trim()))return null;
+    const number=Number(value);
+    if(!Number.isFinite(number)||!Number.isInteger(number)||number<0||number>6)return null;
+    return String(Object.is(number,-0)?0:number);
+  }
+  mediaKey(value){
+    if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
+    if(typeof value==='number'){
+      if(!Number.isFinite(value))return null;
+      return `n:${Object.is(value,-0)?0:value}`;
+    }
+    const text=value.trim();
+    if(!text)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
+      const number=Number(text);
+      if(Number.isFinite(number))return `n:${Object.is(number,-0)?0:number}`;
+    }
+    return `s:${text}`;
+  }
+  sameMedia(a,b){const left=this.mediaKey(a),right=this.mediaKey(b);return left!=null&&left===right}
   hasAsset(clip){return this.mediaKey(clip?.asset)!=null}
   trackLocked(project,track){
-    const target=this.canonicalTrack(track),exact=String(track),maps=[project?.trackState,project?.trackStates];
-    return maps.some(map=>Object.entries(map||{}).some(([key,state])=>{if(!state||typeof state!=='object'||!state.locked)return false;const candidate=this.canonicalTrack(key);return target!=null?candidate===target:key===exact}));
+    const target=this.canonicalTrack(track);
+    if(target==null)return false;
+    const maps=[project?.trackState,project?.trackStates];
+    return maps.some(map=>Object.entries(map||{}).some(([key,state])=>state&&typeof state==='object'&&state.locked&&this.canonicalTrack(key)===target));
   }
   clipLocked(project,clip){const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;return guard?.isLocked?guard.isLocked(project,clip):!!clip?.locked||this.trackLocked(project,clip?.track)}
   captionWords(text,start,duration){const raw=String(text||'').trim().split(/\s+/).filter(Boolean);if(!raw.length)return[];const weights=raw.map(w=>Math.max(1,w.replace(/[^\p{L}\p{N}]/gu,'').length*.32)),sum=weights.reduce((a,b)=>a+b,0);let cursor=start;return raw.map((word,i)=>{const d=duration*weights[i]/sum,seg={word,start:cursor,duration:d,end:cursor+d,index:i};cursor+=d;return seg})}
@@ -38,7 +59,7 @@ class ProfitMenteGeneratorEngine{
     if(asset.type==='video'&&requiredDuration>0){const duration=Number(asset.duration)||0;if(duration>=requiredDuration)score+=2;else if(duration>0)score-=8}return score
   }
   sourceOffset(asset,clip,seed){if(asset.type!=='video')return 0;const available=Math.max(0,(Number(asset.duration)||0)-Math.max(.05,Number(clip.duration)||0));if(available<=.05)return 0;const fraction=((seed%997)+1)/998;return +(available*fraction).toFixed(3)}
-  diversityScore(asset,keywords,format,required,usage){return this.scoreAsset(asset,keywords,format,required)-(Number(usage.get(asset.id))||0)*4.5}
+  diversityScore(asset,keywords,format,required,usage){return this.scoreAsset(asset,keywords,format,required)-(Number(usage.get(this.mediaKey(asset?.id)))||0)*4.5}
   narrationScore(asset,projectDuration=45){
     if(asset?.type!=='audio')return -Infinity;
     const joined=this.words(asset.name).join(' '),voice=['voice','voiceover','voz','narration','narracion','narrator','speech','dialogue','dialogo','locucion','spoken','tts'],exclude=['music','musica','beat','song','cancion','instrumental','background','fondo','lofi','soundtrack','sfx','effect','efecto','impact','whoosh','swoosh','click','transition','transicion','riser'];
@@ -50,8 +71,8 @@ class ProfitMenteGeneratorEngine{
   }
   assignNarration(project,assets){
     if(this.trackLocked(project,6))return 0;
-    const clips=(project.clips||[]).filter(c=>Number(c.track)===6),pending=clips.filter(c=>!this.hasAsset(c)&&!this.clipLocked(project,c));if(!pending.length)return 0;
-    const duration=Math.max(.25,Number(project.duration)||Math.max(...pending.map(c=>(Number(c.start)||0)+(Number(c.duration)||0)),45)),ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.narrationScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
+    const clips=(Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.canonicalTrack(c?.track)==='6'),pending=clips.filter(c=>!this.hasAsset(c)&&!this.clipLocked(project,c));if(!pending.length)return 0;
+    const duration=Math.max(.25,Number(project?.duration)||Math.max(...pending.map(c=>(Number(c.start)||0)+(Number(c.duration)||0)),45)),ranked=(Array.isArray(assets)?assets:[]).filter(a=>a?.type==='audio'&&this.mediaKey(a?.id)!=null).map(a=>({a,score:this.narrationScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     const chosen=ranked[0]?.a;if(!chosen)return 0;let assigned=0;
     for(const clip of pending){const available=Number(chosen.duration)||Number(clip.duration)||duration,requested=Math.max(.25,Number(clip.duration)||duration);clip.asset=chosen.id;clip.name=`Narración · ${chosen.name}`;clip.sourceOffset=0;clip.duration=Math.max(.25,Math.min(requested,available));clip.volume=Number.isFinite(Number(clip.volume))?Number(clip.volume):1;clip.fadeIn=Math.min(.08,clip.duration/4);clip.fadeOut=Math.min(.12,clip.duration/3);assigned++}
     return assigned;
@@ -66,11 +87,12 @@ class ProfitMenteGeneratorEngine{
     let score=matches*4;if(d>=projectDuration)score+=4;else if(d>=need)score+=2;if(joined.includes('background')||joined.includes('fondo')||joined.includes('instrumental'))score+=2;return score;
   }
   assignSoundtrack(project,assets){
-    if(this.trackLocked(project,5)||(project.clips||[]).some(c=>Number(c.track)===5&&this.hasAsset(c)))return 0;
-    const duration=Math.max(.25,Number(project.duration)||45),ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.soundtrackScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
+    const clips=Array.isArray(project?.clips)?project.clips:[];
+    if(this.trackLocked(project,5)||clips.some(c=>this.canonicalTrack(c?.track)==='5'&&this.hasAsset(c)))return 0;
+    const duration=Math.max(.25,Number(project?.duration)||45),ranked=(Array.isArray(assets)?assets:[]).filter(a=>a?.type==='audio'&&this.mediaKey(a?.id)!=null).map(a=>({a,score:this.soundtrackScore(a,duration)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     const chosen=ranked[0]?.a;if(!chosen)return 0;
     const available=Number(chosen.duration)||duration,clipDuration=Math.max(.25,Math.min(duration,available));
-    project.clips.push({id:crypto.randomUUID(),track:5,name:`Música · ${chosen.name}`,start:0,duration:clipDuration,asset:chosen.id,sourceOffset:0,volume:.18,duckVolume:.10,ducking:true,fadeIn:Math.min(.4,clipDuration/4),fadeOut:Math.min(.8,clipDuration/3)});
+    clips.push({id:crypto.randomUUID(),track:5,name:`Música · ${chosen.name}`,start:0,duration:clipDuration,asset:chosen.id,sourceOffset:0,volume:.18,duckVolume:.10,ducking:true,fadeIn:Math.min(.4,clipDuration/4),fadeOut:Math.min(.8,clipDuration/3)});
     return 1;
   }
   sfxScore(asset){
@@ -82,26 +104,27 @@ class ProfitMenteGeneratorEngine{
     return matches*3+(d>0&&d<=1.5?2:0);
   }
   assignTransitionSfx(project,assets){
-    if(this.trackLocked(project,4)||(project.clips||[]).some(c=>Number(c.track)===4&&this.hasAsset(c)))return 0;
-    const ranked=(assets||[]).filter(a=>a?.type==='audio').map(a=>({a,score:this.sfxScore(a)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
+    const clips=Array.isArray(project?.clips)?project.clips:[];
+    if(this.trackLocked(project,4)||clips.some(c=>this.canonicalTrack(c?.track)==='4'&&this.hasAsset(c)))return 0;
+    const ranked=(Array.isArray(assets)?assets:[]).filter(a=>a?.type==='audio'&&this.mediaKey(a?.id)!=null).map(a=>({a,score:this.sfxScore(a)})).filter(x=>Number.isFinite(x.score)).sort((x,y)=>y.score-x.score||String(x.a.name).localeCompare(String(y.a.name)));
     if(!ranked.length)return 0;
-    const scenes=(project.clips||[]).filter(c=>Number(c.track)===0).sort((a,b)=>Number(a.start)-Number(b.start));if(scenes.length<2)return 0;
+    const scenes=clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>Number(a.start)-Number(b.start));if(scenes.length<2)return 0;
     const targets=scenes.slice(1,Math.min(scenes.length,4));let added=0;
-    targets.forEach((scene,i)=>{const asset=ranked[i%ranked.length].a,available=Number(asset.duration)||.45,duration=Math.max(.08,Math.min(.8,available)),start=Math.max(0,(Number(scene.start)||0)-Math.min(.06,duration*.15));project.clips.push({id:crypto.randomUUID(),track:4,name:`SFX · ${asset.name}`,start,duration,asset:asset.id,sourceOffset:0,volume:.62,fadeIn:Math.min(.02,duration/4),fadeOut:Math.min(.12,duration/3)});added++});
+    targets.forEach((scene,i)=>{const asset=ranked[i%ranked.length].a,available=Number(asset.duration)||.45,duration=Math.max(.08,Math.min(.8,available)),start=Math.max(0,(Number(scene.start)||0)-Math.min(.06,duration*.15));clips.push({id:crypto.randomUUID(),track:4,name:`SFX · ${asset.name}`,start,duration,asset:asset.id,sourceOffset:0,volume:.62,fadeIn:Math.min(.02,duration/4),fadeOut:Math.min(.12,duration/3)});added++});
     return added;
   }
   assignAssets(project,assets){
-    const visual=assets.filter(a=>a.type==='video'||a.type==='image');let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project.name||project.title||'ProfitMente'),brollLocked=this.trackLocked(project,1);
-    const mark=a=>usage.set(a.id,(usage.get(a.id)||0)+1);
-    for(const c of project.clips.filter(c=>Number(c.track)===0&&!this.hasAsset(c)&&!this.clipLocked(project,c))){
+    const clips=Array.isArray(project?.clips)?project.clips:[],visual=(Array.isArray(assets)?assets:[]).filter(a=>(a?.type==='video'||a?.type==='image')&&this.mediaKey(a?.id)!=null);let primary=0,broll=0,skipped=0,sequence=0;const usage=new Map(),seed=this.hash(project?.name||project?.title||'ProfitMente'),brollLocked=this.trackLocked(project,1);
+    const mark=a=>{const key=this.mediaKey(a?.id);if(key!=null)usage.set(key,(usage.get(key)||0)+1)};
+    for(const c of clips.filter(c=>this.canonicalTrack(c?.track)==='0'&&!this.hasAsset(c)&&!this.clipLocked(project,c))){
       const required=Math.max(.05,Number(c.duration)||0),eligible=visual.filter(a=>a.type!=='video'||!a.duration||Number(a.duration)+.05>=required),pool=eligible.length?eligible:visual.filter(a=>a.type==='image');
       if(!pool.length){skipped++;continue}
-      const ranked=[...pool].sort((a,b)=>this.diversityScore(b,c.keywords,project.format,required,usage)-this.diversityScore(a,c.keywords,project.format,required,usage)||String(a.name).localeCompare(String(b.name)));
+      const ranked=[...pool].sort((a,b)=>this.diversityScore(b,c.keywords,project?.format,required,usage)-this.diversityScore(a,c.keywords,project?.format,required,usage)||String(a.name).localeCompare(String(b.name)));
       const chosen=ranked[0];if(!chosen){skipped++;continue}
       c.asset=chosen.id;c.sourceOffset=this.sourceOffset(chosen,c,seed+sequence*31);mark(chosen);primary++;sequence++;
       if(!brollLocked&&c.duration>=4){
-        const bd=Math.min(2.4,c.duration*.38),alts=ranked.filter(a=>a.id!==chosen.id&&(a.type!=='video'||!a.duration||Number(a.duration)>=bd+.05)).sort((a,b)=>this.diversityScore(b,c.keywords,project.format,bd,usage)-this.diversityScore(a,c.keywords,project.format,bd,usage)||String(a.name).localeCompare(String(b.name))),alt=alts[0];
-        if(alt){const bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);project.clips.push(bc);mark(alt);broll++;sequence++}
+        const bd=Math.min(2.4,c.duration*.38),alts=ranked.filter(a=>!this.sameMedia(a?.id,chosen?.id)&&(a.type!=='video'||!a.duration||Number(a.duration)>=bd+.05)).sort((a,b)=>this.diversityScore(b,c.keywords,project?.format,bd,usage)-this.diversityScore(a,c.keywords,project?.format,bd,usage)||String(a.name).localeCompare(String(b.name))),alt=alts[0];
+        if(alt){const bc={id:crypto.randomUUID(),track:1,name:`B-roll · ${c.name}`,start:c.start+c.duration*.46,duration:bd,asset:alt.id,transition:'fade',motion:'slow-zoom',keywords:c.keywords};bc.sourceOffset=this.sourceOffset(alt,bc,seed+sequence*47);clips.push(bc);mark(alt);broll++;sequence++}
       }
     }
     const narration=this.assignNarration(project,assets),music=this.assignSoundtrack(project,assets),sfx=this.assignTransitionSfx(project,assets);
