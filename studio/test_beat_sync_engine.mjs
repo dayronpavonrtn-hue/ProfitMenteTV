@@ -70,4 +70,40 @@ for(const mutate of [
   assert.deepEqual(locked,before,'beat sync must be atomic when a linked manual edit is protected');
 }
 
+assert.equal(engine.canonicalTrack('00'),0);
+assert.equal(engine.canonicalTrack('+0.0'),0);
+assert.equal(engine.canonicalTrack('-0'),0);
+assert.equal(engine.canonicalTrack('03'),3);
+for(const invalid of [false,true,'', '   ',1.5,-1,7,Infinity,'visual'])assert.equal(engine.canonicalTrack(invalid),null);
+
+const legacyTracks={duration:8,markers:[{time:3.5,label:'Beat 1'}],clips:[
+  {id:'la',track:'00',name:'HOOK',sceneText:'A',start:0,duration:4},
+  {id:'lb',track:'+0.0',name:'SOLUCIÓN',sceneText:'B',start:4,duration:4},
+  {id:'lc',track:'03',name:'A',start:.1,duration:3.8},
+  {id:'lr',track:'01',name:'B-roll · SOLUCIÓN',start:4.5,duration:1.2}
+]};
+const legacyResult=engine.sync(legacyTracks,{maxShift:1});
+assert.equal(legacyResult.boundaries,1);
+assert.equal(legacyTracks.clips.find(c=>c.id==='lb').start,3.5);
+assert.ok(legacyTracks.clips.find(c=>c.id==='lc').duration<3.8,'legacy caption track alias should follow scene retime');
+assert.ok(legacyTracks.clips.find(c=>c.id==='lr').start>=3.5,'legacy b-roll track alias should follow scene retime');
+
+for(const lockMap of [
+  {trackState:{'00':{locked:true}}},
+  {trackStates:{'+0.0':{locked:true}}},
+  {trackState:{'03':{locked:true}}},
+  {trackStates:{'01':{locked:true}}}
+]){
+  const p=protectedProject();Object.assign(p,lockMap);const before=structuredClone(p);
+  const r=engine.sync(p,{maxShift:1});
+  assert.equal(r.reason,'locked-edit');
+  assert.deepEqual(p,before,'canonical legacy track locks must block beat sync atomically');
+}
+
+const invalidTrackProject={duration:8,markers:[{time:3.5,label:'Beat 1'}],clips:[
+  {id:'bad-a',track:false,sceneText:'A',start:0,duration:4},
+  {id:'bad-b',track:'',sceneText:'B',start:4,duration:4}
+]};
+assert.equal(engine.sync(invalidTrackProject).reason,'not-enough-scenes');
+
 console.log('beat sync regression ok');
