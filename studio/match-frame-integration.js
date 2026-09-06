@@ -2,8 +2,8 @@
   if(typeof document==='undefined'||!window.ProfitMenteMatchFrameEngine||window.ProfitMenteMatchFrame)return;
   const $=s=>document.querySelector(s),engine=new ProfitMenteMatchFrameEngine(),status=t=>typeof setStatus==='function'&&setStatus(t);
   const playhead=()=>Number($('#playhead')?.value)||0;
-  const assetById=id=>assets?.find(a=>a?.id===id);
-  const selectedId=()=>window.ProfitMenteEditTools?.selectedId||null;
+  const assetById=id=>engine.findAsset(typeof assets!=='undefined'?assets:[],id);
+  const selectedId=()=>window.ProfitMenteEditTools?.selectedId??null;
   function seekMonitor(time){
     const monitor=window.ProfitMenteSourceMonitor,seek=monitor?.panel?.querySelector?.('.sourceMonitorSeek');
     if(!seek)return false;

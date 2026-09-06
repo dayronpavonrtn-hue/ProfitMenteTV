@@ -36,8 +36,22 @@ assert.equal(e.chooseClip(clips,4,'aud').id,'aud','selected clip under playhead 
 assert.equal(e.chooseClip(clips,4,null).id,'main','without selection, primary visual track must win');
 assert.equal(e.chooseClip(clips,11,null),null,'no clip outside edit boundaries');
 
+const legacyClips=[
+  {id:'007',asset:'+07.000',track:1,start:0,duration:10},
+  {id:'main',asset:'v1',track:0,start:0,duration:10}
+];
+assert.equal(e.chooseClip(legacyClips,4,7).id,'007','legacy numeric clip aliases must preserve the explicit selection');
+assert.equal(e.sameId('7.0','+07.000'),true);
+assert.equal(e.sameId('-0',0),true);
+assert.equal(e.sameId('Media-A','media-a'),false);
+assert.equal(e.sameId(false,0),false);
+const legacyAsset={id:'007',type:'video',duration:9};
+assert.equal(e.findAsset([legacyAsset],7),legacyAsset,'Match Frame must resolve a legacy asset alias to the original media');
+assert.equal(e.findAsset([{id:'Media-A'}],'media-a'),null,'text media IDs remain case-sensitive');
+
 const integration=fs.readFileSync(new URL('./match-frame-integration.js',import.meta.url),'utf8');
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
+assert.match(integration,/engine\.findAsset/,'integration must use canonical asset lookup');
 assert.match(integration,/monitor\.open\(asset\)/,'integration must open the existing source monitor');
 assert.match(integration,/sourceMonitorSeek/,'integration must seek the source monitor');
 assert.match(integration,/e\.key\.toLowerCase\(\)===['"]f['"]/,'F shortcut must invoke Match Frame');
