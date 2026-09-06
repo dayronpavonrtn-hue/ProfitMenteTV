@@ -11,16 +11,23 @@
   function range(){return Engine.normalizeRange(asset,inPoint,outPoint)}
   function fillTracks(){const options=Engine.tracks(asset),preferred=Engine.defaultTrack(asset);trackEl.innerHTML='';for(const item of options){const option=document.createElement('option');option.value=String(item.id);option.textContent=item.label;option.selected=item.id===preferred;trackEl.appendChild(option)}trackEl.disabled=!options.length}
   function update(){const r=range(),current=Number(element?.currentTime)||Number(seek.value)||0;nowEl.textContent=Engine.time(current);rangeEl.textContent=`IN ${Engine.time(r.in)} · OUT ${Engine.time(r.out)} · ${r.duration.toFixed(2)}s`;seek.max=Math.max(.01,r.total||1);seek.value=Math.min(Number(seek.max),current)}
+  function persistProbedDuration(measured){
+    if(!asset)return false;const before=Engine.duration(asset),total=Engine.applyProbedDuration(asset,measured);if(!(total>0)||before>0)return false;
+    outPoint=total;seek.max=total;
+    if(typeof putAsset==='function')Promise.resolve(putAsset(asset)).catch(error=>console.warn('No se pudo persistir la duración detectada del medio',error));
+    document.dispatchEvent(new CustomEvent('profitmente:media-metadata',{detail:{assetId:asset.id,duration:total,source:'source-monitor'}}));
+    return true;
+  }
   function open(next){
     if(!next?.blob){status('Ese medio no está disponible localmente');return}release();asset=next;const total=Engine.duration(asset);inPoint=0;outPoint=total;panel.hidden=false;nameEl.textContent=asset.name||'Medio';fillTracks();url=URL.createObjectURL(asset.blob);
     if(asset.type==='video'){element=document.createElement('video');element.controls=true;element.muted=false;element.playsInline=true;element.preload='metadata';element.src=url;mediaHost.appendChild(element)}
     else if(asset.type==='audio'){element=document.createElement('audio');element.controls=true;element.preload='metadata';element.src=url;mediaHost.appendChild(element)}
     else{element=document.createElement('img');element.src=url;element.alt=asset.name||'Imagen';mediaHost.appendChild(element)}
-    if(element&&asset.type!=='image'){element.addEventListener('timeupdate',update);element.addEventListener('seeked',update);element.addEventListener('loadedmetadata',()=>{if(!asset.duration&&Number.isFinite(element.duration))outPoint=element.duration;update()})}
+    if(element&&asset.type!=='image'){element.addEventListener('timeupdate',update);element.addEventListener('seeked',update);element.addEventListener('loadedmetadata',()=>{persistProbedDuration(element.duration);update()})}
     seek.disabled=asset.type==='image';seek.value=0;update();status(`${asset.name} abierto en Monitor de fuente · marca IN/OUT y elige pista destino`)
   }
   function enhanceRows(){
-    library.querySelectorAll('.mediaRow[data-asset-id]').forEach(row=>{if(row.querySelector('.sourceMonitorOpen'))return;const a=assets.find(x=>x.id===row.dataset.assetId);if(!a)return;const b=document.createElement('button');b.type='button';b.className='sourceMonitorOpen';b.textContent='◉';b.title=`Abrir ${a.name} en Monitor de fuente`;b.onclick=e=>{e.preventDefault();e.stopPropagation();open(a)};row.appendChild(b)})
+    library.querySelectorAll('.mediaRow[data-asset-id]').forEach(row=>{if(row.querySelector('.sourceMonitorOpen'))return;const a=assets.find(x=>Engine.sameMediaId(x.id,row.dataset.assetId));if(!a)return;const b=document.createElement('button');b.type='button';b.className='sourceMonitorOpen';b.textContent='◉';b.title=`Abrir ${a.name} en Monitor de fuente`;b.onclick=e=>{e.preventDefault();e.stopPropagation();open(a)};row.appendChild(b)})
   }
   const baseDraw=drawLibrary;drawLibrary=function(){baseDraw();enhanceRows()};enhanceRows();
   seek.addEventListener('input',()=>{if(element&&asset?.type!=='image'){const t=Engine.clamp(seek.value,0,Engine.duration(asset));try{element.currentTime=t}catch{}nowEl.textContent=Engine.time(t)}});
