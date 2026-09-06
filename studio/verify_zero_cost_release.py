@@ -80,6 +80,7 @@ def main() -> None:
         ("automatico", "Auto Finish espera el render local antes de continuar", [node, "test_auto_finish_render_wait.mjs"]),
         ("automatico", "Duración automática de transiciones coincide entre Preview y Render", [node, "test_transition_duration.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
+        ("medios", "Proxies locales respetan identidad canónica de medios", [node, "test_media_proxy_engine.mjs"]),
         ("medios", "Preflight y transacción de almacenamiento al importar", [node, "test_media_import_storage_preflight.mjs"]),
         ("medios", "Inspección de medios falla segura ante decoder colgado o corrupto", [node, "test_media_readability_qa.mjs"]),
         ("medios", "Identidad canónica sin colisiones antes del render", [py, "test_media_identity_collision.py"]),
