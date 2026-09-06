@@ -58,6 +58,9 @@ jobs:
       - name: Verify resilient filmstrip thumbnails across timeline rerenders
         run: node studio/test_filmstrip.mjs
 
+      - name: Verify timeline waveform source-window parity and media replacement cache safety
+        run: node studio/test_waveform_timeline_parity.mjs
+
       - name: Verify resilient project library persistence
         run: node studio/test_project_library.mjs
 
