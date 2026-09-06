@@ -1,0 +1,30 @@
+name: ProfitMente Studio Project Library Import Parity QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/project-import-engine.js'
+      - 'studio/project-import-integration.js'
+      - 'studio/project-library.js'
+      - 'studio/test_project_library_import_parity.mjs'
+      - '.github/workflows/project-library-import-parity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-import-engine.js'
+      - 'studio/project-import-integration.js'
+      - 'studio/project-library.js'
+      - 'studio/test_project_library_import_parity.mjs'
+      - '.github/workflows/project-library-import-parity-qa.yml'
+
+jobs:
+  project-library-import-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify project library/import validation parity
+        run: node studio/test_project_library_import_parity.mjs
