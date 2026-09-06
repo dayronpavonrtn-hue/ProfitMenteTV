@@ -20,16 +20,18 @@
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
   canonicalTrack(value){
-    if(value==null||(typeof value==='string'&&!value.trim()))return null;
+    if(value==null||typeof value==='boolean'||(typeof value==='string'&&!value.trim()))return null;
     const number=Number(value);
-    return Number.isFinite(number)&&Number.isInteger(number)&&number>=0&&number<=6?String(number):null;
+    if(!Number.isFinite(number)||!Number.isInteger(number)||number<0||number>6)return null;
+    return String(Object.is(number,-0)?0:number);
   }
   trackLocked(project,track){
-    const target=this.canonicalTrack(track),exact=String(track),maps=[project?.trackState,project?.trackStates];
+    const target=this.canonicalTrack(track);
+    if(target==null)return false;
+    const maps=[project?.trackState,project?.trackStates];
     return maps.some(map=>Object.entries(map||{}).some(([key,state])=>{
       if(!state||typeof state!=='object'||!state.locked)return false;
-      const candidate=this.canonicalTrack(key);
-      return target!=null?candidate===target:key===exact;
+      return this.canonicalTrack(key)===target;
     }));
   }
   locked(project,clip){
@@ -38,12 +40,16 @@ class ProfitMenteGeneratorAutoFill {
     return !!clip?.locked||this.trackLocked(project,clip?.track);
   }
   mediaKey(value){
-    if(value==null||typeof value==='boolean')return null;
-    const text=String(value).trim();
+    if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
+    if(typeof value==='number'){
+      if(!Number.isFinite(value))return null;
+      return `n:${Object.is(value,-0)?0:value}`;
+    }
+    const text=value.trim();
     if(!text)return null;
     if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
       const number=Number(text);
-      if(Number.isFinite(number))return `n:${number}`;
+      if(Number.isFinite(number))return `n:${Object.is(number,-0)?0:number}`;
     }
     return `s:${text}`;
   }
@@ -63,15 +69,15 @@ class ProfitMenteGeneratorAutoFill {
     return true;
   }
   usableAssets(list=[]){return (Array.isArray(list)?list:[]).filter(asset=>this.assetUsable(asset))}
-  missing(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&!this.hasAsset(c)&&!this.locked(project,c)).length}
+  missing(project){return (Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.canonicalTrack(c?.track)==='0'&&!this.hasAsset(c)&&!this.locked(project,c)).length}
   importedVisuals(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='video'||a?.type==='image')}
   importedAudio(importedAssets=[]){return this.usableAssets(importedAssets).filter(a=>a?.type==='audio')}
   needsAudio(project){
-    const clips=project?.clips||[];
-    const narration=clips.some(c=>Number(c.track)===6&&!this.hasAsset(c)&&!this.locked(project,c));
-    const music=!this.trackLocked(project,5)&&!clips.some(c=>Number(c.track)===5&&this.hasAsset(c));
-    const scenes=clips.filter(c=>Number(c.track)===0).length;
-    const sfx=!this.trackLocked(project,4)&&scenes>1&&!clips.some(c=>Number(c.track)===4&&this.hasAsset(c));
+    const clips=Array.isArray(project?.clips)?project.clips:[];
+    const narration=clips.some(c=>this.canonicalTrack(c?.track)==='6'&&!this.hasAsset(c)&&!this.locked(project,c));
+    const music=!this.trackLocked(project,5)&&!clips.some(c=>this.canonicalTrack(c?.track)==='5'&&this.hasAsset(c));
+    const scenes=clips.filter(c=>this.canonicalTrack(c?.track)==='0').length;
+    const sfx=!this.trackLocked(project,4)&&scenes>1&&!clips.some(c=>this.canonicalTrack(c?.track)==='4'&&this.hasAsset(c));
     return narration||music||sfx;
   }
   shouldRun(project,importedAssets=[]){
@@ -87,12 +93,7 @@ class ProfitMenteGeneratorAutoFill {
     const hasNewVisual=this.importedVisuals(importedAssets).length>0;
     let assigned={};
     if(hasNewVisual&&before>0){
-      // Legacy generator internals used truthiness for asset references. Preserve
-      // an already-assigned numeric ID 0 while the engine fills other scenes.
-      const protectedZero=new Map();
-      for(const clip of project?.clips||[])if(clip?.asset===0){protectedZero.set(clip,0);clip.asset='__profitmente_asset_zero__'}
-      try{assigned=this.engine.assignAssets(project,usable)||{}}
-      finally{for(const [clip,value] of protectedZero)if(clip.asset==='__profitmente_asset_zero__')clip.asset=value}
+      assigned=this.engine.assignAssets(project,usable)||{};
     }else{
       assigned={
         primary:0,broll:0,skipped:before,
