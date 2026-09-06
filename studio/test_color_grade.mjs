@@ -6,4 +6,12 @@ assert.deepEqual(g.normalize({brightness:999,contrast:-999,saturation:999,hue:-9
 const clip={};g.applyPreset(clip,'vivid');assert.equal(clip.contrast,14);assert.equal(clip.saturation,28);
 assert.match(g.cssFilter({brightness:10,contrast:20,saturation:-50,hue:15}),/brightness\(1.1\).*contrast\(1.2\).*saturate\(0.5\).*hue-rotate\(15deg\)/);
 assert.equal(g.ffmpegFilter({brightness:-20,contrast:10,saturation:30,hue:-12}),'eq=brightness=-0.200:contrast=1.100:saturation=1.300,hue=h=-12.00');
+assert.equal(g.sameId(7,'007'),true);assert.equal(g.sameId('-0',0),true);assert.equal(g.sameId('ClipA','clipa'),false);assert.equal(g.identityKey(true),null);
+const legacyProject={clips:[{id:'007',track:'01'},{id:'voice',track:4}],trackState:{'01':{locked:true}}};
+assert.equal(g.findClip(legacyProject,7),legacyProject.clips[0]);
+assert.equal(g.isVisual(legacyProject.clips[0]),true);assert.equal(g.isVisual(legacyProject.clips[1]),false);
+assert.equal(g.isLocked(legacyProject,legacyProject.clips[0]),true);
+assert.equal(g.isLocked({clips:[],trackStates:{1:{locked:true}}},{id:1,track:'1'}),true);
+assert.equal(g.isLocked({clips:[]},{id:1,track:1,locked:true}),true);
+assert.equal(g.isLocked({clips:[]},{id:1,track:1}),false);
 console.log('Color grading engine OK');
