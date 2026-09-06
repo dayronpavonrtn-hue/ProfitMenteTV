@@ -9,7 +9,7 @@ assert.ok(Math.abs(Ducking.multiplier(music)-1/3)<1e-9);assert.equal(Ducking.mul
 const events=Ducking.events(project,music,0,12);assert.deepEqual(events.map(x=>x.time),[2,5.5,8,9]);
 const render=Ducking.prepareForRender(project),parts=render.clips.filter(c=>c.track===5);
 assert.deepEqual(parts.map(c=>[c.start,c.duration,c.volume]),[[0,2,.3],[2,3.5,.1],[5.5,2.5,.3],[8,1,.1],[9,3,.3]]);
-assert.equal(parts[0].sourceOffset,1);assert.ok(Math.abs(parts[1].sourceOffset-4)<1e-9);assert.equal(parts[0].fadeIn,.4);assert.equal(parts[0].fadeOut,0);assert.equal(parts.at(-1].fadeIn,0);assert.equal(parts.at(-1).fadeOut,.6);
+assert.equal(parts[0].sourceOffset,1);assert.ok(Math.abs(parts[1].sourceOffset-4)<1e-9);assert.equal(parts[0].fadeIn,.4);assert.equal(parts[0].fadeOut,0);assert.equal(parts.at(-1).fadeIn,0);assert.equal(parts.at(-1).fadeOut,.6);
 assert.equal(project.clips.length,4,'prepareForRender must not mutate editor project');
 const muted={...project,trackState:{6:{muted:true}}};assert.deepEqual(Ducking.intervals(muted,music),[]);
 
