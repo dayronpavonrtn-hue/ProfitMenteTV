@@ -70,5 +70,14 @@ assert.equal(Ducking.canonicalTrack(''),null);
 assert.equal(Ducking.canonicalTrack('6.5'),null);
 assert.equal(Ducking.canonicalTrack(7),null);
 
+// Boolean values must not collapse into numeric track/media identities.
+assert.equal(Ducking.canonicalTrack(false),null);
+assert.equal(Ducking.canonicalTrack(true),null);
+assert.equal(Ducking.hasAsset(false),false);
+assert.equal(Ducking.hasAsset(true),false);
+assert.deepEqual(Ducking.intervals({clips:[music,{track:false,asset:'voice',start:2,duration:2}]},music),[]);
+assert.deepEqual(Ducking.intervals({clips:[music,{track:6,asset:false,start:2,duration:2}]},music),[]);
+assert.deepEqual(Ducking.intervals({clips:[{...music,asset:false},{track:6,asset:'voice',start:2,duration:2}]},{...music,asset:false}),[]);
+
 const noVoice={clips:[music]};assert.equal(Ducking.prepareForRender(noVoice).clips.length,1);
 console.log('audio ducking ok');
