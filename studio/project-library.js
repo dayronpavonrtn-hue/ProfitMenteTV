@@ -1,14 +1,16 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectLibrary=api.ProfitMenteProjectLibrary})(typeof globalThis!=='undefined'?globalThis:this,function(){
+function libraryIdKey(value){if(value===null||value===undefined||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
+function sameLibraryId(a,b){const x=libraryIdKey(a),y=libraryIdKey(b);return x!==null&&x===y}
 class ProfitMenteProjectLibrary{
   constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.memory=[];this.storageAvailable=true;this.memoryDirty=false}
   _read(){if(this.memoryDirty)return structuredClone(this.memory);try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');const items=Array.isArray(v)?v:[];this.memory=structuredClone(items);this.storageAvailable=true;return items}catch{this.storageAvailable=false;return structuredClone(this.memory)}}
   _write(items){this.memory=structuredClone(items);try{this.storage.setItem(this.key,JSON.stringify(items));this.storageAvailable=true;this.memoryDirty=false;return true}catch{this.storageAvailable=false;this.memoryDirty=true;return false}}
   list(){return this._read().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''))}
-  save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>x.id===id);if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
-  saveExisting(project){if(!project?.libraryId)return null;const items=this._read(),row=items.find(x=>x.id===project.libraryId);if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
-  load(id){const row=this._read().find(x=>x.id===id);return row?structuredClone(row.project):null}
-  duplicate(id){const items=this._read(),source=items.find(x=>x.id===id);if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
-  remove(id){const before=this._read(),after=before.filter(x=>x.id!==id);this._write(after);return after.length!==before.length}
+  save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>sameLibraryId(x.id,id));if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
+  saveExisting(project){if(libraryIdKey(project?.libraryId)===null)return null;const items=this._read(),row=items.find(x=>sameLibraryId(x.id,project.libraryId));if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
+  load(id){const row=this._read().find(x=>sameLibraryId(x.id,id));return row?structuredClone(row.project):null}
+  duplicate(id){const items=this._read(),source=items.find(x=>sameLibraryId(x.id,id));if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
+  remove(id){const before=this._read(),after=before.filter(x=>!sameLibraryId(x.id,id));this._write(after);return after.length!==before.length}
   static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}}
   static hasMeaningfulTrackState(trackState){
     if(!trackState||typeof trackState!=='object'||Array.isArray(trackState))return false;
@@ -52,6 +54,7 @@ class ProfitMenteProjectLibrary{
   }
   importSerialized(text){let parsed;try{parsed=JSON.parse(text)}catch{throw new Error('El archivo no contiene JSON válido')}return this.save(ProfitMenteProjectLibrary.normalizeImportedProject(parsed))}
 }
+ProfitMenteProjectLibrary.sameId=sameLibraryId;
 return {ProfitMenteProjectLibrary};
 });
 
@@ -121,7 +124,7 @@ if(typeof document!=='undefined')(()=>{
   }
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
-  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryExportBtn').onclick=exportCurrent;$('#libraryImportBtn').onclick=()=>$('#libraryImportFile').click();$('#libraryImportFile').addEventListener('change',e=>{const file=e.target.files?.[0];e.target.value='';void importProjectFile(file)});$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(project?.libraryId===del.dataset.delete)delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
+  $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryExportBtn').onclick=exportCurrent;$('#libraryImportBtn').onclick=()=>$('#libraryImportFile').click();$('#libraryImportFile').addEventListener('change',e=>{const file=e.target.files?.[0];e.target.value='';void importProjectFile(file)});$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(ProfitMenteProjectLibrary.sameId(project?.libraryId,del.dataset.delete))delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
   const clearBtn=$('#clearBtn');if(clearBtn)clearBtn.onclick=()=>{if(confirm('¿Crear proyecto nuevo?'))void newProject()};
   render();window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};window.ProfitMenteProjectTransfer={exportCurrent,importProjectFile};
 })();
