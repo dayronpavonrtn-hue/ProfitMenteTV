@@ -43,14 +43,16 @@ def main() -> None:
     py = sys.executable
 
     # First run the broad integrated gate. The checks below intentionally mirror
-    # the additional zero-cost GitHub workflow guards so a local PASS has the
+    # every additional zero-cost GitHub workflow guard so a local PASS has the
     # same practical meaning as CI PASS.
     run("Gate integral ProfitMente Studio $0", [py, "verify_zero_cost_release.py"])
 
     parity_checks = [
+        ("Fallback B-roll offline mantiene costo $0", [py, "tests/test_zero_cost_broll.py"]),
         ("Inspector respeta locks e identidad de clips", [node, "test_clip_lock_track_inspector.mjs"]),
         ("Reporte QA renderiza datos de forma segura", [node, "test_qa_report_safe_render.mjs"]),
         ("Timeline renderiza contenido de forma segura", [node, "test_timeline_safe_render.mjs"]),
+        ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Snapping magnético conserva identidad canónica", [node, "test_timeline_snap.mjs"]),
         ("Source Monitor respeta rangos, duración e identidad legacy", [node, "test_source_monitor.mjs"]),
         ("Match Frame conserva mapeo de fuente", [node, "test_match_frame.mjs"]),
@@ -58,6 +60,7 @@ def main() -> None:
         ("Trim derecho conserva ventana de fuente", [node, "test_timeline_right_trim.mjs"]),
         ("Waveform de timeline coincide con ventana editada y reemplazos", [node, "test_waveform_timeline_parity.mjs"]),
         ("Reemplazo de medios conserva seguridad y duración legacy", [node, "test_media_replace_engine.mjs"]),
+        ("Generador y autofill conservan identidades canónicas", [node, "test_generator_identity.mjs"]),
         ("Preview de audio conserva identidad canónica", [node, "test_audio_engine_identity.mjs"]),
         ("Smart Mix conserva estado de audio y automatización segura", [node, "test_smart_mix_engine.mjs"]),
         ("Ducking temporal aparece en el MP4 final", [py, "test_audio_ducking_render.py"]),
