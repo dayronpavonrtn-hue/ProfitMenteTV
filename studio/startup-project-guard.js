@@ -47,8 +47,12 @@
   function persist(storage,project){
     if(!storage||typeof storage.setItem!=='function')throw new Error('local storage unavailable');
     const serialized=serializeProject(project);
-    storage.setItem(LAST_GOOD_KEY,serialized.raw);
+    // Commit the active project first. Never advance the recovery snapshot when
+    // the primary write itself fails (quota/security/storage errors).
     storage.setItem(PRIMARY_KEY,serialized.raw);
+    // A recovery snapshot is best-effort metadata. Failure to refresh it must
+    // not turn an already-successful primary save into an application failure.
+    try{storage.setItem(LAST_GOOD_KEY,serialized.raw)}catch{}
     return serialized.project;
   }
 
