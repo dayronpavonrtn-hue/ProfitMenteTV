@@ -3,13 +3,26 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const fpsOf=p=>[24,30,60].includes(Math.round(Number(p?.fps)))?Math.round(Number(p.fps)):30;
   const frame=(v,fps)=>Math.round(v*fps)/fps;
+  const canonicalTrack=value=>{
+    if(typeof value==='boolean'||value==null)return null;
+    if(typeof value==='string'&&!value.trim())return null;
+    const n=Number(value);
+    if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return Object.is(n,-0)?0:n;
+  };
+  const entriesForTrack=(map,track)=>{
+    if(!map||typeof map!=='object')return [];
+    const wanted=canonicalTrack(track);
+    if(wanted==null)return [];
+    return Object.entries(map).filter(([key])=>canonicalTrack(key)===wanted).map(([,state])=>state).filter(Boolean);
+  };
   const trackLocked=(project,track)=>{
-    const key=String(track),current=project?.trackState?.[track]??project?.trackState?.[key],legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
-    return current?.locked===true||legacy?.locked===true;
+    const states=[...entriesForTrack(project?.trackState,track),...entriesForTrack(project?.trackStates,track)];
+    return states.some(state=>state?.locked===true);
   };
   const clipLocked=clip=>clip?.locked===true;
   class ProfitMenteAutoTransitionEngine{
-    static generated(project){return (project?.clips||[]).filter(c=>Number(c.track)===0&&String(c.sceneText||'').trim()).sort((a,b)=>Number(a.start||0)-Number(b.start||0)||String(a.id||'').localeCompare(String(b.id||'')))}
+    static generated(project){return (project?.clips||[]).filter(c=>canonicalTrack(c?.track)===0&&String(c.sceneText||'').trim()).sort((a,b)=>Number(a.start||0)-Number(b.start||0)||String(a.id||'').localeCompare(String(b.id||'')))}
     static preferred(clip,index){
       const role=String(clip?.name||'').toUpperCase();
       if(/CTA|PRUEBA/.test(role))return 'fade';
