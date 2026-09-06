@@ -4,7 +4,8 @@ class ProfitMenteSmartMixEngine{
     if(track===null||track===undefined||typeof track==='boolean')return null;
     if(typeof track==='string'&&track.trim()==='')return null;
     const value=Number(track);
-    return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
+    if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>6)return null;
+    return Object.is(value,-0)?0:value;
   }
   static hasAsset(value){
     if(typeof value==='number')return Number.isFinite(value);
