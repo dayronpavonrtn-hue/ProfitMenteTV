@@ -91,5 +91,14 @@ jobs:
       - name: Verify audio envelopes and fades in final MP4
         run: python studio/test_audio_envelope_render.py
 
+      - name: Verify final MP4 fully decodes
+        run: python studio/test_verify_render_decode.py
+
+      - name: Verify black, silence and freeze signal QC
+        run: python studio/test_output_signal_qc.py
+
+      - name: Verify final audio loudness QC
+        run: python studio/test_output_loudness_qc.py
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
