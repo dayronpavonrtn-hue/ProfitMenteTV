@@ -1,8 +1,24 @@
 class ProfitMenteSourceMonitorEngine{
   static minimum(){return .25}
+  static mediaKey(value){
+    if(value===null||value===undefined||typeof value==='boolean')return null;
+    const text=String(value).trim();if(!text)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(text)){
+      const number=Number(text);if(Number.isFinite(number))return `n:${Object.is(number,-0)?0:number}`;
+    }
+    return `s:${text}`;
+  }
+  static sameMediaId(a,b){const left=this.mediaKey(a),right=this.mediaKey(b);return left!==null&&left===right}
   static duration(asset){
     if(asset?.type==='image')return 5;
     const n=Number(asset?.duration);return Number.isFinite(n)&&n>0?n:0;
+  }
+  static applyProbedDuration(asset,probedDuration){
+    if(!asset||asset.type==='image')return this.duration(asset);
+    const current=this.duration(asset),measured=Number(probedDuration);
+    if(current>0||!Number.isFinite(measured)||measured<=0)return current;
+    asset.duration=measured;
+    return measured;
   }
   static tracks(asset){
     if(asset?.type==='audio')return [{id:4,label:'SFX'},{id:5,label:'Música'},{id:6,label:'Voz'}];
