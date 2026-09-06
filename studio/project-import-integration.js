@@ -10,6 +10,22 @@
     if(typeof MigrationEngine==='function')return new MigrationEngine().migrate(next).project;
     return next;
   }
+  function installLibraryImportGuard(){
+    const Library=window.ProfitMenteProjectLibrary,ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(!Library||!ImportEngine)return false;
+    Library.normalizeImportedProject=function(value){
+      const normalized=new ImportEngine(Library.blank()).normalize(value);
+      delete normalized.libraryId;
+      return normalized;
+    };
+    window.ProfitMenteProjectLibraryImportGuard={enabled:true};
+    return true;
+  }
+  // project-library.js is loaded after this integration. Install the shared
+  // validator once all parser scripts have finished so both Importar JSON and
+  // Mis proyectos accept exactly the same canonical project model.
+  if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',installLibraryImportGuard,{once:true});
+  else installLibraryImportGuard();
   function flushCurrentProject(){
     const guarded=window.ProfitMenteNewProject?.flushCurrentProject;
     if(typeof guarded==='function')return guarded()!==false;
