@@ -93,6 +93,10 @@ class ProfitMenteMediaImportEngine{
     }
     return this.findDuplicate(assets,file);
   }
+  static findDuplicateInBatch(assets=[],pending=[],file={},hashes={}){
+    if(!pending?.length)return this.findDuplicateForHashes(assets,file,hashes);
+    return this.findDuplicateForHashes([...(assets||[]),...pending],file,hashes);
+  }
   static upgradedDuplicateIdentity(asset={},hashes={}){
     const current=String(hashes?.current||''),legacy=String(hashes?.legacy||''),version=current?String(hashes?.version||'sample-v2'):'';
     const next={...asset};let changed=false;
@@ -139,8 +143,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0,upgraded=0;const addedIds=[],pendingNew=[],pendingMigrations=[];
     for(const file of incoming){
       try{
-        const hashes=await engine.contentHashes(file),duplicate=engine.findDuplicateForHashes(assets,file,hashes);
-        if(duplicate){const migration=engine.upgradedDuplicateIdentity(duplicate,hashes);if(migration.changed)pendingMigrations.push({duplicate,asset:migration.asset});duplicates++;continue}
+        const hashes=await engine.contentHashes(file),duplicate=engine.findDuplicateInBatch(assets,pendingNew,file,hashes);
+        if(duplicate){const migration=engine.upgradedDuplicateIdentity(duplicate,hashes);if(migration.changed&&!pendingNew.includes(duplicate))pendingMigrations.push({duplicate,asset:migration.asset});duplicates++;continue}
         const type=engine.kind(file),fingerprint=engine.signature(file),relativePath=engine.relativePath(file),asset={id:crypto.randomUUID(),name:file.name||`medio-${assets.length+pendingNew.length+1}`,type,mime:file.type||'',blob:file,sourceFingerprint:fingerprint,sourceContentHash:hashes.current||'',sourceLegacyContentHash:hashes.legacy||'',sourceHashVersion:hashes.version,sourceLastModified:Number(file.lastModified||0),sourceRelativePath:relativePath,importOrigin:origin};
         pendingNew.push(asset);
       }catch(err){failed++;console.error('No se pudo preparar la importación',file?.name,err)}
