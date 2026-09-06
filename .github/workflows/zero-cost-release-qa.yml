@@ -67,5 +67,8 @@ jobs:
       - name: Verify active project is flushed before reopen
         run: node studio/test_project_reopen_flush_order.mjs
 
+      - name: Verify safe media replacement and legacy duration recovery
+        run: node studio/test_media_replace_engine.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
