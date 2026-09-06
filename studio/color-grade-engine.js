@@ -14,7 +14,7 @@
   function identityKey(id){
     if(typeof id==='boolean'||id===null||id===undefined)return null;
     if(typeof id==='number')return Number.isFinite(id)?`n:${Object.is(id,-0)?0:id}`:null;
-    const s=String(id).trim();if(!s)return 's:';
+    const s=String(id).trim();if(!s)return null;
     const n=Number(s);
     if(Number.isFinite(n)&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(s))return `n:${Object.is(n,-0)?0:n}`;
     return `s:${s}`;
