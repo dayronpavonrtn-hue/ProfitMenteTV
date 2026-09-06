@@ -1,20 +1,20 @@
 class ProfitMenteAudioNormalizeEngine{
   static AUDIO_TRACKS=[4,5,6]
   static canonicalTrack(track){
-    if(track===null||track===undefined)return null;
+    if(track===null||track===undefined||typeof track==='boolean')return null;
     if(typeof track==='string'&&track.trim()==='')return null;
     const value=Number(track);
     return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
   }
   static canonicalMediaId(value){
-    if(value===null||value===undefined)return null;
+    if(value===null||value===undefined||typeof value==='boolean')return null;
     if(typeof value==='string'){
       const trimmed=value.trim();if(!trimmed)return null;
       const numeric=Number(trimmed);
-      return Number.isFinite(numeric)&&String(numeric)===String(Number(trimmed))?String(numeric):trimmed;
+      return Number.isFinite(numeric)?String(Object.is(numeric,-0)?0:numeric):trimmed;
     }
-    if(typeof value==='number'&&Number.isFinite(value))return String(value);
-    return String(value);
+    if(typeof value==='number'&&Number.isFinite(value))return String(Object.is(value,-0)?0:value);
+    return null;
   }
   static canonicalClipId(value){return this.canonicalMediaId(value)}
   static hasAsset(value){return this.canonicalMediaId(value)!==null}
