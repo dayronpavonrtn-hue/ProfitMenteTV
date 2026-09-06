@@ -36,53 +36,86 @@ def _fps(value):
     except (ValueError,ZeroDivisionError): return 0.0
 
 
+def _canonical_numeric(value):
+    if isinstance(value, bool) or value is None: return None
+    if isinstance(value, str) and not value.strip(): return None
+    if not isinstance(value, (int, float, str)): return None
+    try: number=float(value)
+    except (TypeError, ValueError): return None
+    if not math.isfinite(number) or not number.is_integer(): return None
+    number=int(number)
+    return 0 if number == 0 else number
+
+
+def _track_id(value):
+    track=_canonical_numeric(value)
+    return track if track is not None and 0 <= track <= 6 else None
+
+
+def _identity(value):
+    if isinstance(value, bool) or value is None: return None
+    if isinstance(value, str):
+        text=value.strip()
+        if not text: return None
+        numeric=_canonical_numeric(text)
+        return ('n', numeric) if numeric is not None else ('s', text)
+    if isinstance(value, (int, float)):
+        numeric=_canonical_numeric(value)
+        return ('n', numeric) if numeric is not None else None
+    return None
+
+
+def _asset_map(project):
+    result={}
+    for asset in project.get('assets', []):
+        if not isinstance(asset, dict): continue
+        key=_identity(asset.get('id'))
+        if key is not None and key not in result: result[key]=asset
+    return result
+
+
 def _track_state(project, track):
-    tracks=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
-    state=tracks.get(str(track),tracks.get(track,{}))
-    return state if isinstance(state,dict) else {}
+    canonical=_track_id(track)
+    if canonical is None: return {}
+    merged={}
+    for field in ('trackStates','trackState'):
+        tracks=project.get(field) if isinstance(project.get(field),dict) else {}
+        for key,state in tracks.items():
+            if _track_id(key) == canonical and isinstance(state,dict):
+                for name,value in state.items():
+                    if name in ('muted','hidden','solo','locked'):
+                        merged[name]=bool(merged.get(name)) or bool(value)
+                    elif name not in merged:
+                        merged[name]=value
+    return merged
+
+
+def _audible_clip(project, clip, assets):
+    track=_track_id(clip.get('track'))
+    if track is None: return False
+    state=_track_state(project,track)
+    if state.get('muted') or clip.get('muted'): return False
+    if track >= 4: return True
+    if track in (0,1) and not state.get('hidden') and _num(clip.get('sourceVolume',1),1) > 0:
+        asset=assets.get(_identity(clip.get('asset')))
+        return bool(asset and asset.get('type') == 'video')
+    return False
 
 
 def project_expects_audio(project: dict) -> bool:
-    assets={str(a.get('id')):a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id') is not None}
+    assets=_asset_map(project)
     for clip in project.get('clips',[]):
-        if not isinstance(clip,dict) or _num(clip.get('duration')) <= 0: continue
-        try: track=int(clip.get('track',0))
-        except (TypeError,ValueError): track=0
-        state=_track_state(project,track)
-        if state.get('muted') or clip.get('muted'): continue
-        if track >= 4: return True
-        # Video source audio follows the visual track's visibility and source-volume controls.
-        if track in (0,1) and not state.get('hidden') and _num(clip.get('sourceVolume',1),1) > 0:
-            asset=assets.get(str(clip.get('asset')))
-            if asset and asset.get('type') == 'video': return True
+        if isinstance(clip,dict) and _num(clip.get('duration')) > 0 and _audible_clip(project,clip,assets): return True
     return False
 
 
 def expected_audio_duration(project: dict) -> float:
-    """Return the latest timeline end that should contain active rendered audio.
-
-    The renderer mixes only through the end of the last audible clip, so audio is not required
-    to span the full project. This mirrors the renderer while still catching a prematurely
-    truncated AAC stream hidden by a complete video/container duration.
-    """
-    project_duration=max(.25,_num(project.get('duration'),45))
-    assets={str(a.get('id')):a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id') is not None}
-    latest=0.0
+    """Return the latest timeline end that should contain active rendered audio."""
+    project_duration=max(.25,_num(project.get('duration'),45)); assets=_asset_map(project); latest=0.0
     for clip in project.get('clips',[]):
         if not isinstance(clip,dict): continue
         d=_num(clip.get('duration'))
-        if d<=0: continue
-        try: track=int(clip.get('track',0))
-        except (TypeError,ValueError): track=0
-        state=_track_state(project,track)
-        if state.get('muted') or clip.get('muted'): continue
-        audible=False
-        if track >= 4:
-            audible=True
-        elif track in (0,1) and not state.get('hidden') and _num(clip.get('sourceVolume',1),1) > 0:
-            asset=assets.get(str(clip.get('asset')))
-            audible=bool(asset and asset.get('type')=='video')
-        if not audible: continue
+        if d<=0 or not _audible_clip(project,clip,assets): continue
         start=max(0.0,_num(clip.get('start')))
         if start>=project_duration: continue
         latest=max(latest,min(project_duration,start+d))
@@ -109,9 +142,6 @@ def analyze_probe(project: dict, probe: dict) -> dict:
         if pix_fmt and pix_fmt not in ('yuv420p','yuvj420p'): warnings.append(f'Formato de píxel {pix_fmt} puede reducir compatibilidad en redes sociales.')
         expected_fps=int(round(_num(project.get('fps'),30))); expected_fps=expected_fps if expected_fps in (24,30,60) else 30
         if fps and abs(fps-expected_fps)>.25: issues.append(f'Frame rate final {fps:.2f} FPS; esperado {expected_fps} FPS.')
-        # The MP4 container may keep the expected duration because audio/subtitle data continues
-        # even when the actual video stream was truncated. Validate the video stream itself when
-        # ffprobe exposes a stream duration, so QC cannot report a false success in that case.
         if video_duration is not None and video_duration > 0 and abs(video_duration-expected_duration)>tolerance:
             issues.append(f'La pista de video dura {video_duration:.2f}s; el proyecto requiere {expected_duration:.2f}s.')
     if duration<=0: issues.append('No se pudo verificar la duración del MP4 final.')
