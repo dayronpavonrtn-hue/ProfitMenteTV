@@ -32,6 +32,14 @@ const unknownDuration={clips:[{id:'unknown',track:0,asset:'old',duration:2,sourc
 r=Engine.replace(unknownDuration,'unknown',{id:'unknown-video',name:'Metadata pending',type:'video'});
 assert.equal(r.ok,true);assert.equal(unknownDuration.clips[0].duration,2);assert.equal(unknownDuration.clips[0].sourceOffset,1);
 
+const invalidLegacyDuration={clips:[{id:'legacy-invalid',track:0,asset:'old',duration:'oops',sourceOffset:0,speed:1,fadeIn:2,fadeOut:2}]};
+r=Engine.replace(invalidLegacyDuration,'legacy-invalid',{id:'valid-video',name:'Valid video',type:'video',duration:10});
+assert.equal(r.ok,true);near(invalidLegacyDuration.clips[0].duration,.25);near(invalidLegacyDuration.clips[0].fadeIn,.25);near(invalidLegacyDuration.clips[0].fadeOut,.25);
+
+const zeroLegacyDuration={clips:[{id:'legacy-zero',track:1,asset:'old',duration:0,sourceOffset:4,speed:1}]};
+r=Engine.replace(zeroLegacyDuration,'legacy-zero',{id:'still',name:'Still',type:'image'});
+assert.equal(r.ok,true);near(zeroLegacyDuration.clips[0].duration,.25);assert.equal(zeroLegacyDuration.clips[0].sourceOffset,0);
+
 const incompatible={clips:[{id:'x',track:5,asset:'a',duration:2}]};r=Engine.replace(incompatible,'x',{id:'pic',name:'Pic',type:'image',duration:5});assert.equal(r.ok,false);assert.equal(r.reason,'incompatible');assert.equal(incompatible.clips[0].asset,'a');
 
 const lockedClip={clips:[{...structuredClone(baseClip),id:'locked-clip',locked:true}]};
