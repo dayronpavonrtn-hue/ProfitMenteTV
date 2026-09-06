@@ -131,6 +131,7 @@ def main() -> None:
         ("render", "Corrección de color manual se conserva en el MP4 final", [py, "test_color_grade_render.py"]),
         ("render", "Primer clip no recibe transición de entrada en MP4", [py, "test_first_clip_transition_render.py"]),
         ("render", "Render MP4 con pistas heredadas normalizadas", [py, "test_render_mp4_legacy_state.py"]),
+        ("render", "Publicación atómica conserva el último MP4 válido hasta aprobar QA y rechaza bundles inseguros", [py, "test_atomic_render_publish.py"]),
         ("render", "Fallos de render liberan archivos temporales", [py, "test_render_failure_cleanup.py"]),
         ("servidor", "API local de Studio", [py, "test_server_api.py"]),
         ("exportacion", "Render MP4 real end-to-end", [py, "smoke_test.py"]),
