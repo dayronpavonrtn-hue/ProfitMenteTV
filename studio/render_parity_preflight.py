@@ -26,6 +26,15 @@ MAX_TRANSITION_DURATION = 2.0
 
 
 def _finite(value):
+    # JSON booleans are numbers in Python (bool subclasses int), but they are not
+    # valid timeline/edit parameters. Accepting True as 1 second or False as 0
+    # silently changes the edit during MP4 export and breaks Preview -> render parity.
+    if isinstance(value, bool) or value is None:
+        return False
+    if not isinstance(value, (int, float, str)):
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
     try:
         return math.isfinite(float(value))
     except (TypeError, ValueError):
@@ -33,17 +42,22 @@ def _finite(value):
 
 
 def _number(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
+    if not _finite(value):
         return math.nan
+    return float(value)
 
 
 def inspect(project):
     issues = []
+    fps_value = project.get('fps', 30)
     try:
-        fps = int(round(float(project.get('fps', 30) or 30)))
-    except (TypeError, ValueError):
+        if isinstance(fps_value, bool) or fps_value is None or (isinstance(fps_value, str) and not fps_value.strip()):
+            raise ValueError
+        fps_number = float(fps_value)
+        if not math.isfinite(fps_number):
+            raise ValueError
+        fps = int(round(fps_number))
+    except (TypeError, ValueError, OverflowError):
         fps = -1
     if fps not in ALLOWED_FPS:
         issues.append(f'FPS {project.get("fps")!r} no soportado por exportación MP4; usa 24, 30 o 60.')
