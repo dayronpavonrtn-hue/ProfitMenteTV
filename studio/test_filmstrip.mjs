@@ -1,7 +1,11 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import vm from 'node:vm';
-const html=fs.readFileSync('studio/index.html','utf8');
-const js=fs.readFileSync('studio/filmstrip-engine.js','utf8');
+import {fileURLToPath} from 'node:url';
+
+const here=path.dirname(fileURLToPath(import.meta.url));
+const html=fs.readFileSync(path.join(here,'index.html'),'utf8');
+const js=fs.readFileSync(path.join(here,'filmstrip-engine.js'),'utf8');
 if(!html.includes('<script src="filmstrip-engine.js"></script>')) throw new Error('filmstrip-engine.js no está cargado por Studio');
 for(const token of ['ProfitMenteFilmstripEngine','capture(asset,count,clip=null)','sourceWindow(clip,sourceDuration)','video.onseeked=snap','toDataURL','decorate(project,assets','MutationObserver','observer.observe(tracks,{childList:true})','this.sameId(c.id,el.dataset.id)','this.sameId(a.id,clip.asset)','this.frames(asset,count,clip)']) if(!js.includes(token)) throw new Error('Filmstrip incompleto: '+token);
 if(js.includes('observer.observe(tracks,{childList:true,subtree:true})')) throw new Error('Filmstrip no debe observar sus propios frames: produciría un ciclo de decoración');
