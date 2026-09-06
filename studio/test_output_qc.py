@@ -67,4 +67,10 @@ sixty={'format':'16:9','duration':20,'fps':60,'trackState':{'5':{'muted':True}},
 r=analyze_probe(sixty,probe(width=1920,height=1080,duration='20',acodec='aac',fps='60/1'))
 assert r['ok'], r
 
+# Keep the local $0 output gate aligned with the final-render QA: container/stream
+# metadata alone is not enough. These deterministic regressions also validate the
+# black/silence/freeze analyzers and loudness thresholds without any paid service.
+import test_output_signal_qc  # noqa: F401,E402
+import test_output_loudness_qc  # noqa: F401,E402
+
 print('output qc engine ok')
