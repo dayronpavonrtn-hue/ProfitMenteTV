@@ -70,5 +70,11 @@ jobs:
       - name: Verify safe media replacement and legacy duration recovery
         run: node studio/test_media_replace_engine.mjs
 
+      - name: Verify automatic beat detection
+        run: node studio/test_beat_detect_engine.mjs
+
+      - name: Verify automatic beat synchronization
+        run: node studio/test_beat_sync_engine.mjs
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
