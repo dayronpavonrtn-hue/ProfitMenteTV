@@ -59,6 +59,34 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
+  const {api}=boot({});
+  const previous=JSON.stringify({name:'Previo',clips:[]});
+  const writes=[];
+  const storage={
+    getItem(k){return k===api.LAST_GOOD_KEY?previous:null},
+    setItem(k,v){writes.push(k);if(k===api.PRIMARY_KEY)throw new Error('quota')},
+    removeItem(){}
+  };
+  assert.throws(()=>api.persist(storage,{name:'No guardado',clips:[]}),/quota/,'primary save failure must still surface to the caller');
+  assert.deepEqual(writes,[api.PRIMARY_KEY],'recovery snapshot must not advance when the primary project write fails');
+  assert.equal(storage.getItem(api.LAST_GOOD_KEY),previous,'previous recovery snapshot remains available');
+}
+
+{
+  const {api}=boot({});
+  const written=new Map();
+  const storage={
+    getItem(k){return written.get(k)??null},
+    setItem(k,v){if(k===api.LAST_GOOD_KEY)throw new Error('snapshot denied');written.set(k,String(v))},
+    removeItem(k){written.delete(k)}
+  };
+  const saved=api.persist(storage,{name:'Principal seguro',mode:'Manual',duration:22,format:'1:1',clips:[]});
+  assert.equal(saved.name,'Principal seguro','snapshot failure must not invalidate a successful primary save');
+  assert.equal(JSON.parse(written.get(api.PRIMARY_KEY)).name,'Principal seguro');
+  assert.equal(written.has(api.LAST_GOOD_KEY),false);
+}
+
+{
   const raw='{"broken"';
   const {result,recovered,localStorage}=boot({'profitmente-project':raw,'profitmente-project-last-good':'[]'});
   assert.equal(result.ok,false,'invalid recovery snapshot must not be trusted');
