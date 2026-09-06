@@ -1,6 +1,21 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   class ProfitMenteExportPreflight{
+    static canonicalTrack(value){
+      if(typeof value!=='number'&&typeof value!=='string')return null;
+      const raw=typeof value==='string'?value.trim():value;
+      if(raw==='')return null;
+      const n=Number(raw);
+      if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+      return Object.is(n,-0)?0:n;
+    }
+    static finiteNumber(value,fallback=0){
+      if(typeof value!=='number'&&typeof value!=='string')return fallback;
+      const raw=typeof value==='string'?value.trim():value;
+      if(raw==='')return fallback;
+      const n=Number(raw);
+      return Number.isFinite(n)?n:fallback;
+    }
     static summarize(qa,health){
       qa=qa||{ok:false,score:0,issues:['QA no disponible'],warnings:[],metrics:{}};health=health||{ok:false,render_ready:false};
       const issues=[...(qa.issues||[])],warnings=[...(qa.warnings||[])];
@@ -12,12 +27,7 @@
       return {state,label,canPackage:issues.length===0,canRender:issues.length===0&&!!health.render_ready,score:Number(qa.score)||0,issues,warnings,metrics:qa.metrics||{},health};
     }
     static audioTrackMuted(project,track){
-      const canonicalTrack=value=>{
-        const raw=String(value??'').trim();
-        if(!raw)return null;
-        const n=Number(raw);
-        return Number.isInteger(n)&&n>=0&&n<=6?n:null;
-      };
+      const canonicalTrack=value=>this.canonicalTrack(value);
       const read=(states,index)=>{
         if(!states||typeof states!=='object'||Array.isArray(states))return {};
         let state={};
@@ -41,15 +51,18 @@
     }
     static narrationCoverage(qa,project){
       const next={...(qa||{}),issues:[...(qa?.issues||[])],warnings:[...(qa?.warnings||[])],metrics:{...(qa?.metrics||{})}};
-      const duration=Math.max(.001,Number(project?.duration)||0),clips=Array.isArray(project?.clips)?project.clips:[];
+      const projectDuration=this.finiteNumber(project?.duration,0),duration=Math.max(.001,projectDuration>0?projectDuration:0),clips=Array.isArray(project?.clips)?project.clips:[];
       const trackMuted=this.audioTrackMuted(project,6);
-      const voice=trackMuted?[]:clips.filter(c=>Number(c?.track)===6&&c?.asset&&!c?.muted&&Number(c?.duration)>0);
-      const ranges=voice.map(c=>[Math.max(0,Number(c.start)||0),Math.min(duration,(Number(c.start)||0)+Math.max(0,Number(c.duration)||0))]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
+      const isNarration=c=>this.canonicalTrack(c?.track)===6;
+      const clipDuration=c=>Math.max(0,this.finiteNumber(c?.duration,0));
+      const clipStart=c=>Math.max(0,this.finiteNumber(c?.start,0));
+      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&c?.asset&&!c?.muted&&clipDuration(c)>0);
+      const ranges=voice.map(c=>{const start=clipStart(c);return [start,Math.min(duration,start+clipDuration(c))]}).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
       let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
       const ratio=Math.max(0,Math.min(1,seconds/duration)),percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
       const mode=String(project?.mode||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),automatic=mode.includes('automatic');
       if(!automatic||trackMuted)return next;
-      const pending=clips.some(c=>Number(c?.track)===6&&!c?.asset&&Number(c?.duration)>0);
+      const pending=clips.some(c=>isNarration(c)&&!c?.asset&&clipDuration(c)>0);
       if(pending&&ratio<.72)next.warnings.push(`Narración automática pendiente · cobertura actual ${percent}%. Añade o graba una voz que cubra al menos 72% del video.`);
       else if(voice.length&&ratio<.72)next.warnings.push(`Narración automática incompleta · cobertura ${percent}%. Recomendado: al menos 72% del video.`);
       else if(!voice.length)next.warnings.push('El proyecto automático no tiene narración activa. Añade o graba una voz antes del render final.');
