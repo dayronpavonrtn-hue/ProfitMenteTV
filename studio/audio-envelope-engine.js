@@ -1,16 +1,21 @@
 class ProfitMenteAudioEnvelopeEngine{
   canonicalTrack(track){
-    if(track===null||track===undefined||String(track).trim()==='')return null;
+    if(track===null||track===undefined||typeof track==='boolean')return null;
+    if(typeof track==='string'&&track.trim()==='')return null;
     const n=Number(track);
     if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
-    return n;
+    return Object.is(n,-0)?0:n;
   }
   canonicalId(value){
-    if(value===null||value===undefined)return null;
-    const raw=String(value).trim();
-    if(!raw)return null;
-    if(/^[+-]?\d+(?:\.0+)?$/.test(raw))return String(Number(raw));
-    return raw;
+    if(value===null||value===undefined||typeof value==='boolean')return null;
+    if(typeof value==='string'){
+      const raw=value.trim();
+      if(!raw)return null;
+      const numeric=Number(raw);
+      return Number.isFinite(numeric)?String(Object.is(numeric,-0)?0:numeric):raw;
+    }
+    if(typeof value==='number'&&Number.isFinite(value))return String(Object.is(value,-0)?0:value);
+    return null;
   }
   sameId(a,b){const ca=this.canonicalId(a),cb=this.canonicalId(b);return ca!==null&&cb!==null&&ca===cb}
   hasAsset(value){return this.canonicalId(value)!==null}
