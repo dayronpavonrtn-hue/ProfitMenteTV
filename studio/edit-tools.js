@@ -39,7 +39,7 @@
     return groupEditEnginePromise;
   }
   function getGroupSplitEngine(){
-    if(window.ProfitMenteGroupSplitEngine)return Promise.resolve(window.ProfitMenteGroupSplitEngine);
+    if(window.ProfitMenteGroupSplitEngine)return Promise.resolve(window.ProfitMenteGroupSplitEditEngine);
     if(!groupSplitEnginePromise)groupSplitEnginePromise=loadEngine('ProfitMenteGroupSplitEngine','group-split-engine.js','data-profitmente-group-split');
     return groupSplitEnginePromise;
   }
@@ -96,6 +96,11 @@
     commit(removed.length>1?`Grupo eliminado · ${removed.length} clips`:`Clip eliminado: ${c.name||'sin nombre'}`);
   }
   document.addEventListener('click',e=>{const el=e.target.closest?.('.clip');if(el)select(el.dataset.id)} ,true);
+  document.addEventListener('dblclick',e=>{
+    const el=e.target.closest?.('.clip');if(!el)return;
+    e.preventDefault();e.stopImmediatePropagation();select(el.dataset.id);
+    if(clipById(el.dataset.id))status('Clip abierto en el inspector · edita sus propiedades sin diálogos destructivos');
+  },true);
   $('#splitBtn')?.addEventListener('click',split);$('#duplicateBtn')?.addEventListener('click',duplicate);$('#deleteClipBtn')?.addEventListener('click',remove);
   document.addEventListener('keydown',e=>{
     if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
