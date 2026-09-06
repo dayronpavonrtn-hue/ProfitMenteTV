@@ -39,7 +39,7 @@
     return groupEditEnginePromise;
   }
   function getGroupSplitEngine(){
-    if(window.ProfitMenteGroupSplitEngine)return Promise.resolve(window.ProfitMenteGroupSplitEditEngine);
+    if(window.ProfitMenteGroupSplitEngine)return Promise.resolve(window.ProfitMenteGroupSplitEngine);
     if(!groupSplitEnginePromise)groupSplitEnginePromise=loadEngine('ProfitMenteGroupSplitEngine','group-split-engine.js','data-profitmente-group-split');
     return groupSplitEnginePromise;
   }
