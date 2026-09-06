@@ -1,5 +1,17 @@
 class ProfitMenteMediaReplaceEngine{
   static MIN_CLIP_DURATION=.25;
+  static mediaKey(id){
+    if(typeof id==='boolean'||id===null||id===undefined)return null;
+    if(typeof id==='number')return Number.isFinite(id)?`n:${Object.is(id,-0)?0:id}`:null;
+    if(typeof id!=='string')return `s:${String(id)}`;
+    const s=id.trim();if(!s)return 's:';
+    const n=Number(s);
+    if(Number.isFinite(n)&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(s))return `n:${Object.is(n,-0)?0:n}`;
+    return `s:${s}`;
+  }
+  static sameId(a,b){const ak=this.mediaKey(a),bk=this.mediaKey(b);return ak!==null&&ak===bk}
+  static findClip(project,id){return (project?.clips||[]).find(c=>this.sameId(c?.id,id))||null}
+  static findAsset(assets,id){return (Array.isArray(assets)?assets:[]).find(a=>this.sameId(a?.id,id))||null}
   static trackKind(track){
     const t=Number(track);
     if(t===0||t===1)return 'visual';
@@ -32,9 +44,9 @@ class ProfitMenteMediaReplaceEngine{
   }
   static maxTimelineDuration(clip,asset){return this.sourceWindow(clip,asset).maxDuration}
   static replace(project,clipId,asset){
-    const clip=(project?.clips||[]).find(c=>c?.id===clipId);
+    const clip=this.findClip(project,clipId);
     if(!clip)return {ok:false,reason:'clip-missing'};
-    if(!asset?.id)return {ok:false,reason:'asset-missing'};
+    if(this.mediaKey(asset?.id)===null)return {ok:false,reason:'asset-missing'};
     if(this.isLocked(project,clip))return {ok:false,reason:'locked'};
     if(!this.canReplace(clip,asset))return {ok:false,reason:'incompatible'};
     const window=this.sourceWindow(clip,asset);
