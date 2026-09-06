@@ -52,24 +52,34 @@ assert.equal(win.speed,2);
 assert.equal(Engine.canonicalTrack('04'),4,'acepta alias heredado 04');
 assert.equal(Engine.canonicalTrack('4.0'),4,'acepta alias decimal entero');
 assert.equal(Engine.canonicalTrack('06'),6,'acepta alias heredado 06');
+assert.equal(Engine.canonicalTrack('-0'),0,'normaliza negative zero');
+assert.equal(Engine.canonicalTrack(false),null,'false no puede representar pista 0');
+assert.equal(Engine.canonicalTrack(true),null,'true no puede representar pista 1');
 assert.equal(Engine.canonicalTrack('6.5'),null,'no convierte pistas fraccionarias');
 assert.equal(Engine.canonicalTrack(7),null,'no convierte pistas fuera del Studio');
 assert.equal(Engine.canonicalTrack(' '),null,'no convierte pista vacía');
 assert.equal(Engine.isAudioTrack('04'),true,'alias de voz debe ser pista de audio');
 assert.equal(Engine.isAudioTrack('6.0'),true,'alias de efectos debe ser pista de audio');
+assert.equal(Engine.isAudioTrack(false),false,'boolean false no debe convertirse en pista');
 assert.equal(Engine.isAudioTrack('4.5'),false,'alias inválido no debe ser audio');
 
 assert.equal(Engine.hasAsset(0),true,'asset numérico 0 debe ser válido');
 assert.equal(Engine.hasAsset(' 0 '),true,'asset string 0 debe ser válido');
+assert.equal(Engine.hasAsset(false),false,'boolean false no puede representar asset 0');
+assert.equal(Engine.hasAsset(true),false,'boolean true no puede representar asset');
+assert.equal(Engine.hasAsset({id:7}),false,'objeto no puede convertirse en ID textual');
 assert.equal(Engine.hasAsset('   '),false,'asset vacío debe seguir inválido');
 assert.equal(Engine.canonicalMediaId(' 07 '),'7','IDs numéricos heredados deben canonicalizar');
+assert.equal(Engine.canonicalMediaId('-0'),'0','negative zero debe canonicalizar como cero');
 assert.equal(Engine.sameMediaId(7,' 07 '),true,'IDs equivalentes deben coincidir');
 assert.equal(Engine.sameMediaId(0,'0'),true,'ID cero debe conservar identidad');
+assert.equal(Engine.sameMediaId(false,0),false,'boolean false nunca coincide con asset 0');
 assert.equal(Engine.sameMediaId('',0),false,'ID vacío nunca debe coincidir');
 const assets=[{id:0,type:'audio'},{id:7,type:'audio'},{id:'voice-A',type:'audio'}];
 assert.equal(Engine.findAsset(assets,' 0 ')?.id,0,'debe resolver asset cero entre number/string');
 assert.equal(Engine.findAsset(assets,'07')?.id,7,'debe resolver alias numérico de asset');
 assert.equal(Engine.findAsset(assets,' voice-A ')?.id,'voice-A','IDs de texto ignoran espacios accidentales');
+assert.equal(Engine.findAsset(assets,false),null,'boolean false no debe resolver asset cero');
 assert.equal(Engine.findAsset(assets,' '),null,'referencia vacía no debe resolver asset');
 
 assert.equal(Engine.trackLocked({},4),false,'sin estado la pista es editable');
@@ -83,6 +93,7 @@ assert.equal(Engine.trackLocked({trackStates:{'04':{locked:true}}},4),true,'lock
 assert.equal(Engine.trackLocked({trackState:{'4.5':{locked:true}}},4),false,'alias fraccionario no contamina pista 4');
 assert.equal(Engine.trackLocked({trackState:{7:{locked:true}}},6),false,'pista fuera de rango no contamina pista 6');
 assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},5),false,'no bloquea otra pista');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},false),false,'boolean false no debe consultar lock de pista 0');
 assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},'invalid'),false,'track inválido no debe bloquear por accidente');
 
 const integration=readFileSync(new URL('./audio-silence-integration.js',import.meta.url),'utf8');
