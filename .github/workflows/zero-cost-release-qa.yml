@@ -73,6 +73,9 @@ jobs:
       - name: Verify safe media replacement and legacy duration recovery
         run: node studio/test_media_replace_engine.mjs
 
+      - name: Verify generator and autofill canonical identities
+        run: node studio/test_generator_identity.mjs
+
       - name: Verify audio waveform identity and track safety
         run: node studio/test_audio_waveform_engine.mjs
 
