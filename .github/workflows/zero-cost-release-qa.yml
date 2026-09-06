@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'studio/**'
+      - 'broll.py'
+      - 'preflight.py'
       - '.github/workflows/zero-cost-release-qa.yml'
   workflow_dispatch:
 
@@ -30,6 +32,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
+
+      - name: Verify zero-cost offline B-roll fallback
+        run: python studio/tests/test_zero_cost_broll.py
 
       - name: Verify clip inspector lock and identity safety
         run: node studio/test_clip_lock_track_inspector.mjs
