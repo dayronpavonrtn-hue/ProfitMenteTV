@@ -9,7 +9,7 @@ const {ProfitMenteProjectImportEngine}=require('./project-import-engine.js');
 const input={accept:'',onchange:null};
 const document={readyState:'complete',querySelector(selector){return selector==='#projectInput'?input:null}};
 const window={ProfitMenteProjectLibrary,ProfitMenteProjectImportEngine};
-const context={window,document,console,CustomEvent:class{},structuredClone};
+const context={window,document,console,CustomEvent:class{},structuredClone,ProfitMenteProjectLibrary,ProfitMenteProjectImportEngine};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL('./project-import-integration.js',import.meta.url),'utf8'),context);
 
