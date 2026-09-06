@@ -1,12 +1,12 @@
 class ProfitMenteAudioDuckingEngine{
   static AUDIO_TRACKS=[4,5,6]
   static canonicalTrack(track){
-    if(track===null||track===undefined)return null;
+    if(track===null||track===undefined||typeof track==='boolean')return null;
     if(typeof track==='string'&&track.trim()==='')return null;
     const value=Number(track);
     return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
   }
-  static hasAsset(value){return !(value===null||value===undefined||(typeof value==='string'&&value.trim()===''))}
+  static hasAsset(value){return !(value===null||value===undefined||typeof value==='boolean'||(typeof value==='string'&&value.trim()===''))}
   static stateFrom(map,track){
     if(!map||typeof map!=='object')return {};
     const canonical=this.canonicalTrack(track);if(canonical===null)return {};
