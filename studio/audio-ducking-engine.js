@@ -7,6 +7,7 @@ class ProfitMenteAudioDuckingEngine{
     return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
   }
   static hasAsset(value){return !(value===null||value===undefined||typeof value==='boolean'||(typeof value==='string'&&value.trim()===''))}
+  static segmentIdBase(value){return value===null||value===undefined||typeof value==='boolean'||(typeof value==='string'&&value.trim()==='')?'music':String(value)}
   static stateFrom(map,track){
     if(!map||typeof map!=='object')return {};
     const canonical=this.canonicalTrack(track);if(canonical===null)return {};
@@ -49,10 +50,10 @@ class ProfitMenteAudioDuckingEngine{
     for(const clip of source){
       if(this.canonicalTrack(clip.track)!==5||!this.hasAsset(clip.asset)){out.push(structuredClone(clip));continue}
       const intervals=this.intervals(project,clip);if(!intervals.length){out.push(structuredClone(clip));continue}
-      const d=Math.max(0,Number(clip.duration)||0),bounds=[0,d,...intervals.flatMap(x=>[x.start,x.end])].filter(x=>x>=0&&x<=d).sort((a,b)=>a-b),uniq=bounds.filter((x,i)=>i===0||Math.abs(x-bounds[i-1])>.001),speed=Math.max(.25,Math.min(4,Number(clip.speed)||1)),offset=Math.max(0,Number(clip.sourceOffset)||0),base=this.baseVolume(clip),duck=this.duckVolume(clip);
+      const d=Math.max(0,Number(clip.duration)||0),bounds=[0,d,...intervals.flatMap(x=>[x.start,x.end])].filter(x=>x>=0&&x<=d).sort((a,b)=>a-b),uniq=bounds.filter((x,i)=>i===0||Math.abs(x-bounds[i-1])>.001),speed=Math.max(.25,Math.min(4,Number(clip.speed)||1)),offset=Math.max(0,Number(clip.sourceOffset)||0),base=this.baseVolume(clip),duck=this.duckVolume(clip),segmentBase=this.segmentIdBase(clip.id);
       for(let i=0;i<uniq.length-1;i++){
         const s=uniq[i],e=uniq[i+1];if(e-s<.01)continue;const mid=(s+e)/2,isDuck=intervals.some(x=>mid>=x.start&&mid<x.end),part=structuredClone(clip);
-        part.id=`${clip.id||'music'}-duck-${i}`;part.start=(Number(clip.start)||0)+s;part.duration=e-s;part.sourceOffset=offset+s*speed;part.volume=isDuck?duck:base;part.fadeIn=i===0?Math.min(Number(clip.fadeIn??.18)||0,part.duration):0;part.fadeOut=i===uniq.length-2?Math.min(Number(clip.fadeOut??.25)||0,part.duration):0;out.push(part);
+        part.id=`${segmentBase}-duck-${i}`;part.start=(Number(clip.start)||0)+s;part.duration=e-s;part.sourceOffset=offset+s*speed;part.volume=isDuck?duck:base;part.fadeIn=i===0?Math.min(Number(clip.fadeIn??.18)||0,part.duration):0;part.fadeOut=i===uniq.length-2?Math.min(Number(clip.fadeOut??.25)||0,part.duration):0;out.push(part);
       }
     }
     next.clips=out;return next;
