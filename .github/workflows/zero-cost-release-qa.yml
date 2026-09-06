@@ -45,6 +45,9 @@ jobs:
       - name: Verify safe timeline rendering
         run: node studio/test_timeline_safe_render.mjs
 
+      - name: Verify resilient preview transport state
+        run: node studio/test_transport_engine.mjs
+
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
