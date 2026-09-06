@@ -24,10 +24,12 @@ jobs:
           node --check studio/audio-normalize-engine.js
           node --check studio/audio-normalize-integration.js
           node --check studio/generator-integration.js
-      - name: Audio normalization regression
-        run: |
-          node studio/test_audio_normalize_engine.mjs
-          node studio/test_audio_normalize_identity.mjs
+          node --check studio/test_audio_normalize_engine.mjs
+          node --check studio/test_audio_normalize_identity.mjs
+      - name: Audio normalization core regression
+        run: node studio/test_audio_normalize_engine.mjs
+      - name: Audio normalization identity regression
+        run: node studio/test_audio_normalize_identity.mjs
       - name: Verify Studio integration
         run: |
           grep -q "audio-normalize-engine.js" studio/generator-integration.js
