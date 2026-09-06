@@ -68,4 +68,30 @@ assert.equal(JSON.stringify(conflictingMaps),conflictBefore,'a legacy lock must 
 assert.equal(conflictResult.locked,2);
 assert.equal(Engine.inspect(conflictingMaps).locked,2,'inspection must treat either lock map as authoritative');
 
+const aliases={fps:30,clips:[
+  {id:'a',track:'00',sceneText:'a',start:0,duration:2},
+  {id:'b',track:'+0.0',sceneText:'b',start:2,duration:2},
+  {id:'bad-bool',track:false,sceneText:'bad',start:4,duration:2},
+  {id:'bad-empty',track:'',sceneText:'bad',start:6,duration:2},
+  {id:'other',track:'V0',sceneText:'other',start:8,duration:2}
+]};
+const aliasesResult=Engine.apply(aliases);
+assert.equal(aliasesResult.generated,2,'numeric aliases of track 0 must be eligible');
+assert.equal(aliases.clips[1].autoTransition,true,'canonical track alias must receive automatic transition');
+assert.equal(aliases.clips[2].autoTransition,undefined,'boolean false must not alias track 0');
+assert.equal(aliases.clips[3].autoTransition,undefined,'empty track must not alias track 0');
+assert.equal(aliases.clips[4].autoTransition,undefined,'text track IDs must remain distinct');
+
+for(const [mapName,key] of [['trackState','00'],['trackStates','+0.0']]){
+  const aliasLock={fps:30,[mapName]:{[key]:{locked:true}},clips:[
+    {id:'a',track:'-0',sceneText:'a',start:0,duration:2},
+    {id:'b',track:0,sceneText:'b',start:2,duration:2}
+  ]};
+  const before=JSON.stringify(aliasLock);
+  const result=Engine.apply(aliasLock,{force:true});
+  assert.equal(JSON.stringify(aliasLock),before,`${mapName} canonical alias lock must protect track 0`);
+  assert.equal(result.locked,2);
+  assert.equal(Engine.inspect(aliasLock).locked,2);
+}
+
 console.log('auto-transition-engine regression: ok');
