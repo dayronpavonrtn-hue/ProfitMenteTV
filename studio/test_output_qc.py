@@ -25,29 +25,22 @@ assert not bad['ok']
 text=' '.join(bad['issues'])
 assert 'Resolución' in text and 'Duración' in text and 'audio' in text
 
-# Regression: the container can look complete because another stream continues even though
-# the actual video stream ended early. This must fail QC instead of producing a false success.
 truncated_video=analyze_probe(project,probe(duration='45.00',video_duration='12.00'))
 assert not truncated_video['ok'], truncated_video
 assert truncated_video['metrics']['duration']==45.0
 assert truncated_video['metrics']['video_duration']==12.0
 assert any('pista de video dura 12.00s' in issue for issue in truncated_video['issues']), truncated_video
 
-# ffprobe may omit stream duration in some valid containers; container-level duration remains
-# the fallback in that case and QC should not reject an otherwise valid export.
 stream_duration_unknown=analyze_probe(project,probe(duration='45.00',video_duration='N/A'))
 assert stream_duration_unknown['ok'], stream_duration_unknown
 assert stream_duration_unknown['metrics']['video_duration'] is None
 
-# Regression: the MP4 container and video can remain complete while the audio stream ends
-# before the last active audio clip. QC must catch that truncated audio stream.
 truncated_audio=analyze_probe(project,probe(duration='45.00',audio_duration='8.00'))
 assert not truncated_audio['ok'], truncated_audio
 assert truncated_audio['metrics']['audio_duration']==8.0
 assert truncated_audio['metrics']['expected_audio_duration']==20.0
 assert any('pista de audio dura 8.00s' in issue for issue in truncated_audio['issues']), truncated_audio
 
-# Audio is allowed to end before the project when the actual active clips end earlier.
 expected_short_audio=analyze_probe(project,probe(duration='45.00',audio_duration='20.02'))
 assert expected_short_audio['ok'], expected_short_audio
 
@@ -67,9 +60,8 @@ sixty={'format':'16:9','duration':20,'fps':60,'trackState':{'5':{'muted':True}},
 r=analyze_probe(sixty,probe(width=1920,height=1080,duration='20',acodec='aac',fps='60/1'))
 assert r['ok'], r
 
-# Keep the local $0 output gate aligned with the final-render QA: container/stream
-# metadata alone is not enough. These deterministic regressions also validate the
-# black/silence/freeze analyzers and loudness thresholds without any paid service.
+# The local $0 output gate covers metadata, project identity, signal defects and loudness.
+import test_output_qc_identity  # noqa: F401,E402
 import test_output_signal_qc  # noqa: F401,E402
 import test_output_loudness_qc  # noqa: F401,E402
 
