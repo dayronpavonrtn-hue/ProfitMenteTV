@@ -6,6 +6,7 @@ on:
       - 'studio/export-preflight.js'
       - 'studio/generator-integration.js'
       - 'studio/test_export_preflight.mjs'
+      - 'studio/test_export_preflight_identity.mjs'
       - '.github/workflows/export-preflight-qa.yml'
   workflow_dispatch:
 
@@ -21,7 +22,10 @@ jobs:
         run: |
           node --check studio/export-preflight.js
           node --check studio/generator-integration.js
+          node --check studio/test_export_preflight_identity.mjs
       - name: Run export preflight regression
-        run: node studio/test_export_preflight.mjs
+        run: |
+          node studio/test_export_preflight.mjs
+          node studio/test_export_preflight_identity.mjs
       - name: Verify Studio loads preflight
         run: grep -q "export-preflight.js" studio/generator-integration.js
