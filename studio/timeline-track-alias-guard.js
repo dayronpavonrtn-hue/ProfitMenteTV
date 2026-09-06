@@ -4,9 +4,12 @@
   if(!Ops||Ops.prototype.__profitMenteTrackAliasGuard)return;
   const proto=Ops.prototype;
   const canonicalTrack=value=>{
-    if(value===undefined||value===null||String(value).trim()==='')return null;
-    const n=Number(value);
-    return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?n:null;
+    if(typeof value!=='string'&&typeof value!=='number')return null;
+    const text=String(value).trim();
+    if(!text)return null;
+    const n=Number(text);
+    if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return Object.is(n,-0)?0:n;
   };
   const normalizeProjectTracks=project=>{
     if(!project||!Array.isArray(project.clips))return project;
@@ -49,11 +52,12 @@
 (()=>{
   if(typeof document==='undefined'||typeof window==='undefined')return;
   function canonicalTrack(value,count){
-    if(value===null||value===undefined||typeof value==='boolean')return null;
+    if(typeof value!=='string'&&typeof value!=='number')return null;
     const text=String(value).trim();
     if(!text)return null;
     const number=Number(text);
-    return Number.isInteger(number)&&number>=0&&number<count?number:null;
+    if(!Number.isFinite(number)||!Number.isInteger(number)||number<0||number>=count)return null;
+    return Object.is(number,-0)?0:number;
   }
   function renderSafe(){
     if(typeof tracks==='undefined'||typeof names==='undefined'||typeof project==='undefined')return false;
