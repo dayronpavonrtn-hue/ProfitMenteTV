@@ -90,9 +90,18 @@ assert.equal(typeof magnet.restoreMoveSnapshot,'function');
   assert.equal(globalThis.project.duration,10,'cancel rollback must restore the pre-drag sequence duration after temporary growth');
 }
 
+{
+  globalThis.assets=[{id:7,type:'audio'}];
+  const legacyAudio={id:9,asset:'7',track:0,start:0,duration:1};
+  assert.equal(magnet.compatible(legacyAudio,4),true,'numeric media IDs must resolve when a legacy clip stores the same ID as a string');
+  assert.equal(magnet.compatible(legacyAudio,0),false,'legacy audio identity must not be misclassified as visual media');
+  globalThis.assets=[];
+}
+
 assert.match(source,/active\.timelineDuration/,'drag math must retain the timeline duration captured at pointer-down');
 assert.match(source,/\*active\.timelineDuration/,'pointer delta must use the captured duration instead of a duration mutated during drag');
 assert.match(source,/e\?\.type==='pointercancel'/,'pointer cancellation must take an explicit rollback path');
 assert.match(source,/restoreMoveSnapshot\(originals,originalProjectDuration\)/,'cancel path must restore both clip positions and original duration');
+assert.match(source,/find\(c=>sameId\(c\.id,el\.dataset\.id\)\)/,'pointer-down must resolve numeric legacy clip IDs against string DOM dataset IDs');
 
 console.log('timeline drag safety regression: ok');
