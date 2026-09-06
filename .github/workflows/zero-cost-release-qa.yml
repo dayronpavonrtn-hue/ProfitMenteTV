@@ -76,5 +76,8 @@ jobs:
       - name: Verify automatic beat synchronization
         run: node studio/test_beat_sync_engine.mjs
 
+      - name: Verify temporal audio ducking in final MP4
+        run: python studio/test_audio_ducking_render.py
+
       - name: Verify ProfitMente Studio $0 release
         run: python studio/verify_zero_cost_release.py
