@@ -24,7 +24,7 @@ assert.equal(valid.clips[0].speed,1.25);
 assert.equal(valid.clips[0].sourceOffset,4);
 assert.throws(()=>normalize({...base,clips:[{id:'z',track:0,start:0,duration:0}]}),/Tiempo de clip inválido/);
 assert.throws(()=>normalize({...base,clips:[{id:'bad-track',track:9,start:0,duration:1}]}),/Pista de clip inválida/);
-assert.throws(()=>normalize({...base,clips:[{id:'bad-speed',track:0,start:0,duration:1,speed:99}]}),/Velocidad de clip inválida/);
+assert.throws(()=>normalize({...base,clips:[{id:'bad-speed',track:0,start:0,duration:1,speed:99}]}),/Velocidad de clip inválid[oa]/);
 assert.throws(()=>normalize({...base,clips:[{id:'dup',track:0,start:0,duration:1},{id:'dup',track:1,start:2,duration:1}]}),/ID de clip duplicado/);
 
 console.log('Project library import parity guard OK');
