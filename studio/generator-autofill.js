@@ -93,7 +93,13 @@ class ProfitMenteGeneratorAutoFill {
     const hasNewVisual=this.importedVisuals(importedAssets).length>0;
     let assigned={};
     if(hasNewVisual&&before>0){
-      assigned=this.engine.assignAssets(project,usable)||{};
+      // Keep compatibility with older/custom assignment engines that still use
+      // truthiness for media references. Numeric ID 0 is valid in Studio, so
+      // temporarily shield it while those engines fill other empty scenes.
+      const protectedZero=new Map();
+      for(const clip of Array.isArray(project?.clips)?project.clips:[])if(clip?.asset===0){protectedZero.set(clip,0);clip.asset='__profitmente_asset_zero__'}
+      try{assigned=this.engine.assignAssets(project,usable)||{}}
+      finally{for(const [clip,value] of protectedZero)if(clip.asset==='__profitmente_asset_zero__')clip.asset=value}
     }else{
       assigned={
         primary:0,broll:0,skipped:before,
