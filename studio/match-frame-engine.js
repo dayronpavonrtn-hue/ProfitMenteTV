@@ -1,8 +1,18 @@
 (()=>{
   class ProfitMenteMatchFrameEngine{
     num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d}
+    mediaKey(id){
+      if(typeof id==='boolean'||id===null||id===undefined)return null;
+      if(typeof id==='number')return Number.isFinite(id)?`n:${Object.is(id,-0)?0:id}`:null;
+      if(typeof id!=='string')return `s:${String(id)}`;
+      const s=id.trim();if(!s)return 's:';
+      const n=Number(s);
+      if(Number.isFinite(n)&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(s))return `n:${Object.is(n,-0)?0:n}`;
+      return `s:${s}`;
+    }
+    sameId(a,b){const ak=this.mediaKey(a),bk=this.mediaKey(b);return ak!==null&&ak===bk}
     speed(clip){return Math.max(.25,Math.min(4,this.num(clip?.speed,1)||1))}
-    sourceAssetId(clip){return clip?.freezeOriginalAsset||clip?.asset||null}
+    sourceAssetId(clip){return clip?.freezeOriginalAsset??clip?.asset??null}
     inside(clip,t){
       if(!clip)return false;
       const start=this.num(clip.start,0),duration=Math.max(0,this.num(clip.duration,0)),time=this.num(t,start);
@@ -24,7 +34,7 @@
     }
     chooseClip(clips,t,selectedId=null){
       const list=Array.isArray(clips)?clips:[];
-      const selected=list.find(c=>c?.id===selectedId);
+      const selected=list.find(c=>this.sameId(c?.id,selectedId));
       if(selected&&this.inside(selected,t))return selected;
       const candidates=list.filter(c=>this.inside(c,t)&&[0,1,2].includes(Number(c.track)));
       candidates.sort((a,b)=>{
@@ -34,6 +44,7 @@
       });
       return candidates[0]||null;
     }
+    findAsset(assets,id){return (Array.isArray(assets)?assets:[]).find(a=>this.sameId(a?.id,id))||null}
   }
   if(typeof window!=='undefined')window.ProfitMenteMatchFrameEngine=ProfitMenteMatchFrameEngine;
   if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMatchFrameEngine;
