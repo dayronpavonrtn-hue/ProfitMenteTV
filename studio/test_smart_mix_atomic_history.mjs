@@ -10,7 +10,7 @@ assert.equal((smart.match(/\brefresh\(\);/g)||[]).length,1,'smart mix must persi
 
 assert.match(normalize,/const \{deferPersist=false,quiet=false\}/,'normalization API must support deferred persistence');
 assert.match(normalize,/if\(changed&&!deferPersist\)refresh\(\)/,'deferred normalization must not create an intermediate history entry');
-assert.match(normalize,/return \{ok:true,changed,skipped,deferred:!!deferPersist\}/,'normalization must report deferred completion');
+assert.match(normalize,/return \{ok:true,changed,skipped,locked,deferred:!!deferPersist\}/,'normalization must report deferred completion together with locked-clip accounting');
 assert.match(normalize,/reason:'busy'/,'normalization must expose the busy state to callers');
 
 console.log('smart mix atomic history contract ok');
