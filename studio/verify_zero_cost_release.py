@@ -79,6 +79,7 @@ def main() -> None:
         ("automatico", "Auto Finish planifica el flujo local completo", [node, "test_auto_finish_engine.mjs"]),
         ("automatico", "Auto Finish revierte cambios parciales de forma atómica", [node, "test_auto_finish_atomicity.mjs"]),
         ("automatico", "Auto Finish espera el render local antes de continuar", [node, "test_auto_finish_render_wait.mjs"]),
+        ("automatico", "Transiciones automáticas respetan locks, gaps y aliases heredados", [node, "test_auto_transition_engine.mjs"]),
         ("automatico", "Duración automática de transiciones coincide entre Preview y Render", [node, "test_transition_duration.mjs"]),
         ("medios", "Importación y deduplicación de biblioteca", [node, "test_media_import_engine.mjs"]),
         ("medios", "Proxies locales respetan identidad canónica de medios", [node, "test_media_proxy_engine.mjs"]),
