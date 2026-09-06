@@ -3,7 +3,8 @@
   let active=null;
   const $=s=>document.querySelector(s);
   if(!window.ProfitMenteGroupDragEngine&&!document.querySelector('script[data-profitmente-group-drag]')){const s=document.createElement('script');s.src='group-drag-engine.js';s.async=false;s.dataset.profitmenteGroupDrag='1';document.head.appendChild(s)}
-  const assetFor=clip=>(assets||[]).find(a=>a.id===clip.asset);
+  const sameId=(a,b)=>a!==null&&a!==undefined&&b!==null&&b!==undefined&&String(a)!==''&&String(a)===String(b);
+  const assetFor=clip=>(assets||[]).find(a=>sameId(a.id,clip?.asset));
   function trackLocked(track){
     const lockedIn=states=>{const state=states?.[track]??states?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)};
     return lockedIn(project?.trackState)||lockedIn(project?.trackStates);
@@ -63,7 +64,7 @@
   function laneAt(x,y){const el=document.elementFromPoint(x,y);return el?.closest?.('.lane')||null}
   function clearTargets(){document.querySelectorAll('.lane.dropTarget').forEach(x=>x.classList.remove('dropTarget'))}
   function begin(e,el){
-    if(e.button!==0)return;const clip=(project.clips||[]).find(c=>c.id===el.dataset.id);if(!clip)return;
+    if(e.button!==0)return;const clip=(project.clips||[]).find(c=>sameId(c.id,el.dataset.id));if(!clip)return;
     if(clip.groupId&&!window.ProfitMenteGroupDragEngine){if(typeof setStatus==='function')setStatus('Cargando movimiento de grupos… vuelve a arrastrar');e.preventDefault();e.stopImmediatePropagation();return}
     const groupEngine=window.ProfitMenteGroupDragEngine?new window.ProfitMenteGroupDragEngine():null,originals=groupEngine?.snapshot(project,clip)||[{id:clip.id,start:+clip.start||0,duration:+clip.duration||0,track:clip.track}];
     const protectedMember=originals.find(x=>{const c=(project.clips||[]).find(y=>String(y.id)===String(x.id));return clipLocked(c||x)});
