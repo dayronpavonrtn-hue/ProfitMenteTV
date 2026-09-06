@@ -76,6 +76,9 @@ jobs:
       - name: Verify core audio preview identity safety
         run: node studio/test_audio_engine_identity.mjs
 
+      - name: Verify Smart Mix automation and legacy audio state safety
+        run: node studio/test_smart_mix_engine.mjs
+
       - name: Verify automatic beat detection
         run: node studio/test_beat_detect_engine.mjs
 
