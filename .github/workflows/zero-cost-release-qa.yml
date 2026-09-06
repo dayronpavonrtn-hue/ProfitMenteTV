@@ -43,6 +43,9 @@ jobs:
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
+      - name: Verify source monitor ranges, probed duration and legacy media identity
+        run: node studio/test_source_monitor.mjs
+
       - name: Verify source-aware left trim
         run: node studio/test_timeline_left_trim.mjs
 
