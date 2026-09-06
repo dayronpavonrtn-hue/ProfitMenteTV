@@ -29,6 +29,8 @@ assert.notEqual(ProxyEngine.mediaKey('Asset'),ProxyEngine.mediaKey('asset'),'tex
 assert.deepEqual(ProxyEngine.candidates([legacyNumeric],[7]),[legacyNumeric],'numeric alias should select imported proxy candidate');
 assert.deepEqual(ProxyEngine.candidates([legacyNumeric],['+07.000']),[legacyNumeric],'decimal numeric alias should select imported proxy candidate');
 assert.deepEqual(ProxyEngine.candidates([legacyNumeric],['8']),[],'unrelated imported ID must not enqueue proxy work');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],[false]),[],'invalid imported IDs must fail closed instead of scanning the whole library');
+assert.deepEqual(ProxyEngine.candidates([legacyNumeric],['   ']),[],'blank imported IDs must fail closed instead of scanning the whole library');
 assert.deepEqual(ProxyEngine.candidates([legacyNumeric],[]),[legacyNumeric],'empty ID list preserves startup proxy scan');
 
 const original=mov.blob;
