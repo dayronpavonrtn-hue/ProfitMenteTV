@@ -13,8 +13,8 @@ class ProfitMenteMediaProxyEngine{
   }
   static requestedKeys(ids=[]){return new Set((Array.isArray(ids)?ids:[]).map(id=>this.mediaKey(id)).filter(key=>key!=null))}
   static candidates(allAssets=[],ids=[]){
-    const list=Array.isArray(allAssets)?allAssets:[],requested=this.requestedKeys(ids);
-    return list.filter(asset=>(!requested.size||requested.has(this.mediaKey(asset?.id)))&&this.shouldProxy(asset)&&!this.proxyCurrent(asset));
+    const list=Array.isArray(allAssets)?allAssets:[],rawIds=Array.isArray(ids)?ids:[],requested=this.requestedKeys(rawIds),filterByIds=rawIds.length>0;
+    return list.filter(asset=>(!filterByIds||requested.has(this.mediaKey(asset?.id)))&&this.shouldProxy(asset)&&!this.proxyCurrent(asset));
   }
   static shouldProxy(asset={}){
     if(asset?.proxyAutoDisabled)return false;
