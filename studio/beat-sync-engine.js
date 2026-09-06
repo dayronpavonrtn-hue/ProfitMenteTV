@@ -1,8 +1,23 @@
 class ProfitMenteBeatSyncEngine{
+  canonicalTrack(track){
+    if(typeof track==='boolean'||track==null)return null;
+    if(typeof track==='string'&&!track.trim())return null;
+    const n=Number(track);
+    if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    return Object.is(n,-0)?0:n;
+  }
+  sameTrack(track,expected){
+    const a=this.canonicalTrack(track),b=this.canonicalTrack(expected);
+    return a!==null&&b!==null&&a===b;
+  }
   trackLocked(project,track){
-    const read=map=>map?.[track]??map?.[String(track)]??{};
-    const current=read(project?.trackState),legacy=read(project?.trackStates);
-    return !!(current&&typeof current==='object'&&current.locked)||!!(legacy&&typeof legacy==='object'&&legacy.locked);
+    const wanted=this.canonicalTrack(track);
+    if(wanted===null)return false;
+    const lockedIn=map=>{
+      if(!map||typeof map!=='object')return false;
+      return Object.entries(map).some(([key,state])=>this.canonicalTrack(key)===wanted&&state&&typeof state==='object'&&state.locked===true);
+    };
+    return lockedIn(project?.trackState)||lockedIn(project?.trackStates);
   }
   clipLocked(clip){return clip?.locked===true}
   beatTimes(markers,duration=Infinity){
@@ -15,14 +30,14 @@ class ProfitMenteBeatSyncEngine{
   }
   generatedScenes(project){
     return (project?.clips||[])
-      .filter(c=>Number(c.track)===0&&String(c.sceneText||'').trim())
+      .filter(c=>this.sameTrack(c.track,0)&&String(c.sceneText||'').trim())
       .sort((a,b)=>Number(a.start)-Number(b.start));
   }
   linkedCaptions(project,scene){
-    return (project?.clips||[]).filter(c=>Number(c.track)===3&&(c.sceneId&&scene.sceneId?c.sceneId===scene.sceneId:String(c.name||'')===String(scene.sceneText||'')));
+    return (project?.clips||[]).filter(c=>this.sameTrack(c.track,3)&&(c.sceneId&&scene.sceneId?c.sceneId===scene.sceneId:String(c.name||'')===String(scene.sceneText||'')));
   }
   linkedBroll(project,scene){
-    return (project?.clips||[]).filter(c=>Number(c.track)===1&&(c.sceneId&&scene.sceneId?c.sceneId===scene.sceneId:String(c.name||'')===`B-roll · ${scene.name}`));
+    return (project?.clips||[]).filter(c=>this.sameTrack(c.track,1)&&(c.sceneId&&scene.sceneId?c.sceneId===scene.sceneId:String(c.name||'')===`B-roll · ${scene.name}`));
   }
   protectedEdits(project,scenes=this.generatedScenes(project)){
     const protectedItems=[];
