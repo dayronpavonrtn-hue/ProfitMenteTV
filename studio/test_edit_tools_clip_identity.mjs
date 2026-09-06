@@ -11,11 +11,16 @@ globalThis.project={duration:20,clips:[
 
 const buttons=new Map();
 for(const id of ['splitBtn','duplicateBtn','deleteClipBtn','playhead'])buttons.set(id,{disabled:false,value:'0',addEventListener(){}});
+const documentListeners=new Map();
 globalThis.document={
   activeElement:{tagName:'BODY',isContentEditable:false},
   querySelector(selector){return selector.startsWith('#')?buttons.get(selector.slice(1))||null:null},
   querySelectorAll(){return []},
-  addEventListener(){},
+  addEventListener(type,handler,options){
+    const list=documentListeners.get(type)||[];
+    list.push({handler,options});
+    documentListeners.set(type,list);
+  },
   createElement(){return {setAttribute(){},addEventListener(){}}},
   body:{appendChild(){} }
 };
@@ -50,9 +55,24 @@ assert.equal(tools.selectedId,0,'zero IDs must remain selectable instead of bein
 tools.select(' alpha ');
 assert.equal(tools.selectedId,'alpha','text IDs should normalize harmless surrounding whitespace');
 
+const dblclick=documentListeners.get('dblclick')||[];
+assert.equal(dblclick.length,1,'manual editor must own one safe clip double-click route');
+assert.equal(dblclick[0].options,true,'double-click guard must run in capture phase before legacy target handlers');
+let prevented=false,stopped=false;
+const clipEl={dataset:{id:'007'},closest(selector){return selector==='.clip'?this:null}};
+dblclick[0].handler({
+  target:clipEl,
+  preventDefault(){prevented=true},
+  stopImmediatePropagation(){stopped=true}
+});
+assert.equal(prevented,true,'safe double-click route must suppress legacy default behavior');
+assert.equal(stopped,true,'safe double-click route must stop destructive legacy target handlers');
+assert.equal(tools.selectedId,7,'double-click should select the clip for the modern inspector');
+assert.match(globalThis.__status,/inspector/i,'double-click should clearly route editing to the inspector');
+
 project.clips.push({id:'7.0',track:2,name:'Ambiguous alias',start:9,duration:1});
 tools.select('007');
 assert.equal(tools.selectedId,null,'ambiguous canonical clip IDs must not silently select the wrong clip');
 assert.match(globalThis.__status,/ambiguo/i);
 
-console.log('edit tools clip identity ok');
+console.log('edit tools clip identity and safe inspector routing ok');
