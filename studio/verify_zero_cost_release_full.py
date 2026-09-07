@@ -57,6 +57,7 @@ def main() -> None:
         ("Importación de proyecto normaliza FPS para preview/render", [node, "test_project_import_fps.mjs"]),
         ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Snapping magnético conserva identidad canónica", [node, "test_timeline_snap.mjs"]),
+        ("Timeline normaliza aliases de pistas y locks heredados", [node, "test_timeline_track_state_alias.mjs"]),
         ("Source Monitor respeta rangos, duración e identidad legacy", [node, "test_source_monitor.mjs"]),
         ("Match Frame conserva mapeo de fuente", [node, "test_match_frame.mjs"]),
         ("Trim izquierdo conserva ventana de fuente", [node, "test_timeline_left_trim.mjs"]),
