@@ -116,4 +116,4 @@
   root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
   if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
 })(typeof window!=='undefined'?window:globalThis);
-if(typeof document!=='undefined'&&document.readyState==='loading'&&!globalThis.ProfitMenteQAStrictProjectGuard){document.write('<script src="qa-strict-project-guard.js"><\\/script>')}
+if(typeof document!=='undefined'&&document.readyState==='loading'&&!globalThis.ProfitMenteQAStrictProjectGuard){document.write('<script src="qa-strict-project-guard.js"></scr'+'ipt>')}
