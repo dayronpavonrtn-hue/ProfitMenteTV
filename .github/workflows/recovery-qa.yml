@@ -5,6 +5,7 @@ on:
       - 'studio/recovery-engine.js'
       - 'studio/recovery-integration.js'
       - 'studio/test_recovery.mjs'
+      - 'studio/test_recovery_same_name_drafts.mjs'
       - 'studio/test_recovery_project_switch.mjs'
       - 'studio/test_recovery_restore_persistence.mjs'
       - 'studio/generator-integration.js'
@@ -24,6 +25,8 @@ jobs:
         run: node --check studio/generator-integration.js
       - name: Test recovery snapshots
         run: node studio/test_recovery.mjs
+      - name: Test same-name draft recovery isolation
+        run: node studio/test_recovery_same_name_drafts.mjs
       - name: Test recovery project switching
         run: node studio/test_recovery_project_switch.mjs
       - name: Test recovery restore persistence
