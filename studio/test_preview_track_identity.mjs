@@ -26,20 +26,23 @@ vm.runInNewContext(source,sandbox,{filename:'preview-engine.js'});
 const api=sandbox.ProfitMentePreviewEngine;
 assert.ok(api,'preview engine API should be exposed');
 
-for(const [value,expected] of [[0,0],['0',0],['00',0],['+01.0',1],['03',3],['-0',0],[6,6],['6.0',6]])assert.equal(api.canonicalTrack(value),expected,`canonical track ${String(value)}`);
-for(const value of [false,true,null,undefined,{},[],Symbol('3'),'1.5',-1,7,'video',''])assert.equal(api.canonicalTrack(value),null,`invalid track ${String(value)} must be rejected`);
+for(const [value,expected] of [[0,0],['0',0],['00',0],['+01.0',1],['03',3],['-0',0],[6,6],['6.0',6],['7.0',7]])assert.equal(api.canonicalTrack(value),expected,`canonical track ${String(value)}`);
+for(const value of [false,true,null,undefined,{},[],Symbol('3'),'1.5',-1,'video',''])assert.equal(api.canonicalTrack(value),null,`invalid track ${String(value)} must be rejected`);
 
 sandbox.project.clips=[
   {id:'valid',track:'03.0',start:0,duration:5,name:'válido'},
   {id:'boolean',track:true,start:0,duration:5,name:'inválido'},
   {id:'object',track:{valueOf(){return 3}},start:0,duration:5,name:'inválido'},
   {id:'fraction',track:'3.5',start:0,duration:5,name:'inválido'},
+  {id:'future-track',track:7,start:0,duration:5,name:'no es caption'},
   {id:'late',track:3,start:10,duration:5,name:'fuera de tiempo'}
 ];
-assert.deepEqual(Array.from(api.activeCaptions(2),c=>c.id),['valid'],'preview captions must use strict canonical track identity');
+assert.deepEqual(Array.from(api.activeCaptions(2),c=>c.id),['valid'],'preview captions must use strict semantic track identity');
 
 sandbox.project.trackState={'03.0':{hidden:true}};
 assert.equal(api.isTrackHidden(3),true,'legacy numeric aliases should still hide the canonical track');
+sandbox.project.trackState={'7':{hidden:false},'7.0':{hidden:true}};
+assert.equal(api.isTrackHidden(7),true,'hidden safety alias must beat visible canonical state for future/legacy tracks');
 sandbox.project.trackState={'true':{hidden:true},'[object Object]':{hidden:true}};
 assert.equal(api.isTrackHidden(1),false,'invalid aliases must not hide track 1');
 assert.equal(api.isTrackHidden(3),false,'invalid aliases must not hide track 3');
