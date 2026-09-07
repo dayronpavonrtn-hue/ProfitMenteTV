@@ -22,7 +22,7 @@ for(const duration of [true,false,[],[12],{},null]){
   assert.throws(()=>engine.normalize({duration,format:'9:16',clips:[]}),/Duración de proyecto inválida/,`project duration must reject JSON coercion: ${JSON.stringify(duration)}`);
 }
 for(const track of [true,false,[],[1],{},[6]]){
-  assert.throws(()=>engine.normalize({duration:12,format:'9:16',clips:[{id:'bad-track',track,start:0,duration:1}]}),/Pista de clip inválida/,`track must reject JSON coercion: ${JSON.stringify(track)}`);
+  assert.throws(()=>engine.normalize({duration:12,format:'9:16',clips:[{id:'bad-track',track,start:0,duration:1}]}),/Pista de clip inválid/,`track must reject JSON coercion: ${JSON.stringify(track)}`);
 }
 for(const start of [true,false,[],[1],{},[0]]){
   assert.throws(()=>engine.normalize({duration:12,format:'9:16',clips:[{id:'bad-start',track:0,start,duration:1}]}),/Tiempo de clip inválido/,`clip start must reject JSON coercion: ${JSON.stringify(start)}`);
