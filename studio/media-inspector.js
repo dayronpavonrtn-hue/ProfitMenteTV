@@ -89,9 +89,13 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIn
     if(window.ProfitMenteMediaLibraryCrossProjectGuard||document.querySelector('script[data-profitmente-media-cross-project-guard]'))return;
     const s=document.createElement('script');s.src='media-library-cross-project-guard.js';s.dataset.profitmenteMediaCrossProjectGuard='1';document.body.appendChild(s);
   }
+  function loadInspectorRebind(){
+    if(window.ProfitMenteMediaLibraryInspectorRebind||document.querySelector('script[data-profitmente-media-inspector-rebind]'))return;
+    const s=document.createElement('script');s.src='media-library-inspector-rebind.js';s.async=false;s.dataset.profitmenteMediaInspectorRebind='1';document.body.appendChild(s);
+  }
   setTimeout(upgradeExisting,50);
   window.profitMenteMediaInspector=inspector;
-  if(!document.querySelector('script[data-profitmente-media-library-tools]')){
-    const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';s.onload=loadCleanupGuard;document.body.appendChild(s)
-  }else if(window.ProfitMenteMediaLibraryTools)loadCleanupGuard();
+  if(!window.ProfitMenteMediaLibraryTools&&!document.querySelector('script[data-profitmente-media-library-tools]')){
+    const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';s.onload=()=>{loadCleanupGuard();loadInspectorRebind()};document.body.appendChild(s)
+  }else if(window.ProfitMenteMediaLibraryTools){loadCleanupGuard();loadInspectorRebind()}
 })();
