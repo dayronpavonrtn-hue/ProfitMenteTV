@@ -90,6 +90,8 @@
     ['slip-edit-integration.js','ProfitMenteSlipEdit'],
     ['roll-edit-engine.js','ProfitMenteRollEditEngine'],
     ['roll-edit-integration.js','ProfitMenteRollEdit'],
+    ['slide-edit-engine.js','ProfitMenteSlideEditEngine'],
+    ['slide-edit-integration.js','ProfitMenteSlideEdit'],
     ['rate-stretch-engine.js','ProfitMenteRateStretchEngine'],
     ['rate-stretch-integration.js','ProfitMenteRateStretch'],
     ['freeze-frame-engine.js','ProfitMenteFreezeFrameEngine'],
