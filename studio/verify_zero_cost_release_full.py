@@ -53,6 +53,7 @@ def main() -> None:
         ("Reporte QA renderiza datos de forma segura", [node, "test_qa_report_safe_render.mjs"]),
         ("Studio carga y activa el renderer QA seguro", [node, "test_studio_qa_report_integration.mjs"]),
         ("Timeline renderiza contenido de forma segura", [node, "test_timeline_safe_render.mjs"]),
+        ("Importación de proyecto normaliza FPS para preview/render", [node, "test_project_import_fps.mjs"]),
         ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Snapping magnético conserva identidad canónica", [node, "test_timeline_snap.mjs"]),
         ("Source Monitor respeta rangos, duración e identidad legacy", [node, "test_source_monitor.mjs"]),
