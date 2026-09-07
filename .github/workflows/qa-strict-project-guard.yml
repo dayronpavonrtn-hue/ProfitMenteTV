@@ -4,10 +4,12 @@ on:
   push:
     branches: [main]
     paths:
+      - 'studio/index.html'
       - 'studio/qa-engine.js'
       - 'studio/qa-media-identity-guard.js'
       - 'studio/qa-strict-project-guard.js'
       - 'studio/test_qa_strict_project_guard.mjs'
+      - 'studio/test_qa_strict_project_wiring.mjs'
       - '.github/workflows/qa-strict-project-guard.yml'
   workflow_dispatch:
 
@@ -27,5 +29,8 @@ jobs:
         run: |
           node --check studio/qa-strict-project-guard.js
           node --check studio/qa-media-identity-guard.js
+          node --check studio/test_qa_strict_project_wiring.mjs
       - name: Strict project regression
         run: node studio/test_qa_strict_project_guard.mjs
+      - name: Strict project runtime wiring
+        run: node studio/test_qa_strict_project_wiring.mjs
