@@ -15,9 +15,7 @@
     return Number.isInteger(n)&&n>=0&&n<=6?(Object.is(n,-0)?0:n):null;
   };
 
-  const originalTrackLocked=Engine.prototype.trackLocked;
   Engine.prototype.trackLocked=function(project,track){
-    if(typeof originalTrackLocked==='function'&&originalTrackLocked.call(this,project,track))return true;
     const target=canonicalTrack(track);
     if(target===null)return false;
     for(const map of [project?.trackState,project?.trackStates]){
@@ -29,12 +27,12 @@
     return false;
   };
 
-  const originalClipLocked=Engine.prototype.clipLocked;
   Engine.prototype.clipLocked=function(project,clip){
-    const locked=(typeof originalClipLocked==='function'&&originalClipLocked.call(this,project,clip))||this.trackLocked(project,clip?.track)||clip?.locked===true;
-    const normalized=canonicalTrack(clip?.track);
-    if(locked&&clip&&normalized!==null)clip.track=normalized;
-    return !!locked;
+    if(!clip||typeof clip!=='object'||Array.isArray(clip))return false;
+    const locked=clip.locked===true||this.trackLocked(project,clip.track);
+    const normalized=canonicalTrack(clip.track);
+    if(locked&&normalized!==null)clip.track=normalized;
+    return locked;
   };
 
   globalThis.ProfitMenteGeneratorTrackAliasGuard={canonicalTrack};
