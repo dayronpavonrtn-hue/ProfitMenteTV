@@ -84,6 +84,9 @@ jobs:
       - name: Verify cross-project media library cleanup and deletion safety
         run: node studio/test_media_library_cross_project_guard.mjs
 
+      - name: Verify media library remains bound after inspector renderer
+        run: node studio/test_media_library_inspector_rebind.mjs
+
       - name: Verify safe media replacement and legacy duration recovery
         run: node studio/test_media_replace_engine.mjs
 
