@@ -7,6 +7,7 @@ on:
       - 'studio/render_mp4.py'
       - 'studio/caption-preview.js'
       - 'studio/test_preview_track_state.mjs'
+      - 'studio/test_preview_track_identity.mjs'
       - 'studio/test_preview_keyframe_parity.mjs'
       - 'studio/test_preview_overlap_order.mjs'
       - 'studio/test_preview_media_identity.mjs'
@@ -24,6 +25,8 @@ jobs:
         run: node --check studio/preview-engine.js && node --check studio/caption-preview.js
       - name: Test preview track state and transition parity
         run: node studio/test_preview_track_state.mjs
+      - name: Test preview strict track identity
+        run: node studio/test_preview_track_identity.mjs
       - name: Test preview keyframe parity
         run: node studio/test_preview_keyframe_parity.mjs
       - name: Test preview and MP4 overlap order parity
