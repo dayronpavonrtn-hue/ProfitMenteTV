@@ -67,5 +67,29 @@ assert.deepEqual(Ducking.intervals({clips:[music,{track:false,asset:'voice',star
 assert.deepEqual(Ducking.intervals({clips:[music,{track:6,asset:false,start:2,duration:2}]},music),[]);
 assert.deepEqual(Ducking.intervals({clips:[{...music,asset:false},{track:6,asset:'voice',start:2,duration:2}]},{...music,asset:false}),[]);
 
+// Strict identity: objects, arrays and boxed primitives must never coerce into valid tracks or media ids.
+for(const invalid of [{valueOf:()=>5},{toString:()=> '5'},[5],new Number(5)])assert.equal(Ducking.canonicalTrack(invalid),null);
+for(const invalid of [{valueOf:()=>6},{toString:()=> 'voice'},['voice'],new Number(6),Symbol('asset')])assert.equal(Ducking.hasAsset(invalid),false);
+assert.equal(Ducking.canonicalTrack('-0'),0);
+assert.equal(Ducking.canonicalTrack('+06.0'),6);
+assert.equal(Ducking.canonicalId(-0),'0');
+assert.equal(Ducking.canonicalId('000'),'0');
+assert.deepEqual(Ducking.intervals({clips:[music,{track:{valueOf:()=>6},asset:'voice',start:2,duration:2}]},music),[]);
+assert.deepEqual(Ducking.intervals({clips:[music,{track:6,asset:{toString:()=> 'voice'},start:2,duration:2}]},music),[]);
+
+// Corrupt numerics must fall back deterministically instead of being coerced by Number().
+const corruptMusic={...music,start:{valueOf:()=>4},duration:{valueOf:()=>12},volume:{valueOf:()=>.9},duckVolume:{valueOf:()=>.1},speed:{valueOf:()=>3},sourceOffset:{valueOf:()=>7},fadeIn:{valueOf:()=>1},fadeOut:{valueOf:()=>1}};
+const corruptProject={clips:[corruptMusic,{track:6,asset:'voice',start:'2',duration:'2'}]};
+assert.deepEqual(Ducking.intervals(corruptProject,corruptMusic),[],'invalid music duration must not create ducking intervals');
+assert.equal(Ducking.baseVolume(corruptMusic),.22);
+assert.equal(Ducking.duckVolume(corruptMusic),.16);
+assert.equal(Ducking.multiplierAt(project,music,{valueOf:()=>3}),1,'invalid local time must fall back to zero');
+
+const stringMusic={...music,start:'0',duration:'12',sourceOffset:'1',speed:'1.5',volume:'.30',duckVolume:'.10',fadeIn:'.4',fadeOut:'.6'};
+const stringProject={clips:[stringMusic,{track:'6',asset:'voice',start:'2',duration:'2'}]};
+assert.deepEqual(Ducking.intervals(stringProject,stringMusic),[{start:2,end:4}]);
+const stringParts=Ducking.prepareForRender(stringProject).clips.filter(c=>Ducking.canonicalTrack(c.track)===5);
+assert.deepEqual(stringParts.map(c=>[c.start,c.duration,c.volume]),[[0,2,.3],[2,2,.1],[4,8,.3]]);
+
 const noVoice={clips:[music]};assert.equal(Ducking.prepareForRender(noVoice).clips.length,1);
 console.log('audio ducking ok');
