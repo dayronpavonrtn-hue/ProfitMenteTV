@@ -21,6 +21,12 @@ const stereo=Engine.detectChannels([samples,samples],rate,0,1,{thresholdDb:-40})
 assert.equal(stereo.ok,true,'debe analizar múltiples canales');
 const silent=Engine.detectChannels([new Float32Array(500)],rate,0,.5);
 assert.equal(silent.ok,false);assert.equal(silent.reason,'silence');
+const corruptDuration=Engine.detectChannels([samples],rate,0,{valueOf(){return 1}});
+assert.equal(corruptDuration.ok,false,'duración basada en objeto no debe coercionarse');
+assert.equal(corruptDuration.reason,'empty-window');
+const safeOptions=Engine.detectChannels([samples],rate,0,1,{thresholdDb:{valueOf(){return -80}},frameMs:true,minSoundMs:[],paddingMs:new Number(100)});
+assert.equal(safeOptions.ok,true,'opciones corruptas deben caer a defaults seguros sin coerción');
+assert.equal(safeOptions.thresholdDb,-45,'threshold corrupto debe usar default');
 
 const fastClip={id:'fast',track:4,start:3,duration:2,sourceOffset:1,speed:2};
 const fastPlan=Engine.trimPlan(fastClip,{ok:true,leading:.4,trailing:.2});
@@ -44,17 +50,39 @@ const tiny=Engine.trimPlan({duration:.2,sourceOffset:0,speed:1},{ok:true,leading
 assert.equal(tiny.ok,false);assert.equal(tiny.reason,'too-short');
 const negligible=Engine.trimPlan({duration:1,sourceOffset:0,speed:1},{ok:true,leading:.01,trailing:.01});
 assert.equal(negligible.ok,false);assert.equal(negligible.reason,'no-silence');
+const corruptPlan=Engine.trimPlan({duration:{valueOf(){return 10}},sourceOffset:new Number(3),speed:true},{ok:true,leading:'0.2',trailing:'0.2'});
+assert.equal(corruptPlan.ok,false,'numerics de clip corruptos no deben coercionarse');
+assert.equal(corruptPlan.reason,'too-short');
+const numericStrings=Engine.trimPlan({duration:'2',sourceOffset:'1.5',speed:'2'},{ok:true,leading:'0.4',trailing:'0.2'});
+assert.equal(numericStrings.ok,true,'strings numéricos heredados deben seguir soportados');
+approx(numericStrings.sourceOffset,1.9,.001);approx(numericStrings.duration,1.7,.001);
 
 const win=Engine.clipWindow({duration:4,sourceOffset:8,speed:2},10);
 approx(win.sourceDuration,2,.001,'ventana debe respetar final físico del asset');
 assert.equal(win.speed,2);
+const corruptWin=Engine.clipWindow({duration:{valueOf(){return 4}},sourceOffset:true,speed:new Number(2)},'10');
+assert.deepEqual(corruptWin,{offset:0,sourceDuration:0,speed:1},'ventana corrupta debe usar defaults escalares seguros');
+const stringWin=Engine.clipWindow({duration:'4',sourceOffset:'8',speed:'2'},'10');
+approx(stringWin.sourceDuration,2,.001,'strings numéricos válidos deben conservar compatibilidad');
+assert.equal(stringWin.speed,2);
 
+assert.equal(Engine.finiteNumber(4,null),4);
+assert.equal(Engine.finiteNumber(' 4.5 ',null),4.5);
+assert.equal(Engine.finiteNumber(false,null),null,'boolean no debe coercionarse');
+assert.equal(Engine.finiteNumber([],null),null,'array no debe coercionarse');
+assert.equal(Engine.finiteNumber(new Number(4),null),null,'wrapper numérico no debe coercionarse');
+assert.equal(Engine.finiteNumber({valueOf(){return 4}},null),null,'objeto coercible no debe aceptarse');
+assert.equal(Engine.finiteNumber(Symbol('4'),null),null,'Symbol debe rechazarse sin lanzar');
 assert.equal(Engine.canonicalTrack('04'),4,'acepta alias heredado 04');
 assert.equal(Engine.canonicalTrack('4.0'),4,'acepta alias decimal entero');
 assert.equal(Engine.canonicalTrack('06'),6,'acepta alias heredado 06');
 assert.equal(Engine.canonicalTrack('-0'),0,'normaliza negative zero');
 assert.equal(Engine.canonicalTrack(false),null,'false no puede representar pista 0');
 assert.equal(Engine.canonicalTrack(true),null,'true no puede representar pista 1');
+assert.equal(Engine.canonicalTrack({valueOf(){return 4}}),null,'objeto coercible no puede representar pista');
+assert.equal(Engine.canonicalTrack([4]),null,'array no puede representar pista');
+assert.equal(Engine.canonicalTrack(new Number(4)),null,'wrapper numérico no puede representar pista');
+assert.equal(Engine.canonicalTrack(Symbol('4')),null,'Symbol no puede representar pista ni lanzar');
 assert.equal(Engine.canonicalTrack('6.5'),null,'no convierte pistas fraccionarias');
 assert.equal(Engine.canonicalTrack(7),null,'no convierte pistas fuera del Studio');
 assert.equal(Engine.canonicalTrack(' '),null,'no convierte pista vacía');
@@ -94,7 +122,12 @@ assert.equal(Engine.trackLocked({trackState:{'4.5':{locked:true}}},4),false,'ali
 assert.equal(Engine.trackLocked({trackState:{7:{locked:true}}},6),false,'pista fuera de rango no contamina pista 6');
 assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},5),false,'no bloquea otra pista');
 assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},false),false,'boolean false no debe consultar lock de pista 0');
+assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},{valueOf(){return 4}}),false,'objeto coercible no debe consultar locks');
 assert.equal(Engine.trackLocked({trackState:{4:{locked:true}}},'invalid'),false,'track inválido no debe bloquear por accidente');
+
+const guarded={sourceOffset:7,duration:8};
+assert.equal(Engine.applyPlan(guarded,{ok:true,sourceOffset:{valueOf(){return 1}},duration:2,leading:.1,trailing:.1,removedTimeline:.2}),false,'applyPlan debe rechazar planes coercibles');
+assert.deepEqual(guarded,{sourceOffset:7,duration:8},'plan inválido debe ser atómico y no mutar el clip');
 
 const integration=readFileSync(new URL('./audio-silence-integration.js',import.meta.url),'utf8');
 assert.match(integration,/Engine\.hasAsset\(clip\.asset\)/,'integración debe aceptar asset 0 con helper explícito');
