@@ -50,6 +50,7 @@ def main() -> None:
     parity_checks = [
         ("Fallback B-roll offline mantiene costo $0", [py, "tests/test_zero_cost_broll.py"]),
         ("Inspector respeta locks e identidad de clips", [node, "test_clip_lock_track_inspector.mjs"]),
+        ("Edición avanzada rechaza identidades de pista inválidas", [node, "test_advanced_edit_lock_guard.mjs"]),
         ("Reporte QA renderiza datos de forma segura", [node, "test_qa_report_safe_render.mjs"]),
         ("Studio carga y activa el renderer QA seguro", [node, "test_studio_qa_report_integration.mjs"]),
         ("Timeline renderiza contenido de forma segura", [node, "test_timeline_safe_render.mjs"]),
