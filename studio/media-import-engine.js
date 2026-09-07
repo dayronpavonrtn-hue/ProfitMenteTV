@@ -108,17 +108,22 @@ class ProfitMenteMediaImportEngine{
   static async filesFromDataTransfer(dataTransfer={}){
     const items=Array.from(dataTransfer?.items||[]),entries=items.map(item=>typeof item?.webkitGetAsEntry==='function'?item.webkitGetAsEntry():null).filter(Boolean);
     if(!entries.length)return Array.from(dataTransfer?.files||[]);
-    const files=[];
+    const files=[];let readFailures=0;
+    const attachFailures=()=>{try{Object.defineProperty(files,'sourceReadFailures',{value:readFailures,configurable:true})}catch{try{files.sourceReadFailures=readFailures}catch{}}return files};
     const attachPath=(file,path)=>{const clean=String(path||file?.name||'').replace(/^[/\\]+/,'').replace(/\\/g,'/');try{Object.defineProperty(file,'sourceRelativePath',{value:clean,configurable:true})}catch{try{file.sourceRelativePath=clean}catch{}}return file};
     const readFile=entry=>new Promise((resolve,reject)=>entry.file(file=>resolve(attachPath(file,entry.fullPath||file.name)),reject));
-    const readDirectory=async entry=>{
-      const reader=entry.createReader(),children=[];
-      while(true){const batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject));if(!batch?.length)break;children.push(...batch)}
-      for(const child of children)await walk(child);
+    const walk=async entry=>{
+      if(entry?.isFile){try{files.push(await readFile(entry))}catch(err){readFailures++;console.warn?.('No se pudo leer un medio arrastrado',entry?.fullPath||entry?.name||'',err)}return}
+      if(!entry?.isDirectory)return;
+      let reader;try{reader=entry.createReader()}catch(err){readFailures++;console.warn?.('No se pudo abrir una carpeta arrastrada',entry?.fullPath||entry?.name||'',err);return}
+      while(true){
+        let batch;try{batch=await new Promise((resolve,reject)=>reader.readEntries(resolve,reject))}catch(err){readFailures++;console.warn?.('No se pudo enumerar una carpeta arrastrada',entry?.fullPath||entry?.name||'',err);return}
+        if(!batch?.length)break;
+        for(const child of batch)await walk(child);
+      }
     };
-    const walk=async entry=>{if(entry?.isFile)files.push(await readFile(entry));else if(entry?.isDirectory)await readDirectory(entry)};
     for(const entry of entries)await walk(entry);
-    return files;
+    return attachFailures();
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaImportEngine=ProfitMenteMediaImportEngine;
@@ -139,8 +144,8 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     if(typeof db!=='function'||typeof STORE==='undefined'){for(const record of records)await putAsset(record);return}
     const database=await db();await new Promise((resolve,reject)=>{const tx=database.transaction(STORE,'readwrite'),store=tx.objectStore(STORE);for(const record of records)store.put(record);tx.oncomplete=()=>resolve();tx.onabort=()=>reject(tx.error||new Error('La transacción de medios fue cancelada'));tx.onerror=()=>reject(tx.error||new Error('No se pudieron guardar los medios'))})
   }
-  async function importFiles(files,origin='selector'){
-    const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length);let added=0,duplicates=0,failed=0,upgraded=0;const addedIds=[],pendingNew=[],pendingMigrations=[];
+  async function importFiles(files,origin='selector',sourceFailures=0){
+    const all=Array.from(files||[]),typed=all.filter(file=>engine.kind(file)),incoming=typed.filter(file=>engine.hasContent(file)),empty=Math.max(0,typed.length-incoming.length),unsupported=Math.max(0,all.length-typed.length),unreadable=Math.max(0,Number(sourceFailures)||0);let added=0,duplicates=0,failed=0,upgraded=0;const addedIds=[],pendingNew=[],pendingMigrations=[];
     for(const file of incoming){
       try{
         const hashes=await engine.contentHashes(file),duplicate=engine.findDuplicateInBatch(assets,pendingNew,file,hashes);
@@ -151,20 +156,20 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
     }
     if(pendingNew.length){
       let estimate={};try{if(globalThis.navigator?.storage?.estimate)estimate=await globalThis.navigator.storage.estimate()}catch(err){console.warn('No se pudo estimar el espacio local disponible',err)}
-      try{engine.assertStorageCapacity(pendingNew,estimate)}catch(err){console.error(err);setStatus?.(err.message);return {added:0,duplicates,upgraded:0,empty,unsupported,failed,total:incoming.length,assetIds:[],blocked:true,error:err.message}}
+      try{engine.assertStorageCapacity(pendingNew,estimate)}catch(err){console.error(err);setStatus?.(err.message);return {added:0,duplicates,upgraded:0,empty,unsupported,unreadable,failed,total:incoming.length,assetIds:[],blocked:true,error:err.message}}
     }
     if(pendingMigrations.length||pendingNew.length){
       try{await persistBatchAtomic(pendingMigrations,pendingNew)}catch(err){
-        failed+=pendingMigrations.length+pendingNew.length;console.error('No se pudo completar la importación atómica de medios',err);const message='No se guardó ningún medio nuevo: falló el almacenamiento local durante la importación';setStatus?.(message);return {added:0,duplicates,upgraded:0,empty,unsupported,failed,total:incoming.length,assetIds:[],blocked:false,transactionFailed:true,error:message}
+        failed+=pendingMigrations.length+pendingNew.length;console.error('No se pudo completar la importación atómica de medios',err);const message='No se guardó ningún medio nuevo: falló el almacenamiento local durante la importación';setStatus?.(message);return {added:0,duplicates,upgraded:0,empty,unsupported,unreadable,failed,total:incoming.length,assetIds:[],blocked:false,transactionFailed:true,error:message}
       }
     }
     for(const migration of pendingMigrations){Object.assign(migration.duplicate,migration.asset);upgraded++}
     for(const asset of pendingNew){assets.push(asset);addedIds.push(asset.id);added++}
     drawLibrary?.();
     if(addedIds.length)document.dispatchEvent(new CustomEvent('profitmente:media-imported',{detail:{assetIds:addedIds,origin}}));
-    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,upgraded?`${upgraded} identidad(es) actualizada(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
+    const parts=[added?`${added} medio(s) importado(s)`:null,duplicates?`${duplicates} duplicado(s) omitido(s)`:null,upgraded?`${upgraded} identidad(es) actualizada(s)`:null,empty?`${empty} archivo(s) vacío(s) omitido(s)`:null,unsupported?`${unsupported} archivo(s) no compatibles`:null,unreadable?`${unreadable} entrada(s) no legible(s) omitida(s)`:null,failed?`${failed} fallo(s)`:null].filter(Boolean);
     setStatus?.(parts.join(' · ')||'No se encontraron medios compatibles');
-    return {added,duplicates,upgraded,empty,unsupported,failed,total:incoming.length,assetIds:addedIds,blocked:false,transactionFailed:false};
+    return {added,duplicates,upgraded,empty,unsupported,unreadable,failed,total:incoming.length,assetIds:addedIds,blocked:false,transactionFailed:false};
   }
   input.onchange=async e=>{try{await importFiles(e.target.files,'selector')}finally{e.target.value=''}};
   folderBtn.onclick=()=>folderInput.click();
@@ -174,7 +179,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIm
   dropHost?.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth++;dropHost.classList.add('mediaDropActive')});
   dropHost?.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
   dropHost?.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)dropHost.classList.remove('mediaDropActive')});
-  dropHost?.addEventListener('drop',async e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;dropHost.classList.remove('mediaDropActive');try{const dropped=await engine.filesFromDataTransfer(e.dataTransfer);await importFiles(dropped,'drag-drop')}catch(err){console.error(err);setStatus?.('No se pudo leer la carpeta o los medios arrastrados')}});
+  dropHost?.addEventListener('drop',async e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;dropHost.classList.remove('mediaDropActive');try{const dropped=await engine.filesFromDataTransfer(e.dataTransfer);await importFiles(dropped,'drag-drop',dropped?.sourceReadFailures||0)}catch(err){console.error(err);setStatus?.('No se pudo leer la carpeta o los medios arrastrados')}});
   document.addEventListener('paste',async e=>{
     const active=document.activeElement;if(active&&(['INPUT','TEXTAREA','SELECT'].includes(active.tagName)||active.isContentEditable))return;
     const files=Array.from(e.clipboardData?.files||[]);if(!files.length)return;
