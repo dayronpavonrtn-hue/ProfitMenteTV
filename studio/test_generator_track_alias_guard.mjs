@@ -20,9 +20,16 @@ const assets=[
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack('0.0'),0);
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack('06'),6);
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(' 5.0 '),5);
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack('-0'),0);
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(''),null);
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack('1.5'),null);
 assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack('7'),null);
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(false),null,'boolean false must not alias track 0');
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(true),null,'boolean true must not alias track 1');
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack([6]),null,'arrays must not alias tracks');
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(new Number(6)),null,'boxed numbers must not alias tracks');
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack({toString(){return '6'}}),null,'objects must not alias tracks');
+assert.equal(ProfitMenteGeneratorTrackAliasGuard.canonicalTrack(Symbol('6')),null,'symbols must be rejected without throwing');
 
 const aliasLocked={
   name:'Alias locks',format:'9:16',duration:20,
@@ -42,6 +49,17 @@ assert.equal(result.music,0,'05 must lock the canonical music track');
 assert.equal(result.sfx,0,'4.0 must lock the canonical SFX track');
 assert.equal(JSON.stringify(aliasLocked),before,'fully alias-locked project should remain unchanged');
 
+const corruptLocks={
+  trackState:{0:{locked:true},1:{locked:true},6:{locked:true}},
+  clips:[]
+};
+assert.equal(engine.trackLocked(corruptLocks,false),false,'false cannot consult track 0 lock');
+assert.equal(engine.trackLocked(corruptLocks,true),false,'true cannot consult track 1 lock');
+assert.equal(engine.trackLocked(corruptLocks,[6]),false,'array cannot consult track 6 lock');
+assert.equal(engine.trackLocked(corruptLocks,{valueOf(){return 6}}),false,'coercible object cannot consult track 6 lock');
+assert.equal(engine.trackLocked({trackState:{6:{locked:'true'}}},6),false,'string lock flag must not become a lock');
+assert.equal(engine.trackLocked({trackState:[]},0),false,'array trackState must not be treated as a lock map');
+
 const clipAlias={track:'0.0',locked:true,start:0,duration:5};
 assert.equal(engine.clipLocked({clips:[clipAlias]},clipAlias),true);
 assert.equal(clipAlias.track,0,'locked clip aliases must canonicalize before regeneration overlap checks');
@@ -50,6 +68,9 @@ assert.equal(String(clipAlias.track),String({track:0}.track),'canonicalized lock
 const unlocked={track:'0.0',locked:false,start:0,duration:5};
 assert.equal(engine.clipLocked({clips:[unlocked]},unlocked),false);
 assert.equal(unlocked.track,'0.0','unlocked clips must not be rewritten as a side effect');
+const corruptClip={track:false,locked:'true',start:0,duration:5};
+assert.equal(engine.clipLocked({clips:[corruptClip]},corruptClip),false,'truthy non-boolean clip lock must not lock corrupt track data');
+assert.equal(corruptClip.track,false,'invalid unlocked track identity must remain untouched');
 
 const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const enginePos=html.indexOf('generator-engine.js');
