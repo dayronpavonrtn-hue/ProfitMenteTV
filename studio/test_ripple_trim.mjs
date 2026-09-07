@@ -13,13 +13,13 @@ const p={duration:12,clips:[
 ]};
 let r=E.trimRight(p,'a',3);assert.equal(r.ok,true);assert.equal(r.side,'right');close(r.shift,2);assert.equal(r.moved,1);close(p.clips[0].duration,2);close(p.clips[1].start,3);close(p.clips[2].start,5);close(p.duration,12,'explicit sequence padding must be preserved');
 
-// Ripple trim from the left advances source media, keeps the edit anchored, and closes downstream time.
+// Ripple trim from the left advances source media, keeps the edit anchored, and closes downstream time only on that track.
 const left={duration:7,clips:[
   {id:'a',track:0,start:1,duration:4,sourceOffset:2,speed:1.5},
   {id:'b',track:0,start:5,duration:2},
   {id:'c',track:1,start:5,duration:2}
 ]};
-r=E.trimLeft(left,'a',3);assert.equal(r.ok,true);assert.equal(r.side,'left');close(r.shift,2);close(left.clips[0].start,1);close(left.clips[0].duration,2);close(left.clips[0].sourceOffset,5);close(left.clips[1].start,3);close(left.clips[2].start,5);close(left.duration,5);
+r=E.trimLeft(left,'a',3);assert.equal(r.ok,true);assert.equal(r.side,'left');close(r.shift,2);close(left.clips[0].start,1);close(left.clips[0].duration,2);close(left.clips[0].sourceOffset,5);close(left.clips[1].start,3);close(left.clips[2].start,5);close(left.duration,7,'content on other tracks must preserve the global sequence end');
 
 // Missing sourceOffset/speed use safe editor defaults.
 const defaults={duration:6,clips:[{id:'a',track:0,start:0,duration:4},{id:'b',track:0,start:4,duration:2}]};
