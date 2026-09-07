@@ -48,4 +48,30 @@ assert.equal(restored.project.assets[0].sourceLastModified,asset.sourceLastModif
 assert.equal(restored.project.assets[0].importOrigin,asset.importOrigin);
 assert.deepEqual(new Uint8Array(await restored.assets[0].blob.arrayBuffer()),bytes);
 
+const legacyBytes=new TextEncoder().encode('legacy-numeric-media-id');
+const legacyAsset={
+  id:90210,
+  name:'legacy-number-id.mp4',
+  type:'video',
+  mime:'video/mp4',
+  blob:new Blob([legacyBytes],{type:'video/mp4'}),
+  size:legacyBytes.length,
+  duration:2.5,
+  width:1080,
+  height:1920
+};
+const legacyProject={name:'Legacy numeric identity',format:'9:16',duration:2.5,clips:[{id:'legacy-clip',track:0,start:0,duration:2.5,asset:90210}],assets:[]};
+const legacyBlob=await bundler.build(legacyProject,[legacyAsset]);
+const legacyRestored=await bundler.parse(legacyBlob);
+assert.equal(legacyRestored.assets[0].id,'90210','numeric media IDs must be canonicalized for export');
+assert.equal(legacyRestored.project.clips[0].asset,'90210','clip references must canonicalize with media IDs');
+assert.equal(legacyRestored.assets[0].name,'legacy-number-id.mp4');
+assert.deepEqual(new Uint8Array(await legacyRestored.assets[0].blob.arrayBuffer()),legacyBytes);
+
+await assert.rejects(
+  ()=>bundler.build({name:'Invalid media',clips:[]},[{id:null,name:'broken.mp4',type:'video',blob:new Blob([legacyBytes])}]),
+  /Medio sin identificador válido/,
+  'invalid media IDs should fail with a clear export error'
+);
+
 console.log('Bundle media identity roundtrip QA OK');
