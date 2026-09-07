@@ -1,10 +1,16 @@
 class ProfitMenteAudioSilenceEngine{
   static AUDIO_TRACKS=[4,5,6]
+  static finiteNumber(value,fallback=null){
+    if(typeof value==='number')return Number.isFinite(value)?value:fallback;
+    if(typeof value==='string'){
+      const trimmed=value.trim();if(!trimmed)return fallback;
+      const numeric=Number(trimmed);return Number.isFinite(numeric)?numeric:fallback;
+    }
+    return fallback;
+  }
   static canonicalTrack(track){
-    if(track===null||track===undefined||typeof track==='boolean')return null;
-    if(typeof track==='string'&&track.trim()==='')return null;
-    const value=Number(track);
-    if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>6)return null;
+    const value=this.finiteNumber(track,null);
+    if(value===null||!Number.isInteger(value)||value<0||value>6)return null;
     return Object.is(value,-0)?0:value;
   }
   static canonicalMediaId(value){
@@ -32,35 +38,40 @@ class ProfitMenteAudioSilenceEngine{
     const canonical=this.canonicalTrack(track);if(canonical===null)return false;
     return Object.entries(map).some(([key,state])=>this.canonicalTrack(key)===canonical&&!!state?.locked);
   }
-  static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
+  static dbToLinear(db){return Math.pow(10,this.finiteNumber(db,0)/20)}
   static trackLocked(project,track){
     const canonical=this.canonicalTrack(track);if(canonical===null)return false;
     return this.stateLocked(project?.trackState,canonical)||this.stateLocked(project?.trackStates,canonical);
   }
   static clipWindow(clip,bufferDuration){
-    const speed=Math.max(.25,Math.min(4,Number(clip?.speed)||1));
-    const offset=Math.max(0,Number(clip?.sourceOffset)||0);
-    const timelineDuration=Math.max(0,Number(clip?.duration)||0);
-    const available=Math.max(0,Number(bufferDuration||0)-offset);
+    const speed=Math.max(.25,Math.min(4,this.finiteNumber(clip?.speed,1)));
+    const offset=Math.max(0,this.finiteNumber(clip?.sourceOffset,0));
+    const timelineDuration=Math.max(0,this.finiteNumber(clip?.duration,0));
+    const available=Math.max(0,this.finiteNumber(bufferDuration,0)-offset);
     return {offset,sourceDuration:Math.min(available,timelineDuration*speed),speed};
   }
   static detectChannels(channels,sampleRate,startSec=0,durationSec=null,options={}){
-    const list=(channels||[]).filter(Boolean),rate=Math.max(1,Number(sampleRate)||1);
+    const list=(channels||[]).filter(Boolean),rate=Math.max(1,this.finiteNumber(sampleRate,1));
     if(!list.length)return {ok:false,reason:'no-audio'};
     const maxSamples=Math.min(...list.map(c=>c.length||0));
-    const start=Math.max(0,Math.min(maxSamples,Math.floor(Math.max(0,Number(startSec)||0)*rate)));
-    const requested=durationSec==null?(maxSamples-start):Math.floor(Math.max(0,Number(durationSec)||0)*rate);
+    const startValue=Math.max(0,this.finiteNumber(startSec,0));
+    const start=Math.max(0,Math.min(maxSamples,Math.floor(startValue*rate)));
+    const durationValue=durationSec==null?null:this.finiteNumber(durationSec,0);
+    const requested=durationValue===null?(maxSamples-start):Math.floor(Math.max(0,durationValue)*rate);
     const end=Math.max(start,Math.min(maxSamples,start+requested));
     if(end<=start)return {ok:false,reason:'empty-window'};
-    const thresholdDb=Number.isFinite(Number(options.thresholdDb))?Number(options.thresholdDb):-45;
+    const thresholdDb=this.finiteNumber(options.thresholdDb,-45);
     const threshold=this.dbToLinear(thresholdDb);
-    const frameSamples=Math.max(1,Math.floor(rate*Math.max(5,Number(options.frameMs)||20)/1000));
-    const minSoundFrames=Math.max(1,Math.ceil(Math.max(0,Number(options.minSoundMs)||60)/(frameSamples/rate*1000)));
-    const paddingSamples=Math.max(0,Math.floor(rate*Math.max(0,Number(options.paddingMs)||40)/1000));
+    const frameMs=Math.max(5,this.finiteNumber(options.frameMs,20));
+    const frameSamples=Math.max(1,Math.floor(rate*frameMs/1000));
+    const minSoundMs=Math.max(0,this.finiteNumber(options.minSoundMs,60));
+    const minSoundFrames=Math.max(1,Math.ceil(minSoundMs/(frameSamples/rate*1000)));
+    const paddingMs=Math.max(0,this.finiteNumber(options.paddingMs,40));
+    const paddingSamples=Math.max(0,Math.floor(rate*paddingMs/1000));
     const active=[];
     for(let pos=start;pos<end;pos+=frameSamples){
       const stop=Math.min(end,pos+frameSamples);let sum=0,count=0;
-      for(const ch of list){for(let i=pos;i<stop;i++){const x=Number(ch[i])||0;sum+=x*x;count++}}
+      for(const ch of list){for(let i=pos;i<stop;i++){const x=this.finiteNumber(ch[i],0);sum+=x*x;count++}}
       active.push({start:pos,end:stop,rms:count?Math.sqrt(sum/count):0});
     }
     let first=-1,last=-1,run=0;
@@ -79,10 +90,10 @@ class ProfitMenteAudioSilenceEngine{
   }
   static trimPlan(clip,detection,options={}){
     if(!clip||!detection?.ok)return {ok:false,reason:detection?.reason||'invalid'};
-    const speed=Math.max(.25,Math.min(4,Number(clip.speed)||1)),duration=Math.max(0,Number(clip.duration)||0),offset=Math.max(0,Number(clip.sourceOffset)||0);
-    const minTimelineDuration=Math.max(.05,Number(options.minTimelineDuration)||.12);
-    const minTrimSource=Math.max(0,Number(options.minTrimSource)||.03);
-    let leading=Math.max(0,Number(detection.leading)||0),trailing=Math.max(0,Number(detection.trailing)||0);
+    const speed=Math.max(.25,Math.min(4,this.finiteNumber(clip.speed,1))),duration=Math.max(0,this.finiteNumber(clip.duration,0)),offset=Math.max(0,this.finiteNumber(clip.sourceOffset,0));
+    const minTimelineDuration=Math.max(.05,this.finiteNumber(options.minTimelineDuration,.12));
+    const minTrimSource=Math.max(0,this.finiteNumber(options.minTrimSource,.03));
+    let leading=Math.max(0,this.finiteNumber(detection.leading,0)),trailing=Math.max(0,this.finiteNumber(detection.trailing,0));
     if(leading<minTrimSource)leading=0;if(trailing<minTrimSource)trailing=0;
     const trimTimeline=(leading+trailing)/speed,newDuration=duration-trimTimeline;
     if(!leading&&!trailing)return {ok:false,reason:'no-silence'};
@@ -91,8 +102,10 @@ class ProfitMenteAudioSilenceEngine{
   }
   static applyPlan(clip,plan){
     if(!clip||!plan?.ok)return false;
-    clip.sourceOffset=plan.sourceOffset;clip.duration=plan.duration;
-    clip.silenceTrim={version:1,leadingSource:plan.leading,trailingSource:plan.trailing,removedTimeline:plan.removedTimeline,at:new Date().toISOString()};
+    const sourceOffset=this.finiteNumber(plan.sourceOffset,null),duration=this.finiteNumber(plan.duration,null),leading=this.finiteNumber(plan.leading,null),trailing=this.finiteNumber(plan.trailing,null),removedTimeline=this.finiteNumber(plan.removedTimeline,null);
+    if(sourceOffset===null||duration===null||leading===null||trailing===null||removedTimeline===null||sourceOffset<0||duration<0||leading<0||trailing<0||removedTimeline<0)return false;
+    clip.sourceOffset=sourceOffset;clip.duration=duration;
+    clip.silenceTrim={version:1,leadingSource:leading,trailingSource:trailing,removedTimeline,at:new Date().toISOString()};
     return true;
   }
 }
