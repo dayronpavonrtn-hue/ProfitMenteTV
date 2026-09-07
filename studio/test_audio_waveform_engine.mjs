@@ -16,6 +16,8 @@ assert.ok(Array.from(silent).every(v=>v===0));
 
 assert.deepEqual(Engine.sourceWindow({sourceOffset:2,clipDuration:3,speed:2,sourceDuration:10}),{start:2,end:8,duration:6,speed:2,sourceDuration:10});
 assert.deepEqual(Engine.sourceWindow({sourceOffset:8,clipDuration:3,speed:2,sourceDuration:10}),{start:8,end:10,duration:2,speed:2,sourceDuration:10});
+assert.deepEqual(Engine.sourceWindow({sourceOffset:'2',clipDuration:'3',speed:'2',sourceDuration:'10'}),{start:2,end:8,duration:6,speed:2,sourceDuration:10});
+assert.deepEqual(Engine.sourceWindow({sourceOffset:{valueOf(){return 2}},clipDuration:[3],speed:new Number(2),sourceDuration:{toString(){return '10'}}}),{start:0,end:0,duration:0,speed:1,sourceDuration:0});
 
 const ramp=Float32Array.from({length:100},(_,i)=>i/99);
 const early=Engine.slicePeaks(ramp,{sourceOffset:0,clipDuration:2,speed:1,sourceDuration:10,bins:20});
@@ -26,9 +28,17 @@ assert.ok(late[0]>early.at(-1),'sourceOffset debe cambiar la ventana visible');
 const normal=Engine.slicePeaks(ramp,{sourceOffset:2,clipDuration:2,speed:1,sourceDuration:10,bins:20});
 const fast=Engine.slicePeaks(ramp,{sourceOffset:2,clipDuration:2,speed:2,sourceDuration:10,bins:20});
 assert.ok(fast.at(-1)>normal.at(-1),'speed debe ampliar la ventana fuente representada');
+assert.equal(Engine.slicePeaks(ramp,{sourceOffset:0,clipDuration:2,speed:1,sourceDuration:10,bins:[20]}).length,160,'bins coercible debe caer al valor seguro');
+assert.equal(Engine.buildPeaks([ch1],{valueOf(){return 8}}).length,512,'bins por objeto no debe coercionarse');
 
-const clamped=Engine.drawable([-1,.5,2,Number.NaN]);
-assert.deepEqual(clamped,[0,.5,1,0]);
+const clamped=Engine.drawable([-1,.5,2,Number.NaN,true,[.8],{valueOf(){return .9}},'0.7']);
+assert.deepEqual(clamped,[0,.5,1,0,0,0,0,.7]);
+
+assert.equal(Engine.finiteNumber(4,null),4);
+assert.equal(Engine.finiteNumber(' 4.5 ',null),4.5);
+assert.equal(Engine.finiteNumber('-0',null),-0);
+assert.equal(Engine.finiteNumber('',9),9);
+for(const value of [true,false,null,undefined,[],[4],{},new Number(4),Symbol('4')])assert.equal(Engine.finiteNumber(value,null),null);
 
 assert.equal(Engine.canonicalTrack('04'),4);
 assert.equal(Engine.canonicalTrack('5.0'),5);
@@ -40,6 +50,7 @@ assert.equal(Engine.canonicalTrack(true),null);
 assert.equal(Engine.canonicalTrack(''),null);
 assert.equal(Engine.canonicalTrack('6.5'),null);
 assert.equal(Engine.canonicalTrack(7),null);
+for(const value of [[],[4],{},new Number(4),Symbol('4')])assert.equal(Engine.canonicalTrack(value),null);
 assert.equal(Engine.isAudioTrack('04'),true);
 assert.equal(Engine.isAudioTrack('03'),false);
 assert.equal(Engine.isAudioTrack(false),false);
