@@ -10,6 +10,6 @@
   $('#slipForward').onclick=()=>{const c=clip();if(!c||locked(c)){status('El clip está bloqueado');state();return}commit(engine.shiftSource(c,assetFor(c),.1),'Fuente desplazada 0.1s hacia adelante')};
   $('#slipReset').onclick=()=>{const c=clip();if(!c||locked(c)){status('El clip está bloqueado');state();return}commit(engine.setOffset(c,assetFor(c),0),'Fuente reiniciada')};
   document.addEventListener('click',()=>requestAnimationFrame(state),true);
-  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||e.ctrlKey||e.metaKey)return;if(!e.altKey)return;const c=clip();if(!c||locked(c))return;if(e.key==='ArrowLeft'){e.preventDefault();commit(engine.shiftSource(c,assetFor(c),-.1),'Fuente desplazada 0.1s hacia atrás')}else if(e.key==='ArrowRight'){e.preventDefault();commit(engine.shiftSource(c,assetFor(c),.1),'Fuente desplazada 0.1s hacia adelante')}});
+  document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||e.ctrlKey||e.metaKey)return;if(!e.altKey||e.shiftKey)return;const c=clip();if(!c||locked(c))return;if(e.key==='ArrowLeft'){e.preventDefault();commit(engine.shiftSource(c,assetFor(c),-.1),'Fuente desplazada 0.1s hacia atrás')}else if(e.key==='ArrowRight'){e.preventDefault();commit(engine.shiftSource(c,assetFor(c),.1),'Fuente desplazada 0.1s hacia adelante')}});
   window.ProfitMenteSlipEdit={engine,state};state();
 })();
