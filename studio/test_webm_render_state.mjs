@@ -53,10 +53,15 @@ assert.equal(Engine.assertState(snapshot,project,assets),true,'restaurar todos l
 const integration=fs.readFileSync(new URL('./webm-render-integration.js',import.meta.url),'utf8');
 assert.match(integration,/captureState\(renderProject,assets\)/,'la integración debe capturar el estado después de guardar');
 assert.match(integration,/assertState\(renderState,project,assets\)/,'la integración debe validar el estado durante el render');
-assert.match(integration,/recorderOptions\(\{mimeType:mime,quality:renderQuality,width:canvas\.width,height:canvas\.height,fps:plan\.fps\}\)/,'WebM debe derivar bitrate de calidad, resolución y FPS');
+assert.match(integration,/ProfitMentePreviewFormatEngine\.exportDimensions\(format\)/,'WebM debe usar las dimensiones finales de exportación, no las reducidas del monitor');
+assert.match(integration,/canvas\.width=next\.width;canvas\.height=next\.height/,'el canvas debe pasar a resolución final antes de capturar el stream');
+assert.match(integration,/const exportSize=applyExportDimensions\(renderProject\)/,'la resolución final debe aplicarse antes de configurar MediaRecorder');
+assert.match(integration,/recorderOptions\(\{mimeType:mime,quality:renderQuality,width:exportSize\.width,height:exportSize\.height,fps:plan\.fps\}\)/,'WebM debe derivar bitrate de calidad, resolución final y FPS');
 assert.match(integration,/new MediaRecorder\(mixedStream,recorderOptions\)/,'MediaRecorder debe recibir el preset de bitrate calculado');
+assert.match(integration,/captureStream\(plan\.fps\)/,'el stream debe capturarse después de aplicar la resolución final');
+assert.match(integration,/applyQuality\(monitorQuality\)/,'cleanup debe restaurar la calidad de preview elegida por el usuario');
 assert.match(integration,/download\(blob,renderName\)/,'la descarga debe conservar el nombre capturado al iniciar');
 assert.match(integration,/WEBM_STATE_CHANGED/,'la UI debe distinguir cambios de proyecto de una cancelación normal');
 assert.match(integration,/project===renderProject\?previousTime/,'cleanup no debe imponer el playhead anterior sobre otro proyecto');
 
-console.log('WebM render state + quality QA: OK');
+console.log('WebM render state + quality + final resolution QA: OK');
