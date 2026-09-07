@@ -63,6 +63,7 @@ def main() -> None:
         ("Trim izquierdo conserva ventana de fuente", [node, "test_timeline_left_trim.mjs"]),
         ("Trim derecho conserva ventana de fuente", [node, "test_timeline_right_trim.mjs"]),
         ("Waveform de timeline coincide con ventana editada y reemplazos", [node, "test_waveform_timeline_parity.mjs"]),
+        ("Biblioteca protege medios usados por otros proyectos", [node, "test_media_library_cross_project_guard.mjs"]),
         ("Reemplazo de medios conserva seguridad y duración legacy", [node, "test_media_replace_engine.mjs"]),
         ("Generador y autofill conservan identidades canónicas", [node, "test_generator_identity.mjs"]),
         ("Preview de audio conserva identidad canónica", [node, "test_audio_engine_identity.mjs"]),
