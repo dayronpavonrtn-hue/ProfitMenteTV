@@ -57,7 +57,7 @@ for(const [a,b] of [[0,'0'],[7,'07'],[' 7 ','7.0'],['clip-a',' clip-a '],[-0,'-0
 for(const v of [null,undefined,'','   ',false,true,{},[],[0],Symbol('0'),{toString(){return '0'}},{valueOf(){return 0}},NaN,Infinity]) if(idKey(v)!==null) throw new Error('Non-scalar/empty media identity became valid: '+String(v));
 for(const [v,want] of [[0,0],[-0,0],['-0',0],['00',0],['1.0',1],['04',4],['+06.0',6],['6.0',6]]) if(trackId(v)!==want) throw new Error(`Track alias failed: ${v}`);
 for(const v of [null,undefined,'',false,true,'1.5',6.5,7,'7',{},[],[0],Symbol('0'),{toString(){return '0'}},{valueOf(){return 0}},NaN,Infinity]) if(trackId(v)!==null) throw new Error(`Invalid track accepted: ${String(v)}`);
-for(const [v,want] of [[0,0],[-0,-0],['0',0],['1.25',1.25],[' 2 ',2]]) if(!Object.is(numberValue(v),want)) throw new Error(`Numeric scalar alias failed: ${String(v)}`);
+for(const [v,want] of [[0,0],[-0,0],['0',0],['1.25',1.25],[' 2 ',2]]) if(!Object.is(numberValue(v),want)) throw new Error(`Numeric scalar alias failed: ${String(v)}`);
 for(const v of [null,undefined,'',false,true,{},[],[1],Symbol('1'),NaN,Infinity,{toString(){return '1'}}]) if(numberValue(v)!==null) throw new Error('Invalid numeric scalar accepted: '+String(v));
 
 console.log('Core app identity OK: scalar IDs/tracks and preview numerics reject object/boolean coercion while preserving legacy numeric aliases');
