@@ -13,6 +13,10 @@ assert.equal(Engine.merge(base,{format:'bad'}).format,'9:16','invalid formats mu
 assert.equal(Engine.merge(base,{mode:'bad'}).mode,'Manual','invalid modes must fall back safely');
 assert.equal(Engine.changed(base,Engine.merge(base,{name:'Proyecto A'})),false);
 assert.equal(Engine.changed(base,Engine.merge(base,{name:'Proyecto B'})),true);
+assert.equal(Engine.sameIdentity('abc','abc'),true,'matching saved-project identities must compare equal');
+assert.equal(Engine.sameIdentity(101,'101'),true,'legacy numeric project identities must match their DOM string form');
+assert.equal(Engine.sameIdentity(true,'true'),false,'boolean values must never become project identities');
+assert.equal(Engine.sameIdentity(null,'null'),false,'missing identities must never match serialized text');
 
 const src=fs.readFileSync(new URL('./project-autosave.js',import.meta.url),'utf8');
 assert.match(src,/setTimeout\(\(\)=>flush\('propiedades'\),450\)/,'text/number edits must debounce before persistence');
@@ -29,6 +33,9 @@ assert.match(src,/profitmente:project-autosave-error/,'persistence failures must
 assert.match(src,/retryCount<3.*?setTimeout\(\(\)=>flush\('reintento'\),1500\*retryCount\)/s,'transient persistence failures must retry with bounded backoff');
 assert.match(src,/reason!=='cierre'.*?retryCount<3/s,'browser shutdown must not schedule background retries');
 assert.match(src,/previous\.duration!==next\.duration\|\|previous\.format!==next\.format/,'layout-affecting edits must refresh timeline geometry');
+assert.match(src,/projectLibrary\.addEventListener\('click'.*?\[data-delete\].*?engine\.sameIdentity\(currentId,deleteId\).*?queueMicrotask/s,'deleting the active saved project must schedule a post-delete persistence check');
+assert.match(src,/queueMicrotask\(\(\)=>\{\s*if\(project\?\.libraryId!==undefined&&project\?\.libraryId!==null\)return;\s*try\{\s*if\(typeof persist==='function'\)persist\(\)/s,'the detached active project must be persisted only after its deleted library identity is removed');
+assert.match(src,/profitmente:project-detached/,'successful detach persistence must emit an explicit lifecycle event');
 assert.match(src,/beforeunload.*?flush\('cierre'\).*?if\(unsaved\)\{event\.preventDefault\(\);event\.returnValue=''\}/s,'browser unload must be blocked when the final synchronous save still fails');
 assert.match(src,/pagehide.*?flush\('cierre'\)/s,'pending properties must flush on page hide/mobile tab discard path');
 assert.match(src,/profitmente:project-opened.*?cancel\(\);retryCount=0;last=engine\.fingerprint\(project\);markSaved\(\)/s,'switching projects must cancel pending retries and reset dirty state');
@@ -42,4 +49,4 @@ const preflight=bootstrap.indexOf("['export-preflight.js'");
 assert.ok(recovery>=0&&autosave>recovery,'autosave must load after recovery so persistence snapshots are included');
 assert.ok(preflight>autosave,'autosave must be active before export/render preflight modules');
 
-console.log('Continuous project autosave regression OK');
+console.log('Continuous project autosave + deleted active-project persistence regression OK');
