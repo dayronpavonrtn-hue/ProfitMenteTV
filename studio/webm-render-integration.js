@@ -15,6 +15,16 @@
     const format=document.querySelector('#format')?.value||project?.format||'9:16';
     ProfitMentePreviewFormatEngine.apply(canvas,format,quality);
   }
+  function applyExportDimensions(target=project){
+    const format=document.querySelector('#format')?.value||target?.format||'9:16';
+    if(window.ProfitMentePreviewFormatEngine?.exportDimensions){
+      const next=ProfitMentePreviewFormatEngine.exportDimensions(format);
+      canvas.width=next.width;canvas.height=next.height;
+      if(canvas.dataset){canvas.dataset.projectFormat=ProfitMentePreviewFormatEngine.normalize(format);canvas.dataset.previewQuality='export'}
+      return {...next,format:ProfitMentePreviewFormatEngine.normalize(format),quality:'export'};
+    }
+    applyQuality('full');return {width:canvas.width,height:canvas.height,format,quality:'full'};
+  }
   function recorderDone(recorder,chunks){return new Promise((resolve,reject)=>{
     recorder.addEventListener('dataavailable',event=>{if(event.data?.size)chunks.push(event.data)});
     recorder.addEventListener('stop',()=>resolve(new Blob(chunks,{type:'video/webm'})),{once:true});
@@ -44,9 +54,10 @@
     const previousTime=Number(document.querySelector('#playhead')?.value||0),monitorQuality=currentQuality(),plan=ProfitMenteWebMRenderEngine.framePlan(renderProject?.duration,projectFps(renderProject)),mime=ProfitMenteWebMRenderEngine.mimeType(window.MediaRecorder);
     if(!mime){setStatus?.('No hay un códec WebM compatible en este navegador');return}
     const renderQuality=ProfitMenteWebMRenderEngine.normalizeQuality(renderProject?.renderQuality||'high');
-    const recorderOptions=ProfitMenteWebMRenderEngine.recorderOptions({mimeType:mime,quality:renderQuality,width:canvas.width,height:canvas.height,fps:plan.fps});
+    const exportSize=applyExportDimensions(renderProject);
+    const recorderOptions=ProfitMenteWebMRenderEngine.recorderOptions({mimeType:mime,quality:renderQuality,width:exportSize.width,height:exportSize.height,fps:plan.fps});
     const assertRenderState=()=>{engine.assert(session);ProfitMenteWebMRenderEngine.assertState(renderState,project,assets)};
-    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;applyQuality('full');
+    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,width:exportSize.width,height:exportSize.height,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;
     try{
       if(typeof playing!=='undefined'&&playing)document.querySelector('#playBtn')?.click();
       assertRenderState();
@@ -55,13 +66,13 @@
       await audio.schedule(renderProject,assets,0,false);assertRenderState();
       const mixedStream=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]);resources.mixedStream=mixedStream;
       const recorder=new MediaRecorder(mixedStream,recorderOptions),chunks=[],done=recorderDone(recorder,chunks);resources.recorder=recorder;
-      recorder.start(1000);setStatus?.(`Render WebM ${plan.fps} FPS · ${renderQuality} · 0%`);
+      recorder.start(1000);setStatus?.(`Render WebM ${exportSize.width}×${exportSize.height} · ${plan.fps} FPS · ${renderQuality} · 0%`);
       for(let frame=0;frame<plan.totalFrames;frame++){
         assertRenderState();const started=performance.now(),time=plan.timeAt(frame);if(playhead)playhead.value=time;await renderAt(time);assertRenderState();
-        if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM ${plan.fps} FPS · ${renderQuality} · ${progress}%`)}
+        if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM ${exportSize.width}×${exportSize.height} · ${plan.fps} FPS · ${renderQuality} · ${progress}%`)}
         const elapsed=performance.now()-started,remaining=Math.max(0,plan.frameDuration*1000-elapsed);if(remaining)await wait(remaining);
       }
-      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
+      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${exportSize.width}×${exportSize.height} · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
     }catch(err){
       if(err?.code==='WEBM_STATE_CHANGED'){setStatus?.('Render WebM detenido: el proyecto o sus medios cambiaron. Vuelve a exportar para evitar un archivo inconsistente')}
       else if(err?.name==='AbortError'||engine.cancelled)setStatus?.('Render WebM cancelado · recursos liberados');
@@ -72,5 +83,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,get active(){return engine.active}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,get active(){return engine.active}};
 })();
