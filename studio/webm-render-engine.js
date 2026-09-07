@@ -1,11 +1,17 @@
 class ProfitMenteWebMRenderEngine{
   constructor(){this._session=null;this._seq=0}
-  static normalizeDuration(value){const n=Number(value);return Number.isFinite(n)&&n>0?n:0}
-  static normalizeFps(value){const n=Math.round(Number(value)||30);return Math.max(1,Math.min(60,n))}
+  static finiteNumber(value,fallback=NaN){
+    if(typeof value==='boolean'||typeof value==='symbol'||value===null||value===undefined)return fallback;
+    if(typeof value!=='number'&&typeof value!=='string')return fallback;
+    if(typeof value==='string'&&!value.trim())return fallback;
+    const n=Number(value);return Number.isFinite(n)?n:fallback;
+  }
+  static normalizeDuration(value){const n=this.finiteNumber(value,0);return n>0?n:0}
+  static normalizeFps(value){const n=Math.round(this.finiteNumber(value,30));return Math.max(1,Math.min(60,n))}
   static framePlan(duration,fps=30){
     duration=this.normalizeDuration(duration);fps=this.normalizeFps(fps);
     const totalFrames=Math.max(1,Math.ceil(duration*fps));
-    return {duration,fps,totalFrames,frameDuration:1/fps,timeAt(index){return Math.min(duration,Math.max(0,Number(index)||0)/fps)}};
+    return {duration,fps,totalFrames,frameDuration:1/fps,timeAt(index){const n=ProfitMenteWebMRenderEngine.finiteNumber(index,0);return Math.min(duration,Math.max(0,n)/fps)}};
   }
   static mimeType(MediaRecorderCtor=globalThis.MediaRecorder){
     const candidates=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -19,7 +25,7 @@ class ProfitMenteWebMRenderEngine{
   }
   static recorderOptions({mimeType='',quality='high',width=1080,height=1920,fps=30}={}){
     quality=this.normalizeQuality(quality);fps=this.normalizeFps(fps);
-    width=Math.max(1,Math.round(Number(width)||1080));height=Math.max(1,Math.round(Number(height)||1920));
+    width=Math.max(1,Math.round(this.finiteNumber(width,1080)));height=Math.max(1,Math.round(this.finiteNumber(height,1920)));
     const preset={draft:{video:3000000,audio:128000},standard:{video:6000000,audio:160000},high:{video:10000000,audio:192000}}[quality];
     const scale=Math.max(.35,Math.min(2,(width*height)/(1080*1920)*(fps/30)));
     const videoBitsPerSecond=Math.round(Math.max(1000000,Math.min(20000000,preset.video*scale)));
@@ -32,13 +38,13 @@ class ProfitMenteWebMRenderEngine{
       name:asset?.name??'',
       type:asset?.type??'',
       mime:asset?.mime??blob?.type??'',
-      size:Number(blob?.size??asset?.size)||0,
-      lastModified:Number(blob?.lastModified??asset?.sourceLastModified)||0,
-      duration:Number(asset?.duration)||0,
-      width:Number(asset?.width)||0,
-      height:Number(asset?.height)||0,
+      size:this.finiteNumber(blob?.size??asset?.size,0),
+      lastModified:this.finiteNumber(blob?.lastModified??asset?.sourceLastModified,0),
+      duration:this.finiteNumber(asset?.duration,0),
+      width:this.finiteNumber(asset?.width,0),
+      height:this.finiteNumber(asset?.height,0),
       mediaReadable:asset?.mediaReadable===false?false:true,
-      metadataVersion:Number(asset?.metadataVersion)||0,
+      metadataVersion:this.finiteNumber(asset?.metadataVersion,0),
       sourceFingerprint:String(asset?.sourceFingerprint||''),
       sourceContentHash:String(asset?.sourceContentHash||''),
       sourceLegacyContentHash:String(asset?.sourceLegacyContentHash||''),
