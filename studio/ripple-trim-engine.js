@@ -54,27 +54,43 @@
     }
     return out.map((x,index)=>({...x,index}));
   }
+  function clampFades(source,next){
+    if(Object.prototype.hasOwnProperty.call(source,'fadeIn')){const n=strictNumber(source.fadeIn);if(n===null)throw new Error('invalid-fade');next.fadeIn=Math.min(next.duration,Math.max(0,n))}
+    if(Object.prototype.hasOwnProperty.call(source,'fadeOut')){const n=strictNumber(source.fadeOut);if(n===null)throw new Error('invalid-fade');next.fadeOut=Math.min(next.duration,Math.max(0,n))}
+  }
+  function baseContext(project,id,at,minDuration){
+    if(!project||!Array.isArray(project.clips))return {error:{ok:false,reason:'invalid-project'}};
+    const idKey=scalarKey(id),target=strictNumber(at),minimum=strictNumber(minDuration),oldDuration=strictNumber(project.duration);
+    if(idKey===null||target===null||minimum===null||minimum<=0||oldDuration===null||oldDuration<0)return {error:{ok:false,reason:'invalid'}};
+    const matches=project.clips.filter(c=>scalarKey(c?.id)===idKey);
+    if(matches.length!==1)return {error:{ok:false,reason:matches.length?'ambiguous-id':'missing'}};
+    const anchor=matches[0],anchorWindow=clipWindow(anchor);
+    if(!anchorWindow)return {error:{ok:false,reason:'invalid-anchor'}};
+    if(clipLocked(project,anchor))return {error:{ok:false,reason:'locked',clip:anchor}};
+    const trackKey=scalarKey(anchor.track);if(trackKey===null)return {error:{ok:false,reason:'invalid-track'}};
+    let oldMax=0;
+    for(const clip of project.clips){const w=clipWindow(clip);if(!w)return {error:{ok:false,reason:'invalid-clip-window'}};oldMax=Math.max(oldMax,w.end)}
+    return {idKey,target,minimum,oldDuration,anchor,anchorWindow,trackKey,oldMax};
+  }
+  function finish(project,prepared,oldDuration,oldMax){
+    let newMax=0;
+    for(const clip of project.clips){
+      const preparedPair=prepared.find(([original])=>original===clip),candidate=preparedPair?preparedPair[1]:clip,w=clipWindow(candidate);
+      if(!w)return {ok:false,reason:'invalid-clip-window'};newMax=Math.max(newMax,w.end);
+    }
+    for(const [original,next] of prepared)Object.assign(original,next);
+    if(oldDuration<=oldMax+.001)project.duration=newMax;
+    return {newMax,duration:project.duration};
+  }
 
   class ProfitMenteRippleTrimEngine{
     trimRight(project,id,at,{minDuration=.25}={}){
-      if(!project||!Array.isArray(project.clips))return {ok:false,reason:'invalid-project'};
-      const idKey=scalarKey(id),target=strictNumber(at),minimum=strictNumber(minDuration),oldDuration=strictNumber(project.duration);
-      if(idKey===null||target===null||minimum===null||minimum<=0||oldDuration===null||oldDuration<0)return {ok:false,reason:'invalid'};
-      const matches=project.clips.filter(c=>scalarKey(c?.id)===idKey);
-      if(matches.length!==1)return {ok:false,reason:matches.length?'ambiguous-id':'missing'};
-      const anchor=matches[0],anchorWindow=clipWindow(anchor);
-      if(!anchorWindow)return {ok:false,reason:'invalid-anchor'};
-      if(clipLocked(project,anchor))return {ok:false,reason:'locked',clip:anchor};
+      const ctx=baseContext(project,id,at,minDuration);if(ctx.error)return ctx.error;
+      const {target,minimum,oldDuration,anchor,anchorWindow,trackKey,oldMax}=ctx;
       if(target<=anchorWindow.start+minimum-.001||target>=anchorWindow.end-.001)return {ok:false,reason:'outside'};
-
-      const shift=anchorWindow.end-target,trackKey=scalarKey(anchor.track);
-      if(trackKey===null)return {ok:false,reason:'invalid-track'};
-      let oldMax=0;
-      for(const clip of project.clips){const w=clipWindow(clip);if(!w)return {ok:false,reason:'invalid-clip-window'};oldMax=Math.max(oldMax,w.end)}
+      const shift=anchorWindow.end-target;
       const followers=project.clips.filter(c=>c!==anchor&&scalarKey(c?.track)===trackKey&&clipWindow(c).start>=anchorWindow.end-.001);
-      const affected=[anchor,...followers];
-      if(affected.some(c=>clipLocked(project,c)))return {ok:false,reason:'locked'};
-
+      const affected=[anchor,...followers];if(affected.some(c=>clipLocked(project,c)))return {ok:false,reason:'locked'};
       let prepared;
       try{
         prepared=affected.map(c=>{
@@ -82,24 +98,40 @@
           if(c===anchor){
             const next={...c,duration:target-anchorWindow.start};
             if(Array.isArray(c.wordTimings))next.wordTimings=trimWords(c.wordTimings,anchorWindow.start,target);
-            if(Object.prototype.hasOwnProperty.call(c,'fadeIn')){const n=strictNumber(c.fadeIn);if(n===null)throw new Error('invalid-fade');next.fadeIn=Math.min(next.duration,Math.max(0,n))}
-            if(Object.prototype.hasOwnProperty.call(c,'fadeOut')){const n=strictNumber(c.fadeOut);if(n===null)throw new Error('invalid-fade');next.fadeOut=Math.min(next.duration,Math.max(0,n))}
-            return [c,next];
+            clampFades(c,next);return [c,next];
           }
-          const next={...c,start:w.start-shift};
-          if(Array.isArray(c.wordTimings))next.wordTimings=shiftedWords(c.wordTimings,-shift);
-          return [c,next];
+          const next={...c,start:w.start-shift};if(Array.isArray(c.wordTimings))next.wordTimings=shiftedWords(c.wordTimings,-shift);return [c,next];
         });
       }catch(error){return {ok:false,reason:error.message||'invalid-data'};}
+      const done=finish(project,prepared,oldDuration,oldMax);if(done.ok===false)return done;
+      return {ok:true,clip:anchor,moved:followers.length,shift,at:target,duration:done.duration,track:anchor.track,side:'right'};
+    }
 
-      let newMax=0;
-      for(const clip of project.clips){
-        const preparedPair=prepared.find(([original])=>original===clip),candidate=preparedPair?preparedPair[1]:clip,w=clipWindow(candidate);
-        if(!w)return {ok:false,reason:'invalid-clip-window'};newMax=Math.max(newMax,w.end);
-      }
-      for(const [original,next] of prepared)Object.assign(original,next);
-      if(oldDuration<=oldMax+.001)project.duration=newMax;
-      return {ok:true,clip:anchor,moved:followers.length,shift,at:target,duration:project.duration,track:anchor.track};
+    trimLeft(project,id,at,{minDuration=.25}={}){
+      const ctx=baseContext(project,id,at,minDuration);if(ctx.error)return ctx.error;
+      const {target,minimum,oldDuration,anchor,anchorWindow,trackKey,oldMax}=ctx;
+      if(target<=anchorWindow.start+.001||target>=anchorWindow.end-minimum+.001)return {ok:false,reason:'outside'};
+      const shift=target-anchorWindow.start;
+      const followers=project.clips.filter(c=>c!==anchor&&scalarKey(c?.track)===trackKey&&clipWindow(c).start>=anchorWindow.end-.001);
+      const affected=[anchor,...followers];if(affected.some(c=>clipLocked(project,c)))return {ok:false,reason:'locked'};
+      let prepared;
+      try{
+        prepared=affected.map(c=>{
+          const w=clipWindow(c);
+          if(c===anchor){
+            const speed=Object.prototype.hasOwnProperty.call(c,'speed')?strictNumber(c.speed):1;
+            const sourceOffset=Object.prototype.hasOwnProperty.call(c,'sourceOffset')?strictNumber(c.sourceOffset):0;
+            if(speed===null||speed<=0)return (()=>{throw new Error('invalid-speed')})();
+            if(sourceOffset===null||sourceOffset<0)return (()=>{throw new Error('invalid-source-offset')})();
+            const next={...c,start:anchorWindow.start,duration:anchorWindow.end-target,sourceOffset:sourceOffset+shift*speed};
+            if(Array.isArray(c.wordTimings))next.wordTimings=shiftedWords(trimWords(c.wordTimings,target,anchorWindow.end),-shift);
+            clampFades(c,next);return [c,next];
+          }
+          const next={...c,start:w.start-shift};if(Array.isArray(c.wordTimings))next.wordTimings=shiftedWords(c.wordTimings,-shift);return [c,next];
+        });
+      }catch(error){return {ok:false,reason:error.message||'invalid-data'};}
+      const done=finish(project,prepared,oldDuration,oldMax);if(done.ok===false)return done;
+      return {ok:true,clip:anchor,moved:followers.length,shift,at:target,duration:done.duration,track:anchor.track,side:'left'};
     }
   }
 
