@@ -51,6 +51,7 @@ def main() -> None:
         ("Fallback B-roll offline mantiene costo $0", [py, "tests/test_zero_cost_broll.py"]),
         ("Inspector respeta locks e identidad de clips", [node, "test_clip_lock_track_inspector.mjs"]),
         ("Reporte QA renderiza datos de forma segura", [node, "test_qa_report_safe_render.mjs"]),
+        ("Studio carga y activa el renderer QA seguro", [node, "test_studio_qa_report_integration.mjs"]),
         ("Timeline renderiza contenido de forma segura", [node, "test_timeline_safe_render.mjs"]),
         ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Snapping magnético conserva identidad canónica", [node, "test_timeline_snap.mjs"]),
