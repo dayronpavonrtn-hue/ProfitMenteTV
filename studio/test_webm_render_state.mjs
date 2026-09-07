@@ -4,7 +4,21 @@ import fs from 'node:fs';
 const require=createRequire(import.meta.url);
 const Engine=require('./webm-render-engine.js');
 
-const project={name:'Proyecto A',duration:2,format:'9:16',clips:[{id:'c1',track:0,start:0,duration:2,asset:'a1'}]};
+assert.equal(Engine.normalizeQuality('draft'),'draft');
+assert.equal(Engine.normalizeQuality('STANDARD'),'standard');
+assert.equal(Engine.normalizeQuality('unknown'),'high','calidad inválida debe caer en alta');
+const high1080=Engine.recorderOptions({mimeType:'video/webm',quality:'high',width:1080,height:1920,fps:30});
+assert.deepEqual(high1080,{mimeType:'video/webm',videoBitsPerSecond:10000000,audioBitsPerSecond:192000},'alta 1080p30 debe usar bitrate final');
+const standard1080=Engine.recorderOptions({mimeType:'video/webm',quality:'standard',width:1080,height:1920,fps:30});
+assert.equal(standard1080.videoBitsPerSecond,6000000,'estándar debe reducir bitrate sin cambiar resolución');
+assert.equal(standard1080.audioBitsPerSecond,160000,'estándar debe mantener audio de calidad suficiente');
+const draftSmall=Engine.recorderOptions({mimeType:'video/webm',quality:'draft',width:320,height:180,fps:24});
+assert.equal(draftSmall.videoBitsPerSecond,1050000,'borrador pequeño debe respetar el piso de escala antes del clamp de bitrate');
+assert.equal(draftSmall.audioBitsPerSecond,128000);
+const high4k60=Engine.recorderOptions({mimeType:'video/webm',quality:'high',width:2160,height:3840,fps:60});
+assert.equal(high4k60.videoBitsPerSecond,20000000,'alta 4K60 debe quedar limitada a 20 Mbps para un render local razonable');
+
+const project={name:'Proyecto A',duration:2,format:'9:16',renderQuality:'high',clips:[{id:'c1',track:0,start:0,duration:2,asset:'a1'}]};
 const assets=[{id:'a1',name:'video.mp4',type:'video',mime:'video/mp4',duration:2,width:1080,height:1920,mediaReadable:true,metadataVersion:2,sourceFingerprint:'video.mp4|1200|video/mp4|10',sourceContentHash:'hash-a',sourceLegacyContentHash:'legacy-a',sourceHashVersion:'sample-v2',blob:{size:1200,type:'video/mp4',lastModified:10}}];
 const snapshot=Engine.captureState(project,assets);
 assert.equal(Engine.assertState(snapshot,project,assets),true,'el estado inicial debe ser válido');
@@ -39,8 +53,10 @@ assert.equal(Engine.assertState(snapshot,project,assets),true,'restaurar todos l
 const integration=fs.readFileSync(new URL('./webm-render-integration.js',import.meta.url),'utf8');
 assert.match(integration,/captureState\(renderProject,assets\)/,'la integración debe capturar el estado después de guardar');
 assert.match(integration,/assertState\(renderState,project,assets\)/,'la integración debe validar el estado durante el render');
+assert.match(integration,/recorderOptions\(\{mimeType:mime,quality:renderQuality,width:canvas\.width,height:canvas\.height,fps:plan\.fps\}\)/,'WebM debe derivar bitrate de calidad, resolución y FPS');
+assert.match(integration,/new MediaRecorder\(mixedStream,recorderOptions\)/,'MediaRecorder debe recibir el preset de bitrate calculado');
 assert.match(integration,/download\(blob,renderName\)/,'la descarga debe conservar el nombre capturado al iniciar');
 assert.match(integration,/WEBM_STATE_CHANGED/,'la UI debe distinguir cambios de proyecto de una cancelación normal');
 assert.match(integration,/project===renderProject\?previousTime/,'cleanup no debe imponer el playhead anterior sobre otro proyecto');
 
-console.log('WebM render state QA: OK');
+console.log('WebM render state + quality QA: OK');
