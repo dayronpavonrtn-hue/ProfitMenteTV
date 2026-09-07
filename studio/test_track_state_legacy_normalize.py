@@ -71,4 +71,51 @@ assert [c['asset'] for c in out['clips']]==['0','7'], out
 assert [c['track'] for c in out['clips']]==[0,1], out
 assert media['assets'][0]['id']==0, media  # render normalization remains non-mutating
 assert media['clips'][1]['asset']==7, media
+
+# Numeric string aliases remain compatible, including leading zeroes, decimal
+# integer notation and negative zero used by some imported JSON producers.
+alias_tracks={'clips':[
+    {'id':'voice','track':'06'},
+    {'id':'sfx','track':'4.0'},
+    {'id':'base','track':'-0'},
+]}
+out=normalize_track_solo(alias_tracks)
+assert [c['track'] for c in out['clips']]==[6,4,0], out
+
+# Python normally coerces booleans to numbers. Render normalization must not turn
+# corrupt JSON true/false track values into tracks 1/0, where they could become
+# real visual layers after the strict import/QA guards have already rejected them.
+invalid_tracks={'clips':[
+    {'id':'true-track','track':True},
+    {'id':'false-track','track':False},
+    {'id':'object-track','track':{'value':1}},
+    {'id':'array-track','track':[6]},
+]}
+out=normalize_track_solo(invalid_tracks)
+assert out['clips'][0]['track'] is True, out
+assert out['clips'][1]['track'] is False, out
+assert out['clips'][2]['track']=={'value':1}, out
+assert out['clips'][3]['track']==[6], out
+
+# Persisted state flags are strict booleans. Truthy corrupt values must never hide,
+# mute or Solo real tracks during export, while genuine legacy True still applies.
+corrupt_flags={
+    'trackState':{
+        '0':{'hidden':'false'},
+        '1':{'solo':1},
+        '4':{'muted':{'value':True}},
+        '5':{'solo':['true']},
+        '06':{'muted':True},
+    }
+}
+out=normalize_track_solo(corrupt_flags)
+assert out['trackState']['0']['hidden'] is False, out
+assert out['trackState']['1'].get('solo') is False, out
+assert out['trackState']['4']['muted'] is False, out
+assert out['trackState']['5'].get('solo') is False, out
+assert out['trackState']['6']['muted'] is True, out
+# Corrupt Solo values did not accidentally hide/mute siblings.
+assert out['trackState']['2']['hidden'] is False, out
+assert out['trackState']['4']['muted'] is False, out
+
 print('Legacy track-state/media render normalization OK')
