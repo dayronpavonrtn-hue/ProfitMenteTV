@@ -74,4 +74,37 @@ await assert.rejects(
   'invalid media IDs should fail with a clear export error'
 );
 
+await assert.rejects(
+  ()=>bundler.build({name:'Dangling clip',clips:[{id:'clip-missing',track:0,asset:'missing-media'}]},[asset]),
+  /Medio requerido por clip no incluido en paquete: missing-media/,
+  'bundle export must reject clip references whose media is not embedded'
+);
+
+await assert.rejects(
+  ()=>bundler.build({name:'Invalid clip media',clips:[{id:'clip-invalid',track:0,asset:false}]},[asset]),
+  /Clip con identificador de medio inválido: clip-invalid/,
+  'boolean clip media IDs must not coerce to a valid identifier'
+);
+
+await assert.rejects(
+  ()=>bundler.build({name:'Duplicate media',clips:[]},[
+    {...legacyAsset,id:90210,name:'numeric.mp4'},
+    {...legacyAsset,id:'90210',name:'string.mp4'}
+  ]),
+  /Identificador de medio duplicado en paquete: 90210/,
+  'canonical numeric/string aliases must not produce duplicate media identities'
+);
+
+await assert.rejects(
+  ()=>bundler.build({name:'Object media',clips:[]},[{...legacyAsset,id:{toString(){return '90210'}},name:'object-id.mp4'}]),
+  /Medio sin identificador válido/,
+  'object media IDs must not be coerced during export'
+);
+
+const zeroAsset={...legacyAsset,id:-0,name:'zero-id.mp4'};
+const zeroBlob=await bundler.build({name:'Zero media ID',clips:[{id:'zero-clip',track:0,asset:0}]},[zeroAsset]);
+const zeroRestored=await bundler.parse(zeroBlob);
+assert.equal(zeroRestored.assets[0].id,'0','negative zero media ID must canonicalize to 0');
+assert.equal(zeroRestored.project.clips[0].asset,'0','zero clip reference must match canonical media ID');
+
 console.log('Bundle media identity roundtrip QA OK');
