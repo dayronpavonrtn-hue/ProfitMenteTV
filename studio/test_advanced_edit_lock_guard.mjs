@@ -33,6 +33,13 @@ assert.equal(ProfitMenteEditLockGuard.canonicalTrack('00'), '0');
 assert.equal(ProfitMenteEditLockGuard.canonicalTrack('4.0'), '4');
 assert.equal(ProfitMenteEditLockGuard.canonicalTrack('1.5'), null);
 assert.equal(ProfitMenteEditLockGuard.canonicalTrack(''), null);
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack(false), null,'boolean false must not alias track 0');
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack(true), null,'boolean true must not alias track 1');
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack([]), null,'coercible objects must not alias a valid track');
+assert.equal(ProfitMenteEditLockGuard.canonicalTrack({valueOf:()=>1}), null,'object valueOf must not alias a valid track');
+const booleanTrackProject={trackState:{0:{locked:true},1:{locked:true}}};
+assert.equal(ProfitMenteEditLockGuard.isLocked(booleanTrackProject,{track:false}),false,'malformed false track must not inherit track 0 lock');
+assert.equal(ProfitMenteEditLockGuard.isLocked(booleanTrackProject,{track:true}),false,'malformed true track must not inherit track 1 lock');
 
 const project={fps:30,duration:10,trackState:{0:{locked:false}},clips:[
   {id:'a',track:0,start:1,duration:2,groupId:'g'},
