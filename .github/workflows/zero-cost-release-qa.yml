@@ -57,6 +57,9 @@ jobs:
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
+      - name: Verify synchronized insert-time metadata and caption timing
+        run: node studio/test_timeline_time_sync.mjs
+
       - name: Verify source monitor ranges, probed duration and legacy media identity
         run: node studio/test_source_monitor.mjs
 
