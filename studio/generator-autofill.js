@@ -20,8 +20,10 @@
 class ProfitMenteGeneratorAutoFill {
   constructor(engine){this.engine=engine}
   canonicalTrack(value){
-    if(value==null||typeof value==='boolean'||(typeof value==='string'&&!value.trim()))return null;
-    const number=Number(value);
+    if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
+    const raw=typeof value==='string'?value.trim():value;
+    if(raw==='')return null;
+    const number=Number(raw);
     if(!Number.isFinite(number)||!Number.isInteger(number)||number<0||number>6)return null;
     return String(Object.is(number,-0)?0:number);
   }
