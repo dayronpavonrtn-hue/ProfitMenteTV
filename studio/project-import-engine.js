@@ -14,45 +14,42 @@ class ProfitMenteProjectImportEngine{
     if(!Array.isArray(source.clips))throw new Error('Timeline de proyecto inválida');
     if(source.clips.length>10000)throw new Error('Timeline demasiado grande para importar');
     const p=structuredClone(source),out={...structuredClone(this.defaults),...p};
+    const parseFiniteNumber=(raw,label)=>{
+      const type=typeof raw;
+      if(type!=='number'&&type!=='string')throw new Error(`${label} inválido`);
+      if(type==='string'&&!raw.trim())throw new Error(`${label} inválido`);
+      const value=Number(raw);
+      if(!Number.isFinite(value))throw new Error(`${label} inválido`);
+      return value;
+    };
     out.name=typeof p.name==='string'&&p.name.trim()?p.name.trim().slice(0,160):'Proyecto importado';
     out.mode=p.mode==='Automático'?'Automático':'Manual';
-    const duration=Number(p.duration);
-    if(!Number.isFinite(duration)||duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');
+    const duration=parseFiniteNumber(p.duration,'Duración de proyecto');
+    if(duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');
     out.duration=duration;
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
-    // Keep the editor, preview and FFmpeg renderer on one supported frame-rate model.
-    // Older exports may use frameRate while current projects use fps; canonicalize both
-    // to fps and fall back to the zero-cost renderer default instead of preserving a
-    // malformed/unsupported value that would be interpreted differently downstream.
     const fpsSource=p.fps??p.frameRate??this.defaults.fps??30;
-    const fpsNumber=Number(fpsSource);
+    const fpsPrimitive=typeof fpsSource==='number'||(typeof fpsSource==='string'&&fpsSource.trim());
+    const fpsNumber=fpsPrimitive?Number(fpsSource):NaN;
     out.fps=Number.isFinite(fpsNumber)&&[24,30,60].includes(Math.round(fpsNumber))&&Math.abs(fpsNumber-Math.round(fpsNumber))<1e-9?Math.round(fpsNumber):30;
     delete out.frameRate;
     const ids=new Set();
     const normalizeOptionalNumber=(copy,key,min,max,label)=>{
       if(copy[key]===undefined||copy[key]===null)return;
-      const value=Number(copy[key]);
-      if(!Number.isFinite(value)||value<min||value>max)throw new Error(`${label} inválido`);
+      const value=parseFiniteNumber(copy[key],label);
+      if(value<min||value>max)throw new Error(`${label} inválido`);
       copy[key]=value;
     };
     out.clips=p.clips.map((c,index)=>{
       if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Clip de proyecto inválido');
-      const start=Number(c.start??0),clipDuration=Number(c.duration??0),track=Number(c.track??0),end=start+clipDuration;
-      if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<=0)throw new Error('Tiempo de clip inválido');
+      const start=parseFiniteNumber(c.start??0,'Tiempo de clip'),clipDuration=parseFiniteNumber(c.duration??0,'Tiempo de clip'),track=parseFiniteNumber(c.track??0,'Pista de clip'),end=start+clipDuration;
+      if(start<0||clipDuration<=0)throw new Error('Tiempo de clip inválido');
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
       if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
-      // Do not reject a valid clip merely because an old/imported project carries a stale
-      // declared duration. The migration engine deliberately expands project.duration to
-      // contentDuration(), preserving late media instead of silently clipping or hiding it.
       const copy=structuredClone(c);
-      // Imported/legacy JSON commonly serializes editor numbers as strings. Persist a
-      // canonical numeric project model so preview, timeline tools and render arithmetic
-      // cannot disagree (for example sourceOffset + localTime must never concatenate).
       copy.track=track;copy.start=start;copy.duration=clipDuration;
       normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');
-      // sourceOffset belongs to the source asset, not the project timeline. Long source
-      // files may legitimately start past 24h, so only require a finite non-negative value.
       normalizeOptionalNumber(copy,'sourceOffset',0,Infinity,'Punto de entrada del medio');
       normalizeOptionalNumber(copy,'volume',0,2,'Volumen de clip');
       normalizeOptionalNumber(copy,'sourceVolume',0,2,'Volumen de audio original');
