@@ -6,7 +6,7 @@
   `;document.head.appendChild(style);
   function audioContext(){if(context)return context;const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;context=new C();return context}
   function assetKey(asset){return [Engine.canonicalMediaId(asset?.id),asset?.sourceContentHash,asset?.sourceFingerprint,asset?.blob?.size,asset?.blob?.type].filter(v=>v!==null&&v!==undefined&&v!=='').join('|')}
-  function decodeTimeoutMs(){const configured=Number(window.ProfitMenteWaveformDecodeTimeoutMs);return Number.isFinite(configured)&&configured>0?Math.max(10,Math.min(30000,configured)):8000}
+  function decodeTimeoutMs(){const configured=Engine.finiteNumber(window.ProfitMenteWaveformDecodeTimeoutMs,null);return configured!==null&&configured>0?Math.max(10,Math.min(30000,configured)):8000}
   async function decodeWithTimeout(ac,raw){
     let timer=null;
     try{
@@ -25,9 +25,9 @@
   }
   function clearElement(el){const canvas=el.querySelector?.('.profitmente-waveform');if(canvas)canvas.remove();delete el.dataset.waveformReady}
   function draw(canvas,peaks){
-    const rect=canvas.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1),w=Math.max(24,Math.floor(rect.width*dpr)),h=Math.max(12,Math.floor(rect.height*dpr));if(canvas.width!==w)canvas.width=w;if(canvas.height!==h)canvas.height=h;
+    const rect=canvas.getBoundingClientRect(),dpr=Math.max(1,Engine.finiteNumber(window.devicePixelRatio,1)),w=Math.max(24,Math.floor(Engine.finiteNumber(rect.width,24)*dpr)),h=Math.max(12,Math.floor(Engine.finiteNumber(rect.height,12)*dpr));if(canvas.width!==w)canvas.width=w;if(canvas.height!==h)canvas.height=h;
     const g=canvas.getContext('2d');g.clearRect(0,0,w,h);g.fillStyle='rgba(255,255,255,.78)';const mid=h/2,bar=Math.max(1,w/Math.max(1,peaks.length));
-    peaks.forEach((p,i)=>{const amp=Math.max(1,p*(h*.48)),x=Math.floor(i*bar);g.fillRect(x,mid-amp,Math.max(1,Math.ceil(bar*.68)),amp*2)});
+    peaks.forEach((p,i)=>{const amp=Math.max(1,Engine.finiteNumber(p,0)*(h*.48)),x=Math.floor(i*bar);g.fillRect(x,mid-amp,Math.max(1,Math.ceil(bar*.68)),amp*2)});
   }
   async function render(){
     const token=++renderToken;if(typeof project==='undefined'||typeof assets==='undefined')return;
@@ -38,7 +38,8 @@
       const asset=Engine.findById(assets,clip.asset);if(!asset||!['audio','video'].includes(asset.type)){clearElement(el);continue}
       const decoded=await decode(asset);if(!decoded||token!==renderToken){if(!decoded)clearElement(el);continue}
       let canvas=el.querySelector('.profitmente-waveform');if(!canvas){canvas=document.createElement('canvas');canvas.className='profitmente-waveform';canvas.setAttribute('aria-hidden','true');el.appendChild(canvas)}
-      const visible=Engine.slicePeaks(decoded.peaks,{sourceOffset:Number(clip.sourceOffset)||0,clipDuration:Number(clip.duration)||0,speed:Number(clip.speed)||1,sourceDuration:decoded.duration,bins:Math.max(24,Math.min(240,Math.round(el.getBoundingClientRect().width/2)))});
+      const width=Engine.finiteNumber(el.getBoundingClientRect().width,48);
+      const visible=Engine.slicePeaks(decoded.peaks,{sourceOffset:Engine.finiteNumber(clip.sourceOffset,0),clipDuration:Engine.finiteNumber(clip.duration,0),speed:Engine.finiteNumber(clip.speed,1),sourceDuration:decoded.duration,bins:Math.max(24,Math.min(240,Math.round(width/2)))});
       draw(canvas,Engine.drawable(visible));el.dataset.waveformReady='1';el.title=`${clip.name} · waveform local · ${decoded.duration.toFixed(1)}s`;
     }
   }
