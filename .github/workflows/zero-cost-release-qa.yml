@@ -51,6 +51,9 @@ jobs:
       - name: Verify strict imported project numeric identities
         run: node studio/test_project_import_numeric_identity.mjs
 
+      - name: Verify strict local MP4 project numeric validation
+        run: python studio/test_validate_project_strict_numeric.py
+
       - name: Verify resilient preview transport state
         run: node studio/test_transport_engine.mjs
 
