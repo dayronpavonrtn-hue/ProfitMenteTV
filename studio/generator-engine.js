@@ -3,8 +3,10 @@ class ProfitMenteGeneratorEngine{
   pick(list,seed,offset=0){return list[(seed+offset)%list.length]}
   words(text){return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>3)}
   canonicalTrack(value){
-    if(value==null||typeof value==='boolean'||(typeof value==='string'&&!value.trim()))return null;
-    const number=Number(value);
+    if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
+    const raw=typeof value==='string'?value.trim():value;
+    if(raw==='')return null;
+    const number=Number(raw);
     if(!Number.isFinite(number)||!Number.isInteger(number)||number<0||number>6)return null;
     return String(Object.is(number,-0)?0:number);
   }
