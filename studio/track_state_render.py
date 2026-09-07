@@ -16,15 +16,25 @@ VISUAL_TRACKS=(0,1,2,3)
 AUDIO_TRACKS=(4,5,6)
 
 
+def _is_true(value):
+    """Persisted render-state flags are active only when they are real booleans."""
+    return value is True
+
+
 def _canonical_track(value):
     """Return an integer for legacy numeric track values when that is lossless.
 
     Older/imported JSON can contain ``"0"`` or ``"0.0"``. The validator accepts
     those as integral track numbers, while several FFmpeg selection paths use exact
     integer membership checks. Canonicalizing the render copy prevents a validated
-    project from silently losing its visual/audio clips during export. Invalid or
-    fractional values stay untouched so downstream validation can reject them.
+    project from silently losing its visual/audio clips during export. Booleans and
+    other non-numeric JSON values stay untouched so they cannot masquerade as tracks
+    (Python otherwise treats ``True``/``False`` as ``1``/``0``).
     """
+    if isinstance(value,bool) or not isinstance(value,(int,float,str)):
+        return value
+    if isinstance(value,str) and not value.strip():
+        return value
     try:
         parsed=float(value)
     except (TypeError,ValueError):
@@ -40,7 +50,9 @@ def _state(states, track):
     JSON object keys are strings, and old/imported projects can therefore carry
     aliases such as ``"0.0"`` or ``"06"``. Merge every lossless numeric alias so
     safety flags cannot be bypassed by a duplicate key, while the canonical key
-    remains authoritative for ordinary values.
+    remains authoritative for ordinary values. Semantic flags use strict booleans;
+    strings such as ``"false"`` and numeric values must never disable exported
+    content by accident.
     """
     if not isinstance(states,dict):
         return {}
@@ -59,26 +71,30 @@ def _state(states, track):
         if key==canonical_key:
             merged.update(value)
     for flag in ('hidden','muted','solo'):
-        if any(bool(value.get(flag,False)) for _,value in aliases):
+        if any(_is_true(value.get(flag,False)) for _,value in aliases):
             merged[flag]=True
+        elif flag in merged and not isinstance(merged.get(flag),bool):
+            merged[flag]=False
     return merged
 
 
 def _merged_state(current, legacy, track):
     """Merge current + legacy maps without silently re-enabling protected state.
 
-    Newer properties win for ordinary values, but semantic safety flags are ORed.
-    This mirrors the browser compatibility path: a track that was hidden, muted or
-    solo in either persisted representation stays effective until the project is
-    explicitly edited and saved in the canonical format.
+    Newer properties win for ordinary values, but semantic safety flags are ORed
+    only when a persisted representation contains the real boolean ``true``. This
+    mirrors the strict browser/import guards while still preserving genuine legacy
+    hidden, muted and Solo state.
     """
     old=_state(legacy,track)
     new=_state(current,track)
     merged=dict(old)
     merged.update(new)
     for key in ('hidden','muted','solo'):
-        if bool(old.get(key,False)) or bool(new.get(key,False)):
+        if _is_true(old.get(key,False)) or _is_true(new.get(key,False)):
             merged[key]=True
+        elif key in merged and not isinstance(merged.get(key),bool):
+            merged[key]=False
     # Solo bookkeeping can also exist only in a legacy snapshot. Keep it long
     # enough for _base_hidden/_base_muted to recover the user's manual state.
     for key in ('_soloHiddenBase','_soloVisualActive','_soloMutedBase','_soloAudioActive'):
@@ -88,15 +104,15 @@ def _merged_state(current, legacy, track):
 
 
 def _base_hidden(state):
-    if state.get('_soloVisualActive'):
-        return bool(state.get('_soloHiddenBase',False))
-    return bool(state.get('hidden',False))
+    if _is_true(state.get('_soloVisualActive')):
+        return _is_true(state.get('_soloHiddenBase',False))
+    return _is_true(state.get('hidden',False))
 
 
 def _base_muted(state):
-    if state.get('_soloAudioActive'):
-        return bool(state.get('_soloMutedBase',False))
-    return bool(state.get('muted',False))
+    if _is_true(state.get('_soloAudioActive')):
+        return _is_true(state.get('_soloMutedBase',False))
+    return _is_true(state.get('muted',False))
 
 
 def normalize_track_solo(project):
@@ -121,8 +137,8 @@ def normalize_track_solo(project):
     legacy=out.get('trackStates')
     legacy=legacy if isinstance(legacy,dict) else {}
     states={i:_merged_state(current,legacy,i) for i in range(7)}
-    visual_solo={i for i in VISUAL_TRACKS if bool(states[i].get('solo',False))}
-    audio_solo={i for i in AUDIO_TRACKS if bool(states[i].get('solo',False))}
+    visual_solo={i for i in VISUAL_TRACKS if _is_true(states[i].get('solo',False))}
+    audio_solo={i for i in AUDIO_TRACKS if _is_true(states[i].get('solo',False))}
 
     for i in VISUAL_TRACKS:
         s=states[i]; base=_base_hidden(s)
