@@ -1,0 +1,32 @@
+name: ProfitMente Studio Bundle Import QA
+
+on:
+  push:
+    paths:
+      - 'studio/bundle-engine.js'
+      - 'studio/bundle-render-job-integration.js'
+      - 'studio/test_bundle_import_integrity.mjs'
+      - 'studio/test_bundle_media_identity.mjs'
+      - '.github/workflows/studio-bundle-import-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-import-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check bundle runtime syntax
+        run: |
+          node --check studio/bundle-engine.js
+          node --check studio/bundle-render-job-integration.js
+      - name: Verify bundle media identity roundtrip
+        run: node studio/test_bundle_media_identity.mjs
+      - name: Verify complete bundle import integrity
+        run: node studio/test_bundle_import_integrity.mjs
