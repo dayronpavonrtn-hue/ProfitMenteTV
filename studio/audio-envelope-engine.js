@@ -1,9 +1,21 @@
 class ProfitMenteAudioEnvelopeEngine{
+  finiteNumber(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value==='string'){
+      const raw=value.trim();
+      if(!raw)return null;
+      const n=Number(raw);
+      return Number.isFinite(n)?n:null;
+    }
+    return null;
+  }
+  safeDuration(value){
+    const n=this.finiteNumber(value);
+    return n!==null&&n>0?Math.max(.001,n):.001;
+  }
   canonicalTrack(track){
-    if(track===null||track===undefined||typeof track==='boolean')return null;
-    if(typeof track==='string'&&track.trim()==='')return null;
-    const n=Number(track);
-    if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+    const n=this.finiteNumber(track);
+    if(n===null||!Number.isInteger(n)||n<0||n>6)return null;
     return Object.is(n,-0)?0:n;
   }
   canonicalId(value){
@@ -24,40 +36,46 @@ class ProfitMenteAudioEnvelopeEngine{
     const target=this.canonicalTrack(track);
     if(target===null)return false;
     for(const state of [project?.trackState,project?.trackStates]){
-      if(!state||typeof state!=='object')continue;
+      if(!state||typeof state!=='object'||Array.isArray(state))continue;
       for(const [key,value] of Object.entries(state))if(this.canonicalTrack(key)===target&&value?.locked===true)return true;
     }
     return false;
   }
-  clipLocked(project,clip){return !!clip?.locked||this.trackLocked(project,clip?.track)}
+  clipLocked(project,clip){return clip?.locked===true||this.trackLocked(project,clip?.track)}
   isAudioEligible(clip,assets){
-    if(!clip||!this.hasAsset(clip.asset))return false;
+    if(!clip||typeof clip!=='object'||Array.isArray(clip)||!this.hasAsset(clip.asset))return false;
     const t=this.canonicalTrack(clip.track),asset=this.findAsset(assets,clip.asset);
     if(t===null||!asset)return false;
     return [4,5,6].includes(t)||([0,1].includes(t)&&asset?.type==='video');
   }
   normalize(duration,fadeIn=0.18,fadeOut=0.25){
-    const d=Math.max(.001,Number(duration)||.001);
-    let fi=Math.max(0,Math.min(d,Number(fadeIn)||0));
-    let fo=Math.max(0,Math.min(d,Number(fadeOut)||0));
+    const d=this.safeDuration(duration);
+    const rawIn=this.finiteNumber(fadeIn),rawOut=this.finiteNumber(fadeOut);
+    let fi=Math.max(0,Math.min(d,rawIn??0));
+    let fo=Math.max(0,Math.min(d,rawOut??0));
     if(fi+fo>d){const scale=d/(fi+fo);fi*=scale;fo*=scale}
     return {fadeIn:fi,fadeOut:fo};
   }
   forClip(clip){
-    const duration=Math.max(.001,Number(clip?.duration)||.001);
+    const duration=this.safeDuration(clip?.duration);
     const fallbackIn=.18,fallbackOut=.25;
-    return this.normalize(duration,clip?.fadeIn??fallbackIn,clip?.fadeOut??fallbackOut);
+    const fi=this.finiteNumber(clip?.fadeIn),fo=this.finiteNumber(clip?.fadeOut);
+    return this.normalize(duration,fi??fallbackIn,fo??fallbackOut);
   }
   apply(project,clip,fadeIn,fadeOut){
-    if(!clip)return {ok:false,reason:'missing-clip'};
+    if(!clip||typeof clip!=='object'||Array.isArray(clip))return {ok:false,reason:'missing-clip'};
     if(this.clipLocked(project,clip))return {ok:false,reason:'locked'};
-    const e=this.normalize(clip.duration,fadeIn,fadeOut);
-    clip.fadeIn=+e.fadeIn.toFixed(3);
-    clip.fadeOut=+e.fadeOut.toFixed(3);
-    return {ok:true,fadeIn:clip.fadeIn,fadeOut:clip.fadeOut};
+    const duration=this.finiteNumber(clip.duration),fi=this.finiteNumber(fadeIn),fo=this.finiteNumber(fadeOut);
+    if(duration===null||duration<=0||fi===null||fo===null)return {ok:false,reason:'invalid-numeric'};
+    const e=this.normalize(duration,fi,fo);
+    const nextIn=+e.fadeIn.toFixed(3),nextOut=+e.fadeOut.toFixed(3);
+    clip.fadeIn=nextIn;
+    clip.fadeOut=nextOut;
+    return {ok:true,fadeIn:nextIn,fadeOut:nextOut};
   }
   gainAt(clip,localTime){
-    const d=Math.max(.001,Number(clip?.duration)||.001),t=Math.max(0,Math.min(d,Number(localTime)||0));
+    const d=this.safeDuration(clip?.duration),rawTime=this.finiteNumber(localTime);
+    const t=Math.max(0,Math.min(d,rawTime??0));
     const {fadeIn,fadeOut}=this.forClip(clip);
     let g=1;
     if(fadeIn>0&&t<fadeIn)g=Math.min(g,t/fadeIn);
