@@ -2,11 +2,12 @@
   const root=typeof window!=='undefined'?window:globalThis;
   class ProfitMenteEditLockGuard{
     static canonicalTrack(value){
-      if(value===undefined||value===null)return null;
-      if(typeof value==='string'&&!value.trim())return null;
-      const n=Number(value);
+      if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
+      const raw=typeof value==='string'?value.trim():value;
+      if(raw==='')return null;
+      const n=Number(raw);
       if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
-      return String(n);
+      return String(Object.is(n,-0)?0:n);
     }
     static clipLocked(clip){return !!clip?.locked}
     static trackLocked(project,clip){
