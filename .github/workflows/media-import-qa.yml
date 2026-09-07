@@ -14,6 +14,7 @@ on:
       - 'studio/test_media_import_engine.mjs'
       - 'studio/test_media_import_batch_dedupe.mjs'
       - 'studio/test_media_import_empty_guard.mjs'
+      - 'studio/test_media_import_folder_resilience.mjs'
       - 'studio/test_media_timeline_dnd.mjs'
       - 'studio/test_media_store.mjs'
       - 'studio/test_generator_autofill.mjs'
@@ -49,6 +50,8 @@ jobs:
         run: node studio/test_media_import_batch_dedupe.mjs
       - name: Test empty media rejection
         run: node studio/test_media_import_empty_guard.mjs
+      - name: Test resilient folder drag drop
+        run: node studio/test_media_import_folder_resilience.mjs
       - name: Test timeline media placement
         run: node studio/test_media_timeline_dnd.mjs
       - name: Test resilient browser media storage
