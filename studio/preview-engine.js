@@ -17,7 +17,7 @@
   function canonicalTrack(value){
     if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
     const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
-    const parsed=Number(raw);return Number.isInteger(parsed)&&parsed>=0&&parsed<=6?Object.is(parsed,-0)?0:parsed:null;
+    const parsed=Number(raw);return Number.isInteger(parsed)&&parsed>=0?Object.is(parsed,-0)?0:parsed:null;
   }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
