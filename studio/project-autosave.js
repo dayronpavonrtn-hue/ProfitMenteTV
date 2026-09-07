@@ -13,6 +13,8 @@ class ProfitMenteProjectAutosaveEngine{
   }
   static fingerprint(project={}){return JSON.stringify(this.fields(project))}
   static changed(project={},next={}){return this.fingerprint(project)!==JSON.stringify(this.fields(next))}
+  static identity(value){if(value===null||value===undefined||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
+  static sameIdentity(a,b){const left=this.identity(a),right=this.identity(b);return left!==null&&left===right}
 }
 return {ProfitMenteProjectAutosaveEngine};
 });
@@ -58,6 +60,19 @@ if(typeof document!=='undefined')(()=>{
   name.addEventListener('input',schedule);duration.addEventListener('input',schedule);
   format.addEventListener('change',()=>flush('formato'));modeInput.addEventListener('change',()=>flush('modo'));
   window.addEventListener('profitmente:project-opened',()=>{cancel();retryCount=0;last=engine.fingerprint(project);markSaved()});
+  const projectLibrary=$('.projectLibrary');
+  if(projectLibrary)projectLibrary.addEventListener('click',event=>{
+    const del=event.target.closest?.('[data-delete]'),currentId=project?.libraryId,deleteId=del?.dataset?.delete;
+    if(!del||!engine.sameIdentity(currentId,deleteId))return;
+    queueMicrotask(()=>{
+      if(project?.libraryId!==undefined&&project?.libraryId!==null)return;
+      try{
+        if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
+        last=engine.fingerprint(project);retryCount=0;markSaved();
+        window.dispatchEvent(new CustomEvent('profitmente:project-detached',{detail:{deletedLibraryId:deleteId,name:project?.name||'Sin título'}}));
+      }catch(err){console.error('ProfitMente deleted-project draft persistence failed',err);markUnsaved(err)}
+    });
+  },true);
   window.addEventListener('beforeunload',event=>{
     try{flush('cierre')}catch(err){markUnsaved(err)}
     if(unsaved){event.preventDefault();event.returnValue=''}
