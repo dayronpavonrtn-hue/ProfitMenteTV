@@ -1,6 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectImportEngine=api.ProfitMenteProjectImportEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectImportEngine{
-  constructor(defaults={version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}){this.defaults=defaults}
+  constructor(defaults={version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',fps:30,clips:[]}){this.defaults=defaults}
   unwrap(input){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Proyecto JSON inválido');
     if(input.kind==='profitmente-studio-project'){
@@ -21,6 +21,14 @@ class ProfitMenteProjectImportEngine{
     out.duration=duration;
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
+    // Keep the editor, preview and FFmpeg renderer on one supported frame-rate model.
+    // Older exports may use frameRate while current projects use fps; canonicalize both
+    // to fps and fall back to the zero-cost renderer default instead of preserving a
+    // malformed/unsupported value that would be interpreted differently downstream.
+    const fpsSource=p.fps??p.frameRate??this.defaults.fps??30;
+    const fpsNumber=Number(fpsSource);
+    out.fps=Number.isFinite(fpsNumber)&&[24,30,60].includes(Math.round(fpsNumber))&&Math.abs(fpsNumber-Math.round(fpsNumber))<1e-9?Math.round(fpsNumber):30;
+    delete out.frameRate;
     const ids=new Set();
     const normalizeOptionalNumber=(copy,key,min,max,label)=>{
       if(copy[key]===undefined||copy[key]===null)return;
