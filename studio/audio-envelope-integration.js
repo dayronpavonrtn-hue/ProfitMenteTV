@@ -12,7 +12,7 @@
   const eligible=c=>engine.isAudioEligible(c,assets);
   function draw(){
     const c=clip();block.hidden=!eligible(c);if(!c||block.hidden)return;
-    const e=engine.forClip(c),d=Math.max(.001,Number(c.duration)||.001),locked=engine.clipLocked(project,c);
+    const e=engine.forClip(c),d=engine.safeDuration(c.duration),locked=engine.clipLocked(project,c);
     $('#ciFadeIn').max=d;$('#ciFadeOut').max=d;
     $('#ciFadeIn').disabled=locked;$('#ciFadeOut').disabled=locked;$('#ciFadeQuick').disabled=locked;$('#ciFadeReset').disabled=locked;
     if(document.activeElement!==$('#ciFadeIn'))$('#ciFadeIn').value=e.fadeIn.toFixed(2);
@@ -22,7 +22,11 @@
   function save(fi,fo,label){
     const c=clip();if(!eligible(c))return;
     const r=engine.apply(project,c,fi,fo);
-    if(!r.ok){if(r.reason==='locked')setStatus?.('El clip o la pista está bloqueada: desbloquéalo para editar los fades');draw();return}
+    if(!r.ok){
+      if(r.reason==='locked')setStatus?.('El clip o la pista está bloqueada: desbloquéalo para editar los fades');
+      else if(r.reason==='invalid-numeric')setStatus?.('No se aplicaron los fades: revisa duración y valores de entrada/salida');
+      draw();return;
+    }
     persist?.();drawTimeline?.();renderAt?.(+$('#playhead').value||0);setStatus?.(label||'Envolvente de audio actualizada');draw();
   }
   $('#ciFadeIn').addEventListener('change',()=>{const c=clip();if(c)save($('#ciFadeIn').value,c.fadeOut??.25,'Fade de entrada actualizado')});
