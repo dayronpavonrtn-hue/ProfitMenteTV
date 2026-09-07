@@ -7,6 +7,7 @@ on:
       - 'studio/project-version-integration.js'
       - 'studio/automation-checkpoint.js'
       - 'studio/test_automation_checkpoint.mjs'
+      - 'studio/test_automation_checkpoint_wiring.mjs'
       - '.github/workflows/automation-checkpoint-qa.yml'
   workflow_dispatch:
 
@@ -23,13 +24,18 @@ jobs:
           node --check studio/project-version-engine.js
           node --check studio/project-version-integration.js
           node --check studio/automation-checkpoint.js
+          node --check studio/test_automation_checkpoint_wiring.mjs
       - name: Test deduplicated automatic checkpoints
         run: node studio/test_automation_checkpoint.mjs
+      - name: Test Auto Finish checkpoint wiring
+        run: node studio/test_automation_checkpoint_wiring.mjs
       - name: Verify integration loader
         run: grep -q "automation-checkpoint.js" studio/project-version-integration.js
       - name: Verify destructive actions are protected
         run: |
           grep -q "generateBtn" studio/automation-checkpoint.js
+          grep -q "autoFinishBtn" studio/automation-checkpoint.js
+          grep -q "autoFinishRenderBtn" studio/automation-checkpoint.js
           grep -q "qaFixBtn" studio/automation-checkpoint.js
           grep -q "clearBtn" studio/automation-checkpoint.js
           grep -q "projectInput" studio/automation-checkpoint.js
