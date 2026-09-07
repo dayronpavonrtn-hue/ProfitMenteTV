@@ -59,11 +59,11 @@ class ProfitMenteRecoveryEngine{
     let draftId=this._draftId(project),changed=false;
     if(!draftId){
       // When a page reload happens before recoveryMeta reaches the main project
-      // record, adopt the identity from an exact recovery snapshot instead of
-      // starting a second history for the same draft.
+      // record, adopt the identity only from an exact recovery snapshot. Names
+      // are intentionally insufficient: two independent drafts commonly share
+      // defaults such as "Nuevo video" and must never merge recovery histories.
       const exact=rows.find(row=>!row.libraryId&&row.fingerprint===fingerprint&&this._draftId(row.project));
-      const named=rows.filter(row=>!row.libraryId&&(row.name||row.project?.name)===(project?.name||'Sin título')&&this._draftId(row.project));
-      draftId=this._draftId(exact?.project)||(named.length===1?this._draftId(named[0].project):null)||this._newDraftId();
+      draftId=this._draftId(exact?.project)||this._newDraftId();
       this._setDraftId(project,draftId);changed=true;
     }
     const group=`draft-id:${draftId}`,legacyGroup=`draft:${project?.name||'Sin título'}`;
