@@ -104,6 +104,8 @@
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
     ['visual-gap-integration.js','ProfitMenteVisualGap'],
+    ['manual-transition-engine.js','ProfitMenteManualTransitionEngine'],
+    ['manual-transition-integration.js','ProfitMenteManualTransitions'],
     ['auto-transition-engine.js','ProfitMenteAutoTransitionEngine'],
     ['auto-transition-integration.js','ProfitMenteAutoTransitions'],
     ['auto-finish-engine.js','ProfitMenteAutoFinishEngine'],
