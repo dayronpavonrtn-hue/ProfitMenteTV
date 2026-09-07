@@ -1,11 +1,17 @@
 class ProfitMenteAudioNormalizeEngine{
   static AUDIO_TRACKS=[4,5,6]
+  static finiteNumber(value,fallback=null){
+    if(typeof value==='number')return Number.isFinite(value)?(Object.is(value,-0)?0:value):fallback;
+    if(typeof value==='string'){
+      const trimmed=value.trim();if(!trimmed)return fallback;
+      const parsed=Number(trimmed);return Number.isFinite(parsed)?(Object.is(parsed,-0)?0:parsed):fallback;
+    }
+    return fallback;
+  }
   static canonicalTrack(track){
-    if(track===null||track===undefined||typeof track==='boolean')return null;
-    if(typeof track==='string'&&track.trim()==='')return null;
-    const value=Number(track);
-    if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>6)return null;
-    return Object.is(value,-0)?0:value;
+    const value=this.finiteNumber(track,null);
+    if(value===null||!Number.isInteger(value)||value<0||value>6)return null;
+    return value;
   }
   static canonicalMediaId(value){
     if(value===null||value===undefined||typeof value==='boolean')return null;
@@ -27,8 +33,8 @@ class ProfitMenteAudioNormalizeEngine{
     const wanted=this.canonicalClipId(id);if(wanted===null)return null;
     return (clips||[]).find(clip=>this.canonicalClipId(clip?.id)===wanted)||null;
   }
-  static dbToLinear(db){return Math.pow(10,Number(db||0)/20)}
-  static linearToDb(v){const n=Math.max(1e-9,Number(v)||0);return 20*Math.log10(n)}
+  static dbToLinear(db){return Math.pow(10,this.finiteNumber(db,0)/20)}
+  static linearToDb(v){const n=Math.max(1e-9,this.finiteNumber(v,0));return 20*Math.log10(n)}
   static stateFrom(map,track){
     if(!map||typeof map!=='object')return {};
     const canonical=this.canonicalTrack(track);if(canonical===null)return {};
@@ -68,14 +74,16 @@ class ProfitMenteAudioNormalizeEngine{
   }
   static analyzeChannels(channels,startSample=0,endSample=null){
     const list=(channels||[]).filter(Boolean);if(!list.length)return {peak:0,rms:0,samples:0,peakDb:-Infinity,rmsDb:-Infinity};
-    const max=Math.min(...list.map(c=>c.length||0)),start=Math.max(0,Math.min(max,Math.floor(Number(startSample)||0))),end=Math.max(start,Math.min(max,endSample==null?max:Math.floor(Number(endSample)||0)));
+    const max=Math.min(...list.map(c=>c.length||0));
+    const startValue=this.finiteNumber(startSample,0),endValue=endSample==null?max:this.finiteNumber(endSample,max);
+    const start=Math.max(0,Math.min(max,Math.floor(startValue))),end=Math.max(start,Math.min(max,Math.floor(endValue)));
     let peak=0,sum=0,count=0;
-    for(const channel of list){for(let i=start;i<end;i++){const x=Math.abs(Number(channel[i])||0);if(x>peak)peak=x;sum+=x*x;count++}}
+    for(const channel of list){for(let i=start;i<end;i++){const x=Math.abs(this.finiteNumber(channel[i],0));if(x>peak)peak=x;sum+=x*x;count++}}
     const rms=count?Math.sqrt(sum/count):0;
     return {peak,rms,samples:count,peakDb:peak?this.linearToDb(peak):-Infinity,rmsDb:rms?this.linearToDb(rms):-Infinity};
   }
   static recommendation(metrics,track,currentVolume=1){
-    const target=this.targets(track),current=Math.max(0,Number(currentVolume));
+    const target=this.targets(track),current=Math.max(0,this.finiteNumber(currentVolume,1));
     if(!metrics||metrics.samples<=0||metrics.rms<=1e-7)return {ok:false,reason:'silence',volume:current,gain:1,target};
     const rmsGain=this.dbToLinear(target.rmsDb)/metrics.rms,peakGain=metrics.peak>0?this.dbToLinear(target.peakDb)/metrics.peak:2;
     // Metrics are measured from the raw source window, so the target volume must be
@@ -87,12 +95,13 @@ class ProfitMenteAudioNormalizeEngine{
   }
   static analyzeBuffer(buffer,sourceOffset=0,sourceDuration=null){
     if(!buffer||!buffer.sampleRate||!buffer.numberOfChannels)return {peak:0,rms:0,samples:0,peakDb:-Infinity,rmsDb:-Infinity};
-    const rate=buffer.sampleRate,start=Math.max(0,Math.floor((Number(sourceOffset)||0)*rate)),duration=sourceDuration==null?null:Math.max(0,Number(sourceDuration)||0),end=duration==null?buffer.length:Math.min(buffer.length,start+Math.floor(duration*rate)),channels=[];
+    const rate=buffer.sampleRate,offset=Math.max(0,this.finiteNumber(sourceOffset,0)),start=Math.max(0,Math.floor(offset*rate));
+    const duration=sourceDuration==null?null:Math.max(0,this.finiteNumber(sourceDuration,0)),end=duration==null?buffer.length:Math.min(buffer.length,start+Math.floor(duration*rate)),channels=[];
     for(let i=0;i<buffer.numberOfChannels;i++)channels.push(buffer.getChannelData(i));
     return this.analyzeChannels(channels,start,end);
   }
   static clipWindow(clip,bufferDuration){
-    const speed=Math.max(.25,Math.min(4,Number(clip?.speed)||1)),offset=Math.max(0,Number(clip?.sourceOffset)||0),timelineDuration=Math.max(0,Number(clip?.duration)||0),available=Math.max(0,Number(bufferDuration||0)-offset),sourceDuration=Math.min(available,timelineDuration*speed);
+    const speed=Math.max(.25,Math.min(4,this.finiteNumber(clip?.speed,1))),offset=Math.max(0,this.finiteNumber(clip?.sourceOffset,0)),timelineDuration=Math.max(0,this.finiteNumber(clip?.duration,0)),available=Math.max(0,this.finiteNumber(bufferDuration,0)-offset),sourceDuration=Math.min(available,timelineDuration*speed);
     return {offset,sourceDuration,speed};
   }
 }

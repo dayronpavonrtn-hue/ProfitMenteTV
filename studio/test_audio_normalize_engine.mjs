@@ -17,15 +17,25 @@ const transient=new Float32Array(1000);transient.fill(.02);transient[500]=.95;m=
 const silence=new Float32Array(1000);r=Engine.recommendation(Engine.analyzeChannels([silence]),6,.8);assert.equal(r.ok,false);assert.equal(r.reason,'silence');assert.equal(r.volume,.8);
 
 assert.deepEqual(Engine.targets(4),{rmsDb:-20,peakDb:-1,label:'efectos'});assert.deepEqual(Engine.targets(5),{rmsDb:-24,peakDb:-1,label:'música'});assert.deepEqual(Engine.targets(6),{rmsDb:-18,peakDb:-1,label:'voz'});
+assert.equal(Engine.canonicalTrack('06.0'),6);assert.equal(Engine.canonicalTrack('-0'),0);
+for(const bad of [true,false,[],[6],{},new Number(6),Symbol('6'),NaN,Infinity,''])assert.equal(Engine.canonicalTrack(bad),null);
+assert.equal(Engine.finiteNumber(' 1.25 ',null),1.25);assert.equal(Engine.finiteNumber('-0',null),0);
+for(const bad of [true,false,[],{},new Number(1),Symbol('1'),NaN,Infinity,''])assert.equal(Engine.finiteNumber(bad,null),null);
+
 const w=Engine.clipWindow({speed:2,sourceOffset:3,duration:4},20);assert.deepEqual(w,{offset:3,sourceDuration:8,speed:2});
 const limited=Engine.clipWindow({speed:2,sourceOffset:18,duration:4},20);assert.equal(limited.sourceDuration,2);
+assert.deepEqual(Engine.clipWindow({speed:true,sourceOffset:{valueOf:()=>3},duration:[4]},20),{offset:0,sourceDuration:0,speed:1});
+assert.deepEqual(Engine.clipWindow({speed:'2',sourceOffset:'3',duration:'4'},'20'),{offset:3,sourceDuration:8,speed:2});
 
 const left=new Float32Array([0,.25,.5,.25,0]),right=new Float32Array([0,.1,.2,.1,0]);m=Engine.analyzeChannels([left,right],1,4);assert.equal(m.samples,6);assert.equal(m.peak,.5);
+assert.equal(Engine.analyzeChannels([left],true,{valueOf:()=>4}).samples,5);
 
 const clips=[
   {id:'sfx',track:4,asset:'s'},
   {id:'music',track:5,asset:'m'},
   {id:'voice',track:6,asset:'v'},
+  {id:'object-track',track:{valueOf:()=>6},asset:'x'},
+  {id:'array-track',track:[5],asset:'y'},
 ];
 assert.deepEqual(Engine.activeAudioClips({clips}).map(c=>c.id),['sfx','music','voice']);
 assert.deepEqual(Engine.activeAudioClips({clips,trackState:{5:{muted:true}}}).map(c=>c.id),['sfx','voice']);
@@ -37,5 +47,9 @@ assert.deepEqual(Engine.activeAudioClips({clips:clips.map(c=>c.id==='sfx'?{...c,
 assert.equal(Engine.trackActive({trackState:{5:{solo:true}}},4),false);
 assert.equal(Engine.trackActive({trackState:{5:{solo:true}}},5),true);
 assert.equal(Engine.trackActive({},3),false);
+assert.equal(Engine.trackActive({},new Number(6)),false);
+
+const badVolume=Engine.recommendation(m,6,{valueOf:()=>.25});assert.equal(badVolume.ok,true);assert.ok(Number.isFinite(badVolume.gain));
+const symbolVolume=Engine.recommendation(m,6,Symbol('volume'));assert.equal(symbolVolume.ok,true);assert.ok(Number.isFinite(symbolVolume.gain));
 
 console.log('audio normalize engine ok');

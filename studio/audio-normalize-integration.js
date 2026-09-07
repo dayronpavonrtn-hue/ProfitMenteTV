@@ -5,7 +5,7 @@
   function status(t){setStatus?.(t)}
   async function context(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')await ctx.resume();return ctx}
   async function decode(asset){const c=await context();return await c.decodeAudioData(await asset.blob.arrayBuffer())}
-  function currentVolume(clip){return Number(clip.volume??(Engine.canonicalTrack(clip.track)===5?.22:1))}
+  function currentVolume(clip){const fallback=Engine.canonicalTrack(clip?.track)===5?.22:1;return Engine.finiteNumber(clip?.volume,fallback)}
   async function normalizeClip(clip,cache=new Map()){
     if(!clip||!Engine.AUDIO_TRACKS.includes(Engine.canonicalTrack(clip.track))||!Engine.hasAsset(clip.asset))return {ok:false,reason:'not-audio-clip'};
     if(Engine.clipLocked(project,clip))return {ok:false,reason:'locked',clip};
