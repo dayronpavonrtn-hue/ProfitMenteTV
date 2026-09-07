@@ -6,7 +6,8 @@ globalThis.setStatus=message=>{globalThis.__status=message};
 globalThis.project={duration:20,clips:[
   {id:7,track:0,name:'Numeric seven',start:0,duration:4},
   {id:'alpha',track:0,name:'Alpha',start:5,duration:3},
-  {id:0,track:1,name:'Zero',start:0,duration:2}
+  {id:0,track:1,name:'Zero',start:0,duration:2},
+  {id:'truthy-lock',track:2,name:'Truthy lock',start:12,duration:2,locked:'false'}
 ]};
 
 const buttons=new Map();
@@ -45,6 +46,17 @@ assert.equal(identity.same(7,'007'),true);
 assert.equal(identity.same('alpha',' alpha '),true);
 assert.equal(identity.same('alpha','ALPHA'),false,'text clip IDs must remain case-sensitive');
 
+assert.equal(identity.key([7]),null,'arrays must not coerce into numeric clip IDs');
+assert.equal(identity.key(new Number(7)),null,'numeric wrappers must not coerce into clip IDs');
+assert.equal(identity.key({toString:()=> '7'}),null,'objects must not coerce into clip IDs');
+assert.equal(identity.key(true),null,'booleans must not coerce into clip IDs');
+assert.equal(identity.key(Symbol('7')),null,'symbols must be rejected safely');
+assert.equal(identity.same([7],7),false,'coercible arrays must never alias real clips');
+
+tools.select([7]);
+assert.equal(tools.selectedId,null,'invalid coercible IDs must not become editor selection state');
+assert.match(globalThis.__status,/no es válido/i);
+
 tools.select('007');
 assert.equal(tools.selectedId,7,'DOM string aliases must resolve to the real numeric clip ID');
 assert.equal(globalThis.__status,'Clip seleccionado: Numeric seven');
@@ -54,6 +66,11 @@ assert.equal(tools.selectedId,0,'zero IDs must remain selectable instead of bein
 
 tools.select(' alpha ');
 assert.equal(tools.selectedId,'alpha','text IDs should normalize harmless surrounding whitespace');
+
+tools.select('truthy-lock');
+assert.equal(buttons.get('splitBtn').disabled,false,'only boolean true clip locks may disable manual editing');
+assert.equal(buttons.get('duplicateBtn').disabled,false,'truthy lock strings must not block duplicate');
+assert.equal(buttons.get('deleteClipBtn').disabled,false,'truthy lock strings must not block delete');
 
 const dblclick=documentListeners.get('dblclick')||[];
 assert.equal(dblclick.length,1,'manual editor must own one safe clip double-click route');
