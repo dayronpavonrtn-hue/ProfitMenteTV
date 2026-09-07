@@ -9,24 +9,42 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   class ProfitMenteMediaLibraryCrossProjectGuard{
     static mediaIdKey(value){
-      if(value===undefined||value===null)return null;
+      if(value===undefined||value===null||typeof value==='boolean')return null;
       const raw=String(value).trim();if(!raw)return null;
       const numeric=Number(raw);
       return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
     }
-    static readSavedProjects(storage,key='profitmente-project-library'){
-      if(!storage?.getItem)return [];
+    static libraryIdKey(value){
+      if(value===undefined||value===null||typeof value==='boolean')return null;
+      const raw=String(value).trim();return raw||null;
+    }
+    static sameProject(a,b){
+      const left=this.libraryIdKey(a?.libraryId),right=this.libraryIdKey(b?.libraryId);
+      return left!==null&&right!==null&&left===right;
+    }
+    static readSavedProjectSnapshot(storage,key='profitmente-project-library'){
+      if(!storage?.getItem)return {available:false,projects:[]};
       try{
-        const rows=JSON.parse(storage.getItem(key)||'[]');
-        if(!Array.isArray(rows))return [];
-        return rows.map(row=>row?.project).filter(project=>project&&typeof project==='object'&&!Array.isArray(project));
-      }catch{return []}
+        const raw=storage.getItem(key);
+        if(raw===null||raw==='')return {available:true,projects:[]};
+        const rows=JSON.parse(raw);
+        if(!Array.isArray(rows))return {available:false,projects:[]};
+        const projects=rows.map(row=>row?.project).filter(project=>project&&typeof project==='object'&&!Array.isArray(project));
+        return {available:true,projects};
+      }catch{return {available:false,projects:[]}}
+    }
+    static readSavedProjects(storage,key='profitmente-project-library'){
+      return this.readSavedProjectSnapshot(storage,key).projects;
     }
     static projectScope(currentProject,savedProjects=[]){
       const out=[];
       if(currentProject&&typeof currentProject==='object'&&!Array.isArray(currentProject))out.push(currentProject);
       for(const project of savedProjects||[])if(project&&typeof project==='object'&&!Array.isArray(project))out.push(project);
       return out;
+    }
+    static clipsUsing(project,id){
+      const wanted=this.mediaIdKey(id);if(wanted===null)return [];
+      return (Array.isArray(project?.clips)?project.clips:[]).filter(clip=>this.mediaIdKey(clip?.asset)===wanted);
     }
     static usedIdsAcross(projects=[]){
       const used=new Set();
@@ -49,10 +67,24 @@
     static install(tools,{storage,key='profitmente-project-library'}={}){
       if(!tools||tools.__crossProjectCleanupGuard)return tools;
       const originalUnusedBytes=typeof tools.unusedBytes==='function'?tools.unusedBytes.bind(tools):null;
+      const originalUsage=typeof tools.usage==='function'?tools.usage.bind(tools):null;
+      tools.crossProjectUsage=function(currentProject,id){
+        const snapshot=ProfitMenteMediaLibraryCrossProjectGuard.readSavedProjectSnapshot(storage,key);
+        const current=originalUsage?originalUsage(currentProject,id):ProfitMenteMediaLibraryCrossProjectGuard.clipsUsing(currentProject,id);
+        if(!snapshot.available)return {available:false,current,otherProjects:[],otherClips:[]};
+        const otherProjects=snapshot.projects.filter(saved=>!ProfitMenteMediaLibraryCrossProjectGuard.sameProject(currentProject,saved));
+        const usedProjects=[],otherClips=[];
+        for(const saved of otherProjects){
+          const clips=ProfitMenteMediaLibraryCrossProjectGuard.clipsUsing(saved,id);
+          if(clips.length){usedProjects.push(saved);otherClips.push(...clips)}
+        }
+        return {available:true,current,otherProjects:usedProjects,otherClips};
+      };
       tools.unused=function(currentProject,assets=[]){
-        const saved=ProfitMenteMediaLibraryCrossProjectGuard.readSavedProjects(storage,key);
+        const snapshot=ProfitMenteMediaLibraryCrossProjectGuard.readSavedProjectSnapshot(storage,key);
+        if(!snapshot.available)return [];
         return ProfitMenteMediaLibraryCrossProjectGuard.unusedAcross(
-          ProfitMenteMediaLibraryCrossProjectGuard.projectScope(currentProject,saved),assets
+          ProfitMenteMediaLibraryCrossProjectGuard.projectScope(currentProject,snapshot.projects),assets
         );
       };
       tools.unusedBytes=function(currentProject,assets=[]){
