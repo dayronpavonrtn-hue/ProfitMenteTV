@@ -9,7 +9,19 @@ p=pathlib.Path(sys.argv[1]); project=normalize_track_solo(json.loads(p.read_text
 errors=[]; warnings=[]
 
 def finite_float(value, label, default=0.0):
-    """Parse imported/project numeric values without allowing NaN/Infinity through."""
+    """Parse persisted numeric values without coercing JSON booleans/containers.
+
+    Python considers bool a subclass of int, so float(True) == 1.0. The browser
+    import/QA guards intentionally reject booleans, arrays and objects for edit
+    parameters; the local MP4 boundary must enforce the same contract instead of
+    silently changing the edit during export.
+    """
+    if isinstance(value,bool) or value is None or not isinstance(value,(int,float,str)):
+        errors.append(f'{label} no es numérico')
+        return default,False
+    if isinstance(value,str) and not value.strip():
+        errors.append(f'{label} no es numérico')
+        return default,False
     try:
         parsed=float(value)
     except (TypeError,ValueError):
@@ -28,13 +40,13 @@ def finite_track(value, label):
         return -1,False
     return int(parsed),True
 
-fmt=project.get('format','9:16'); duration,duration_ok=finite_float(project.get('duration',0) or 0,'La duración del proyecto',0); clips=project.get('clips',[]); assets=project.get('assets',[]); amap={a.get('id'):a for a in assets if a.get('id')}
+fmt=project.get('format','9:16'); duration,duration_ok=finite_float(project.get('duration',0),'La duración del proyecto',0); clips=project.get('clips',[]); assets=project.get('assets',[]); amap={a.get('id'):a for a in assets if isinstance(a,dict) and a.get('id') is not None}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 def state(track):
     value=track_state.get(str(track),track_state.get(track,{}))
     return value if isinstance(value,dict) else {}
-def track_hidden(track): return bool(state(track).get('hidden',False))
-def track_muted(track): return bool(state(track).get('muted',False))
+def track_hidden(track): return state(track).get('hidden',False) is True
+def track_muted(track): return state(track).get('muted',False) is True
 def disabled(track): return (track in (0,1,2,3) and track_hidden(track)) or (track in (4,5,6) and track_muted(track))
 def expected_asset_types(track):
     if track in (0,1): return {'video','image'}
@@ -44,17 +56,22 @@ def asset_has_audio(asset_id):
     a=amap.get(asset_id)
     if not a or a.get('type') not in ('video','audio'): return False
     if a.get('type')=='audio': return True
-    if not assets_dir: return bool(a.get('hasAudio',False))
+    if not assets_dir: return a.get('hasAudio',False) is True
     f=assets_dir/a.get('name','')
     if not f.exists(): return False
     try:
         probe=subprocess.run(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',str(f)],capture_output=True,text=True,timeout=8)
         return probe.returncode==0 and bool(probe.stdout.strip())
     except (OSError,subprocess.SubprocessError):
-        return bool(a.get('hasAudio',False))
+        return a.get('hasAudio',False) is True
 def asset_duration(asset):
+    value=asset.get('duration',0)
+    if isinstance(value,bool) or value is None or not isinstance(value,(int,float,str)):
+        return 0
+    if isinstance(value,str) and not value.strip():
+        return 0
     try:
-        value=float(asset.get('duration',0) or 0)
+        value=float(value)
         return value if math.isfinite(value) and value>0 else 0
     except (TypeError,ValueError):
         return 0
@@ -64,7 +81,7 @@ def validate_source_window(i,c,a,d,speed):
     if not (track in (4,5,6) or (track in (0,1) and a.get('type')=='video')): return
     native=asset_duration(a)
     if native<=0: return
-    offset,offset_ok=finite_float(c.get('sourceOffset',0) or 0,f'Clip {i}: sourceOffset',0)
+    offset,offset_ok=finite_float(c.get('sourceOffset',0),f'Clip {i}: sourceOffset',0)
     if not offset_ok:return
     if offset<0:
         errors.append(f'Clip {i}: sourceOffset negativo'); return
@@ -82,12 +99,12 @@ for i,c in enumerate(clips):
     if not isinstance(c,dict):
         errors.append(f'Clip {i}: estructura inválida'); continue
     cid=c.get('id')
-    start,start_ok=finite_float(c.get('start',0) or 0,f'Clip {i}: inicio',0)
-    d,d_ok=finite_float(c.get('duration',0) or 0,f'Clip {i}: duración',0)
+    start,start_ok=finite_float(c.get('start',0),f'Clip {i}: inicio',0)
+    d,d_ok=finite_float(c.get('duration',0),f'Clip {i}: duración',0)
     track,track_ok=finite_track(c.get('track'),f'Clip {i}: track')
     c['_validatedTrack']=track
     inactive=disabled(track) if track_ok else False
-    speed,speed_ok=finite_float(c.get('speed',1) or 1,f'Clip {i}: velocidad',1)
+    speed,speed_ok=finite_float(c.get('speed',1),f'Clip {i}: velocidad',1)
     if cid in ids: errors.append(f'Clip duplicado: {cid}')
     if cid: ids.add(cid)
     if track_ok and track not in range(7): errors.append(f'Clip {i}: track inválido {track}')
@@ -110,7 +127,7 @@ for i,c in enumerate(clips):
             if not color_re.fullmatch(str(c.get(key,default))):errors.append(f'Clip {i}: {key} Motion inválido')
     if duration_ok and start_ok and d_ok and start+d>duration+.05: warnings.append(f'Clip {i} excede la duración del proyecto y será recortado')
     aid=c.get('asset')
-    if aid and not inactive:
+    if aid is not None and aid != '' and not inactive:
         a=amap.get(aid)
         if not a: errors.append(f'Clip {i}: asset no declarado {aid}')
         else:
@@ -123,14 +140,15 @@ for i,c in enumerate(clips):
             if track in (4,5,6) or (track in (0,1) and a.get('type')=='video'):
                 fades=[]
                 for key,default in [('fadeIn',.18),('fadeOut',.25)]:
-                    value,ok=finite_float(c.get(key,default) if c.get(key) is not None else default,f'Clip {i}: {key}',default)
+                    raw=c.get(key,default) if c.get(key) is not None else default
+                    value,ok=finite_float(raw,f'Clip {i}: {key}',default)
                     fades.append((value,ok))
                     if ok and d_ok and (value<0 or value>d+.001):errors.append(f'Clip {i}: {key} fuera de rango 0–{d:.2f}s')
                 if d_ok and all(ok for _,ok in fades) and fades[0][0]>=0 and fades[1][0]>=0 and fades[0][0]+fades[1][0]>d+.001:warnings.append(f'Clip {i}: fades se solapan y serán normalizados')
     c.pop('_validatedTrack',None)
 if not any(isinstance(c,dict) and c.get('track') in (0,1) and c.get('asset') and not track_hidden(c.get('track')) for c in clips): warnings.append('No hay medios visuales; el render usará fondo negro')
-has_dedicated_audio=any(isinstance(c,dict) and c.get('track') in (4,5,6) and c.get('asset') and not c.get('muted') and not track_muted(c.get('track')) for c in clips)
-has_source_audio=any(isinstance(c,dict) and c.get('track') in (0,1) and c.get('asset') and not c.get('muted') and not track_hidden(c.get('track')) and asset_has_audio(c.get('asset')) for c in clips)
+has_dedicated_audio=any(isinstance(c,dict) and c.get('track') in (4,5,6) and c.get('asset') and c.get('muted') is not True and not track_muted(c.get('track')) for c in clips)
+has_source_audio=any(isinstance(c,dict) and c.get('track') in (0,1) and c.get('asset') and c.get('muted') is not True and not track_hidden(c.get('track')) and asset_has_audio(c.get('asset')) for c in clips)
 if not has_dedicated_audio and not has_source_audio: warnings.append('No hay audio en el proyecto')
 print(json.dumps({'ok':not errors,'errors':errors,'warnings':warnings,'clips':len(clips),'assets':len(assets)},ensure_ascii=False,indent=2))
 if errors: raise SystemExit(2)
