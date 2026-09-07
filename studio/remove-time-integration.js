@@ -66,6 +66,20 @@
   }
   installInsertTimeSync();
 
+  function loadRippleTrim(){
+    if(typeof document==='undefined'||root.ProfitMenteRippleTrim)return;
+    const load=(src,ready)=>new Promise((resolve,reject)=>{
+      if(ready()){resolve();return}
+      const existing=document.querySelector(`script[src="${src}"]`);
+      if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',reject,{once:true});return}
+      const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=reject;document.body.appendChild(script);
+    });
+    load('ripple-trim-engine.js',()=>!!root.ProfitMenteRippleTrimEngine)
+      .then(()=>load('ripple-trim-integration.js',()=>!!root.ProfitMenteRippleTrim))
+      .catch(error=>console.warn('Ripple trim no disponible',error));
+  }
+  loadRippleTrim();
+
   if(typeof document==='undefined'||!root.ProfitMenteRemoveTimeEngine)return;
   const $=s=>document.querySelector(s),engine=new root.ProfitMenteRemoveTimeEngine();
   const playhead=()=>+$('#playhead')?.value||0;
