@@ -11,7 +11,7 @@ class ProfitMenteProjectLibrary{
   load(id){const row=this._read().find(x=>sameLibraryId(x.id,id));return row?structuredClone(row.project):null}
   duplicate(id){const items=this._read(),source=items.find(x=>sameLibraryId(x.id,id));if(!source)return null;const copy=structuredClone(source.project||{}),newId=crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=newId;copy.name=`${copy.name||source.name||'Sin título'} · copia`;items.push({id:newId,name:copy.name,createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   remove(id){const before=this._read(),after=before.filter(x=>!sameLibraryId(x.id,id));this._write(after);return after.length!==before.length}
-  static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]}}
+  static blank(){return {version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',fps:30,clips:[]}}
   static hasMeaningfulTrackState(trackState){
     if(!trackState||typeof trackState!=='object'||Array.isArray(trackState))return false;
     return Object.values(trackState).some(s=>s&&typeof s==='object'&&!Array.isArray(s)&&(
@@ -28,7 +28,8 @@ class ProfitMenteProjectLibrary{
     if((project.mode||blank.mode)!==blank.mode)return true;
     if(Number(project.duration??blank.duration)!==blank.duration)return true;
     if((project.format||blank.format)!==blank.format)return true;
-    if(project.frameRate!=null&&Number(project.frameRate)!==30)return true;
+    const fpsValue=project.fps??project.frameRate??blank.fps;
+    if(Number(fpsValue)!==blank.fps)return true;
     if(Array.isArray(project.markers)&&project.markers.length)return true;
     if(this.hasMeaningfulTrackState(project.trackState)||this.hasMeaningfulTrackState(project.trackStates))return true;
     if(project.renderRange||project.safeAreaPlatform||project.socialPlatform)return true;
