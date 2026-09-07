@@ -11,6 +11,21 @@
     if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
     return Object.is(n,-0)?0:n;
   };
+  const normalizeStateMap=states=>{
+    if(!states||typeof states!=='object'||Array.isArray(states))return states;
+    const normalized={};
+    for(const [key,state] of Object.entries(states)){
+      const track=canonicalTrack(key);
+      if(track===null){normalized[key]=state;continue}
+      const canonicalKey=String(track),previous=normalized[canonicalKey];
+      if(previous&&typeof previous==='object'&&state&&typeof state==='object'){
+        normalized[canonicalKey]={...previous,...state,locked:previous.locked===true||state.locked===true};
+      }else normalized[canonicalKey]=state;
+    }
+    for(const key of Object.keys(states))delete states[key];
+    Object.assign(states,normalized);
+    return states;
+  };
   const normalizeProjectTracks=project=>{
     if(!project||!Array.isArray(project.clips))return project;
     for(const clip of project.clips){
@@ -18,6 +33,8 @@
       const track=canonicalTrack(clip.track);
       if(track!==null)clip.track=track;
     }
+    normalizeStateMap(project.trackState);
+    normalizeStateMap(project.trackStates);
     return project;
   };
   const stateLocked=(states,track)=>{
@@ -41,8 +58,8 @@
   };
   ['paste','trimLeft','trimRight','split','rippleDelete','closeGaps','insertGap','insertTime'].forEach(wrapNormalize);
   proto.__profitMenteTrackAliasGuard=true;
-  root.ProfitMenteTimelineTrackAliasGuard={canonicalTrack,normalizeProjectTracks,stateLocked};
-  if(typeof module!=='undefined'&&module.exports)module.exports={canonicalTrack,normalizeProjectTracks,stateLocked};
+  root.ProfitMenteTimelineTrackAliasGuard={canonicalTrack,normalizeStateMap,normalizeProjectTracks,stateLocked};
+  if(typeof module!=='undefined'&&module.exports)module.exports={canonicalTrack,normalizeStateMap,normalizeProjectTracks,stateLocked};
 })();
 
 // app.js predates the import hardening layers and originally interpolated clip
@@ -61,6 +78,7 @@
   }
   function renderSafe(){
     if(typeof tracks==='undefined'||typeof names==='undefined'||typeof project==='undefined')return false;
+    window.ProfitMenteTimelineTrackAliasGuard?.normalizeProjectTracks?.(project);
     const duration=Math.max(.001,Number(project.duration)||1);
     const clips=Array.isArray(project.clips)?project.clips:[];
     tracks.replaceChildren();
