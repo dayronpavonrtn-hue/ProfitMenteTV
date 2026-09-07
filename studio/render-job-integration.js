@@ -14,21 +14,29 @@
     if(!value||typeof value!=='object')return value;
     const out={};for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);return out;
   }
+  function strictFinite(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw)return null;
+    if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
+    const numeric=Number(raw);return Number.isFinite(numeric)?numeric:null;
+  }
   function canonicalMediaId(value){
-    if(value===null||value===undefined)return '';
-    const raw=String(value).trim();if(!raw)return '';
-    const numeric=Number(raw);
-    return Number.isFinite(numeric)&&Number.isInteger(numeric)&&numeric>=0?String(numeric):raw;
+    if(typeof value==='number')return Number.isFinite(value)&&Number.isInteger(value)&&value>=0?String(Object.is(value,-0)?0:value):'';
+    if(typeof value!=='string')return '';
+    const raw=value.trim();if(!raw)return '';
+    const numeric=strictFinite(raw);
+    return numeric!==null&&Number.isInteger(numeric)&&numeric>=0?String(Object.is(numeric,-0)?0:numeric):raw;
   }
   function mediaIdentity(assetList){
     return (Array.isArray(assetList)?assetList:[]).map(a=>({
-      id:canonicalMediaId(a?.id),name:String(a?.name||''),type:String(a?.type||''),mime:String(a?.mime||''),
-      size:Number.isFinite(Number(a?.size))?Number(a.size):null,
-      duration:Number.isFinite(Number(a?.duration))?Number(a.duration):null,
-      width:Number.isFinite(Number(a?.width))?Number(a.width):null,
-      height:Number.isFinite(Number(a?.height))?Number(a.height):null,
-      sourceLastModified:Number.isFinite(Number(a?.sourceLastModified))?Number(a.sourceLastModified):null,
-      sourceFingerprint:String(a?.sourceFingerprint||''),sourceContentHash:String(a?.sourceContentHash||'')
+      id:canonicalMediaId(a?.id),name:typeof a?.name==='string'?a.name:'',type:typeof a?.type==='string'?a.type:'',mime:typeof a?.mime==='string'?a.mime:'',
+      size:strictFinite(a?.size),
+      duration:strictFinite(a?.duration),
+      width:strictFinite(a?.width),
+      height:strictFinite(a?.height),
+      sourceLastModified:strictFinite(a?.sourceLastModified),
+      sourceFingerprint:typeof a?.sourceFingerprint==='string'?a.sourceFingerprint:'',sourceContentHash:typeof a?.sourceContentHash==='string'?a.sourceContentHash:''
     })).sort((a,b)=>a.id.localeCompare(b.id)||a.name.localeCompare(b.name));
   }
   function renderFingerprint(renderProject,renderAssets){
@@ -139,5 +147,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,canonicalMediaId,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,canonicalMediaId,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock,strictFinite};
 })();
