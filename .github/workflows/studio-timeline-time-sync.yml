@@ -1,0 +1,27 @@
+name: ProfitMente Studio Timeline Time Sync QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/timeline-operations.js'
+      - 'studio/remove-time-integration.js'
+      - 'studio/test_timeline_time_sync.mjs'
+      - '.github/workflows/studio-timeline-time-sync.yml'
+  workflow_dispatch:
+
+jobs:
+  timeline-time-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify timeline operation syntax
+        run: node --check studio/timeline-operations.js && node --check studio/remove-time-integration.js
+      - name: Verify inserted time keeps dependent metadata synchronized
+        run: node studio/test_timeline_time_sync.mjs
