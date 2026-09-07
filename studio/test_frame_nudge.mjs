@@ -49,5 +49,27 @@ const lockedGroup={fps:30,duration:10,trackState:{3:{locked:true}},clips:[
 ]};
 r=E.apply(lockedGroup,'v',1);assert.equal(r.ok,false);assert.equal(r.reason,'locked');close(lockedGroup.clips[0].start,1);
 
-assert.equal(E.fps({fps:25}),30);assert.equal(E.fps({fps:60}),60);
+// Strict scalar/numeric identity: coercible objects and truthy lock strings are not accepted.
+for(const value of [true,false,[],[30],{},new Number(30),Symbol('30')])assert.equal(E.fps({fps:value}),30);
+for(const value of [true,false,[],[4],{},new Number(4),Symbol('4'),''])assert.equal(E.canonicalTrack(value),null);
+assert.equal(E.canonicalTrack('04.0'),'4');assert.equal(E.canonicalTrack('-0'),'0');
+const truthyLocks={fps:'30',duration:'5',trackState:{'00':{locked:'true'}},clips:[{id:7,track:'00',start:'1',duration:'1',locked:'true'}]};
+r=E.apply(truthyLocks,'7','1');assert.equal(r.ok,true);close(truthyLocks.clips[0].start,1+1/30);
+
+// Invalid frame counts and corrupt timing must fail without mutating project state.
+const invalidFrames={fps:30,duration:5,clips:[{id:'a',track:0,start:1,duration:1}]};
+for(const frames of [true,[1],{},new Number(1),Symbol('1'),1.5]){
+  const before=JSON.stringify(invalidFrames);r=E.apply(invalidFrames,'a',frames);assert.equal(r.ok,false);assert.equal(r.reason,'invalid_frames');assert.equal(JSON.stringify(invalidFrames),before);
+}
+const corruptStart={fps:30,duration:5,clips:[{id:'a',track:0,start:{valueOf(){return 1}},duration:1}]};
+const beforeStart=JSON.stringify(corruptStart);r=E.apply(corruptStart,'a',1);assert.equal(r.ok,false);assert.equal(r.reason,'invalid_clip');assert.equal(JSON.stringify(corruptStart),beforeStart);
+const corruptDuration={fps:30,duration:{valueOf(){return 5}},clips:[{id:'a',track:0,start:1,duration:1}]};
+const beforeDuration=JSON.stringify(corruptDuration);r=E.apply(corruptDuration,'a',1);assert.equal(r.ok,false);assert.equal(r.reason,'invalid_project');assert.equal(JSON.stringify(corruptDuration),beforeDuration);
+
+// Group membership also requires scalar IDs; object IDs cannot alias a real clip/group.
+const strictIds={fps:30,duration:5,clips:[{id:'1',track:0,start:1,duration:1,groupId:'g'},{id:'2',track:0,start:2,duration:1,groupId:{toString(){return 'g'}}}]};
+r=E.apply(strictIds,{toString(){return '1'}},1);assert.equal(r.ok,false);assert.equal(r.reason,'missing');
+r=E.apply(strictIds,'1',1);assert.equal(r.ok,true);assert.equal(r.changed,1);close(strictIds.clips[0].start,1+1/30);close(strictIds.clips[1].start,2);
+
+assert.equal(E.fps({fps:25}),30);assert.equal(E.fps({fps:60}),60);assert.equal(E.fps({fps:'60'}),60);
 console.log('frame nudge tests passed');
