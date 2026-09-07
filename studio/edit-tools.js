@@ -1,27 +1,37 @@
 (()=>{
   let selectedId=null,splitEnginePromise=null,groupEditEnginePromise=null,groupSplitEnginePromise=null;
   const $=s=>document.querySelector(s);
+  const strictFinite=value=>{
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
+    const numeric=Number(raw);return Number.isFinite(numeric)?numeric:null;
+  };
   const clipIdKey=value=>{
-    if(value===undefined||value===null)return null;
-    const raw=String(value).trim();if(!raw)return null;
+    if(typeof value==='number')return Number.isFinite(value)?`n:${Object.is(value,-0)?0:value}`:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw)return null;
     if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
-      const numeric=Number(raw);if(Number.isFinite(numeric))return `n:${numeric}`;
+      const numeric=Number(raw);if(Number.isFinite(numeric))return `n:${Object.is(numeric,-0)?0:numeric}`;
     }
     return `s:${raw}`;
   };
   const sameClipId=(a,b)=>{const left=clipIdKey(a),right=clipIdKey(b);return left!==null&&left===right};
   const clipMatches=id=>{const key=clipIdKey(id);return key===null?[]:(project.clips||[]).filter(c=>clipIdKey(c?.id)===key)};
   const clipById=id=>{const matches=clipMatches(id);return matches.length===1?matches[0]:null};
+  const trackLookupKey=value=>{
+    const numeric=strictFinite(value);if(numeric===null||!Number.isInteger(numeric))return null;
+    return Object.is(numeric,-0)?0:numeric;
+  };
   const locked=c=>{
     if(!c)return false;
-    if(window.ProfitMenteEditLockGuard?.isLocked)return window.ProfitMenteEditLockGuard.isLocked(project,c);
-    const track=c.track,key=String(track);
-    const modern=project?.trackState?.[track]??project?.trackState?.[key];
-    const legacy=project?.trackStates?.[track]??project?.trackStates?.[key];
-    return !!c.locked||!!(
-      (modern&&typeof modern==='object'&&modern.locked)||
-      (legacy&&typeof legacy==='object'&&legacy.locked)
-    );
+    if(window.ProfitMenteEditLockGuard?.isLocked)return window.ProfitMenteEditLockGuard.isLocked(project,c)===true;
+    const track=trackLookupKey(c.track);
+    const modern=track===null?null:(project?.trackState?.[track]??project?.trackState?.[String(track)]);
+    const legacy=track===null?null:(project?.trackStates?.[track]??project?.trackStates?.[String(track)]);
+    return c.locked===true||
+      (modern&&typeof modern==='object'&&modern.locked===true)||
+      (legacy&&typeof legacy==='object'&&legacy.locked===true);
   };
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function loadEngine(globalName,src,dataKey){
@@ -48,22 +58,24 @@
     const c=clipById(selectedId),has=!!c,editable=has&&!locked(c);
     ['splitBtn','duplicateBtn','deleteClipBtn'].forEach(id=>{const b=$('#'+id);if(b)b.disabled=!editable});
   }
+  function playheadTime(){const value=$('#playhead')?.value,numeric=strictFinite(value);return numeric===null?0:numeric}
   function commit(message){
     if(typeof persist==='function')persist();
     if(typeof drawTimeline==='function')drawTimeline();
-    if(typeof renderAt==='function')renderAt(+$('#playhead').value||0);
+    if(typeof renderAt==='function')renderAt(playheadTime());
     requestAnimationFrame(refresh);status(message);
   }
   function select(id){
     if(id===undefined||id===null){selectedId=null;refresh();return}
+    if(clipIdKey(id)===null){selectedId=null;refresh();status('No se puede seleccionar el clip: su ID no es válido');return}
     const matches=clipMatches(id);
     if(matches.length>1){selectedId=null;refresh();status('No se puede seleccionar el clip: su ID es ambiguo en este proyecto');return}
-    const c=matches[0]||null;selectedId=c?c.id:id;refresh();if(c)status(`Clip seleccionado: ${c.name||'sin nombre'}`)
+    const c=matches[0]||null;selectedId=c?c.id:null;refresh();if(c)status(`Clip seleccionado: ${c.name||'sin nombre'}`)
   }
   async function split(){
     const c=clipById(selectedId);if(!c)return;
     if(locked(c)){status('La pista está bloqueada');return}
-    const t=+$('#playhead').value||0;let Split,GroupSplit;
+    const t=playheadTime();let Split,GroupSplit;
     try{[Split,GroupSplit]=await Promise.all([getSplitEngine(),getGroupSplitEngine()])}catch(err){console.error(err);status(err.message);return}
     if(clipById(selectedId)!==c){status('El clip cambió antes de completar el corte');return}
     const engine=new GroupSplit(Split),result=engine.split(project,c,t,{idFactory:()=>crypto.randomUUID(),groupIdFactory:()=>crypto.randomUUID()});
