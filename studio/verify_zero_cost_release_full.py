@@ -64,6 +64,8 @@ def main() -> None:
         ("Generador y autofill conservan identidades canónicas", [node, "test_generator_identity.mjs"]),
         ("Preview de audio conserva identidad canónica", [node, "test_audio_engine_identity.mjs"]),
         ("Smart Mix conserva estado de audio y automatización segura", [node, "test_smart_mix_engine.mjs"]),
+        ("Checkpoints automáticos deduplican y limitan versiones", [node, "test_automation_checkpoint.mjs"]),
+        ("Auto Finish crea checkpoint antes de mutar o renderizar", [node, "test_automation_checkpoint_wiring.mjs"]),
         ("Ducking temporal aparece en el MP4 final", [py, "test_audio_ducking_render.py"]),
         ("Envolventes y fades aparecen en el MP4 final", [py, "test_audio_envelope_render.py"]),
         ("MP4 final decodifica completamente", [py, "test_verify_render_decode.py"]),
