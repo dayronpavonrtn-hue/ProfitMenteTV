@@ -7,7 +7,7 @@ class ProfitMenteProjectVersionEngine{
     return {id,label:String(row.label||'Punto de control').trim().slice(0,80)||'Punto de control',createdAt:typeof row.createdAt==='string'?row.createdAt:'',project:structuredClone(row.project)};
   }
   _sanitize(raw){
-    const out={};if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
+    const out=Object.create(null);if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
     for(const key of Object.keys(raw)){
       if(!Array.isArray(raw[key]))continue;
       const seen=new Set(),rows=[];
@@ -16,9 +16,18 @@ class ProfitMenteProjectVersionEngine{
     }
     return out;
   }
-  _read(){try{return this._sanitize(JSON.parse(this.storage.getItem(this.key)||'{}'))}catch{return {}}}
+  _read(){try{return this._sanitize(JSON.parse(this.storage.getItem(this.key)||'{}'))}catch{return Object.create(null)}}
   _write(x){this.storage.setItem(this.key,JSON.stringify(this._sanitize(x)))}
-  projectKey(project){return project?.libraryId||project?.id||`draft:${String(project?.name||'untitled').trim().toLowerCase()}`}
+  _identity(value){
+    if(typeof value==='string'){const text=value.trim();return text||null}
+    if(typeof value==='number'&&Number.isFinite(value))return String(Object.is(value,-0)?0:value);
+    return null;
+  }
+  projectKey(project){
+    const libraryId=this._identity(project?.libraryId);if(libraryId!==null)return libraryId;
+    const id=this._identity(project?.id);if(id!==null)return id;
+    const name=this._identity(project?.name);return `draft:${(name||'untitled').toLowerCase()}`;
+  }
   _rows(all,key){return Object.prototype.hasOwnProperty.call(all,key)&&Array.isArray(all[key])?all[key]:[]}
   list(project){const all=this._read(),key=this.projectKey(project);return this._rows(all,key).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))}
   signature(project){try{return JSON.stringify(project)}catch{return ''}}
