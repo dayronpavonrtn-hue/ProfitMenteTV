@@ -13,6 +13,18 @@ class ProfitMenteWebMRenderEngine{
     if(typeof MediaRecorderCtor.isTypeSupported!=='function')return 'video/webm';
     return candidates.find(type=>MediaRecorderCtor.isTypeSupported(type))||'';
   }
+  static normalizeQuality(value='high'){
+    const key=String(value||'high').trim().toLowerCase();
+    return ['draft','standard','high'].includes(key)?key:'high';
+  }
+  static recorderOptions({mimeType='',quality='high',width=1080,height=1920,fps=30}={}){
+    quality=this.normalizeQuality(quality);fps=this.normalizeFps(fps);
+    width=Math.max(1,Math.round(Number(width)||1080));height=Math.max(1,Math.round(Number(height)||1920));
+    const preset={draft:{video:3000000,audio:128000},standard:{video:6000000,audio:160000},high:{video:10000000,audio:192000}}[quality];
+    const scale=Math.max(.35,Math.min(2,(width*height)/(1080*1920)*(fps/30)));
+    const videoBitsPerSecond=Math.round(Math.max(1000000,Math.min(20000000,preset.video*scale)));
+    return {mimeType,videoBitsPerSecond,audioBitsPerSecond:preset.audio};
+  }
   static _assetDescriptor(asset){
     const blob=asset?.blob;
     return {
