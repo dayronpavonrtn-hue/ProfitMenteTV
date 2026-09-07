@@ -14,7 +14,11 @@
     return `s:${raw}`;
   };
   function assetById(id){const key=mediaIdKey(id);return key===null?undefined:assets.find(a=>mediaIdKey(a?.id)===key)}
-  function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
+  function canonicalTrack(value){
+    if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
+    const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
+    const parsed=Number(raw);return Number.isInteger(parsed)&&parsed>=0&&parsed<=6?Object.is(parsed,-0)?0:parsed:null;
+  }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
     const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
@@ -114,7 +118,7 @@
     ctx.font=`900 ${minSize}px Arial`;const hard=[];for(const word of String(text||'').trim().split(/\s+/).filter(Boolean)){if(ctx.measureText(word).width<=maxWidth){hard.push(word);continue}let part='';for(const ch of word){const candidate=part+ch;if(part&&ctx.measureText(candidate).width>maxWidth){hard.push(part);part=ch}else part=candidate}if(part)hard.push(part)}
     const lines=[];let line='';for(const word of hard){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);return {size:minSize,lines:lines.slice(0,maxLines),lineHeight:Math.round(minSize*1.16)};
   }
-  function activeCaptions(t){return project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0))}
+  function activeCaptions(t){return project.clips.filter(c=>canonicalTrack(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0))}
   function drawCaptionClip(cap,t){
     const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
@@ -126,9 +130,9 @@
   function drawPreviewFallback(hasActiveMedia){const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}
   renderAt=async function(t){
     const epoch=++renderEpoch;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
-    const active=project.clips.filter(c=>[0,1].includes(Number(c.track))&&!trackHidden(Number(c.track))&&mediaIdKey(c?.asset)!==null&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)).sort((a,b)=>(Number(a.track)-Number(b.track))||(Number(a.start||0)-Number(b.start||0)));
+    const active=project.clips.filter(c=>{const track=canonicalTrack(c.track);return [0,1].includes(track)&&!trackHidden(track)&&mediaIdKey(c?.asset)!==null&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)}).sort((a,b)=>(canonicalTrack(a.track)-canonicalTrack(b.track))||(Number(a.start||0)-Number(b.start||0)));
     let painted=0;for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
     if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
