@@ -1,14 +1,16 @@
 (()=>{
-  if(typeof document==='undefined'||typeof project==='undefined')return;
+  if(typeof document==='undefined')return;
   function boot(){
     const engine=window.profitMenteProjectVersionEngine;
-    if(!engine){setTimeout(boot,80);return}
+    if(!engine||typeof project==='undefined'){setTimeout(boot,80);return}
     const status=t=>typeof setStatus==='function'&&setStatus(t);
     const specs={
       generateBtn:'Antes de generar automáticamente',
       sceneBtn:'Antes de generar estructura',
       captionBtn:'Antes de regenerar subtítulos',
       brollBtn:'Antes de generar B-roll',
+      autoFinishBtn:'Antes de Auto Finish',
+      autoFinishRenderBtn:'Antes de Auto Finish + render MP4',
       qaFixBtn:'Antes de reparación QA',
       safeAreaFixBtn:'Antes de ajustar zona segura',
       visualGapFillBtn:'Antes de completar huecos',
