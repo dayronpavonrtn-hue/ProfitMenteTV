@@ -61,7 +61,8 @@ class ProfitMenteAudioNormalizeEngine{
   static mutableAudioClips(project){return this.activeAudioClips(project).filter(clip=>!this.clipLocked(project,clip))}
   static targets(track){
     const t=this.canonicalTrack(track);
-    if(t===4)return {rmsDb:-18,peakDb:-1,label:'voz'};
+    // Canonical Studio audio track contract (app.js): 4=SFX, 5=Música, 6=Voz.
+    if(t===6)return {rmsDb:-18,peakDb:-1,label:'voz'};
     if(t===5)return {rmsDb:-24,peakDb:-1,label:'música'};
     return {rmsDb:-20,peakDb:-1,label:'efectos'};
   }
