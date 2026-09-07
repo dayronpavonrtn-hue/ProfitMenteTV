@@ -36,7 +36,7 @@ sandbox.project.clips=[
   {id:'fraction',track:'3.5',start:0,duration:5,name:'inválido'},
   {id:'late',track:3,start:10,duration:5,name:'fuera de tiempo'}
 ];
-assert.deepEqual(api.activeCaptions(2).map(c=>c.id),['valid'],'preview captions must use strict canonical track identity');
+assert.deepEqual(Array.from(api.activeCaptions(2),c=>c.id),['valid'],'preview captions must use strict canonical track identity');
 
 sandbox.project.trackState={'03.0':{hidden:true}};
 assert.equal(api.isTrackHidden(3),true,'legacy numeric aliases should still hide the canonical track');
