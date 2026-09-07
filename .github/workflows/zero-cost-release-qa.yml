@@ -45,6 +45,9 @@ jobs:
       - name: Verify safe timeline rendering
         run: node studio/test_timeline_safe_render.mjs
 
+      - name: Verify imported project frame-rate normalization
+        run: node studio/test_project_import_fps.mjs
+
       - name: Verify resilient preview transport state
         run: node studio/test_transport_engine.mjs
 
