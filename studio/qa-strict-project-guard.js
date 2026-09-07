@@ -18,6 +18,7 @@
     return numeric!==null&&Number.isInteger(numeric)&&numeric>=0&&numeric<=6?numeric:null;
   };
   const strictFlag=value=>value===true;
+  const clipFlags=['hidden','muted','locked','solo'];
 
   function invalidProjectFields(project){
     const issues=[];
@@ -35,6 +36,7 @@
       for(const [field,caption] of [['sourceOffset','Punto de entrada'],['speed','Velocidad'],['volume','Volumen'],['fadeIn','Fade de entrada'],['fadeOut','Fade de salida']]){
         if(clip[field]!=null&&finiteNumber(clip[field],null)===null)issues.push(`${caption} inválido: ${label}`);
       }
+      for(const flag of clipFlags)if(clip[flag]!=null&&typeof clip[flag]!=='boolean')issues.push(`Bandera ${flag} inválida en clip: ${label}`);
     }
     for(const states of [project?.trackState,project?.trackStates]){
       if(states==null)continue;
@@ -42,7 +44,7 @@
       for(const [key,state] of Object.entries(states)){
         if(canonicalTrack(key)===null){issues.push(`Identidad de pista inválida en estado: ${key}`);continue}
         if(!state||typeof state!=='object'||Array.isArray(state)){issues.push(`Estado de pista inválido: ${key}`);continue}
-        for(const flag of ['hidden','muted','locked','solo'])if(state[flag]!=null&&typeof state[flag]!=='boolean')issues.push(`Bandera ${flag} inválida en pista ${key}.`);
+        for(const flag of clipFlags)if(state[flag]!=null&&typeof state[flag]!=='boolean')issues.push(`Bandera ${flag} inválida en pista ${key}.`);
       }
     }
     return [...new Set(issues)];
@@ -73,7 +75,7 @@
       trackStates:sanitizeStates(project.trackStates),
       clips:(Array.isArray(project.clips)?project.clips:[]).map(clip=>{
         if(!clip||typeof clip!=='object')return clip;
-        return {
+        const sanitized={
           ...clip,
           track:canonicalTrack(clip.track),
           start:finiteNumber(clip.start,0),
@@ -84,6 +86,8 @@
           ...(clip.fadeIn!=null?{fadeIn:finiteNumber(clip.fadeIn,0)}:{}),
           ...(clip.fadeOut!=null?{fadeOut:finiteNumber(clip.fadeOut,0)}:{})
         };
+        for(const flag of clipFlags)if(clip[flag]!=null)sanitized[flag]=strictFlag(clip[flag]);
+        return sanitized;
       })
     };
   }
