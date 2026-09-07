@@ -1,0 +1,31 @@
+name: ProfitMente Studio Strict Project QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/qa-engine.js'
+      - 'studio/qa-media-identity-guard.js'
+      - 'studio/qa-strict-project-guard.js'
+      - 'studio/test_qa_strict_project_guard.mjs'
+      - '.github/workflows/qa-strict-project-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strict-project-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/qa-strict-project-guard.js
+          node --check studio/qa-media-identity-guard.js
+      - name: Strict project regression
+        run: node studio/test_qa_strict_project_guard.mjs
