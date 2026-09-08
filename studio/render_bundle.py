@@ -69,6 +69,11 @@ try:
         data=json.loads(project.read_text(encoding='utf-8'))
         data=normalize_project_media_ids(normalize_track_solo(data))
         project.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
+        # Browser edit tools reject canonical clip-ID aliases (7, "007", "+7.0", etc.)
+        # because selecting/splitting one would otherwise be ambiguous. Enforce the same
+        # identity contract at the local render boundary before any expensive FFmpeg work.
+        write_progress(16,'Verificando identidad de clips')
+        subprocess.run([sys.executable,str(root/'clip_identity_preflight.py'),str(project)],check=True)
         write_progress(18,'Validando estructura del proyecto')
         subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
         # Imported/legacy JSON can contain arbitrary visual enum values. The renderer
