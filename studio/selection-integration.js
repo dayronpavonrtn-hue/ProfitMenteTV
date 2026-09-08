@@ -44,7 +44,7 @@
   $('#multiClear').onclick=()=>{engine.clear();refresh();status('Selección múltiple limpiada')};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&engine.count){engine.clear();refresh();status('Selección múltiple limpiada')}});
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(refresh)};
-  window.ProfitMenteMultiSelect={engine,refresh};refresh();
+  window.ProfitMenteMultiSelect={engine,refresh,clear(){const values=engine.clear();refresh();return values},selected(){return engine.values()},set(ids){const values=engine.set(ids);refresh();return values}};refresh();
 
   if(!document.querySelector('script[data-profitmente-clipboard-engine]')){
     const core=document.createElement('script');core.src='clipboard-engine.js';core.dataset.profitmenteClipboardEngine='1';
