@@ -1,1 +1,21 @@
-import fs from 'node:fs';import vm from 'node:vm';global.window=globalThis;vm.runInThisContext(fs.readFileSync(new URL('./marker-engine.js',import.meta.url),'utf8'));let project={duration:30,markers:[]},time=0,persisted=0;const e=new ProfitMenteMarkerEngine({getProject:()=>project,persist:()=>persisted++,getTime:()=>time,setTime:t=>time=t,container:null});const a=e.add(5,'Hook'),b=e.add(18,'CTA');if(project.markers.length!==2||project.markers[0].label!=='Hook')throw new Error('marker add/sort failed');time=6;if(e.next(1)?.id!==b.id||time!==18)throw new Error('next marker failed');if(e.next(1)?.id!==a.id||time!==5)throw new Error('marker wrap failed');e.rename(a.id,'Inicio');if(project.markers[0].label!=='Inicio')throw new Error('rename failed');e.remove(b.id);if(project.markers.length!==1||persisted<4)throw new Error('remove/persist failed');console.log('marker regression OK');
+import fs from 'node:fs';import vm from 'node:vm';
+global.window=globalThis;
+vm.runInThisContext(fs.readFileSync(new URL('./marker-engine.js',import.meta.url),'utf8'));
+let project={duration:30,markers:[]},time=0,persisted=0;
+const e=new ProfitMenteMarkerEngine({getProject:()=>project,persist:()=>persisted++,getTime:()=>time,setTime:t=>time=t,container:null});
+const a=e.add(5,'Hook'),b=e.add('18','CTA');
+if(!a||!b||project.markers.length!==2||project.markers[0].label!=='Hook'||b.time!==18)throw new Error('marker add/sort or legacy numeric string failed');
+const rejected=[true,false,[12],{value:12},'',null,undefined,Infinity,NaN];
+for(const value of rejected){const before=project.markers.length;if(e.add(value,'bad')!==null||project.markers.length!==before)throw new Error(`coercible/corrupt marker time accepted: ${String(value)}`)}
+if(e.add(-5,'Inicio limitado')?.time!==0||e.add(99,'Final limitado')?.time!==30)throw new Error('marker project-bound clamping failed');
+time=6;if(e.next(1)?.id!==b.id||time!==18)throw new Error('next marker failed');
+time=19;if(e.next(-1)?.id!==b.id||time!==18)throw new Error('previous marker failed');
+e.rename(a.id,'Inicio');if(project.markers.find(m=>m.id===a.id)?.label!=='Inicio')throw new Error('rename failed');
+if(e.rename('missing','x')!==false||e.remove('missing')!==false)throw new Error('missing marker mutation should be a no-op');
+project.markers.push({id:'legacy',time:'7.5',label:'Legacy'}, {id:'bool',time:true,label:'Bad'}, {id:'array',time:[8],label:'Bad'}, {id:'nan',time:'NaN',label:'Bad'}, null);
+const normalized=e.markers();
+if(!normalized.some(m=>m.id==='legacy'&&m.time===7.5)||normalized.some(m=>['bool','array','nan'].includes(m.id))||normalized.some(m=>!Number.isFinite(m.time)))throw new Error('legacy/corrupt marker normalization failed');
+project.duration='20';project.markers.push({id:'late',time:'99',label:'Late'});if(e.markers().find(m=>m.id==='late')?.time!==20)throw new Error('legacy duration clamp failed');
+project.duration=true;if(e.duration()!==0)throw new Error('boolean project duration was coerced');project.duration=30;
+if(!e.remove(b.id)||project.markers.some(m=>m.id===b.id)||persisted<6)throw new Error('remove/persist failed');
+console.log('marker strict regression OK');
