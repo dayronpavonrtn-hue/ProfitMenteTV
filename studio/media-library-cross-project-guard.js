@@ -4,6 +4,8 @@
   if(root)root.ProfitMenteMediaLibraryCrossProjectGuard=Guard;
   if(typeof window!=='undefined'&&window.ProfitMenteMediaLibraryTools){
     Guard.install(window.ProfitMenteMediaLibraryTools,{storage:window.localStorage});
+    Guard.installMediaCardContract();
+    Guard.loadTimelineDnD();
     queueMicrotask(()=>{try{if(typeof drawLibrary==='function')drawLibrary()}catch(err){console.warn('ProfitMente media cleanup refresh failed',err)}});
   }
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
@@ -63,6 +65,31 @@
         const key=this.mediaIdKey(asset?.id);
         return key!==null&&!used.has(key);
       });
+    }
+    static installMediaCardContract({doc=typeof document!=='undefined'?document:null,getDraw=()=>typeof drawLibrary==='function'?drawLibrary:null,setDraw=fn=>{drawLibrary=fn}}={}){
+      if(!doc)return false;
+      const library=doc.querySelector?.('#mediaLibrary');if(!library||library.dataset?.pmMediaCardContract==='1')return !!library;
+      const current=getDraw?.();if(typeof current!=='function')return false;
+      const wrapped=function(...args){
+        const nativeAppend=library.appendChild;
+        library.appendChild=function(node){
+          if(node?.tagName==='BUTTON'&&node?.classList?.add)node.classList.add('mediaCard');
+          return nativeAppend.call(this,node);
+        };
+        try{return current.apply(this,args)}finally{library.appendChild=nativeAppend}
+      };
+      setDraw(wrapped);
+      if(library.dataset)library.dataset.pmMediaCardContract='1';
+      return true;
+    }
+    static loadTimelineDnD({doc=typeof document!=='undefined'?document:null,src='./media-timeline-dnd.js'}={}){
+      if(!doc||typeof window==='undefined')return false;
+      if(window.ProfitMenteMediaTimelineDnD||doc.querySelector?.('script[data-profitmente-media-timeline-dnd="1"]'))return true;
+      const script=doc.createElement?.('script');if(!script)return false;
+      script.src=src;script.dataset.profitmenteMediaTimelineDnd='1';script.async=false;
+      script.onerror=()=>console.warn('ProfitMente media timeline drag-and-drop could not be loaded');
+      (doc.body||doc.head||doc.documentElement)?.appendChild(script);
+      return true;
     }
     static install(tools,{storage,key='profitmente-project-library'}={}){
       if(!tools||tools.__crossProjectCleanupGuard)return tools;
