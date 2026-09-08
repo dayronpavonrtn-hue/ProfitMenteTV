@@ -83,6 +83,7 @@
     ['render-job-integration.js','ProfitMenteRenderJobs'],
     ['render-progress-engine.js','ProfitMenteRenderProgressEngine'],
     ['render-progress-integration.js','ProfitMenteRenderProgress'],
+    ['render-progress-bridge.js','ProfitMenteRenderProgressBridge'],
     ['render-range-engine.js','ProfitMenteRenderRangeEngine'],
     ['render-range-integration.js','ProfitMenteRenderRange'],
     ['range-edit-engine.js','ProfitMenteRangeEditEngine'],
