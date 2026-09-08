@@ -45,8 +45,9 @@ if(typeof document!=='undefined')(()=>{
   }
   section.append(title,text,actions);aside.insertBefore(section,aside.firstChild);
   dismiss.addEventListener('click',()=>{section.remove();try{document.documentElement.dataset.projectRecoveryNotice='dismissed'}catch{}});
-  function announce(){if(typeof setStatus==='function')setStatus(message)}
+  function announce(){if(section.isConnected&&typeof setStatus==='function')setStatus(message)}
   window.addEventListener('profitmente:features-ready',announce,{once:true});
-  queueMicrotask(()=>{try{document.documentElement.dataset.projectRecoveryNotice=meta.reason||'recovered'}catch{}});
+  queueMicrotask(()=>{try{document.documentElement.dataset.projectRecoveryNotice=meta.reason||'recovered'}catch{};announce()});
+  setTimeout(announce,200);
   window.ProfitMenteStartupRecoveryNotice={message,backupAvailable:!!raw,dismiss:()=>dismiss.click()};
 })();
