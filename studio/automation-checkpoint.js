@@ -1,5 +1,13 @@
 (()=>{
   if(typeof document==='undefined')return;
+  function ensureRenderMediaPruner(){
+    if(window.ProfitMenteRenderMediaPruner)return;
+    if([...document.scripts].some(s=>s.src?.endsWith('/render-media-pruner.js')||s.src?.endsWith('render-media-pruner.js')))return;
+    const s=document.createElement('script');s.src='render-media-pruner.js';s.async=false;
+    s.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la optimización de medios de render');
+    document.body.appendChild(s);
+  }
+  ensureRenderMediaPruner();
   function ensureStartupRecoveryNotice(){
     if(!window.__profitmenteStartupRecovered||window.ProfitMenteStartupRecoveryNotice)return;
     if([...document.scripts].some(s=>s.src?.endsWith('/startup-recovery-notice.js')||s.src?.endsWith('startup-recovery-notice.js')))return;
