@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import './test_caption_split.mjs';
 
 const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const bridge=fs.readFileSync(new URL('./transition-duration.js',import.meta.url),'utf8');
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
+const captionTimingIntegration=fs.readFileSync(new URL('./caption-timing-integration.js',import.meta.url),'utf8');
 
 assert.match(html,/transition-duration\.js/,'Studio must load the bootstrap bridge');
 assert.match(bridge,/feature-bootstrap\.js/,'bootstrap bridge must load feature-bootstrap.js');
@@ -30,6 +32,8 @@ for(const required of [
 const captionEngineIndex=bootstrap.indexOf("'caption-timing-engine.js'");
 const captionIntegrationIndex=bootstrap.indexOf("'caption-timing-integration.js'");
 assert.ok(captionEngineIndex>=0&&captionIntegrationIndex>captionEngineIndex,'caption timing engine must load before its integration');
+assert.match(captionTimingIntegration,/loadOnce\('caption-split-engine\.js','ProfitMenteCaptionSplitEngine'/,'caption timing integration must load caption split engine');
+assert.match(captionTimingIntegration,/loadOnce\('caption-split-integration\.js','ProfitMenteCaptionSplit'/,'caption split integration must load after its engine');
 const importEngineIndex=bootstrap.indexOf("'project-import-engine.js'");
 const importIntegrationIndex=bootstrap.indexOf("'project-import-integration.js'");
 assert.ok(importEngineIndex>=0&&importIntegrationIndex>importEngineIndex,'safe project import engine must load before its integration');
