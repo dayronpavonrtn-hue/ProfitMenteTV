@@ -7,6 +7,11 @@
     return engine._renderJobClient;
   }
 
+  function emitProgress(stage,detail={}){
+    if(typeof document==='undefined'||typeof CustomEvent!=='function')return;
+    document.dispatchEvent(new CustomEvent('profitmente:render-progress',{detail:{...detail,stage}}));
+  }
+
   async function assertUniqueTarEntries(engine,blob){
     const bytes=new Uint8Array(await blob.arrayBuffer()),seen=new Set();
     let offset=0;
@@ -73,12 +78,15 @@
     if(!client?.jobId)return false;
     this.cancelRequested=true;
     onStatus('Cancelando render local…');
+    emitProgress('cancelled',{message:'Cancelando render local…'});
     try{
       await client.cancel();
+      emitProgress('cancelled',{message:'Render cancelado'});
       return true;
     }catch(error){
       this.cancelRequested=false;
       onStatus('No se pudo cancelar el render: '+error.message);
+      emitProgress('error',{message:'No se pudo cancelar el render: '+error.message});
       return false;
     }
   };
@@ -87,24 +95,45 @@
     const client=clientFor(this);
     client.reset();
     this.cancelRequested=false;
-    onStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);
+    const uploadMessage=`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`;
+    onStatus(uploadMessage);
+    emitProgress('uploading',{message:uploadMessage});
     const initial=await client.start(blob);
     this.currentJobId=client.jobId;
+    emitProgress(initial?.status||'queued',{...initial,message:'Render recibido por el motor local'});
     this.setCancelVisible(true,onStatus);
     try{
       const state=await client.wait(s=>{
         const status=s?.status||'rendering',progress=Math.max(0,Math.min(100,Number(s?.progress)||0)),elapsed=Number(s?.elapsed)||0;
         if(status==='reconnecting'){
           const seconds=Math.max(.1,Number(s.retryDelay||0)/1000).toFixed(1);
-          onStatus(`Reconectando motor de render · intento ${Number(s.retry)||1} · próximo intento en ${seconds}s`);
-        }else if(status==='queued')onStatus(`Render en cola · ${progress}%`);
-        else if(status==='rendering')onStatus(`Renderizando MP4 · ${progress}% · ${elapsed.toFixed(1)}s${s.progress_stale?' · progreso sin cambios':''}`);
+          const message=`Reconectando motor de render · intento ${Number(s.retry)||1} · próximo intento en ${seconds}s`;
+          onStatus(message);
+          emitProgress('reconnecting',{...s,message});
+        }else if(status==='queued'){
+          const message=`Render en cola · ${progress}%`;
+          onStatus(message);
+          emitProgress('queued',{...s,progress,elapsed,message});
+        }else if(status==='rendering'){
+          const message=`Renderizando MP4 · ${progress}% · ${elapsed.toFixed(1)}s${s.progress_stale?' · progreso sin cambios':''}`;
+          onStatus(message);
+          emitProgress('rendering',{...s,progress,elapsed,message});
+        }
       });
       if(!state?.qc?.ok)throw new Error('El servidor terminó el MP4 sin un control post-render válido.');
-      onStatus(this.qcSummary(state.qc));
+      const qaMessage=this.qcSummary(state.qc);
+      onStatus(qaMessage);
+      emitProgress('qa',{progress:98,elapsed:state.elapsed,message:qaMessage});
       await this.sleep(350);
-      const mp4=await client.result({onRetry:r=>onStatus(`Reintentando descarga MP4 · intento ${r.nextAttempt}`)});
-      return this.downloadMp4(mp4,project);
+      emitProgress('downloading',{progress:99,elapsed:state.elapsed,message:'Descargando MP4 validado…'});
+      const mp4=await client.result({onRetry:r=>{
+        const message=`Reintentando descarga MP4 · intento ${r.nextAttempt}`;
+        onStatus(message);
+        emitProgress('downloading',{progress:99,message});
+      }});
+      const size=this.downloadMp4(mp4,project);
+      emitProgress('done',{progress:100,elapsed:state.elapsed,message:`MP4 final listo · ${(size/1048576).toFixed(1)} MB`});
+      return size;
     }finally{
       this.currentJobId=null;
       this.cancelRequested=false;
@@ -115,13 +144,32 @@
 
   Bundle.prototype.renderLegacy=async function(project,blob,onStatus=()=>{}){
     const client=clientFor(this);
-    onStatus(`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`);
+    const uploadMessage=`Enviando ${(blob.size/1048576).toFixed(1)} MB al render local…`;
+    onStatus(uploadMessage);
+    emitProgress('uploading',{message:uploadMessage});
     const r=await client.fetchWithTimeout('/api/render',{method:'POST',headers:{'Content-Type':'application/x-tar'},body:blob},client.resultTimeoutMs);
     if(!r.ok)throw new Error(await this.errorFrom(r));
-    onStatus(r.headers.get('X-ProfitMente-Post-Render-QC')==='passed'?'QA post-render superado · preparando descarga…':'MP4 terminado. Preparando descarga…');
+    const qaMessage=r.headers.get('X-ProfitMente-Post-Render-QC')==='passed'?'QA post-render superado · preparando descarga…':'MP4 terminado. Preparando descarga…';
+    onStatus(qaMessage);
+    emitProgress('qa',{progress:98,message:qaMessage});
     const mp4=await client.validateResultBlob(await r.blob());
-    return this.downloadMp4(mp4,project);
+    emitProgress('downloading',{progress:99,message:'Descargando MP4 validado…'});
+    const size=this.downloadMp4(mp4,project);
+    emitProgress('done',{progress:100,message:`MP4 final listo · ${(size/1048576).toFixed(1)} MB`});
+    return size;
   };
 
-  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,validateImportedBundle};
+  const originalRenderLocal=Bundle.prototype.renderLocal;
+  Bundle.prototype.renderLocal=async function(project,assets,onStatus=()=>{}){
+    emitProgress('packing',{message:'Empaquetando proyecto y medios…'});
+    try{
+      return await originalRenderLocal.call(this,project,assets,onStatus);
+    }catch(error){
+      const cancelled=error?.name==='AbortError'||/cancelad/i.test(String(error?.message||''));
+      emitProgress(cancelled?'cancelled':'error',{message:cancelled?'Render cancelado':`Render detenido: ${error?.message||error}`});
+      throw error;
+    }
+  };
+
+  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,validateImportedBundle,emitProgress};
 })(globalThis);
