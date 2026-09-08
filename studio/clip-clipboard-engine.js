@@ -28,7 +28,8 @@
       const clips=Array.isArray(project?.clips)?project.clips:[];
       const matches=clips.filter(c=>same(c?.id,anchorId));
       if(matches.length!==1)return {ok:false,reason:matches.length?'ambiguous':'missing'};
-      const anchor=matches[0],group=scalar(anchor.groupId);
+      const anchor=matches[0],anchorTrack=trackKey(anchor.track),group=scalar(anchor.groupId);
+      if(anchorTrack===null)return {ok:false,reason:'invalid'};
       const selected=group===null?[anchor]:clips.filter(c=>scalar(c?.groupId)===group);
       if(!selected.length)return {ok:false,reason:'missing'};
       const seen=new Set();
@@ -40,8 +41,8 @@
       }
       const origin=Math.min(...selected.map(c=>num(c.start)));
       const snapshot=selected.map(c=>({clip:cloneData(c),offset:num(c.start)-origin}));
-      this.payload={version:1,origin,items:snapshot};
-      return {ok:true,count:snapshot.length,origin};
+      this.payload={version:1,origin,anchorTrack:Number(anchorTrack),items:snapshot};
+      return {ok:true,count:snapshot.length,origin,anchorTrack:Number(anchorTrack)};
     }
     hasData(){return !!(this.payload&&Array.isArray(this.payload.items)&&this.payload.items.length)}
     clear(){this.payload=null}
@@ -49,15 +50,18 @@
       if(!project||!Array.isArray(project.clips))return {ok:false,reason:'project'};
       if(!this.hasData())return {ok:false,reason:'empty'};
       const pasteAt=num(at);if(pasteAt===null||pasteAt<0)return {ok:false,reason:'time'};
-      const items=this.payload.items,existingKeys=new Set();
+      const sourceAnchor=trackKey(this.payload.anchorTrack);if(sourceAnchor===null)return {ok:false,reason:'invalid'};
+      const requested=options.targetTrack==null?sourceAnchor:trackKey(options.targetTrack);if(requested===null)return {ok:false,reason:'track'};
+      const trackDelta=Number(requested)-Number(sourceAnchor),items=this.payload.items,existingKeys=new Set();
       for(const c of project.clips){const k=key(c?.id);if(k===null)return {ok:false,reason:'invalid'};if(existingKeys.has(k))return {ok:false,reason:'ambiguous'};existingKeys.add(k)}
       const sourceGroups=new Map(),plans=[];
       for(const entry of items){
-        const src=entry?.clip,offset=num(entry?.offset),duration=num(src?.duration),track=trackKey(src?.track);
-        if(!src||offset===null||offset<0||duration===null||duration<=0||track===null)return {ok:false,reason:'invalid'};
-        if(trackLocked(project,track))return {ok:false,reason:'locked',track:Number(track)};
+        const src=entry?.clip,offset=num(entry?.offset),duration=num(src?.duration),sourceTrack=trackKey(src?.track);
+        if(!src||offset===null||offset<0||duration===null||duration<=0||sourceTrack===null)return {ok:false,reason:'invalid'};
+        const targetTrack=trackKey(Number(sourceTrack)+trackDelta);if(targetTrack===null)return {ok:false,reason:'track'};
+        if(trackLocked(project,targetTrack))return {ok:false,reason:'locked',track:Number(targetTrack)};
         const start=pasteAt+offset;if(!Number.isFinite(start))return {ok:false,reason:'time'};
-        const copy=cloneData(src);copy.start=start;copy.track=Number(track);
+        const copy=cloneData(src);copy.start=start;copy.track=Number(targetTrack);
         copy.id=typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         while(existingKeys.has(key(copy.id)))copy.id=`${copy.id}-copy`;
         existingKeys.add(key(copy.id));
@@ -70,7 +74,7 @@
       if(options.extendDuration===false&&end>currentDuration)return {ok:false,reason:'boundary',end};
       const nextDuration=end>currentDuration?end:currentDuration;
       project.clips.push(...plans);project.duration=nextDuration;
-      return {ok:true,count:plans.length,clips:plans,end,duration:project.duration};
+      return {ok:true,count:plans.length,clips:plans,end,duration:project.duration,trackDelta};
     }
   }
   root.ProfitMenteClipClipboardEngine=ProfitMenteClipClipboardEngine;
