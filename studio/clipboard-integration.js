@@ -2,13 +2,20 @@
   if(typeof document==='undefined'||!window.ProfitMenteClipboardEngine)return;
   const engine=new ProfitMenteClipboardEngine(),$=s=>document.querySelector(s);
   function status(t){if(typeof setStatus==='function')setStatus(t)}
+  function ensureSelectionApi(){
+    const multi=window.ProfitMenteMultiSelect;if(!multi?.engine)return multi;
+    if(typeof multi.clear!=='function')multi.clear=()=>{const result=multi.engine.clear();multi.refresh?.();return result};
+    if(typeof multi.selected!=='function')multi.selected=()=>multi.engine.clips?.(project)||[];
+    if(typeof multi.set!=='function')multi.set=ids=>{const result=multi.engine.set(ids);multi.refresh?.();return result};
+    return multi
+  }
   function selectedClips(){
-    const multi=window.ProfitMenteMultiSelect?.engine?.clips?.(project)||[];
+    const multi=ensureSelectionApi()?.engine?.clips?.(project)||[];
     if(multi.length)return multi;
     const id=window.ProfitMenteEditTools?.selectedId;return id?(project.clips||[]).filter(c=>String(c.id)===String(id)):[];
   }
   function commit(message,copies=[]){
-    if(copies.length&&window.ProfitMenteMultiSelect?.engine){window.ProfitMenteMultiSelect.engine.set(copies.map(c=>c.id));window.ProfitMenteMultiSelect.refresh?.()}
+    const multi=ensureSelectionApi();if(copies.length&&multi?.engine){multi.engine.set(copies.map(c=>c.id));multi.refresh?.()}
     if(copies[0])window.ProfitMenteEditTools?.select(copies[0].id);
     persist?.();drawTimeline?.();renderAt?.(+$('#playhead')?.value||0);status(message)
   }
@@ -30,5 +37,5 @@
     else if(e.key.toLowerCase()==='v'){if(engine.count){e.preventDefault();paste()}}
     else if(e.key.toLowerCase()==='d'){if(selectedClips().length){e.preventDefault();duplicate()}}
   });
-  window.ProfitMenteClipboard={engine,copy,paste,duplicate};
+  ensureSelectionApi();window.ProfitMenteClipboard={engine,copy,paste,duplicate};
 })();
