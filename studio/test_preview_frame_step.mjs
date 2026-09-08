@@ -1,0 +1,23 @@
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const E=require('./preview-frame-step-engine.js');
+
+const p30={fps:30,duration:10};
+assert.equal(E.step(p30,0,1).time,1/30);
+assert.equal(E.step(p30,1,1).frame,31);
+assert.equal(E.step(p30,0,-1).time,0);
+assert.equal(E.step(p30,10,1).time,10);
+assert.equal(E.step({fps:'24',duration:'2'},0,1).fps,24);
+assert.equal(E.step({fps:60,duration:'1.5'},0.5,10).time,40/60);
+assert.equal(E.step({fps:[60],duration:2},0,1).fps,30);
+assert.equal(E.step({fps:new Number(60),duration:2},0,1).fps,30);
+assert.equal(E.step({fps:60,duration:[2]},1,1).time,0);
+assert.equal(E.step(p30,0,[1]).ok,false);
+assert.equal(E.step(p30,0,new Number(1)).ok,false);
+assert.equal(E.step(p30,0,0.5).ok,false);
+assert.equal(E.seekFrame(p30,30).time,1);
+assert.equal(E.seekFrame(p30,-4).time,0);
+assert.equal(E.seekFrame(p30,999).time,10);
+assert.equal(E.seekFrame(p30,[30]).ok,false);
+console.log('preview frame-step QA passed');
