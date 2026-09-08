@@ -69,6 +69,7 @@ def main() -> None:
         ("editor", "Identidad canónica del clip en herramientas manuales", [node, "test_edit_tools_clip_identity.mjs"]),
         ("editor", "Copiar, pegar y duplicar preservan aislamiento de grupos", [node, "test_clipboard_engine.mjs"]),
         ("editor", "Selección múltiple respeta locks, ripple-delete y duración del proyecto", [node, "test_multi_select.mjs"]),
+        ("editor", "Nudge por frames mueve selección múltiple y grupos enlazados de forma atómica", [node, "test_frame_nudge_multiselect.mjs"]),
         ("editor", "Edición agrupada duplica y elimina sin romper locks", [node, "test_group_edit.mjs"]),
         ("editor", "Arrastre agrupado mantiene offsets y restricciones", [node, "test_group_drag.mjs"]),
         ("editor", "Split de clips vinculados conserva sincronía de grupo", [node, "test_group_split.mjs"]),
