@@ -12,6 +12,7 @@ class ProfitMenteMediaReplaceEngine{
   static sameId(a,b){const ak=this.mediaKey(a),bk=this.mediaKey(b);return ak!==null&&ak===bk}
   static findClip(project,id){return (project?.clips||[]).find(c=>this.sameId(c?.id,id))||null}
   static findAsset(assets,id){return (Array.isArray(assets)?assets:[]).find(a=>this.sameId(a?.id,id))||null}
+  static matchingClips(project,id){return (Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.sameId(c?.id,id))}
   static trackKind(track){
     const t=Number(track);
     if(t===0||t===1)return 'visual';
@@ -43,6 +44,12 @@ class ProfitMenteMediaReplaceEngine{
     return {known,native,speed,offset,maxDuration:known?Math.max(0,(native-offset)/speed):Infinity};
   }
   static maxTimelineDuration(clip,asset){return this.sourceWindow(clip,asset).maxDuration}
+  static strictFinite(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
+    const n=Number(raw);return Number.isFinite(n)?n:null;
+  }
   static replace(project,clipId,asset){
     const clip=this.findClip(project,clipId);
     if(!clip)return {ok:false,reason:'clip-missing'};
@@ -64,6 +71,30 @@ class ProfitMenteMediaReplaceEngine{
     if(Number(clip.fadeIn)>Number(clip.duration))clip.fadeIn=Number(clip.duration);
     if(Number(clip.fadeOut)>Number(clip.duration))clip.fadeOut=Number(clip.duration);
     return {ok:true,clip,before,trimmed:Number(clip.duration)<Number(before.duration)};
+  }
+  static replaceFromRange(project,clipId,asset,inPoint,outPoint){
+    const matches=this.matchingClips(project,clipId);
+    if(!matches.length)return {ok:false,reason:'clip-missing'};
+    if(matches.length!==1)return {ok:false,reason:'clip-ambiguous',matches:matches.length};
+    const clip=matches[0];
+    if(this.mediaKey(asset?.id)===null)return {ok:false,reason:'asset-missing'};
+    if(this.isLocked(project,clip))return {ok:false,reason:'locked'};
+    if(!this.canReplace(clip,asset))return {ok:false,reason:'incompatible'};
+    const timelineDuration=this.strictFinite(clip.duration),speed=this.strictFinite(clip.speed)??1;
+    if(timelineDuration===null||timelineDuration<this.MIN_CLIP_DURATION-.001||speed<=0)return {ok:false,reason:'invalid-clip'};
+    const before={asset:clip.asset,name:clip.name,duration:clip.duration,sourceOffset:clip.sourceOffset,start:clip.start,track:clip.track,speed:clip.speed};
+    if(asset.type==='image'){
+      clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';clip.sourceOffset=0;
+      return {ok:true,clip,before,sourceIn:0,sourceOut:null,requiredSource:0,preservedDuration:true};
+    }
+    const native=this.strictFinite(asset.duration),start=this.strictFinite(inPoint),end=this.strictFinite(outPoint);
+    if(native===null||native<=0)return {ok:false,reason:'unknown-duration'};
+    if(start===null||end===null||start<0||end<=start||end>native+.001)return {ok:false,reason:'invalid-source-range'};
+    const required=timelineDuration*speed,available=end-start;
+    if(available+1e-6<required)return {ok:false,reason:'source-selection-too-short',available,required};
+    if(start+required>native+1e-6)return {ok:false,reason:'source-too-short',available:Math.max(0,native-start),required};
+    clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';clip.sourceOffset=+start.toFixed(6);
+    return {ok:true,clip,before,sourceIn:+start.toFixed(6),sourceOut:+(start+required).toFixed(6),selectedOut:+end.toFixed(6),available:+available.toFixed(6),requiredSource:+required.toFixed(6),preservedDuration:true};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteMediaReplaceEngine=ProfitMenteMediaReplaceEngine;
