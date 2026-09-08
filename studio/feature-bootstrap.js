@@ -81,6 +81,8 @@
     ['export-preflight.js','ProfitMenteExportPreflight'],
     ['render-job-client.js','ProfitMenteRenderJobClient'],
     ['render-job-integration.js','ProfitMenteRenderJobs'],
+    ['render-progress-engine.js','ProfitMenteRenderProgressEngine'],
+    ['render-progress-integration.js','ProfitMenteRenderProgress'],
     ['render-range-engine.js','ProfitMenteRenderRangeEngine'],
     ['render-range-integration.js','ProfitMenteRenderRange'],
     ['range-edit-engine.js','ProfitMenteRangeEditEngine'],
