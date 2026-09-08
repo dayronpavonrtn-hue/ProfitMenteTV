@@ -96,6 +96,16 @@ jobs:
       - name: Verify atomic ripple trim and caption synchronization
         run: node studio/test_ripple_trim.mjs
 
+      - name: Verify safe ripple gap compaction and Studio wiring
+        run: |
+          node --check studio/ripple-gap-engine.js
+          node --check studio/ripple-gap-integration.js
+          node --check studio/feature-bootstrap.js
+          node studio/test_ripple_gap.mjs
+          grep -q "ripple-gap-engine.js" studio/feature-bootstrap.js
+          grep -q "ripple-gap-integration.js" studio/feature-bootstrap.js
+          ! grep -Eqi "stripe|runway|openai|anthropic|replicate|fal\.ai|elevenlabs" studio/ripple-gap-engine.js studio/ripple-gap-integration.js
+
       - name: Verify atomic Slide Edit source-window and lock safety
         run: node studio/test_slide_edit.mjs
 
