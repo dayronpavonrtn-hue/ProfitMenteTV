@@ -1,5 +1,13 @@
 (()=>{
   if(typeof document==='undefined')return;
+  function ensureStartupRecoveryNotice(){
+    if(!window.__profitmenteStartupRecovered||window.ProfitMenteStartupRecoveryNotice)return;
+    if([...document.scripts].some(s=>s.src?.endsWith('/startup-recovery-notice.js')||s.src?.endsWith('startup-recovery-notice.js')))return;
+    const s=document.createElement('script');s.src='startup-recovery-notice.js';s.async=false;
+    s.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar el aviso de recuperación automática');
+    document.body.appendChild(s);
+  }
+  ensureStartupRecoveryNotice();
   function boot(){
     const engine=window.profitMenteProjectVersionEngine;
     if(!engine||typeof project==='undefined'){setTimeout(boot,80);return}
