@@ -40,7 +40,7 @@
       this.__clipClipboardEngine??=new Engine();
       const result=this.__clipClipboardEngine.collect(active,clip?.id);
       this.__clipClipboardResult=result;
-      if(!result.ok)return null;
+      if(!result.ok){this.__clipClipboardEngine.clear();this.clipboard=null;this.__legacyClipboard=null;return null}
       this.clipboard={__profitmenteGrouped:true,track:result.anchorTrack,count:result.count};
       this.__legacyClipboard=null;
       return structuredClone(clip);
