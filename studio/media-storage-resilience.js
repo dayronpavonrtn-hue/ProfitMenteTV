@@ -70,4 +70,14 @@
     memoryCount:()=>memory.size
   };
   recoverStartup();
+
+  // Media source duration/dimensions are required by source-window tools such as
+  // Slip Edit. Load the zero-cost local probe after the resilient persistence
+  // helpers are installed so metadata survives IndexedDB failures consistently.
+  if(!window.ProfitMenteMediaMetadataEngine&&!document.querySelector('script[data-profitmente-media-metadata]')){
+    const script=document.createElement('script');
+    script.src='media-metadata-engine.js';script.async=false;script.dataset.profitmenteMediaMetadata='1';
+    script.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la inspección local de metadata de medios.');
+    document.body.appendChild(script);
+  }
 })();
