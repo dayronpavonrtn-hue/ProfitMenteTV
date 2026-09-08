@@ -9,6 +9,13 @@ assert.deepEqual(Engine.fields(base),{name:'Proyecto A',duration:45,format:'9:16
 assert.deepEqual(Engine.merge(base,{name:'  Proyecto B  ',duration:'60',format:'16:9',mode:'Automático'}),{name:'Proyecto B',duration:60,format:'16:9',mode:'Automático'});
 assert.equal(Engine.merge(base,{duration:''}).duration,45,'clearing the duration field temporarily must not reset the project');
 assert.equal(Engine.merge(base,{duration:'0'}).duration,1,'duration must remain valid');
+assert.equal(Engine.merge(base,{duration:true}).duration,45,'boolean duration must not coerce to one second');
+assert.equal(Engine.merge(base,{duration:[12]}).duration,45,'array duration must not coerce to a valid number');
+assert.equal(Engine.merge(base,{duration:{valueOf:()=>12}}).duration,45,'object duration must not coerce through valueOf');
+assert.equal(Engine.merge(base,{duration:' 12 '}).duration,12,'legacy numeric text duration must remain compatible');
+assert.equal(Engine.fields({...base,duration:false}).duration,45,'corrupt persisted boolean duration must fall back safely');
+assert.equal(Engine.fields({...base,duration:['90']}).duration,45,'corrupt persisted structured duration must fall back safely');
+assert.equal(Engine.fields({...base,duration:'90'}).duration,90,'persisted legacy numeric text duration must remain compatible');
 assert.equal(Engine.merge(base,{format:'bad'}).format,'9:16','invalid formats must fall back safely');
 assert.equal(Engine.merge(base,{mode:'bad'}).mode,'Manual','invalid modes must fall back safely');
 assert.equal(Engine.changed(base,Engine.merge(base,{name:'Proyecto A'})),false);
