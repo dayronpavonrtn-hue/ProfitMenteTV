@@ -1,0 +1,10 @@
+import {createRequire} from 'node:module';import assert from 'node:assert/strict';const require=createRequire(import.meta.url);const Engine=require('./caption-merge-engine.js');const e=new Engine();
+const base=()=>({duration:10,clips:[{id:'a',track:3,name:'Hola',start:1,duration:1,wordTimings:[{word:'Hola',start:1,end:2}]},{id:'b',track:3,name:'mundo',start:2.2,duration:1,wordTimings:[{word:'mundo',start:2.2,end:3.2}]},{id:'v',track:0,name:'video',start:0,duration:5}]});
+let p=base(),r=e.mergeWithNext(p,'a');assert.equal(r.ok,true);assert.equal(p.clips.length,2);assert.equal(r.merged.name,'Hola mundo');assert.equal(r.merged.duration,2.2);assert.equal(r.wordTimings,2);assert.equal(r.merged.wordTimings[1].index,1);
+p=base();p.clips[1].locked=true;const before=JSON.stringify(p);r=e.mergeWithNext(p,'a');assert.equal(r.reason,'next-locked');assert.equal(JSON.stringify(p),before);
+p=base();p.clips[1].start=4;r=e.mergeWithNext(p,'a');assert.equal(r.reason,'gap-too-large');
+p=base();p.clips[1].wordTimings=undefined;r=e.mergeWithNext(p,'a');assert.equal(r.ok,true);assert.equal('wordTimings' in r.merged,false);assert.equal(r.merged.animation,'none');
+p=base();p.trackState={'3':{locked:true}};r=e.mergeWithNext(p,'a');assert.equal(r.reason,'locked');
+p=base();p.clips[1].id='00';p.clips[0].id=0;r=e.mergeWithNext(p,0);assert.equal(r.reason,'ambiguous-id');
+p=base();p.clips[0].track=true;r=e.mergeWithNext(p,'a');assert.equal(r.reason,'invalid-clip');
+console.log('Caption merge engine OK');
