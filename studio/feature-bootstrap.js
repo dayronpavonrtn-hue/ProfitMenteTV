@@ -113,6 +113,8 @@
     ['clip-group-integration.js','ProfitMenteClipGroups'],
     ['frame-nudge-engine.js','ProfitMenteFrameNudgeEngine'],
     ['frame-nudge-integration.js','ProfitMenteFrameNudge'],
+    ['ripple-gap-engine.js','ProfitMenteRippleGapEngine'],
+    ['ripple-gap-integration.js','ProfitMenteRippleGap'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
