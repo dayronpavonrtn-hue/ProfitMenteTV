@@ -142,6 +142,17 @@ jobs:
       - name: Verify manual batch transitions, locks and legacy identities
         run: node studio/test_manual_transition_engine.mjs
 
+      - name: Verify atomic batch color grading and Studio wiring
+        run: |
+          node --check studio/color-grade-engine.js
+          node --check studio/color-grade-batch-engine.js
+          node --check studio/color-grade-batch-integration.js
+          node studio/test_color_grade.mjs
+          node studio/test_color_grade_batch.mjs
+          grep -q "color-grade-batch-engine.js" studio/color-grade-engine.js
+          grep -q "color-grade-batch-integration.js" studio/color-grade-engine.js
+          grep -q "ProfitMenteColorGradeBatch" studio/color-grade-batch-integration.js
+
       - name: Verify async MP4 recovery, post-QA and render snapshot freshness
         run: node studio/test_async_render_validation.mjs
 
