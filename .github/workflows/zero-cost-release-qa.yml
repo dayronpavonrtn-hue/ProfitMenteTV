@@ -178,6 +178,28 @@ jobs:
           grep -q "color-grade-batch-integration.js" studio/color-grade-engine.js
           grep -q "ProfitMenteColorGradeBatch" studio/color-grade-batch-integration.js
 
+      - name: Verify render progress backend, frontend and zero-cost wiring
+        run: |
+          python -m py_compile studio/render_progress.py studio/render_bundle.py studio/render_motion_text.py studio/studio_server.py studio/test_render_progress.py
+          python studio/test_render_progress.py
+          node --check studio/render-job-integration.js
+          node --check studio/bundle-render-job-integration.js
+          node --check studio/render-progress-engine.js
+          node --check studio/render-progress-integration.js
+          node --check studio/feature-bootstrap.js
+          node studio/test_render_progress_engine.js
+          grep -q 'PROFITMENTE_PROGRESS_FILE' studio/render_progress.py
+          grep -q 'render_progress_phases' studio/studio_server.py
+          grep -q 's.phase' studio/render-job-integration.js
+          grep -q 'profitmente:render-progress' studio/bundle-render-job-integration.js
+          grep -q "emitProgress('rendering'" studio/bundle-render-job-integration.js
+          grep -q "emitProgress('qa'" studio/bundle-render-job-integration.js
+          grep -q "emitProgress('downloading'" studio/bundle-render-job-integration.js
+          grep -q "emitProgress('done'" studio/bundle-render-job-integration.js
+          grep -q 'render-progress-engine.js' studio/feature-bootstrap.js
+          grep -q 'render-progress-integration.js' studio/feature-bootstrap.js
+          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|billing' studio/render-progress-engine.js studio/render-progress-integration.js
+
       - name: Verify async MP4 recovery, post-QA and render snapshot freshness
         run: node studio/test_async_render_validation.mjs
 
