@@ -139,6 +139,28 @@ jobs:
       - name: Verify resilient filmstrip thumbnails across timeline rerenders
         run: node studio/test_filmstrip.mjs
 
+      - name: Verify social safe-area delivery guard and Studio wiring
+        run: |
+          node --check studio/safe-area-engine.js
+          node --check studio/safe-area-integration.js
+          node --check studio/generator-integration.js
+          node studio/test_safe_area_engine.mjs
+          grep -q "bootSafeArea" studio/generator-integration.js
+          grep -q "safe-area-engine.js" studio/generator-integration.js
+          grep -q "safe-area-integration.js" studio/generator-integration.js
+          grep -q "safeAreaPlatform" studio/safe-area-integration.js
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|api[_-]?key|billing' studio/safe-area-engine.js studio/safe-area-integration.js
+
+      - name: Verify local SRT and VTT subtitle export and Studio wiring
+        run: |
+          node --check studio/subtitle-export-engine.js
+          node --check studio/subtitle-export-integration.js
+          node --check studio/generator-integration.js
+          node studio/test_subtitle_export.mjs
+          grep -q "subtitle-export-engine.js" studio/generator-integration.js
+          grep -q "subtitle-export-integration.js" studio/generator-integration.js
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|api[_-]?key|billing' studio/subtitle-export-engine.js studio/subtitle-export-integration.js
+
       - name: Verify timeline waveform source-window parity and media replacement cache safety
         run: node studio/test_waveform_timeline_parity.mjs
 
