@@ -55,6 +55,7 @@
       }
     }
     lockedBlockers(project,from){return (project?.clips||[]).filter(c=>this.clipLocked(project,c)&&this.end(c)>from+.001)}
+    affectedLockedBlockers(project,start,end){return (project?.clips||[]).filter(c=>this.clipLocked(project,c)&&this.num(c?.start)<end-.001&&this.end(c)>start+.001)}
     mapTimeExtract(t,start,end){t=this.num(t);if(t<=start)return t;if(t>=end)return t-(end-start);return start}
     mapTimeInsert(t,at,duration){t=this.num(t);return t>=at?t+duration:t}
     remapMarkers(project,fn,{dropStart=null,dropEnd=null}={}){
@@ -74,6 +75,22 @@
       }
       this.finalizeGroupSides(groupSides);project.clips=next;project.duration=Math.max(.05,this.num(project.duration)-delta);this.remapMarkers(project,t=>this.mapTimeExtract(t,start,end),{dropStart:start,dropEnd:end});this.remapWorkRange(project,t=>this.mapTimeExtract(t,start,end));
       return {start,end,duration:delta,removed,trimmed,moved,split,newDuration:project.duration}
+    }
+    lift(project,start,end){
+      start=Math.max(0,this.num(start));end=Math.min(this.num(project?.duration),this.num(end));if(!(end-start>=.05))throw new Error('El rango debe durar al menos 0.05s');
+      const blockers=this.affectedLockedBlockers(project,start,end);if(blockers.length)throw new Error(`Desbloquea los clips o pistas dentro del rango antes de levantarlo (${blockers.length} clip${blockers.length===1?'':'s'})`);
+      const next=[],groupSides=new Map();let removed=0,trimmed=0,split=0;
+      for(const original of project.clips||[]){
+        const os=this.num(original.start),oe=this.end(original);
+        if(oe<=start+.000001||os>=end-.000001){next.push(original);this.collectGroupSide(groupSides,original,oe<=start+.000001?'left':'right',original);continue}
+        const hasLeft=os<start-.000001,hasRight=oe>end+.000001;
+        if(!hasLeft&&!hasRight){removed++;continue}
+        if(hasLeft){const left=this.segment(original,os,start,os,{keepId:true,leftEdge:true,rightEdge:false});if(left){next.push(left);this.collectGroupSide(groupSides,original,'left',left)}}
+        if(hasRight){const right=this.segment(original,end,oe,end,{keepId:!hasLeft,leftEdge:false,rightEdge:true});if(right){next.push(right);this.collectGroupSide(groupSides,original,'right',right)}}
+        if(hasLeft&&hasRight)split++;else trimmed++;
+      }
+      this.finalizeGroupSides(groupSides);project.clips=next;
+      return {start,end,duration:end-start,removed,trimmed,split,newDuration:this.num(project.duration)}
     }
     insert(project,at,duration){
       at=Math.max(0,Math.min(this.num(project?.duration),this.num(at)));duration=Math.max(.05,this.num(duration));if(duration>3600)throw new Error('El hueco no puede superar 3600s');
