@@ -12,6 +12,8 @@ assert.match(bridge,/bootstrapFailed:true/,'bootstrap bridge must expose a visib
 assert.match(bridge,/document\.scripts/,'bootstrap bridge must avoid duplicate bootstrap injection');
 
 for(const required of [
+  'caption-timing-engine.js',
+  'caption-timing-integration.js',
   'media-library-tools.js',
   'media-storage-resilience.js',
   'project-import-engine.js',
@@ -25,6 +27,9 @@ for(const required of [
   'auto-finish-integration.js'
 ]) assert.ok(bootstrap.includes(`'${required}'`),`feature bootstrap must include ${required}`);
 
+const captionEngineIndex=bootstrap.indexOf("'caption-timing-engine.js'");
+const captionIntegrationIndex=bootstrap.indexOf("'caption-timing-integration.js'");
+assert.ok(captionEngineIndex>=0&&captionIntegrationIndex>captionEngineIndex,'caption timing engine must load before its integration');
 const importEngineIndex=bootstrap.indexOf("'project-import-engine.js'");
 const importIntegrationIndex=bootstrap.indexOf("'project-import-integration.js'");
 assert.ok(importEngineIndex>=0&&importIntegrationIndex>importEngineIndex,'safe project import engine must load before its integration');
