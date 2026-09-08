@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import './test_caption_split.mjs';
+import './test_slip_edit.mjs';
 
 const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const bridge=fs.readFileSync(new URL('./transition-duration.js',import.meta.url),'utf8');
