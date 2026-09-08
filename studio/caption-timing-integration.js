@@ -15,4 +15,5 @@
   window.ProfitMenteCaptionTiming={engine,rebuild:()=>engine.rebuildFromVoice(project),retimeSelected:()=>{const c=selectedCaption();return c?engine.retimeCaption(c):false}};
   function loadOnce(src,key,onload){if(window[key]){onload?.();return}if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src))){onload?.();return}const script=document.createElement('script');script.src=src;script.async=false;script.onload=()=>onload?.();script.onerror=()=>console.error('No se pudo cargar '+src);document.body.appendChild(script)}
   loadOnce('caption-merge-engine.js','ProfitMenteCaptionMergeEngine',()=>loadOnce('caption-merge-integration.js','ProfitMenteCaptionMerge'));
+  loadOnce('caption-split-engine.js','ProfitMenteCaptionSplitEngine',()=>loadOnce('caption-split-integration.js','ProfitMenteCaptionSplit'));
 })();
