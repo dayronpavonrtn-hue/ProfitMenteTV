@@ -1,0 +1,33 @@
+name: ProfitMente Studio Clip Clipboard QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/clip-clipboard-engine.js'
+      - 'studio/timeline-paste-extension.js'
+      - 'studio/test_clip_clipboard.mjs'
+      - 'studio/test_timeline_paste_extension.mjs'
+      - '.github/workflows/studio-clip-clipboard-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clip-clipboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check clipboard syntax
+        run: |
+          node --check studio/clip-clipboard-engine.js
+          node --check studio/timeline-paste-extension.js
+      - name: Verify grouped atomic clipboard
+        run: node studio/test_clip_clipboard.mjs
+      - name: Verify legacy paste compatibility
+        run: node studio/test_timeline_paste_extension.mjs
+      - name: Verify zero-cost local implementation
+        run: |
+          grep -q "clip-clipboard-engine.js" studio/timeline-paste-extension.js
+          ! grep -Eiq "(stripe|runway|replicate|openai|anthropic|paid api|billing)" studio/clip-clipboard-engine.js studio/timeline-paste-extension.js
