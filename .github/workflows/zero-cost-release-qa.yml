@@ -87,6 +87,15 @@ jobs:
       - name: Verify atomic Slide Edit source-window and lock safety
         run: node studio/test_slide_edit.mjs
 
+      - name: Verify atomic Razor All multi-track cuts and Studio wiring
+        run: |
+          node --check studio/razor-all-engine.js
+          node --check studio/razor-all-integration.js
+          node studio/test_razor_all.mjs
+          grep -q "razor-all-engine.js" studio/feature-bootstrap.js
+          grep -q "razor-all-integration.js" studio/feature-bootstrap.js
+          grep -q "Shift+S" studio/razor-all-integration.js
+
       - name: Verify grouped atomic clip clipboard and track remapping
         run: |
           node --check studio/clip-clipboard-engine.js
