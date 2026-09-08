@@ -1,0 +1,37 @@
+name: ProfitMente Studio Batch Color Grade QA
+
+on:
+  push:
+    branches: [main, 'studio/batch-color-grade']
+    paths:
+      - 'studio/color-grade-engine.js'
+      - 'studio/color-grade-batch-engine.js'
+      - 'studio/color-grade-batch-integration.js'
+      - 'studio/test_color_grade.mjs'
+      - 'studio/test_color_grade_batch.mjs'
+      - '.github/workflows/color-grade-batch-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  batch-color-grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax
+        run: |
+          node --check studio/color-grade-engine.js
+          node --check studio/color-grade-batch-engine.js
+          node --check studio/color-grade-batch-integration.js
+      - name: Existing color grading regressions
+        run: node studio/test_color_grade.mjs
+      - name: Batch color grading regressions
+        run: node studio/test_color_grade_batch.mjs
+      - name: Verify Studio wiring
+        run: |
+          grep -q "color-grade-batch-engine.js" studio/color-grade-engine.js
+          grep -q "color-grade-batch-integration.js" studio/color-grade-engine.js
+          grep -q "ProfitMenteColorGradeBatch" studio/color-grade-batch-integration.js
