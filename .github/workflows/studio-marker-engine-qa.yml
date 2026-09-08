@@ -1,0 +1,35 @@
+name: ProfitMente Studio Marker Engine QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/marker-engine.js'
+      - 'studio/marker-integration.js'
+      - 'studio/test-marker-engine.js'
+      - '.github/workflows/studio-marker-engine-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  marker-engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/marker-engine.js
+          node --check studio/marker-integration.js
+          node --check studio/test-marker-engine.js
+      - name: Run marker regressions
+        run: node studio/test-marker-engine.js
+      - name: Verify zero-cost local implementation
+        run: |
+          ! grep -Eqi 'stripe|openai|anthropic|runway|replicate|api[_-]?key|billing' studio/marker-engine.js studio/marker-integration.js
+          grep -q 'snapTime' studio/marker-engine.js
+          grep -q 'onpointermove' studio/marker-engine.js
