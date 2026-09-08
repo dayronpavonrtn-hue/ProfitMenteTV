@@ -78,6 +78,18 @@ jobs:
       - name: Verify strict persistent timeline markers
         run: node studio/test_markers.mjs
 
+      - name: Verify draggable frame-aligned marker engine and zero-cost wiring
+        run: |
+          node --check studio/marker-engine.js
+          node --check studio/marker-integration.js
+          node --check studio/test-marker-engine.js
+          node studio/test-marker-engine.js
+          grep -q 'snapTime' studio/marker-engine.js
+          grep -q 'onpointermove' studio/marker-engine.js
+          grep -q 'marker-engine.js' studio/feature-bootstrap.js
+          grep -q 'marker-integration.js' studio/feature-bootstrap.js
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|api[_-]?key|billing' studio/marker-engine.js studio/marker-integration.js
+
       - name: Verify synchronized insert-time metadata and caption timing
         run: node studio/test_timeline_time_sync.mjs
 
@@ -199,6 +211,22 @@ jobs:
           grep -q 'render-progress-engine.js' studio/feature-bootstrap.js
           grep -q 'render-progress-integration.js' studio/feature-bootstrap.js
           ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|billing' studio/render-progress-engine.js studio/render-progress-integration.js
+
+      - name: Verify recoverable preserved render sessions and error UX
+        run: |
+          node --check studio/render-error-engine.js
+          node --check studio/render-job-client.js
+          node --check studio/render-job-integration.js
+          node --check studio/render-recovery-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_render_recovery_integration.js
+          node studio/test_render_recovery_integration.js
+          grep -q "render-error-engine.js','ProfitMenteRenderErrorEngine" studio/feature-bootstrap.js
+          grep -q "render-recovery-integration.js','ProfitMenteRenderRecovery" studio/feature-bootstrap.js
+          grep -q 'resumeSavedJob' studio/render-recovery-integration.js
+          grep -q 'recoverRenderBtn' studio/render-recovery-integration.js
+          grep -q 'profitmente.activeRenderJob.v1' studio/render-job-integration.js
+          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|billing' studio/render-recovery-integration.js studio/render-error-engine.js
 
       - name: Verify async MP4 recovery, post-QA and render snapshot freshness
         run: node studio/test_async_render_validation.mjs
