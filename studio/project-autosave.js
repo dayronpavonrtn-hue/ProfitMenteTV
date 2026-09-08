@@ -1,12 +1,19 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectAutosaveEngine=api.ProfitMenteProjectAutosaveEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectAutosaveEngine{
-  static fields(project={}){return {name:project.name||'Nuevo video',duration:Math.max(1,Number(project.duration)||45),format:['9:16','16:9','1:1'].includes(project.format)?project.format:'9:16',mode:project.mode==='Automático'?'Automático':'Manual'}}
+  static numeric(value,fallback){
+    if(value===null||value===undefined||typeof value==='boolean')return fallback;
+    if(typeof value!=='number'&&typeof value!=='string')return fallback;
+    if(typeof value==='string'&&!value.trim())return fallback;
+    const parsed=Number(value);
+    return Number.isFinite(parsed)?parsed:fallback;
+  }
+  static fields(project={}){const duration=this.numeric(project.duration,45);return {name:project.name||'Nuevo video',duration:Math.max(1,duration),format:['9:16','16:9','1:1'].includes(project.format)?project.format:'9:16',mode:project.mode==='Automático'?'Automático':'Manual'}}
   static merge(project={},values={}){
     const current=this.fields(project),rawDuration=values.duration;
-    const parsedDuration=rawDuration===''||rawDuration==null?current.duration:Number(rawDuration);
+    const parsedDuration=rawDuration===''||rawDuration==null?current.duration:this.numeric(rawDuration,current.duration);
     return {
       name:typeof values.name==='string'&&values.name.trim()?values.name.trim():current.name,
-      duration:Math.max(1,Number.isFinite(parsedDuration)?parsedDuration:current.duration),
+      duration:Math.max(1,parsedDuration),
       format:['9:16','16:9','1:1'].includes(values.format)?values.format:current.format,
       mode:values.mode==='Automático'||values.mode==='Manual'?values.mode:current.mode
     };
