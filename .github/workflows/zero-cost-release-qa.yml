@@ -57,6 +57,12 @@ jobs:
       - name: Verify resilient preview transport state
         run: node studio/test_transport_engine.mjs
 
+      - name: Verify browser media proxy lifecycle and original preservation
+        run: node studio/test_media_proxy_engine.mjs
+
+      - name: Verify real FFmpeg media proxy generation
+        run: python studio/test_media_proxy_server.py
+
       - name: Verify timeline magnetic snapping and canonical clip identity
         run: node studio/test_timeline_snap.mjs
 
