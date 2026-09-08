@@ -57,6 +57,9 @@ jobs:
       - name: Verify resilient preview transport state
         run: node studio/test_transport_engine.mjs
 
+      - name: Verify precise preview frame-step navigation
+        run: node studio/test_preview_frame_step.mjs
+
       - name: Verify browser media proxy lifecycle and original preservation
         run: node studio/test_media_proxy_engine.mjs
 
