@@ -6,6 +6,7 @@ on:
     paths:
       - 'studio/media_proxy_server.py'
       - 'studio/media-proxy-engine.js'
+      - 'studio/media-library-tools.js'
       - 'studio/preview-engine.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/start_studio_windows.bat'
@@ -37,6 +38,7 @@ jobs:
         run: |
           python -m py_compile studio/studio_server.py studio/media_proxy_server.py studio/test_media_proxy_server.py
           node --check studio/media-proxy-engine.js
+          node --check studio/media-library-tools.js
           node --check studio/preview-engine.js
           node --check studio/feature-bootstrap.js
       - name: Browser proxy engine regression
@@ -48,3 +50,4 @@ jobs:
           grep -q "media-proxy-engine.js" studio/feature-bootstrap.js
           grep -q "media_proxy_server.py" studio/start_studio_windows.bat
           grep -q "previewBlobFor" studio/preview-engine.js
+          grep -q "mediaProxyToggle" studio/media-library-tools.js
