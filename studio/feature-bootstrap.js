@@ -3,6 +3,8 @@
   window.__profitmenteFeatureBootstrap=true;
   const modules=[
     ['caption-compact-engine.js','ProfitMenteCaptionCompactEngine'],
+    ['caption-timing-engine.js','ProfitMenteCaptionTimingEngine'],
+    ['caption-timing-integration.js','ProfitMenteCaptionTiming'],
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
     ['media-storage-resilience.js','ProfitMenteMediaStorageResilience'],
     ['media-proxy-engine.js','ProfitMenteMediaProxyEngine'],
