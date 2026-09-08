@@ -1,0 +1,37 @@
+name: ProfitMente Studio Startup Recovery Notice QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/startup-recovery-notice.js'
+      - 'studio/automation-checkpoint.js'
+      - 'studio/test_startup_recovery_notice.mjs'
+      - '.github/workflows/studio-startup-recovery-notice-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  startup-recovery-notice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check
+        run: |
+          node --check studio/startup-recovery-notice.js
+          node --check studio/automation-checkpoint.js
+          node --check studio/test_startup_recovery_notice.mjs
+
+      - name: Startup recovery notice regressions
+        run: node studio/test_startup_recovery_notice.mjs
+
+      - name: Verify zero-cost boundary
+        run: '! grep -Eiq "stripe|openai|anthropic|runway|replicate|fal\\.ai|elevenlabs|api[_-]?key|billing" studio/startup-recovery-notice.js studio/automation-checkpoint.js studio/test_startup_recovery_notice.mjs'
