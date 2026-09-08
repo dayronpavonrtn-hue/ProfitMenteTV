@@ -1,0 +1,41 @@
+name: ProfitMente Studio Caption Split QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/caption-split-engine.js'
+      - 'studio/caption-split-integration.js'
+      - 'studio/caption-timing-integration.js'
+      - 'studio/test_caption_split.mjs'
+      - '.github/workflows/caption-split-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  caption-split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify JavaScript syntax
+        run: |
+          node --check studio/caption-split-engine.js
+          node --check studio/caption-split-integration.js
+          node --check studio/caption-timing-integration.js
+          node --check studio/test_caption_split.mjs
+      - name: Verify frame-safe caption split behavior
+        run: node studio/test_caption_split.mjs
+      - name: Verify caption inspector wiring
+        run: |
+          grep -q 'caption-split-engine.js' studio/caption-timing-integration.js
+          grep -q 'caption-split-integration.js' studio/caption-timing-integration.js
+          grep -q 'ciSplitCaption' studio/caption-split-integration.js
+          grep -q 'ProfitMenteMultiSelect?.set' studio/caption-split-integration.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|fal\.ai|elevenlabs|api[_-]?key|billing' studio/caption-split-engine.js studio/caption-split-integration.js
