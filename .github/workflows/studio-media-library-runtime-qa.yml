@@ -1,0 +1,45 @@
+name: ProfitMente Studio Media Library Runtime QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/media-library-cross-project-guard.js'
+      - 'studio/media-library-tools.js'
+      - 'studio/media-timeline-dnd.js'
+      - 'studio/test_media_library_runtime_contract.mjs'
+      - '.github/workflows/studio-media-library-runtime-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  media-library-runtime-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JavaScript syntax
+        run: |
+          node --check studio/media-library-cross-project-guard.js
+          node --check studio/media-library-tools.js
+          node --check studio/media-timeline-dnd.js
+          node --check studio/test_media_library_runtime_contract.mjs
+
+      - name: Media library runtime regression
+        run: node studio/test_media_library_runtime_contract.mjs
+
+      - name: Local zero-cost boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(studio/media-library-cross-project-guard.js studio/test_media_library_runtime_contract.mjs)
+          if grep -Ein 'stripe|paypal|openai|anthropic|replicate|runway|elevenlabs|api[-_]?key|authorization:|bearer ' "${files[@]}"; then
+            echo 'Paid/external credential boundary detected in local media runtime bridge.' >&2
+            exit 1
+          fi
+          echo 'Media library runtime bridge remains local and zero-cost.'
