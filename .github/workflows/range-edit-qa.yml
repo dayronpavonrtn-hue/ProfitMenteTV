@@ -6,6 +6,7 @@ on:
       - 'studio/range-edit-engine.js'
       - 'studio/range-edit-integration.js'
       - 'studio/test_range_edit.mjs'
+      - 'studio/test_range_lift.mjs'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/range-edit-qa.yml'
   workflow_dispatch:
@@ -25,8 +26,14 @@ jobs:
           node --check studio/feature-bootstrap.js
       - name: Range edit regression
         run: node studio/test_range_edit.mjs
+      - name: Range lift regression
+        run: node studio/test_range_lift.mjs
       - name: Verify Studio integration
         run: |
           grep -q "range-edit-engine.js" studio/feature-bootstrap.js
           grep -q "range-edit-integration.js" studio/feature-bootstrap.js
           grep -q "ProfitMenteRangeEdit" studio/range-edit-integration.js
+          grep -q "liftRangeEditBtn" studio/range-edit-integration.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eqi 'stripe|runway|paid[_-]?api|billing|subscription' studio/range-edit-engine.js studio/range-edit-integration.js studio/test_range_lift.mjs
