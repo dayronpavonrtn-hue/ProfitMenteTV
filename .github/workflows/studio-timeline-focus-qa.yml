@@ -1,0 +1,39 @@
+name: ProfitMente Studio Timeline Focus QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/timeline-focus-engine.js'
+      - 'studio/timeline-focus-integration.js'
+      - 'studio/test_timeline_focus.mjs'
+      - '.github/workflows/studio-timeline-focus-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/timeline-focus-engine.js'
+      - 'studio/timeline-focus-integration.js'
+      - 'studio/test_timeline_focus.mjs'
+      - '.github/workflows/studio-timeline-focus-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeline-focus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/timeline-focus-engine.js
+          node --check studio/timeline-focus-integration.js
+      - name: Timeline focus regressions
+        run: node studio/test_timeline_focus.mjs
+      - name: Zero-cost boundary
+        run: |
+          ! grep -Eri 'openai|runway|replicate|stripe|api[_-]?key|billing' studio/timeline-focus-engine.js studio/timeline-focus-integration.js
