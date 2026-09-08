@@ -90,6 +90,9 @@ jobs:
       - name: Verify resilient project library persistence
         run: node studio/test_project_library.mjs
 
+      - name: Verify continuous strict project autosave persistence
+        run: node studio/test_project_autosave.mjs
+
       - name: Verify safe project switching
         run: node studio/test_project_switch_wiring.mjs
 
