@@ -26,6 +26,8 @@
     ['frame-grid-integration.js','ProfitMenteFrameGrid'],
     ['timeline-snap-engine.js','ProfitMenteTimelineSnapEngine'],
     ['timeline-snap-integration.js','ProfitMenteTimelineSnap'],
+    ['edit-navigation-engine.js','ProfitMenteEditNavigationEngine'],
+    ['edit-navigation-integration.js','ProfitMenteEditNavigation'],
     ['timeline-left-trim.js','ProfitMenteTimelineLeftTrimEngine','ProfitMenteTimelineLeftTrim'],
     ['timeline-right-trim.js','ProfitMenteTimelineRightTrimEngine','ProfitMenteTimelineRightTrim'],
     ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
