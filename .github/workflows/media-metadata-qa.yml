@@ -1,0 +1,40 @@
+name: ProfitMente Studio Media Metadata QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-metadata-engine.js'
+      - 'studio/media-storage-resilience.js'
+      - 'studio/slip-edit-engine.js'
+      - 'studio/test_media_metadata.mjs'
+      - '.github/workflows/media-metadata-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          node --check studio/media-metadata-engine.js
+          node --check studio/media-storage-resilience.js
+          node --check studio/slip-edit-engine.js
+          node --check studio/test_media_metadata.mjs
+      - name: Media metadata regression
+        run: node studio/test_media_metadata.mjs
+      - name: Integration wiring
+        run: |
+          grep -q "media-metadata-engine.js" studio/media-storage-resilience.js
+          grep -q "asset?.duration" studio/slip-edit-engine.js
+          grep -q "profitmente:media-imported" studio/media-metadata-engine.js
+      - name: Zero-cost boundary
+        run: |
+          ! grep -Eqi "https?://|fetch\(|XMLHttpRequest|WebSocket|stripe|openai|runway|replicate|fal\.ai" studio/media-metadata-engine.js
