@@ -26,6 +26,8 @@ for(const required of [
   'export-preflight.js',
   'render-job-integration.js',
   'track-mixer-integration.js',
+  'slip-edit-engine.js',
+  'slip-edit-integration.js',
   'auto-finish-integration.js'
 ]) assert.ok(bootstrap.includes(`'${required}'`),`feature bootstrap must include ${required}`);
 
@@ -37,6 +39,9 @@ assert.match(captionTimingIntegration,/loadOnce\('caption-split-integration\.js'
 const importEngineIndex=bootstrap.indexOf("'project-import-engine.js'");
 const importIntegrationIndex=bootstrap.indexOf("'project-import-integration.js'");
 assert.ok(importEngineIndex>=0&&importIntegrationIndex>importEngineIndex,'safe project import engine must load before its integration');
+const slipEngineIndex=bootstrap.indexOf("'slip-edit-engine.js'");
+const slipIntegrationIndex=bootstrap.indexOf("'slip-edit-integration.js'");
+assert.ok(slipEngineIndex>=0&&slipIntegrationIndex>slipEngineIndex,'slip edit engine must load before its integration');
 assert.match(bootstrap,/document\.scripts/,'feature bootstrap must skip modules already loaded explicitly');
 assert.match(bootstrap,/profitmente:features-ready/,'feature bootstrap must announce startup completion');
 
