@@ -105,6 +105,16 @@ jobs:
       - name: Verify resilient project library persistence
         run: node studio/test_project_library.mjs
 
+      - name: Verify transactional project undo redo history
+        run: |
+          node studio/test_project_history_engine.mjs
+          grep -q "project-history-engine.js" studio/feature-bootstrap.js
+          grep -q "project-history-integration.js" studio/feature-bootstrap.js
+          grep -q "#undoBtn" studio/project-history-integration.js
+          grep -q "#redoBtn" studio/project-history-integration.js
+          grep -q "stopImmediatePropagation" studio/project-history-integration.js
+          grep -q "ProfitMenteProjectHistory?.reset" studio/project-library.js
+
       - name: Verify continuous strict project autosave persistence
         run: node studio/test_project_autosave.mjs
 
