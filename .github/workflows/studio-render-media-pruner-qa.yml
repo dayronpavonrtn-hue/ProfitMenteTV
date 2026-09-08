@@ -1,0 +1,36 @@
+name: ProfitMente Studio Render Media Pruner QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/render-media-pruner.js'
+      - 'studio/automation-checkpoint.js'
+      - 'studio/test_render_media_pruner.mjs'
+      - '.github/workflows/studio-render-media-pruner-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  render-media-pruner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check
+        run: |
+          node --check studio/render-media-pruner.js
+          node --check studio/automation-checkpoint.js
+          node --check studio/test_render_media_pruner.mjs
+
+      - name: Render media pruning regressions
+        run: node studio/test_render_media_pruner.mjs
+
+      - name: Verify zero-cost boundary
+        run: '! grep -Eiq "stripe|openai|anthropic|runway|replicate|fal\\.ai|elevenlabs|api[_-]?key|billing" studio/render-media-pruner.js studio/automation-checkpoint.js studio/test_render_media_pruner.mjs'
