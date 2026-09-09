@@ -1,0 +1,43 @@
+name: ProfitMente Studio Folder Relink QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/media-relink-engine.js'
+      - 'studio/media-relink-integration.js'
+      - 'studio/media-relink-folder-engine.js'
+      - 'studio/media-relink-folder-integration.js'
+      - 'studio/test_media_relink_folder.mjs'
+      - '.github/workflows/media-relink-folder-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  folder-relink:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/media-relink-folder-engine.js
+          node --check studio/media-relink-folder-integration.js
+          node --check studio/media-relink-integration.js
+          node --check studio/test_media_relink_folder.mjs
+      - name: Folder relink regression
+        run: node studio/test_media_relink_folder.mjs
+      - name: Verify safe recovery wiring
+        run: |
+          grep -q 'recoveryCandidates' studio/media-relink-folder-engine.js
+          grep -q 'webkitdirectory' studio/media-relink-folder-integration.js
+          grep -q 'media-relink-folder-engine.js' studio/media-relink-integration.js
+          grep -q 'isOffline' studio/media-relink-folder-engine.js
+      - name: Zero cost boundary
+        run: |
+          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|authorization:|bearer ' studio/media-relink-folder-engine.js studio/media-relink-folder-integration.js studio/test_media_relink_folder.mjs
