@@ -38,6 +38,7 @@ class ProfitMenteWebMRenderEngine{
     if(event==='keydown')return String(key||'').toLowerCase()!=='escape';
     return ['click','dblclick','pointerdown','input','change','paste','drop','submit'].includes(event);
   }
+  static shouldWarnBeforeUnload({active=false,locked=false}={}){return !!active&&!!locked}
   static _assetDescriptor(asset){
     const blob=asset?.blob;
     return {
