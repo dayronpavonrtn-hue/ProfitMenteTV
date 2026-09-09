@@ -34,6 +34,14 @@
     if(!blob?.size)throw new Error('El render WebM terminó vacío');
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${String(projectName||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_')}-mix.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return blob.size;
   }
+  async function validateWebM(blob,{duration,width,height,fps}){
+    const QC=window.ProfitMenteWebMQCEngine;
+    if(!QC)throw new Error('Control post-render WebM no disponible');
+    setStatus?.('Validando WebM final antes de descargar…');
+    const result=await QC.inspectBlob(blob,{duration,width,height,fps});
+    if(!result.ok){const detail=result.issues?.slice(0,2).join(' · ')||'archivo inválido';const error=new Error(`QA WebM bloqueó la descarga: ${detail}`);error.code='WEBM_QC_FAILED';error.qc=result;throw error}
+    return result;
+  }
   async function cleanup(previousTime,monitorQuality,renderProject){
     safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
     resources=null;engine.reset();cancelBtn.hidden=true;cancelBtn.disabled=false;renderBtn.disabled=false;
@@ -72,9 +80,12 @@
         if(frame%Math.max(1,Math.round(plan.fps/2))===0){const progress=Math.min(99,Math.round((frame+1)/plan.totalFrames*100));setStatus?.(`Render WebM ${exportSize.width}×${exportSize.height} · ${plan.fps} FPS · ${renderQuality} · ${progress}%`)}
         const elapsed=performance.now()-started,remaining=Math.max(0,plan.frameDuration*1000-elapsed);if(remaining)await wait(remaining);
       }
-      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${exportSize.width}×${exportSize.height} · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
+      assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();
+      const qc=await validateWebM(blob,{duration:plan.duration,width:exportSize.width,height:exportSize.height,fps:plan.fps});assertRenderState();
+      engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${window.ProfitMenteWebMQCEngine.summary(qc)} · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
     }catch(err){
       if(err?.code==='WEBM_STATE_CHANGED'){setStatus?.('Render WebM detenido: el proyecto o sus medios cambiaron. Vuelve a exportar para evitar un archivo inconsistente')}
+      else if(err?.code==='WEBM_QC_FAILED'){console.error(err);setStatus?.(err.message)}
       else if(err?.name==='AbortError'||engine.cancelled)setStatus?.('Render WebM cancelado · recursos liberados');
       else{console.error(err);setStatus?.(`No se pudo renderizar WebM: ${err?.message||err}`)}
     }finally{await cleanup(previousTime,monitorQuality,renderProject)}
@@ -83,5 +94,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,get active(){return engine.active}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,get active(){return engine.active}};
 })();
