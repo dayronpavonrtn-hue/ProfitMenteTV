@@ -16,6 +16,18 @@
     document.body.appendChild(s);
   }
   ensureGeneratorTransactionGuard();
+  function ensureRenderQueue(){
+    if(window.ProfitMenteRenderQueue)return;
+    if([...document.scripts].some(s=>s.dataset?.profitmenteRenderQueue==='1'))return;
+    const engine=document.createElement('script');engine.src='render-queue-engine.js';engine.async=false;engine.dataset.profitmenteRenderQueue='1';
+    engine.onload=()=>{
+      if(window.ProfitMenteRenderQueue)return;
+      const integration=document.createElement('script');integration.src='render-queue-integration.js';integration.async=false;integration.dataset.profitmenteRenderQueue='1';
+      integration.onerror=()=>console.error('ProfitMente Studio: no se pudo integrar la cola de render MP4');document.body.appendChild(integration);
+    };
+    engine.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la cola de render MP4');document.body.appendChild(engine);
+  }
+  ensureRenderQueue();
   function ensureStartupRecoveryNotice(){
     if(!window.__profitmenteStartupRecovered||window.ProfitMenteStartupRecoveryNotice)return;
     if([...document.scripts].some(s=>s.src?.endsWith('/startup-recovery-notice.js')||s.src?.endsWith('startup-recovery-notice.js')))return;
