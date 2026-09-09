@@ -1,0 +1,102 @@
+class ProfitMenteRenderQueueEngine{
+  constructor({snapshotEngine=globalThis.ProfitMenteRenderSnapshotEngine,now=()=>Date.now(),idFactory=null}={}){
+    this.snapshotEngine=snapshotEngine;
+    this.now=now;
+    this.idFactory=idFactory;
+    this.items=[];
+    this.running=false;
+    this.abortController=null;
+    this.sequence=0;
+  }
+  makeId(){
+    this.sequence+=1;
+    if(typeof this.idFactory==='function')return String(this.idFactory(this.sequence));
+    return `render-${this.now()}-${this.sequence}`;
+  }
+  snapshot(project,assets=[]){
+    if(this.snapshotEngine?.capture)return this.snapshotEngine.capture(project,assets);
+    if(!project||typeof project!=='object'||Array.isArray(project))throw new Error('Proyecto inválido para la cola de render');
+    if(typeof structuredClone==='function')return {project:structuredClone(project),assets:structuredClone(Array.isArray(assets)?assets:[])};
+    return {project:JSON.parse(JSON.stringify(project)),assets:JSON.parse(JSON.stringify(Array.isArray(assets)?assets:[]))};
+  }
+  enqueue(project,assets=[],options={}){
+    const snapshot=this.snapshot(project,assets);
+    const item={
+      id:this.makeId(),
+      name:String(options.name||snapshot.project?.name||'profitmente').trim()||'profitmente',
+      format:String(options.format||'mp4').toLowerCase(),
+      status:'pending',
+      createdAt:this.now(),
+      startedAt:null,
+      finishedAt:null,
+      error:null,
+      result:null,
+      project:snapshot.project,
+      assets:snapshot.assets
+    };
+    this.items.push(item);
+    return item;
+  }
+  get(id){return this.items.find(item=>item.id===id)||null}
+  pending(){return this.items.filter(item=>item.status==='pending')}
+  summary(){
+    const counts={pending:0,running:0,done:0,error:0,cancelled:0};
+    for(const item of this.items){if(Object.hasOwn(counts,item.status))counts[item.status]+=1}
+    return {total:this.items.length,...counts,active:this.running};
+  }
+  remove(id){
+    const index=this.items.findIndex(item=>item.id===id);
+    if(index<0)return false;
+    if(this.items[index].status==='running')return false;
+    this.items.splice(index,1);return true;
+  }
+  clearFinished(){
+    const before=this.items.length;
+    this.items=this.items.filter(item=>!['done','error','cancelled'].includes(item.status));
+    return before-this.items.length;
+  }
+  cancel({cancelPending=true}={}){
+    if(this.abortController&&!this.abortController.signal.aborted)this.abortController.abort();
+    let cancelled=0;
+    if(cancelPending){
+      const finishedAt=this.now();
+      for(const item of this.items){
+        if(item.status==='pending'){item.status='cancelled';item.finishedAt=finishedAt;cancelled+=1}
+      }
+    }
+    return cancelled;
+  }
+  async run(worker,{continueOnError=true,onUpdate=()=>{}}={}){
+    if(typeof worker!=='function')throw new Error('La cola necesita un trabajador de render');
+    if(this.running)throw new Error('La cola de render ya está procesándose');
+    this.running=true;
+    this.abortController=new AbortController();
+    const signal=this.abortController.signal;
+    const notify=item=>{try{onUpdate(item,this.summary())}catch{}};
+    try{
+      while(!signal.aborted){
+        const item=this.items.find(candidate=>candidate.status==='pending');
+        if(!item)break;
+        item.status='running';item.startedAt=this.now();item.error=null;notify(item);
+        try{
+          const result=await worker(item,signal,progress=>{item.progress=progress;notify(item)});
+          if(signal.aborted){item.status='cancelled';item.finishedAt=this.now();notify(item);break}
+          item.status='done';item.result=result??null;item.finishedAt=this.now();notify(item);
+        }catch(error){
+          item.finishedAt=this.now();
+          if(signal.aborted||error?.name==='AbortError'){
+            item.status='cancelled';item.error=null;notify(item);break;
+          }
+          item.status='error';item.error=error?.message||String(error);notify(item);
+          if(!continueOnError)break;
+        }
+      }
+      return this.summary();
+    }finally{
+      this.running=false;this.abortController=null;
+      onUpdate(null,this.summary());
+    }
+  }
+}
+if(typeof window!=='undefined')window.ProfitMenteRenderQueueEngine=ProfitMenteRenderQueueEngine;
+if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRenderQueueEngine;
