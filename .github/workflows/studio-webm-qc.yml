@@ -1,0 +1,28 @@
+name: ProfitMente Studio WebM QC
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/webm-qc-engine.js'
+      - 'studio/webm-render-integration.js'
+      - 'studio/test_webm_qc.mjs'
+      - '.github/workflows/studio-webm-qc.yml'
+  workflow_dispatch:
+
+jobs:
+  webm-qc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/webm-qc-engine.js
+          node --check studio/webm-render-integration.js
+      - name: WebM QC regression
+        run: node studio/test_webm_qc.mjs
+      - name: Zero-cost boundary
+        run: |
+          ! grep -Eri 'stripe|runway|openai\.com|api\.openai|anthropic|elevenlabs|paid api|subscription' studio/webm-qc-engine.js studio/webm-render-integration.js
