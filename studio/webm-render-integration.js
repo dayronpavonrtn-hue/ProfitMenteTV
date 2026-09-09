@@ -2,7 +2,7 @@
   if(typeof document==='undefined'||typeof ProfitMenteWebMRenderEngine==='undefined'||window.ProfitMenteWebMRender)return;
   const renderBtn=document.querySelector('#renderBtn'),canvas=document.querySelector('#previewCanvas');
   if(!renderBtn||!canvas)return;
-  const engine=new ProfitMenteWebMRenderEngine();let resources=null;
+  const engine=new ProfitMenteWebMRenderEngine();let resources=null,qcLoader=null;
   let cancelBtn=document.querySelector('#cancelWebmBtn');
   if(!cancelBtn){cancelBtn=document.createElement('button');cancelBtn.id='cancelWebmBtn';cancelBtn.type='button';cancelBtn.textContent='■ Cancelar WebM';cancelBtn.hidden=true;cancelBtn.title='Detener el render WebM y liberar audio/video';renderBtn.insertAdjacentElement('afterend',cancelBtn)}
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -34,9 +34,13 @@
     if(!blob?.size)throw new Error('El render WebM terminó vacío');
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${String(projectName||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_')}-mix.webm`;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);return blob.size;
   }
+  async function ensureQCEngine(){
+    if(window.ProfitMenteWebMQCEngine)return window.ProfitMenteWebMQCEngine;
+    if(!qcLoader)qcLoader=new Promise((resolve,reject)=>{const existing=[...document.scripts].find(s=>s.src.endsWith('/webm-qc-engine.js')||s.src.endsWith('webm-qc-engine.js'));if(existing){existing.addEventListener('load',()=>resolve(window.ProfitMenteWebMQCEngine),{once:true});existing.addEventListener('error',()=>reject(new Error('No se pudo cargar el control post-render WebM')),{once:true});return}const script=document.createElement('script');script.src='webm-qc-engine.js';script.async=false;script.onload=()=>resolve(window.ProfitMenteWebMQCEngine);script.onerror=()=>reject(new Error('No se pudo cargar el control post-render WebM'));document.body.appendChild(script)});
+    const QC=await qcLoader;if(!QC)throw new Error('Control post-render WebM no disponible');return QC;
+  }
   async function validateWebM(blob,{duration,width,height,fps}){
-    const QC=window.ProfitMenteWebMQCEngine;
-    if(!QC)throw new Error('Control post-render WebM no disponible');
+    const QC=await ensureQCEngine();
     setStatus?.('Validando WebM final antes de descargar…');
     const result=await QC.inspectBlob(blob,{duration,width,height,fps});
     if(!result.ok){const detail=result.issues?.slice(0,2).join(' · ')||'archivo inválido';const error=new Error(`QA WebM bloqueó la descarga: ${detail}`);error.code='WEBM_QC_FAILED';error.qc=result;throw error}
@@ -82,7 +86,7 @@
       }
       assertRenderState();safeStopRecorder(recorder);const blob=await done;assertRenderState();
       const qc=await validateWebM(blob,{duration:plan.duration,width:exportSize.width,height:exportSize.height,fps:plan.fps});assertRenderState();
-      engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${window.ProfitMenteWebMQCEngine.summary(qc)} · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
+      const QC=await ensureQCEngine();engine.finish(session);const size=download(blob,renderName);setStatus?.(`Render WebM listo · ${QC.summary(qc)} · ${plan.fps} FPS · ${renderQuality} · ${(size/1048576).toFixed(1)} MB · audio + video ✓`);
     }catch(err){
       if(err?.code==='WEBM_STATE_CHANGED'){setStatus?.('Render WebM detenido: el proyecto o sus medios cambiaron. Vuelve a exportar para evitar un archivo inconsistente')}
       else if(err?.code==='WEBM_QC_FAILED'){console.error(err);setStatus?.(err.message)}
@@ -94,5 +98,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,get active(){return engine.active}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,ensureQCEngine,get active(){return engine.active}};
 })();
