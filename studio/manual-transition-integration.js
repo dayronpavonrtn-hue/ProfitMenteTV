@@ -27,4 +27,8 @@
   const timer=setInterval(refresh,700);
   root.ProfitMenteManualTransitions={refresh,destroy(){clearInterval(timer);section.remove();delete root.ProfitMenteManualTransitions}};
   refresh();
+  (async()=>{
+    const load=src=>new Promise((resolve,reject)=>{if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return resolve();const el=document.createElement('script');el.src=src;el.async=false;el.onload=resolve;el.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(el)});
+    try{if(!root.ProfitMenteTransitionClipboardEngine)await load('transition-clipboard-engine.js');if(!root.ProfitMenteTransitionClipboard)await load('transition-clipboard-integration.js')}catch(err){console.error(err)}
+  })();
 })();
