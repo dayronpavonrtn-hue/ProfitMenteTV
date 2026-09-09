@@ -60,6 +60,14 @@ class ProfitMenteGeneratorAutoFill {
     const wanted=new Set((Array.isArray(ids)?ids:[]).map(id=>this.mediaKey(id)).filter(id=>id!=null));
     return (Array.isArray(allAssets)?allAssets:[]).filter(asset=>wanted.has(this.mediaKey(asset?.id)));
   }
+  async prepareImported(importedAssets=[]){
+    const list=Array.isArray(importedAssets)?importedAssets:[];
+    const metadata=typeof globalThis!=='undefined'?globalThis.ProfitMenteMediaMetadata:null;
+    if(metadata?.enrichMany){
+      try{await metadata.enrichMany(list)}catch(error){console.warn?.('La automatización continuará sin metadata completa',error)}
+    }
+    return list;
+  }
   assetUsable(asset){
     if(!asset||asset.mediaReadable===false)return false;
     const offline=typeof globalThis!=='undefined'?globalThis.ProfitMenteOfflineMediaEngine:null;
@@ -120,9 +128,15 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteGenerat
 (function integrateGeneratorAutoFill(){
   if(typeof document==='undefined'||typeof project==='undefined'||typeof assets==='undefined'||typeof ProfitMenteGeneratorEngine==='undefined')return;
   const helper=new ProfitMenteGeneratorAutoFill(new ProfitMenteGeneratorEngine());
-  document.addEventListener('profitmente:media-imported',e=>{
-    const imported=helper.assetsFromIds(assets,e.detail?.assetIds||[]);
+  let importSequence=0;
+  document.addEventListener('profitmente:media-imported',async e=>{
+    const sequence=++importSequence,ids=e.detail?.assetIds||[];
+    let imported=helper.assetsFromIds(assets,ids);
     if(!imported.length)return;
+    imported=await helper.prepareImported(imported);
+    // Re-resolve after metadata persistence so we use the canonical asset objects.
+    imported=helper.assetsFromIds(assets,ids);
+    if(sequence!==importSequence||!imported.length)return;
     const result=helper.fill(project,assets,imported);
     if(!result.changed)return;
     save?.();
