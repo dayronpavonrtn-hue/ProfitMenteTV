@@ -38,3 +38,10 @@
   input.onchange=async e=>{try{await relinkFiles(e.target.files)}finally{e.target.value=''}};
   window.ProfitMenteMediaRelink={engine,relinkFiles,button,input};
 })();
+
+(function loadFolderRelinkRecovery(){
+  if(typeof document==='undefined'||window.ProfitMenteMediaRelinkFolder||document.querySelector('script[data-profitmente-folder-relink]'))return;
+  const engine=document.createElement('script');engine.src='media-relink-folder-engine.js';engine.async=false;engine.dataset.profitmenteFolderRelink='1';
+  engine.onload=()=>{if(window.ProfitMenteMediaRelinkFolder)return;const integration=document.createElement('script');integration.src='media-relink-folder-integration.js';integration.async=false;integration.dataset.profitmenteFolderRelink='1';document.body.appendChild(integration)};
+  engine.onerror=()=>console.error('No se pudo cargar la recuperación por carpeta de medios');document.body.appendChild(engine);
+})();
