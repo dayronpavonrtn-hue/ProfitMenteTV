@@ -46,7 +46,12 @@
     event.preventDefault();event.stopImmediatePropagation();
     const now=Date.now();if(now-lastBlockedNotice>1200){lastBlockedNotice=now;setStatus?.('Render WebM en curso · edición bloqueada para mantener el archivo consistente · usa Cancelar WebM o Esc para detenerlo')}
   }
+  function guardUnloadDuringRender(event){
+    if(!ProfitMenteWebMRenderEngine.shouldWarnBeforeUnload({active:engine.active,locked:renderLocked}))return;
+    event.preventDefault();event.returnValue='';return '';
+  }
   for(const type of ['click','dblclick','pointerdown','input','change','paste','drop','submit','keydown'])document.addEventListener(type,blockEditDuringRender,true);
+  window.addEventListener('beforeunload',guardUnloadDuringRender);
   function recorderDone(recorder,chunks){return new Promise((resolve,reject)=>{
     recorder.addEventListener('dataavailable',event=>{if(event.data?.size)chunks.push(event.data)});
     recorder.addEventListener('stop',()=>resolve(new Blob(chunks,{type:'video/webm'})),{once:true});
