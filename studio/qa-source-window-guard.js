@@ -1,7 +1,7 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   const idKey=value=>{
-    if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?`n:${value}`:null;
+    if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?`n:${Object.is(value,-0)?0:value}`:null;
     if(typeof value!=='string')return null;
     const text=value.trim();if(!text)return null;
     if(/^(0|[1-9]\d*)$/.test(text)){
@@ -39,11 +39,13 @@
       };
       const inactive=clip=>{const track=Number(clip?.track),s=trackState(clip?.track);return ([0,1,2,3].includes(track)&&s.hidden)||([4,5,6].includes(track)&&s.muted)};
       for(const clip of project.clips||[]){
-        if(inactive(clip)||clip?.asset==null)continue;
+        if(clip?.asset==null)continue;
         const assetKey=idKey(clip.asset);const label=clip.name||clip.id||'clip';
         if(assetKey==null){issues.push(`Referencia de medio inválida: ${label}`);continue}
         if(assetIndex.ambiguous.has(assetKey)){issues.push(`Referencia de medio ambigua: ${label}`);continue}
-        const asset=assetIndex.map.get(assetKey);if(!asset||!['video','audio'].includes(asset.type))continue;
+        const asset=assetIndex.map.get(assetKey);
+        if(!asset){issues.push(`Medio faltante: ${label}`);continue}
+        if(inactive(clip)||!['video','audio'].includes(asset.type))continue;
         const assetLabel=clip.name||asset.name||clip.id||'clip';
         const offset=clip.sourceOffset==null?0:Number(clip.sourceOffset);
         const speed=clip.speed==null?1:Number(clip.speed);
