@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
 const transition=fs.readFileSync(new URL('./transition-duration.js',import.meta.url),'utf8');
+const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const required=[
   'media-library-tools.js','generator-autofill.js','audio-normalize-integration.js','project-version-integration.js',
   'recovery-integration.js','render-job-integration.js','render-range-integration.js',
   'safe-area-integration.js','scene-detect-integration.js','subtitle-export-integration.js',
+  'subtitle-import-engine.js','subtitle-import-integration.js',
   'visual-gap-integration.js','automation-checkpoint.js','export-preflight.js'
 ];
 for(const file of required)assert.ok(bootstrap.includes(`'${file}'`),`${file} debe activarse desde el bootstrap`);
@@ -16,9 +18,13 @@ const mediaImportIndex=bootstrap.indexOf("'media-import-engine.js'");
 const autoFillIndex=bootstrap.indexOf("'generator-autofill.js'");
 assert.ok(mediaImportIndex>=0&&autoFillIndex>mediaImportIndex,'generator-autofill debe cargarse después del importador que emite profitmente:media-imported');
 assert.ok(bootstrap.includes("['generator-autofill.js','ProfitMenteGeneratorAutoFillIntegration']"),'el guard debe comprobar la integración activa, no solo la clase del helper');
-assert.ok(transition.includes("s.src='feature-bootstrap.js'"),'la UI principal debe arrancar el bootstrap desde un script ya cargado');
-assert.ok(transition.includes('data-profitmente-feature-bootstrap')||transition.includes('profitmenteFeatureBootstrap'),'debe impedir inyectar dos bootstrap');
-const bootstrapStart=transition.indexOf("s.src='feature-bootstrap.js'");
-const propsGuard=transition.indexOf("const props=$('.props');if(!props)return;");
-assert.ok(bootstrapStart>=0&&propsGuard>=0&&bootstrapStart<propsGuard,'el bootstrap debe arrancar antes de cualquier guard de UI que pueda abortar transition-duration');
+assert.ok(html.includes('<script src="feature-bootstrap.js"></script>'),'la UI principal debe arrancar el bootstrap directamente desde index.html');
+assert.doesNotMatch(transition,/feature-bootstrap\.js/,'transition-duration no debe ser responsable del arranque global del bootstrap');
+const transitionIndex=html.indexOf('transition-duration.js');
+const bootstrapIndex=html.indexOf('feature-bootstrap.js');
+assert.ok(transitionIndex>=0&&bootstrapIndex>transitionIndex,'el bootstrap debe arrancar después de las herramientas cargadas explícitamente');
+const subtitleExportIndex=bootstrap.indexOf("'subtitle-export-integration.js'");
+const subtitleImportEngineIndex=bootstrap.indexOf("'subtitle-import-engine.js'");
+const subtitleImportIntegrationIndex=bootstrap.indexOf("'subtitle-import-integration.js'");
+assert.ok(subtitleImportEngineIndex>subtitleExportIndex&&subtitleImportIntegrationIndex>subtitleImportEngineIndex,'subtitle import debe cargar engine antes de integration y después del exportador');
 console.log('Feature bootstrap regression OK');
