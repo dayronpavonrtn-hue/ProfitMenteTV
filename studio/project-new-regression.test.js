@@ -18,7 +18,7 @@ original.duration=75;
 assert.ok(lib.saveExisting(original),'existing project must be persisted before switching');
 
 const blank=ProfitMenteProjectLibrary.blank();
-assert.deepStrictEqual(blank,{version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',clips:[]});
+assert.deepStrictEqual(blank,{version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',fps:30,clips:[]});
 assert.ok(!('libraryId' in blank),'a new project must never inherit the previous library id');
 assert.strictEqual(lib.load(original.libraryId).name,'Proyecto A editado','previous project edits must remain saved');
 assert.strictEqual(lib.load(original.libraryId).duration,75,'previous project duration must remain saved');
