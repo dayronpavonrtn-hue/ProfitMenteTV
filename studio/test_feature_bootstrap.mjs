@@ -8,6 +8,7 @@ const required=[
   'recovery-integration.js','render-job-integration.js','render-range-integration.js',
   'safe-area-integration.js','scene-detect-integration.js','subtitle-export-integration.js',
   'subtitle-import-engine.js','subtitle-import-integration.js',
+  'media-relink-folder-engine.js','media-relink-folder-integration.js',
   'visual-gap-integration.js','automation-checkpoint.js','export-preflight.js'
 ];
 for(const file of required)assert.ok(bootstrap.includes(`'${file}'`),`${file} debe activarse desde el bootstrap`);
@@ -27,4 +28,12 @@ const subtitleExportIndex=bootstrap.indexOf("'subtitle-export-integration.js'");
 const subtitleImportEngineIndex=bootstrap.indexOf("'subtitle-import-engine.js'");
 const subtitleImportIntegrationIndex=bootstrap.indexOf("'subtitle-import-integration.js'");
 assert.ok(subtitleImportEngineIndex>subtitleExportIndex&&subtitleImportIntegrationIndex>subtitleImportEngineIndex,'subtitle import debe cargar engine antes de integration y después del exportador');
+const relinkEngineIndex=bootstrap.indexOf("'media-relink-engine.js'");
+const relinkIntegrationIndex=bootstrap.indexOf("'media-relink-integration.js'");
+const folderRelinkEngineIndex=bootstrap.indexOf("'media-relink-folder-engine.js'");
+const folderRelinkIntegrationIndex=bootstrap.indexOf("'media-relink-folder-integration.js'");
+assert.ok(relinkEngineIndex>=0&&relinkIntegrationIndex>relinkEngineIndex,'relink base debe cargar engine antes de integration');
+assert.ok(folderRelinkEngineIndex>relinkIntegrationIndex&&folderRelinkIntegrationIndex>folderRelinkEngineIndex,'relink por carpeta debe cargar después del relink base y su engine antes de integration');
+assert.ok(bootstrap.includes("['media-relink-folder-engine.js','ProfitMenteMediaRelinkFolderEngine']"),'el bootstrap debe comprobar el engine de revinculación por carpeta');
+assert.ok(bootstrap.includes("['media-relink-folder-integration.js','ProfitMenteMediaRelinkFolder']"),'el bootstrap debe comprobar que la interfaz de revinculación por carpeta quedó activa');
 console.log('Feature bootstrap regression OK');
