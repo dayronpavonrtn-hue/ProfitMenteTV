@@ -18,7 +18,7 @@
   }
   async function decode(asset){
     if(!asset?.blob)return null;const key=assetKey(asset);if(cache.has(key))return cache.get(key);
-    const promise=(async()=>{const ac=audioContext();if(!ac)return null;try{const raw=await asset.blob.arrayBuffer(),buffer=await decodeWithTimeout(ac,raw);return {duration:buffer.duration,peaks:Engine.buildPeaks(buffer,1024)}}catch(err){console.warn('Waveform no disponible para',asset.name,err);return null}})();
+    const promise=(async()=>{const ac=audioContext();if(!ac)return null;try{const raw=await asset.blob.arrayBuffer(),buffer=await decodeWithTimeout(ac,raw);return {duration:buffer.duration,peaks:Engine.buildPeaks(buffer,1024)}}catch(err){console?.warn?.('Waveform no disponible para',asset.name,err);return null}})();
     cache.set(key,promise);
     promise.then(result=>{if(!result&&cache.get(key)===promise)cache.delete(key)},()=>{if(cache.get(key)===promise)cache.delete(key)});
     return promise;
@@ -57,5 +57,5 @@
     if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return;
     await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s)});
   }
-  queueMicrotask(async()=>{try{await load('audio-qc-engine.js','ProfitMenteAudioQCEngine');await load('audio-qc-integration.js','ProfitMenteAudioQC')}catch(error){console.error('Audio QA no disponible',error)}});
+  queueMicrotask(async()=>{try{await load('audio-qc-engine.js','ProfitMenteAudioQCEngine');await load('audio-qc-integration.js','ProfitMenteAudioQC')}catch(error){globalThis.console?.error?.('Audio QA no disponible',error)}});
 })();
