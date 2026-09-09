@@ -127,6 +127,8 @@
     ['ripple-gap-integration.js','ProfitMenteRippleGap'],
     ['subtitle-export-engine.js','ProfitMenteSubtitleExportEngine'],
     ['subtitle-export-integration.js','ProfitMenteSubtitleExport'],
+    ['subtitle-import-engine.js','ProfitMenteSubtitleImportEngine'],
+    ['subtitle-import-integration.js','ProfitMenteSubtitleImport'],
     ['visual-gap-engine.js','ProfitMenteVisualGapEngine'],
     ['visual-gap-integration.js','ProfitMenteVisualGap'],
     ['manual-transition-engine.js','ProfitMenteManualTransitionEngine'],
