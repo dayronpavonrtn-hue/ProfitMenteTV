@@ -1,6 +1,8 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
-  const idKey=value=>{
+  let Identity=root.ProfitMenteMediaIdentityEngine;
+  if(!Identity&&typeof require==='function'){try{Identity=require('./media-identity-engine.js').ProfitMenteMediaIdentityEngine}catch{}}
+  const fallbackKey=value=>{
     if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?`n:${Object.is(value,-0)?0:value}`:null;
     if(typeof value!=='string')return null;
     const text=value.trim();if(!text)return null;
@@ -10,14 +12,15 @@
     }
     return `s:${text}`;
   };
-  const uniqueIndex=items=>{
+  const idKey=value=>Identity?.key?Identity.key(value):fallbackKey(value);
+  const uniqueIndex=items=>Identity?.uniqueIndex?Identity.uniqueIndex(items):(()=>{
     const map=new Map(),ambiguous=new Set();
     for(const item of items||[]){
       const key=idKey(item?.id);if(key==null||ambiguous.has(key))continue;
       if(map.has(key)){map.delete(key);ambiguous.add(key)}else map.set(key,item);
     }
     return {map,ambiguous};
-  };
+  })();
   class ProfitMenteQASourceWindowGuard{
     static inspect(project,assets){
       project=project||{};assets=Array.isArray(assets)?assets:[];
