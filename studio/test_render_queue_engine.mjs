@@ -42,6 +42,45 @@ assert.equal(second.error,'render failed');
 assert.equal(summary.done,1);
 assert.equal(summary.error,1);
 assert.equal(summary.active,false);
+
+const persisted=queue.exportState();
+assert.equal(persisted.version,1);
+assert.equal(persisted.items.length,1,'completed outputs must not be persisted because their blob is gone after reload');
+assert.equal(persisted.items[0].id,second.id);
+assert.equal('result' in persisted.items[0],false,'render result/blob metadata must not be persisted');
+assert.equal('progress' in persisted.items[0],false,'transient progress must not be persisted');
+second.project.name='CHANGED AFTER EXPORT';
+assert.equal(persisted.items[0].project.name,'B','exported recovery state must be an isolated snapshot');
+
+const recovered=new ProfitMenteRenderQueueEngine({snapshotEngine,now:()=>5000,idFactory:n=>`r-${n}`});
+assert.equal(recovered.restoreState(persisted),1);
+assert.equal(recovered.items[0].status,'error');
+assert.equal(recovered.items[0].project.name,'B');
+assert.equal(recovered.items[0].result,null);
+assert.equal(recovered.items[0].progress,null);
+assert.equal(recovered.restoreState({version:999,items:[]}),0,'unsupported state versions must be ignored');
+assert.equal(recovered.restoreState(null),0,'malformed state must be ignored');
+
+const interruptedState={version:1,items:[{
+  id:'was-running',name:'Interrupted',format:'mp4',status:'running',createdAt:10,startedAt:20,finishedAt:null,
+  project:{name:'Interrupted',clips:[]},assets:[]
+},{
+  id:'still-pending',name:'Pending',format:'mp4',status:'pending',createdAt:11,startedAt:null,finishedAt:null,
+  project:{name:'Pending',clips:[]},assets:[]
+},{
+  id:'already-done',name:'Done',format:'mp4',status:'done',createdAt:12,
+  project:{name:'Done',clips:[]},assets:[]
+}]};
+const interruptedQueue=new ProfitMenteRenderQueueEngine({snapshotEngine,now:()=>6000});
+assert.equal(interruptedQueue.restoreState(interruptedState),2,'done jobs must not be restored without their output blob');
+assert.equal(interruptedQueue.get('was-running').status,'error');
+assert.equal(interruptedQueue.get('was-running').error,ProfitMenteRenderQueueEngine.INTERRUPTED_ERROR);
+assert.equal(interruptedQueue.get('was-running').finishedAt,6000);
+assert.equal(interruptedQueue.get('still-pending').status,'pending');
+assert.equal(interruptedQueue.get('already-done'),null);
+assert.equal(interruptedQueue.retry('was-running'),true,'interrupted jobs must be manually retryable');
+assert.equal(interruptedQueue.get('was-running').status,'pending');
+
 assert.equal(queue.clearFinished(),2);
 assert.equal(queue.summary().total,0);
 
