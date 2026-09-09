@@ -11,6 +11,7 @@
     ['media-metadata-engine.js','ProfitMenteMediaMetadataEngine'],
     ['media-proxy-engine.js','ProfitMenteMediaProxyEngine'],
     ['generator-autofill.js','ProfitMenteGeneratorAutoFillIntegration'],
+    ['generator-refill-integration.js','ProfitMenteGeneratorRefill'],
     ['media-library-tools.js','ProfitMenteMediaLibraryTools'],
     ['media-library-inspector-rebind.js','ProfitMenteMediaLibraryInspectorRebind'],
     ['media-priority-engine.js','ProfitMenteMediaPriorityEngine'],
