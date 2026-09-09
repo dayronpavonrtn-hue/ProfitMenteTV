@@ -174,8 +174,12 @@ jobs:
       - name: Verify timeline waveform source-window parity and media replacement cache safety
         run: node studio/test_waveform_timeline_parity.mjs
 
-      - name: Verify resilient project library persistence
-        run: node studio/test_project_library.mjs
+      - name: Verify resilient project library persistence and last-good recovery
+        run: |
+          node --check studio/project-library.js
+          node studio/test_project_library.mjs
+          node studio/test_project_library_recovery.mjs
+          ! grep -Eiq 'stripe|openai|runway|replicate|cloudinary|firebase|supabase|api[_-]?key|bearer[[:space:]]' studio/project-library.js
 
       - name: Verify transactional project undo redo history
         run: |
