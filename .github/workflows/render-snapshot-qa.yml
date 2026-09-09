@@ -1,0 +1,31 @@
+name: ProfitMente Studio Render Snapshot QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-snapshot-engine.js'
+      - 'studio/test_render_snapshot.mjs'
+      - 'studio/feature-bootstrap.js'
+      - '.github/workflows/render-snapshot-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  render-snapshot-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check studio/render-snapshot-engine.js
+          node --check studio/test_render_snapshot.mjs
+          node --check studio/feature-bootstrap.js
+      - name: Verify stable in-flight render snapshots
+        run: node studio/test_render_snapshot.mjs
+      - name: Verify bootstrap wiring
+        run: grep -F "['render-snapshot-engine.js','ProfitMenteRenderSnapshotEngine']" studio/feature-bootstrap.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eiq 'stripe|runway|replicate|openai|anthropic|api[_-]?key|publish.*social|facebook.*publish|instagram.*publish|tiktok.*publish' studio/render-snapshot-engine.js
