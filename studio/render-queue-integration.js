@@ -13,8 +13,9 @@
   renderBtn.insertAdjacentElement('afterend',badge);badge.insertAdjacentElement('beforebegin',cancelBtn);cancelBtn.insertAdjacentElement('beforebegin',runBtn);runBtn.insertAdjacentElement('beforebegin',addBtn);
   function label(){const s=queue.summary();const parts=[];if(s.pending)parts.push(`${s.pending} pendiente(s)`);if(s.running)parts.push('1 renderizando');if(s.done)parts.push(`${s.done} listo(s)`);if(s.error)parts.push(`${s.error} error(es)`);if(s.cancelled)parts.push(`${s.cancelled} cancelado(s)`);badge.textContent=parts.length?`Cola: ${parts.join(' · ')}`:'Cola vacía';runBtn.disabled=queue.running||s.pending===0;addBtn.disabled=queue.running;cancelBtn.hidden=!queue.running;renderBtn.disabled=queue.running}
   function capture(){
-    save?.();
-    const renderProject=typeof validation.projectForRender==='function'?validation.projectForRender(project):project;
+    if(typeof save==='function')save();
+    const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project;
+    const renderProject=ProfitMenteRenderSnapshotEngine?.clone?ProfitMenteRenderSnapshotEngine.clone(prepared):prepared;
     const renderAssets=typeof validation.snapshotAssetsForRender==='function'?validation.snapshotAssetsForRender(assets):assets;
     return {renderProject,renderAssets};
   }
