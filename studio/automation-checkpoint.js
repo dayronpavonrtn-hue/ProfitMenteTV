@@ -8,6 +8,14 @@
     document.body.appendChild(s);
   }
   ensureRenderMediaPruner();
+  function ensureGeneratorTransactionGuard(){
+    if(window.ProfitMenteGeneratorTransactionIntegration)return;
+    if([...document.scripts].some(s=>s.src?.endsWith('/generator-transaction-guard.js')||s.src?.endsWith('generator-transaction-guard.js')))return;
+    const s=document.createElement('script');s.src='generator-transaction-guard.js';s.async=false;
+    s.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la protección transaccional del generador');
+    document.body.appendChild(s);
+  }
+  ensureGeneratorTransactionGuard();
   function ensureStartupRecoveryNotice(){
     if(!window.__profitmenteStartupRecovered||window.ProfitMenteStartupRecoveryNotice)return;
     if([...document.scripts].some(s=>s.src?.endsWith('/startup-recovery-notice.js')||s.src?.endsWith('startup-recovery-notice.js')))return;
