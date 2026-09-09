@@ -26,6 +26,30 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{res
   assert.equal(stats.requested,3);
   assert.equal(stats.rendered,2);
   assert.equal(stats.superseded,1);
+  assert.equal(stats.invalidated,0);
+}
+
+{
+  const gates=[],seen=[];
+  let invalidations=0;
+  const coordinator=createCoordinator(async time=>{seen.push(time);const gate=deferred();gates.push(gate);await gate.promise},{invalidate:()=>{invalidations++}});
+  const p1=coordinator.request(11);
+  await Promise.resolve();
+  const p2=coordinator.request(12);
+  assert.equal(invalidations,1,'new scrub request should invalidate the active preview frame');
+  gates[0].resolve();
+  const r1=await p1;
+  assert.equal(r1.status,'superseded','invalidated active frame must not report itself as current');
+  await Promise.resolve();await Promise.resolve();
+  assert.deepEqual(seen,[11,12],'latest frame should render immediately after invalidated work unwinds');
+  gates[1].resolve();
+  const r2=await p2;
+  assert.equal(r2.status,'rendered');
+  const stats=coordinator.snapshot();
+  assert.equal(stats.requested,2);
+  assert.equal(stats.rendered,1);
+  assert.equal(stats.superseded,1);
+  assert.equal(stats.invalidated,1);
 }
 
 {
