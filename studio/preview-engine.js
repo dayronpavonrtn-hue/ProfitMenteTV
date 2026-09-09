@@ -1,6 +1,7 @@
 (()=>{
   const mediaCache=new Map();
   let renderEpoch=0;
+  const invalidate=()=>++renderEpoch;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   const mediaIdKey=value=>{
@@ -103,7 +104,7 @@
       if(!frameReady||epoch!==renderEpoch)return false;
     }
     const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size||epoch!==renderEpoch)return false;const tr=transformFor(c,t),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
-    ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX,tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
+    ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX, tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
     return true;
   }
   function wrapCaptionWords(text,maxWidth,maxLines){
@@ -129,10 +130,10 @@
   function drawCaption(t){if(trackHidden(3))return;for(const cap of activeCaptions(t))drawCaptionClip(cap,t)}
   function drawPreviewFallback(hasActiveMedia){const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=false;ctx.fillStyle='#fff';ctx.font='bold 34px Arial';ctx.textAlign='center';ctx.fillText(hasActiveMedia?'Medio no disponible · reconecta o reemplaza el archivo':project.mode==='Automático'?'Modo automático listo':'Editor manual listo',canvas.width/2,canvas.height/2)}
   renderAt=async function(t){
-    const epoch=++renderEpoch;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
+    const epoch=invalidate();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#090b10';ctx.fillRect(0,0,canvas.width,canvas.height);
     const active=project.clips.filter(c=>{const track=canonicalTrack(c.track);return [0,1].includes(track)&&!trackHidden(track)&&mediaIdKey(c?.asset)!==null&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0)}).sort((a,b)=>(canonicalTrack(a.track)-canonicalTrack(b.track))||(Number(a.start||0)-Number(b.start||0)));
     let painted=0;for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
     if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={clearCache(){renderEpoch++;for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={invalidate,clearCache(){invalidate();for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
