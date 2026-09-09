@@ -94,6 +94,7 @@
     ['render-job-integration.js','ProfitMenteRenderJobs'],
     ['render-media-pruner.js','ProfitMenteRenderMediaPruner'],
     ['render-snapshot-engine.js','ProfitMenteRenderSnapshotEngine'],
+    ['render-queue-engine.js','ProfitMenteRenderQueueEngine'],
     ['render-recovery-integration.js','ProfitMenteRenderRecovery'],
     ['render-progress-engine.js','ProfitMenteRenderProgressEngine'],
     ['render-progress-integration.js','ProfitMenteRenderProgress'],
