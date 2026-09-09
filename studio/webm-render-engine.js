@@ -31,6 +31,13 @@ class ProfitMenteWebMRenderEngine{
     const videoBitsPerSecond=Math.round(Math.max(1000000,Math.min(20000000,preset.video*scale)));
     return {mimeType,videoBitsPerSecond,audioBitsPerSecond:preset.audio};
   }
+  static shouldBlockEditEvent({active=false,type='',key='',targetId='',withinEditor=true}={}){
+    if(!active||!withinEditor)return false;
+    if(String(targetId||'')==='cancelWebmBtn')return false;
+    const event=String(type||'').toLowerCase();
+    if(event==='keydown')return String(key||'').toLowerCase()!=='escape';
+    return ['click','dblclick','pointerdown','input','change','paste','drop','submit'].includes(event);
+  }
   static _assetDescriptor(asset){
     const blob=asset?.blob;
     return {
