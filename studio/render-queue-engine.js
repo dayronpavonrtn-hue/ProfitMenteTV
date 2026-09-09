@@ -124,11 +124,11 @@ class ProfitMenteRenderQueueEngine{
           if(!continueOnError)break;
         }
       }
-      return this.summary();
     }finally{
       this.running=false;this.abortController=null;
       onUpdate(null,this.summary());
     }
+    return this.summary();
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteRenderQueueEngine=ProfitMenteRenderQueueEngine;
