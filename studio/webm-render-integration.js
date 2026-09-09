@@ -91,10 +91,10 @@
     const exportSize=applyExportDimensions(renderProject);
     const recorderOptions=ProfitMenteWebMRenderEngine.recorderOptions({mimeType:mime,quality:renderQuality,width:exportSize.width,height:exportSize.height,fps:plan.fps});
     const assertRenderState=()=>{engine.assert(session);ProfitMenteWebMRenderEngine.assertState(renderState,project,assets)};
-    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,width:exportSize.width,height:exportSize.height,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;setRenderLocked(true);
+    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,width:exportSize.width,height:exportSize.height,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;
     try{
       if(typeof playing!=='undefined'&&playing)document.querySelector('#playBtn')?.click();
-      assertRenderState();
+      setRenderLocked(true);assertRenderState();
       const playhead=document.querySelector('#playhead');if(playhead)playhead.value=0;
       const videoStream=canvas.captureStream(plan.fps);resources={videoStream,mixedStream:null,recorder:null};
       await audio.schedule(renderProject,assets,0,false);assertRenderState();
