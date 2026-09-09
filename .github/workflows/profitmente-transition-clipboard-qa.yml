@@ -1,0 +1,33 @@
+name: ProfitMente Studio Transition Clipboard QA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'studio/transition-clipboard-engine.js'
+      - 'studio/transition-clipboard-integration.js'
+      - 'studio/transition-clipboard-regression.js'
+      - 'studio/manual-transition-integration.js'
+      - '.github/workflows/profitmente-transition-clipboard-qa.yml'
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check transition clipboard syntax
+        run: |
+          node --check studio/transition-clipboard-engine.js
+          node --check studio/transition-clipboard-integration.js
+          node --check studio/manual-transition-integration.js
+      - name: Test transition clipboard behavior
+        run: node studio/transition-clipboard-regression.js
+      - name: Verify live wiring
+        run: |
+          grep -q "transition-clipboard-engine.js" studio/manual-transition-integration.js
+          grep -q "transition-clipboard-integration.js" studio/manual-transition-integration.js
+      - name: Enforce zero-cost boundary
+        run: |
+          ! grep -Eiq "(stripe|runway|replicate|openai|anthropic|elevenlabs|api[_-]?key|billing)" studio/transition-clipboard-engine.js studio/transition-clipboard-integration.js
