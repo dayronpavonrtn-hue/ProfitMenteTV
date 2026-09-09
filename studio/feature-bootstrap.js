@@ -5,6 +5,7 @@
     ['caption-compact-engine.js','ProfitMenteCaptionCompactEngine'],
     ['caption-timing-engine.js','ProfitMenteCaptionTimingEngine'],
     ['caption-timing-integration.js','ProfitMenteCaptionTiming'],
+    ['media-identity-engine.js','ProfitMenteMediaIdentityEngine'],
     ['media-import-engine.js','ProfitMenteMediaImportEngine','profitmenteMediaImport'],
     ['media-storage-resilience.js','ProfitMenteMediaStorageResilience'],
     ['media-metadata-engine.js','ProfitMenteMediaMetadataEngine'],
