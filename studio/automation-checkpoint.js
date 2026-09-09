@@ -18,15 +18,22 @@
   ensureGeneratorTransactionGuard();
   function ensureRenderQueue(){
     if(window.ProfitMenteRenderQueue)return;
-    const integrationLoaded=()=>[...document.scripts].some(s=>s.src?.endsWith('/render-queue-integration.js')||s.src?.endsWith('render-queue-integration.js'));
+    const hasScript=name=>[...document.scripts].some(s=>s.src?.endsWith(`/${name}`)||s.src?.endsWith(name));
+    const integrationLoaded=()=>hasScript('render-queue-integration.js');
     const loadIntegration=()=>{
       if(window.ProfitMenteRenderQueue||integrationLoaded())return;
       const integration=document.createElement('script');integration.src='render-queue-integration.js';integration.async=false;integration.dataset.profitmenteRenderQueue='1';
       integration.onerror=()=>console.error('ProfitMente Studio: no se pudo integrar la cola de render MP4');document.body.appendChild(integration);
     };
-    if(window.ProfitMenteRenderQueueEngine){loadIntegration();return}
-    if([...document.scripts].some(s=>s.src?.endsWith('/render-queue-engine.js')||s.src?.endsWith('render-queue-engine.js'))){setTimeout(ensureRenderQueue,40);return}
-    const engine=document.createElement('script');engine.src='render-queue-engine.js';engine.async=false;engine.dataset.profitmenteRenderQueue='1';engine.onload=loadIntegration;
+    const loadStorageThenIntegration=()=>{
+      if(window.ProfitMenteRenderQueueStorageEngine){loadIntegration();return}
+      if(hasScript('render-queue-storage-engine.js')){setTimeout(loadStorageThenIntegration,40);return}
+      const storage=document.createElement('script');storage.src='render-queue-storage-engine.js';storage.async=false;storage.dataset.profitmenteRenderQueue='1';
+      storage.onload=loadIntegration;storage.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la persistencia binaria de la cola MP4');document.body.appendChild(storage);
+    };
+    if(window.ProfitMenteRenderQueueEngine){loadStorageThenIntegration();return}
+    if(hasScript('render-queue-engine.js')){setTimeout(ensureRenderQueue,40);return}
+    const engine=document.createElement('script');engine.src='render-queue-engine.js';engine.async=false;engine.dataset.profitmenteRenderQueue='1';engine.onload=loadStorageThenIntegration;
     engine.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la cola de render MP4');document.body.appendChild(engine);
   }
   ensureRenderQueue();
