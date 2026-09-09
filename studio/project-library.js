@@ -2,9 +2,38 @@
 function libraryIdKey(value){if(value===null||value===undefined||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
 function sameLibraryId(a,b){const x=libraryIdKey(a),y=libraryIdKey(b);return x!==null&&x===y}
 class ProfitMenteProjectLibrary{
-  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.memory=[];this.storageAvailable=true;this.memoryDirty=false}
-  _read(){if(this.memoryDirty)return structuredClone(this.memory);try{const v=JSON.parse(this.storage.getItem(this.key)||'[]');const items=Array.isArray(v)?v:[];this.memory=structuredClone(items);this.storageAvailable=true;return items}catch{this.storageAvailable=false;return structuredClone(this.memory)}}
-  _write(items){this.memory=structuredClone(items);try{this.storage.setItem(this.key,JSON.stringify(items));this.storageAvailable=true;this.memoryDirty=false;return true}catch{this.storageAvailable=false;this.memoryDirty=true;return false}}
+  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.backupKey=`${key}-last-good`;this.corruptKey=`${key}-corrupt-backup`;this.memory=[];this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=false;this.quarantinedCorrupt=false}
+  _clone(items){return structuredClone(Array.isArray(items)?items:[])}
+  _parse(raw){if(raw==null)return null;const value=JSON.parse(raw);return Array.isArray(value)?value:null}
+  _readBackup(){try{const items=this._parse(this.storage.getItem(this.backupKey));return Array.isArray(items)?items:null}catch{return null}}
+  _restoreBackup(){const items=this._readBackup();if(!items)return null;const raw=JSON.stringify(items);try{this.storage.setItem(this.key,raw)}catch{}this.memory=this._clone(items);this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=true;return this._clone(items)}
+  _quarantine(raw){if(raw==null)return false;try{this.storage.setItem(this.corruptKey,String(raw));this.quarantinedCorrupt=true;return true}catch{return false}}
+  _read(){
+    if(this.memoryDirty)return this._clone(this.memory);
+    let raw;
+    try{raw=this.storage.getItem(this.key)}catch{this.storageAvailable=false;return this._clone(this.memory)}
+    if(raw==null){const recovered=this._restoreBackup();if(recovered)return recovered;this.memory=[];this.storageAvailable=true;return []}
+    try{
+      const items=this._parse(raw);
+      if(!items)throw new Error('invalid project library structure');
+      this.memory=this._clone(items);this.storageAvailable=true;this.recoveredFromBackup=false;
+      return items;
+    }catch{
+      this._quarantine(raw);
+      const recovered=this._restoreBackup();if(recovered)return recovered;
+      this.storageAvailable=false;return this._clone(this.memory);
+    }
+  }
+  _write(items){
+    this.memory=this._clone(items);const raw=JSON.stringify(items);
+    try{
+      this.storage.setItem(this.key,raw);
+      this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=false;
+      try{this.storage.setItem(this.backupKey,raw)}catch{}
+      return true;
+    }catch{this.storageAvailable=false;this.memoryDirty=true;return false}
+  }
+  recoveryState(){return {recoveredFromBackup:this.recoveredFromBackup,quarantinedCorrupt:this.quarantinedCorrupt,backupKey:this.backupKey,corruptKey:this.corruptKey}}
   list(){return this._read().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''))}
   save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>sameLibraryId(x.id,id));if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   saveExisting(project){if(libraryIdKey(project?.libraryId)===null)return null;const items=this._read(),row=items.find(x=>sameLibraryId(x.id,project.libraryId));if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
@@ -127,5 +156,7 @@ if(typeof document!=='undefined')(()=>{
   if(basePersist){persist=function(){basePersist();const saved=lib.saveExisting(project);if(saved){project=saved;render()}}}
   $('#librarySaveBtn').onclick=()=>{void saveCurrent()};$('#libraryExportBtn').onclick=exportCurrent;$('#libraryImportBtn').onclick=()=>$('#libraryImportFile').click();$('#libraryImportFile').addEventListener('change',e=>{const file=e.target.files?.[0];e.target.value='';void importProjectFile(file)});$('#libraryRefreshBtn').onclick=render;section.addEventListener('click',e=>{const open=e.target.closest('[data-open]');if(open){void openProject(open.dataset.open);return}const duplicate=e.target.closest('[data-duplicate]');if(duplicate){void duplicateProject(duplicate.dataset.duplicate);return}const del=e.target.closest('[data-delete]');if(del&&confirm('¿Eliminar este proyecto guardado?')){lib.remove(del.dataset.delete);if(ProfitMenteProjectLibrary.sameId(project?.libraryId,del.dataset.delete))delete project.libraryId;render();status('Proyecto eliminado de la biblioteca')}});
   const clearBtn=$('#clearBtn');if(clearBtn)clearBtn.onclick=()=>{if(confirm('¿Crear proyecto nuevo?'))void newProject()};
-  render();window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};window.ProfitMenteProjectTransfer={exportCurrent,importProjectFile};
+  render();
+  if(lib.recoveredFromBackup){try{document.documentElement.dataset.projectLibraryRecovered='last-good'}catch{}status('Mis proyectos fueron recuperados desde el último respaldo válido');window.dispatchEvent(new CustomEvent('profitmente:project-library-recovered',{detail:lib.recoveryState()}))}
+  window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};window.ProfitMenteProjectTransfer={exportCurrent,importProjectFile};
 })();

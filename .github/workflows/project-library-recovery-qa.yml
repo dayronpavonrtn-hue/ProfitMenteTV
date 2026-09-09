@@ -1,0 +1,35 @@
+name: ProfitMente Studio Project Library Recovery QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/test_project_library.mjs'
+      - 'studio/test_project_library_recovery.mjs'
+      - '.github/workflows/project-library-recovery-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-library.js'
+      - 'studio/test_project_library.mjs'
+      - 'studio/test_project_library_recovery.mjs'
+      - '.github/workflows/project-library-recovery-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  project-library-recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate project library syntax
+        run: node --check studio/project-library.js
+      - name: Run project library regression suite
+        run: |
+          node studio/test_project_library.mjs
+          node studio/test_project_library_recovery.mjs
+      - name: Enforce zero-cost local persistence
+        run: |
+          ! grep -Eiq 'stripe|openai|runway|replicate|cloudinary|firebase|supabase|api[_-]?key|bearer[[:space:]]' studio/project-library.js
