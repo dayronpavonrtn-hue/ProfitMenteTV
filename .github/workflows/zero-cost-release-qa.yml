@@ -212,6 +212,16 @@ jobs:
       - name: Verify generator and autofill canonical identities
         run: node studio/test_generator_identity.mjs
 
+      - name: Verify local-library automatic generator refill and zero-cost wiring
+        run: |
+          node --check studio/generator-refill-integration.js
+          node --check studio/test_generator_refill.mjs
+          node studio/test_generator_refill.mjs
+          grep -q "generator-refill-integration.js" studio/feature-bootstrap.js
+          grep -q "ProfitMenteGeneratorRefill" studio/generator-refill-integration.js
+          grep -q "project?.mode!='Automático'\|project?.mode!==\x27Automático\x27" studio/generator-refill-integration.js
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing' studio/generator-refill-integration.js
+
       - name: Verify manual batch transitions, locks and legacy identities
         run: node studio/test_manual_transition_engine.mjs
 
