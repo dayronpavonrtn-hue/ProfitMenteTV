@@ -40,7 +40,8 @@ jobs:
       - name: Generator metadata synchronization regression
         run: node studio/test_generator_metadata_sync.mjs
       - name: Verify bootstrap order
-        run: python - <<'PY'
+        run: |
+          python - <<'PY'
           from pathlib import Path
           text=Path('studio/feature-bootstrap.js').read_text()
           assert text.index("media-metadata-engine.js") < text.index("generator-autofill.js")
