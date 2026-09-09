@@ -1,0 +1,37 @@
+name: ProfitMente Studio Generator Transaction QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/generator-transaction-guard.js'
+      - 'studio/automation-checkpoint.js'
+      - 'studio/test_generator_transaction_guard.mjs'
+      - '.github/workflows/studio-generator-transaction-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generator-transaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/generator-transaction-guard.js
+          node --check studio/automation-checkpoint.js
+      - name: Generator rollback regression
+        run: node studio/test_generator_transaction_guard.mjs
+      - name: Wiring
+        run: |
+          grep -q "generator-transaction-guard.js" studio/automation-checkpoint.js
+          grep -q "ProfitMenteGeneratorTransactionIntegration" studio/generator-transaction-guard.js
+      - name: Zero cost boundary
+        run: |
+          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|paid api|billing|subscription' studio/generator-transaction-guard.js
