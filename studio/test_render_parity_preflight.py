@@ -47,6 +47,29 @@ assert_bad({**base, 'clips': [{**base['clips'][0], 'speed': 5}]}, 'velocidad')
 assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': .25}, {**base['clips'][1]}, {**base['clips'][2]}]})
 assert_ok({**base, 'clips': [{**base['clips'][0], 'speed': 4}, {**base['clips'][1]}, {**base['clips'][2]}]})
 
+# Static captions must use combinations the FFmpeg path actually implements.
+caption = base['clips'][2]
+assert_ok({**base, 'clips': [{**caption, 'style': 'dynamic', 'animation': 'word-pulse'}]})
+assert_ok({**base, 'clips': [{**caption, 'style': 'hook-pop', 'animation': 'pop'}]})
+assert_bad({**base, 'clips': [{**caption, 'style': 'lower-third'}]}, 'estilo')
+assert_bad({**base, 'clips': [{**caption, 'animation': 'bounce'}]}, 'animación')
+assert_bad({**base, 'clips': [{**caption, 'style': 'dynamic', 'animation': 'pop'}]}, 'hook-pop')
+assert_bad({**base, 'clips': [{**caption, 'style': 'hook-pop', 'animation': 'word-pulse'}]}, 'dynamic')
+assert_bad({**base, 'clips': [{**caption, 'animation': 'word-by-word'}]}, 'wordTimings')
+
+# The generator's word-by-word captions use the dedicated timed-word path. Their
+# clip-level style/animation are intentionally ignored by FFmpeg once at least one
+# complete word timing is available, so generated projects remain exportable.
+timed_caption = {
+    **caption,
+    'style': 'hook-pop',
+    'animation': 'word-by-word',
+    'wordTimings': [{'word': 'DINERO', 'start': .1, 'end': .5, 'duration': .4}],
+}
+assert_ok({**base, 'clips': [timed_caption]})
+assert_bad({**base, 'clips': [{**timed_caption, 'wordTimings': []}]}, 'wordTimings')
+assert_bad({**base, 'clips': [{**timed_caption, 'wordTimings': [{'word': 'DINERO', 'start': .5, 'end': .1}]}]}, 'wordTimings')
+
 # Imported/legacy projects can carry integral numeric aliases as strings. The
 # FFmpeg renderer canonicalizes these before composition, so preflight must inspect
 # the same semantic tracks instead of letting unsupported settings slip through.
@@ -56,9 +79,13 @@ for alias in ('00', '0.0', '01', '1.0'):
 for alias in ('02', '2.0'):
     assert_bad({**base, 'clips': [{**base['clips'][1], 'track': alias, 'textAnimation': 'bounce'}]}, 'animación')
     assert_bad({**base, 'clips': [{**base['clips'][1], 'track': alias, 'textStyle': 'lower-third'}]}, 'estilo')
+for alias in ('03', '3.0'):
+    assert_bad({**base, 'clips': [{**caption, 'track': alias, 'style': 'lower-third'}]}, 'estilo')
+    assert_bad({**base, 'clips': [{**caption, 'track': alias, 'animation': 'bounce'}]}, 'animación')
 
 # Fractional/non-numeric tracks remain non-canonical and are handled by the project
-# validator; preflight must not misclassify them as a valid visual/title track.
+# validator; preflight must not misclassify them as a valid visual/title/caption track.
 assert_ok({**base, 'clips': [{**base['clips'][0], 'track': '1.5', 'transition': 'wipe'}]})
 assert_ok({**base, 'clips': [{**base['clips'][1], 'track': 'two', 'textAnimation': 'bounce'}]})
+assert_ok({**base, 'clips': [{**caption, 'track': 'three', 'style': 'lower-third'}]})
 print('Render parity preflight regression OK')
