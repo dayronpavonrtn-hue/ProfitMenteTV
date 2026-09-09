@@ -8,6 +8,7 @@ on:
       - 'studio/media-relink-integration.js'
       - 'studio/media-relink-folder-engine.js'
       - 'studio/media-relink-folder-integration.js'
+      - 'studio/feature-bootstrap.js'
       - 'studio/test_media_relink_folder.mjs'
       - '.github/workflows/media-relink-folder-qa.yml'
   workflow_dispatch:
@@ -29,6 +30,7 @@ jobs:
           node --check studio/media-relink-folder-engine.js
           node --check studio/media-relink-folder-integration.js
           node --check studio/media-relink-integration.js
+          node --check studio/feature-bootstrap.js
           node --check studio/test_media_relink_folder.mjs
       - name: Folder relink regression
         run: node studio/test_media_relink_folder.mjs
@@ -37,7 +39,9 @@ jobs:
           grep -q 'recoveryCandidates' studio/media-relink-folder-engine.js
           grep -q 'webkitdirectory' studio/media-relink-folder-integration.js
           grep -q 'media-relink-folder-engine.js' studio/media-relink-integration.js
+          grep -q "\['media-relink-folder-engine.js','ProfitMenteMediaRelinkFolderEngine'\]" studio/feature-bootstrap.js
+          grep -q "\['media-relink-folder-integration.js','ProfitMenteMediaRelinkFolder'\]" studio/feature-bootstrap.js
           grep -q 'isOffline' studio/media-relink-folder-engine.js
       - name: Zero cost boundary
         run: |
-          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|authorization:|bearer ' studio/media-relink-folder-engine.js studio/media-relink-folder-integration.js studio/test_media_relink_folder.mjs
+          ! grep -Eiq 'stripe|openai|runway|replicate|elevenlabs|api[_-]?key|authorization:|bearer ' studio/media-relink-folder-engine.js studio/media-relink-folder-integration.js studio/feature-bootstrap.js studio/test_media_relink_folder.mjs
