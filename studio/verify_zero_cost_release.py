@@ -134,6 +134,7 @@ def main() -> None:
         ("render", "Render asíncrono conserva sesión recuperable y exige QA post-render", [node, "test_async_render_validation.mjs"]),
         ("render", "Integración de paquete MP4 usa el cliente resiliente de trabajos", [node, "test_bundle_render_job_integration.mjs"]),
         ("render", "Identidad canónica de medios mantiene vigente el render correcto", [node, "test_render_media_identity.mjs"]),
+        ("render", "Render local empaqueta solo los medios realmente referenciados", [node, "test_render_media_pruner.mjs"]),
         ("render", "Puente Studio conserva decisiones manuales y aliases hacia el motor existente", [py, "test_studio_bridge.py"]),
         ("render", "Compatibilidad de estados de pista heredados", [node, "test_track_state_legacy_parity.mjs"]),
         ("render", "Configuración de calidad MP4", [node, "test_render_quality.mjs"]),
