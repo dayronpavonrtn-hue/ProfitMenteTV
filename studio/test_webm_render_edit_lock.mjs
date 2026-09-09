@@ -16,6 +16,10 @@ for(const key of ['z','s','ArrowLeft','ArrowRight']){
 }
 assert.equal(check({active:true,type:'mousemove',withinEditor:true}),false);
 assert.equal(check({active:true,type:'wheel',withinEditor:true}),false);
+assert.equal(Engine.shouldWarnBeforeUnload({active:false,locked:false}),false);
+assert.equal(Engine.shouldWarnBeforeUnload({active:true,locked:false}),false);
+assert.equal(Engine.shouldWarnBeforeUnload({active:false,locked:true}),false);
+assert.equal(Engine.shouldWarnBeforeUnload({active:true,locked:true}),true);
 const engine=new Engine();
 const session=engine.begin({projectName:'QA'});
 assert.equal(engine.active,true);
