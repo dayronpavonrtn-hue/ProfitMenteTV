@@ -42,4 +42,8 @@ jobs:
           grep -q "ProfitMenteAudioDuckingEngine" studio/render-queue-integration.js
           grep -q "movePending" studio/render-queue-integration.js
           grep -q "retryFailed" studio/render-queue-integration.js
+          grep -q "exportState" studio/render-queue-engine.js
+          grep -q "restoreState" studio/render-queue-engine.js
+          grep -q "profitmente:studio:render-queue:v1" studio/render-queue-integration.js
+          grep -q "beforeunload" studio/render-queue-integration.js
           ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing|subscription' studio/render-queue-engine.js studio/render-queue-integration.js
