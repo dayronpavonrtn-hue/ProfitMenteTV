@@ -1,8 +1,13 @@
 (()=>{
   if(typeof document==='undefined'||!window.ProfitMenteProjectHistoryEngine||window.ProfitMenteProjectHistory)return;
   const $=s=>document.querySelector(s),engine=new ProfitMenteProjectHistoryEngine(project,{limit:80});
-  const originalPersist=typeof persist==='function'?persist:null;
-  if(!originalPersist)return;
+  // index.html still exposes the original storage-only persist as a global lexical
+  // binding. Prefer it over the legacy history wrapper so one edit is captured by
+  // exactly one history engine instead of both the old and advanced stacks.
+  let storagePersist=null;
+  try{if(typeof originalPersist==='function')storagePersist=originalPersist}catch{}
+  if(!storagePersist&&typeof persist==='function')storagePersist=persist;
+  if(!storagePersist)return;
   let applying=false;
   function status(t){if(typeof setStatus==='function')setStatus(t)}
   function buttons(){return {u:$('#undoBtn')||$('#historyUndo'),r:$('#redoBtn')||$('#historyRedo')}}
@@ -18,7 +23,7 @@
   }
   window.persist=function(){
     if(!applying)engine.commit(project);
-    const result=originalPersist();
+    const result=storagePersist();
     updateButtons();
     return result;
   };
@@ -28,13 +33,25 @@
     try{
       project=snapshot;
       const playhead=$('#playhead');if(playhead)playhead.value=Math.max(0,Math.min(Number(playhead.value)||0,Number(project.duration)||0));
-      originalPersist();
+      storagePersist();
     }finally{applying=false}
     refreshView(message);return true;
   }
   function undo(){if(!apply(engine.undo(),'Deshacer aplicado'))status('No hay cambios para deshacer')}
   function redo(){if(!apply(engine.redo(),'Rehacer aplicado'))status('No hay cambios para rehacer')}
-  function reset(){engine.reset(project);updateButtons()}
+  function reset(value=project){engine.reset(value);updateButtons();return engine.state()}
+
+  // Compatibility bridge: the original bundle-import path still calls
+  // historyEngine.seed(project). Mirror that project-boundary reset into the
+  // canonical advanced history so Undo can never jump back into another project.
+  try{
+    if(typeof historyEngine!=='undefined'&&historyEngine?.seed&&!historyEngine.__profitmenteProjectHistoryBridge){
+      const legacySeed=historyEngine.seed.bind(historyEngine);
+      historyEngine.seed=function(value){const result=legacySeed(value);reset(value??project);return result};
+      historyEngine.__profitmenteProjectHistoryBridge=true;
+    }
+  }catch{}
+
   const {u,r}=buttons();
   if(u){u.onclick=undo;u.title='Ctrl/Cmd+Z'}
   if(r){r.onclick=redo;r.title='Ctrl/Cmd+Shift+Z o Ctrl/Cmd+Y'}
@@ -50,6 +67,10 @@
     e.preventDefault();e.stopImmediatePropagation();
     if(key==='z')e.shiftKey?redo():undo();else redo();
   },true);
+  // Any canonical project transition is a hard history boundary. Project Library
+  // already calls reset directly; this event makes the invariant hold for current
+  // and future import/open integrations as well.
+  window.addEventListener?.('profitmente:project-opened',()=>reset(project));
   window.ProfitMenteProjectHistory={engine,undo,redo,reset};
   updateButtons();
 })();
