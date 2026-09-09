@@ -7,6 +7,7 @@ on:
       - 'studio/preview-render-coordinator.js'
       - 'studio/test_preview_render_coordinator.mjs'
       - 'studio/feature-bootstrap.js'
+      - 'studio/verify_zero_cost_release.py'
       - '.github/workflows/preview-render-coordinator-qa.yml'
   workflow_dispatch:
 
@@ -16,12 +17,19 @@ permissions:
 jobs:
   preview-render-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install free render dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       - name: Syntax check
         run: |
           node --check studio/preview-render-coordinator.js
@@ -33,3 +41,5 @@ jobs:
       - name: Zero-cost boundary
         run: |
           ! grep -Eiq 'openai|runway|magic.?hour|stripe|api[_-]?key|authorization:|bearer ' studio/preview-render-coordinator.js
+      - name: Full ProfitMente Studio $0 release gate
+        run: python studio/verify_zero_cost_release.py
