@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'studio/generator-autofill.js'
+      - 'studio/generator-refill-integration.js'
       - 'studio/generator-engine.js'
       - 'studio/generator-integration.js'
       - 'studio/edit-lock-guard.js'
@@ -11,6 +12,7 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_generator.mjs'
       - 'studio/test_generator_autofill.mjs'
+      - 'studio/test_generator_refill.mjs'
       - 'studio/test_generator_media_identity.mjs'
       - 'studio/test_generator_identity.mjs'
       - 'studio/test_generator_voice_asset.mjs'
@@ -34,10 +36,12 @@ jobs:
           node --check studio/generator-engine.js
           node --check studio/generator-integration.js
           node --check studio/generator-autofill.js
+          node --check studio/generator-refill-integration.js
           node --check studio/edit-lock-guard.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_generator.mjs
           node --check studio/test_generator_autofill.mjs
+          node --check studio/test_generator_refill.mjs
           node --check studio/test_generator_media_identity.mjs
           node --check studio/test_generator_identity.mjs
           node --check studio/test_generator_voice_asset.mjs
@@ -48,6 +52,8 @@ jobs:
         run: node studio/test_generator.mjs
       - name: Generator auto fill regression
         run: node studio/test_generator_autofill.mjs
+      - name: Generator local library refill regression
+        run: node studio/test_generator_refill.mjs
       - name: Generator media identity regression
         run: node studio/test_generator_media_identity.mjs
       - name: Generator canonical identity regression
