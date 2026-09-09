@@ -40,7 +40,10 @@ assert.equal(queue.clearFinished(),2);
 assert.equal(queue.summary().total,0);
 
 const locked=new Queue({snapshotEngine,idFactory:n=>`l${n}`});
-const one=locked.enqueue({name:'One'},[]);const two=locked.enqueue({name:'Two'},[]);
+const one=locked.enqueue({name:'One'},[]);
+const two=locked.enqueue({name:'Two'},[]);
+const failed=locked.enqueue({name:'Failed'},[]);
+failed.status='error';failed.error='previous failure';
 let release;
 const gate=new Promise(resolve=>{release=resolve});
 const runPromise=locked.run(async()=>{await gate;return true});
@@ -48,7 +51,8 @@ await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(locked.running,true);
 assert.equal(locked.movePending(two.id,-1),false);
 assert.equal(locked.remove(one.id),false);
-assert.equal(locked.retry(two.id),false);
+assert.equal(locked.retry(failed.id),false);
+assert.equal(failed.status,'error');
 release();await runPromise;
 
 console.log('render queue editing regression: ok');
