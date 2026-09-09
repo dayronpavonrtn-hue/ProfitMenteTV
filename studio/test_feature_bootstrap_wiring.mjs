@@ -40,6 +40,10 @@ for(const required of [
   'audio-qc-integration.js',
   'slip-edit-engine.js',
   'slip-edit-integration.js',
+  'subtitle-export-engine.js',
+  'subtitle-export-integration.js',
+  'subtitle-import-engine.js',
+  'subtitle-import-integration.js',
   'auto-finish-integration.js'
 ]) assert.ok(bootstrap.includes(`'${required}'`),`feature bootstrap must include ${required}`);
 
@@ -68,6 +72,12 @@ assert.ok(renderJobIndex>=0&&renderPrunerIndex>renderJobIndex,'render media prun
 const slipEngineIndex=bootstrap.indexOf("'slip-edit-engine.js'");
 const slipIntegrationIndex=bootstrap.indexOf("'slip-edit-integration.js'");
 assert.ok(slipEngineIndex>=0&&slipIntegrationIndex>slipEngineIndex,'slip edit engine must load before its integration');
+const subtitleExportEngineIndex=bootstrap.indexOf("'subtitle-export-engine.js'");
+const subtitleExportIntegrationIndex=bootstrap.indexOf("'subtitle-export-integration.js'");
+const subtitleImportEngineIndex=bootstrap.indexOf("'subtitle-import-engine.js'");
+const subtitleImportIntegrationIndex=bootstrap.indexOf("'subtitle-import-integration.js'");
+assert.ok(subtitleExportEngineIndex>=0&&subtitleExportIntegrationIndex>subtitleExportEngineIndex,'subtitle export integration must load after its engine');
+assert.ok(subtitleImportEngineIndex>subtitleExportIntegrationIndex&&subtitleImportIntegrationIndex>subtitleImportEngineIndex,'subtitle import must activate after subtitle export and load engine before integration');
 assert.match(bootstrap,/document\.scripts/,'feature bootstrap must skip modules already loaded explicitly');
 assert.match(bootstrap,/profitmente:features-ready/,'feature bootstrap must announce startup completion');
 
