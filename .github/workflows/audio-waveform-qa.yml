@@ -8,17 +8,29 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_audio_waveform_engine.mjs'
       - 'studio/test_audio_waveform_decode_timeout.mjs'
+      - 'studio/verify_zero_cost_release.py'
       - '.github/workflows/audio-waveform-qa.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install free render dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
       - name: Syntax check
         run: |
           node --check studio/audio-waveform-engine.js
@@ -34,3 +46,5 @@ jobs:
           grep -q "audio-waveform-engine.js" studio/feature-bootstrap.js
           grep -q "audio-waveform-integration.js" studio/feature-bootstrap.js
           grep -q "ProfitMenteAudioWaveforms" studio/audio-waveform-integration.js
+      - name: Full ProfitMente Studio $0 release gate
+        run: python studio/verify_zero_cost_release.py
