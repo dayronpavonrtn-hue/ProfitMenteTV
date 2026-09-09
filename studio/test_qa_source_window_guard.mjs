@@ -28,6 +28,8 @@ const baseProject=(clipOverrides={},projectOverrides={})=>({
   assert.deepEqual(issues,[]);
 }
 
+// Inactive tracks skip source-window overflow checks, but the referenced media
+// must still resolve exactly because the render packager validates it first.
 {
   const p=baseProject({asset:'1',track:'0'},{tracks:[{id:0}],trackState:{0:{hidden:true}}});
   const issues=Guard.inspect(p,[{id:1,type:'video',duration:1}]);
@@ -41,6 +43,36 @@ const baseProject=(clipOverrides={},projectOverrides={})=>({
 }
 
 {
+  const p=baseProject({asset:'1',track:'0'},{tracks:[{id:0}],trackState:{0:{hidden:true}}});
+  const issues=Guard.inspect(p,[
+    {id:1,type:'video',duration:2},
+    {id:'1',type:'video',duration:20}
+  ]);
+  assert.deepEqual(issues,['Referencia de medio ambigua: clip-1']);
+}
+
+{
+  const p=baseProject({asset:'1',track:'4'},{tracks:[{id:4}],trackState:{4:{muted:true}}});
+  const issues=Guard.inspect(p,[
+    {id:1,type:'audio',duration:2},
+    {id:'1',type:'audio',duration:20}
+  ]);
+  assert.deepEqual(issues,['Referencia de medio ambigua: clip-1']);
+}
+
+{
+  const p=baseProject({asset:'missing',track:'0'},{tracks:[{id:0}],trackState:{0:{hidden:true}}});
+  const issues=Guard.inspect(p,[{id:'other',type:'video',duration:20}]);
+  assert.deepEqual(issues,['Medio faltante: clip-1']);
+}
+
+{
+  const p=baseProject({asset:true,track:'4'},{tracks:[{id:4}],trackState:{4:{muted:true}}});
+  const issues=Guard.inspect(p,[{id:1,type:'audio',duration:20}]);
+  assert.deepEqual(issues,['Referencia de medio inválida: clip-1']);
+}
+
+{
   const issues=Guard.inspect(baseProject({asset:true}),[{id:1,type:'video',duration:2}]);
   assert.deepEqual(issues,['Referencia de medio inválida: clip-1']);
 }
@@ -51,6 +83,11 @@ const baseProject=(clipOverrides={},projectOverrides={})=>({
     {id:'1',type:'video',duration:20}
   ]);
   assert.deepEqual(issues,['Referencia de medio ambigua: clip-1']);
+}
+
+{
+  const issues=Guard.inspect(baseProject({asset:'0',duration:1}),[{id:-0,type:'video',duration:5}]);
+  assert.deepEqual(issues,[]);
 }
 
 {
