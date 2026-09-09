@@ -1,5 +1,5 @@
 class ProfitMenteRenderQueueStorageEngine{
-  static DB_NAME='profitmente-studio';
+  static DB_NAME='profitmente-studio-render-queue';
   static STORE_NAME='render-queue';
   static RECORD_KEY='mp4:v1';
   constructor({indexedDBFactory=globalThis.indexedDB,localStorageRef=globalThis.localStorage,dbName=ProfitMenteRenderQueueStorageEngine.DB_NAME,storeName=ProfitMenteRenderQueueStorageEngine.STORE_NAME,key=ProfitMenteRenderQueueStorageEngine.RECORD_KEY}={}){
