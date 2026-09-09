@@ -15,7 +15,7 @@
   function capture(){
     if(typeof save==='function')save();
     const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project;
-    const renderProject=ProfitMenteRenderSnapshotEngine?.clone?ProfitMenteRenderSnapshotEngine.clone(prepared):prepared;
+    const renderProject=typeof ProfitMenteRenderSnapshotEngine!=='undefined'&&typeof ProfitMenteRenderSnapshotEngine.clone==='function'?ProfitMenteRenderSnapshotEngine.clone(prepared):prepared;
     const renderAssets=typeof validation.snapshotAssetsForRender==='function'?validation.snapshotAssetsForRender(assets):assets;
     return {renderProject,renderAssets};
   }
