@@ -29,6 +29,8 @@
     ['project-frame-rate-integration.js','ProfitMenteProjectFrameRate'],
     ['frame-grid-engine.js','ProfitMenteFrameGridEngine'],
     ['frame-grid-integration.js','ProfitMenteFrameGrid'],
+    ['marker-engine.js','ProfitMenteMarkerEngine'],
+    ['marker-integration.js','ProfitMenteMarkerIntegration'],
     ['timeline-snap-engine.js','ProfitMenteTimelineSnapEngine'],
     ['timeline-snap-integration.js','ProfitMenteTimelineSnap'],
     ['edit-navigation-engine.js','ProfitMenteEditNavigationEngine'],
