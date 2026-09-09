@@ -9,9 +9,39 @@
   const runBtn=document.createElement('button');runBtn.type='button';runBtn.id='renderQueueRunBtn';runBtn.textContent='▶ Procesar cola';runBtn.title='Renderiza en serie las instantáneas pendientes usando el motor local gratuito';
   const cancelBtn=document.createElement('button');cancelBtn.type='button';cancelBtn.id='renderQueueCancelBtn';cancelBtn.textContent='■ Detener cola';cancelBtn.title='Cancela el render activo y las salidas pendientes';cancelBtn.hidden=true;
   const badge=document.createElement('span');badge.id='renderQueueBadge';badge.style.cssText='font-size:11px;opacity:.8;margin-left:6px';
+  const panel=document.createElement('details');panel.id='renderQueuePanel';panel.style.cssText='margin:8px 0 0;padding:6px 8px;border:1px solid rgba(127,127,127,.25);border-radius:6px;font-size:12px;max-width:720px';
+  const panelSummary=document.createElement('summary');panelSummary.textContent='Gestionar cola MP4';panelSummary.style.cursor='pointer';
+  const panelBody=document.createElement('div');panelBody.style.cssText='display:grid;gap:6px;margin-top:8px';panel.append(panelSummary,panelBody);
   for(const button of [addBtn,runBtn,cancelBtn])button.style.cssText='margin-left:6px';
-  renderBtn.insertAdjacentElement('afterend',badge);badge.insertAdjacentElement('beforebegin',cancelBtn);cancelBtn.insertAdjacentElement('beforebegin',runBtn);runBtn.insertAdjacentElement('beforebegin',addBtn);
-  function label(){const s=queue.summary();const parts=[];if(s.pending)parts.push(`${s.pending} pendiente(s)`);if(s.running)parts.push('1 renderizando');if(s.done)parts.push(`${s.done} listo(s)`);if(s.error)parts.push(`${s.error} error(es)`);if(s.cancelled)parts.push(`${s.cancelled} cancelado(s)`);badge.textContent=parts.length?`Cola: ${parts.join(' · ')}`:'Cola vacía';runBtn.disabled=queue.running||s.pending===0;addBtn.disabled=queue.running;cancelBtn.hidden=!queue.running;renderBtn.disabled=queue.running}
+  renderBtn.insertAdjacentElement('afterend',badge);badge.insertAdjacentElement('beforebegin',cancelBtn);cancelBtn.insertAdjacentElement('beforebegin',runBtn);runBtn.insertAdjacentElement('beforebegin',addBtn);badge.insertAdjacentElement('afterend',panel);
+  const statusText={pending:'pendiente',running:'renderizando',done:'listo',error:'error',cancelled:'cancelado'};
+  function button(text,title,onClick){const el=document.createElement('button');el.type='button';el.textContent=text;el.title=title;el.onclick=onClick;return el}
+  function renderPanel(){
+    panelBody.replaceChildren();
+    if(!queue.items.length){const empty=document.createElement('div');empty.textContent='No hay trabajos en la cola.';empty.style.opacity='.7';panelBody.appendChild(empty);return}
+    const toolbar=document.createElement('div');toolbar.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+    const retryAll=button('↻ Reintentar errores','Devuelve a pendientes todos los renders fallidos',()=>{const n=queue.retryFailed();label();setStatus?.(n?`${n} render(es) devuelto(s) a pendientes`:'No hay errores para reintentar')});
+    retryAll.disabled=queue.running||!queue.items.some(item=>item.status==='error');
+    const clear=button('Limpiar terminados','Elimina de la lista trabajos listos, fallidos y cancelados',()=>{const n=queue.clearFinished();label();setStatus?.(n?`${n} trabajo(s) retirado(s) de la cola`:'No hay trabajos terminados para limpiar')});
+    clear.disabled=queue.running||!queue.items.some(item=>['done','error','cancelled'].includes(item.status));toolbar.append(retryAll,clear);panelBody.appendChild(toolbar);
+    const pending=queue.pending();
+    for(const item of queue.items){
+      const row=document.createElement('div');row.dataset.renderQueueId=item.id;row.style.cssText='display:grid;grid-template-columns:minmax(160px,1fr) auto auto;gap:8px;align-items:center;padding:6px;border-top:1px solid rgba(127,127,127,.18)';
+      const meta=document.createElement('div');const name=document.createElement('strong');name.textContent=item.name;const state=document.createElement('span');state.textContent=` · ${statusText[item.status]||item.status}`;state.style.opacity='.72';meta.append(name,state);
+      if(item.error){const err=document.createElement('div');err.textContent=item.error;err.title=item.error;err.style.cssText='opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px';meta.appendChild(err)}
+      const order=document.createElement('div');order.style.cssText='display:flex;gap:4px';
+      const pendingPos=pending.findIndex(candidate=>candidate.id===item.id);
+      if(item.status==='pending'){
+        const up=button('▲','Subir prioridad',()=>{queue.movePending(item.id,-1);label()});up.disabled=queue.running||pendingPos<=0;
+        const down=button('▼','Bajar prioridad',()=>{queue.movePending(item.id,1);label()});down.disabled=queue.running||pendingPos<0||pendingPos>=pending.length-1;order.append(up,down);
+      }
+      const actions=document.createElement('div');actions.style.cssText='display:flex;gap:4px';
+      if(['error','cancelled'].includes(item.status)){const retry=button('↻','Reintentar',()=>{queue.retry(item.id);label()});retry.disabled=queue.running;actions.appendChild(retry)}
+      const remove=button('✕','Quitar de la cola',()=>{if(queue.remove(item.id)){label();setStatus?.(`Quitado de cola MP4: ${item.name}`)}});remove.disabled=item.status==='running'||queue.running;actions.appendChild(remove);
+      row.append(meta,order,actions);panelBody.appendChild(row);
+    }
+  }
+  function label(){const s=queue.summary();const parts=[];if(s.pending)parts.push(`${s.pending} pendiente(s)`);if(s.running)parts.push('1 renderizando');if(s.done)parts.push(`${s.done} listo(s)`);if(s.error)parts.push(`${s.error} error(es)`);if(s.cancelled)parts.push(`${s.cancelled} cancelado(s)`);badge.textContent=parts.length?`Cola: ${parts.join(' · ')}`:'Cola vacía';panelSummary.textContent=`Gestionar cola MP4 (${s.total})`;runBtn.disabled=queue.running||s.pending===0;addBtn.disabled=queue.running;cancelBtn.hidden=!queue.running;renderBtn.disabled=queue.running;renderPanel()}
   function capture(){
     if(typeof save==='function')save();
     const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project;
@@ -70,5 +100,5 @@
   runBtn.onclick=()=>{run().catch(err=>{console.error(err);setStatus?.(`No se pudo procesar la cola MP4: ${err?.message||err}`)})};
   cancelBtn.onclick=()=>{queue.cancel({cancelPending:true});label();setStatus?.('Deteniendo cola MP4…')};
   label();
-  window.ProfitMenteRenderQueue={queue,enqueueCurrent,run,cancel:()=>queue.cancel({cancelPending:true}),renderItem,preflight};
+  window.ProfitMenteRenderQueue={queue,enqueueCurrent,run,cancel:()=>queue.cancel({cancelPending:true}),renderItem,preflight,refresh:label};
 })();
