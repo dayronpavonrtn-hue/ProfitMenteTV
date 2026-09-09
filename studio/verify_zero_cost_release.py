@@ -114,6 +114,7 @@ def main() -> None:
         ("audio", "Normalización respeta IDs 0 y aliases de pistas heredadas", [node, "test_audio_normalize_identity.mjs"]),
         ("audio", "Recorte de silencios respeta identidad, aliases y locks heredados", [node, "test_audio_silence_engine.mjs"]),
         ("audio", "Envolventes y fades respetan identidad y locks heredados", [node, "test_audio_envelope_engine.mjs"]),
+        ("calidad", "Control local de picos de audio detecta clipping y niveles peligrosos", [node, "test_audio_qc.mjs"]),
         ("preview", "Protección contra frames obsoletos", [node, "test_preview_stale_frames.mjs"]),
         ("preview", "Captions asíncronos no reaparecen tras mover el cursor", [node, "test_caption_preview_stale_frames.mjs"]),
         ("proyectos", "Persistencia/autosave", [node, "test_project_autosave.mjs"]),
