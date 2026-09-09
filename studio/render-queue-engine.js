@@ -1,4 +1,7 @@
 class ProfitMenteRenderQueueEngine{
+  static STATE_VERSION=1;
+  static MAX_PERSISTED_ITEMS=50;
+  static INTERRUPTED_ERROR='Render interrumpido al cerrar o recargar Studio. Reintenta el trabajo.';
   constructor({snapshotEngine=globalThis.ProfitMenteRenderSnapshotEngine,now=()=>Date.now(),idFactory=null}={}){
     this.snapshotEngine=snapshotEngine;
     this.now=now;
@@ -13,11 +16,14 @@ class ProfitMenteRenderQueueEngine{
     if(typeof this.idFactory==='function')return String(this.idFactory(this.sequence));
     return `render-${this.now()}-${this.sequence}`;
   }
+  clone(value){
+    if(typeof structuredClone==='function')return structuredClone(value);
+    return JSON.parse(JSON.stringify(value));
+  }
   snapshot(project,assets=[]){
     if(this.snapshotEngine?.capture)return this.snapshotEngine.capture(project,assets);
     if(!project||typeof project!=='object'||Array.isArray(project))throw new Error('Proyecto inválido para la cola de render');
-    if(typeof structuredClone==='function')return {project:structuredClone(project),assets:structuredClone(Array.isArray(assets)?assets:[])};
-    return {project:JSON.parse(JSON.stringify(project)),assets:JSON.parse(JSON.stringify(Array.isArray(assets)?assets:[]))};
+    return {project:this.clone(project),assets:this.clone(Array.isArray(assets)?assets:[])};
   }
   enqueue(project,assets=[],options={}){
     const snapshot=this.snapshot(project,assets);
@@ -44,6 +50,55 @@ class ProfitMenteRenderQueueEngine{
     const counts={pending:0,running:0,done:0,error:0,cancelled:0};
     for(const item of this.items){if(Object.hasOwn(counts,item.status))counts[item.status]+=1}
     return {total:this.items.length,...counts,active:this.running};
+  }
+  exportState({maxItems=ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS}={}){
+    const limit=Math.max(1,Math.min(200,Number(maxItems)||ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS));
+    const items=this.items.filter(item=>item.status!=='done').slice(-limit).map(item=>({
+      id:String(item.id||''),
+      name:String(item.name||'profitmente'),
+      format:String(item.format||'mp4').toLowerCase(),
+      status:item.status,
+      createdAt:Number.isFinite(Number(item.createdAt))?Number(item.createdAt):this.now(),
+      startedAt:Number.isFinite(Number(item.startedAt))?Number(item.startedAt):null,
+      finishedAt:Number.isFinite(Number(item.finishedAt))?Number(item.finishedAt):null,
+      error:item.error==null?null:String(item.error),
+      project:this.clone(item.project),
+      assets:this.clone(Array.isArray(item.assets)?item.assets:[])
+    }));
+    return {version:ProfitMenteRenderQueueEngine.STATE_VERSION,savedAt:this.now(),items};
+  }
+  restoreState(state,{maxItems=ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS}={}){
+    if(this.running)throw new Error('No se puede restaurar la cola durante un render activo');
+    if(!state||typeof state!=='object'||Array.isArray(state))return 0;
+    if(Number(state.version)!==ProfitMenteRenderQueueEngine.STATE_VERSION||!Array.isArray(state.items))return 0;
+    const limit=Math.max(1,Math.min(200,Number(maxItems)||ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS));
+    const allowed=new Set(['pending','running','error','cancelled']);
+    const restored=[];
+    for(const raw of state.items.slice(-limit)){
+      if(!raw||typeof raw!=='object'||Array.isArray(raw)||!raw.project||typeof raw.project!=='object'||Array.isArray(raw.project))continue;
+      const originalStatus=String(raw.status||'pending');
+      if(originalStatus==='done'||!allowed.has(originalStatus))continue;
+      const interrupted=originalStatus==='running';
+      restored.push({
+        id:String(raw.id||this.makeId()),
+        name:String(raw.name||raw.project?.name||'profitmente').trim()||'profitmente',
+        format:String(raw.format||'mp4').toLowerCase(),
+        status:interrupted?'error':originalStatus,
+        createdAt:Number.isFinite(Number(raw.createdAt))?Number(raw.createdAt):this.now(),
+        startedAt:Number.isFinite(Number(raw.startedAt))?Number(raw.startedAt):null,
+        finishedAt:interrupted?this.now():(Number.isFinite(Number(raw.finishedAt))?Number(raw.finishedAt):null),
+        error:interrupted?ProfitMenteRenderQueueEngine.INTERRUPTED_ERROR:(raw.error==null?null:String(raw.error)),
+        result:null,
+        progress:null,
+        project:this.clone(raw.project),
+        assets:this.clone(Array.isArray(raw.assets)?raw.assets:[])
+      });
+    }
+    this.items=restored;
+    this.abortController=null;
+    this.running=false;
+    this.sequence=Math.max(this.sequence,restored.length);
+    return restored.length;
   }
   remove(id){
     const index=this.items.findIndex(item=>item.id===id);
