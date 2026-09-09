@@ -31,6 +31,7 @@ class ProfitMenteRenderQueueEngine{
       finishedAt:null,
       error:null,
       result:null,
+      progress:null,
       project:snapshot.project,
       assets:snapshot.assets
     };
@@ -49,6 +50,38 @@ class ProfitMenteRenderQueueEngine{
     if(index<0)return false;
     if(this.items[index].status==='running')return false;
     this.items.splice(index,1);return true;
+  }
+  movePending(id,direction){
+    if(this.running)return false;
+    const pending=this.pending();
+    const pos=pending.findIndex(item=>item.id===id);
+    if(pos<0)return false;
+    const delta=Number(direction);
+    if(!Number.isFinite(delta)||delta===0)return false;
+    const targetPos=Math.max(0,Math.min(pending.length-1,pos+(delta<0?-1:1)));
+    if(targetPos===pos)return false;
+    const currentIndex=this.items.indexOf(pending[pos]);
+    const targetIndex=this.items.indexOf(pending[targetPos]);
+    [this.items[currentIndex],this.items[targetIndex]]=[this.items[targetIndex],this.items[currentIndex]];
+    return true;
+  }
+  retry(id){
+    if(this.running)return false;
+    const item=this.get(id);
+    if(!item||!['error','cancelled'].includes(item.status))return false;
+    item.status='pending';
+    item.startedAt=null;
+    item.finishedAt=null;
+    item.error=null;
+    item.result=null;
+    item.progress=null;
+    return true;
+  }
+  retryFailed(){
+    if(this.running)return 0;
+    let count=0;
+    for(const item of this.items)if(item.status==='error'&&this.retry(item.id))count+=1;
+    return count;
   }
   clearFinished(){
     const before=this.items.length;
