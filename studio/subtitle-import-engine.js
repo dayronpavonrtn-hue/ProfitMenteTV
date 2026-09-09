@@ -1,35 +1,37 @@
 class ProfitMenteSubtitleImportEngine{
   static time(value){
-    const raw=String(value||'').trim().replace(',', '.');
+    const raw=String(value??'').trim().replace(',', '.');
+    if(!raw||!/^(?:\d{1,3}:)?\d{1,2}:\d{2}(?:\.\d{1,3})?$/.test(raw))return NaN;
     const parts=raw.split(':').map(Number);
     if(parts.some(v=>!Number.isFinite(v))||parts.length<2||parts.length>3)return NaN;
     const [h,m,s]=parts.length===3?parts:[0,...parts];
-    if(m<0||m>=60||s<0||s>=60)return NaN;
-    return h*3600+m*60+s;
+    if(!Number.isInteger(h)||h<0||!Number.isInteger(m)||m<0||m>=60||s<0||s>=60)return NaN;
+    const total=h*3600+m*60+s;
+    return Number.isFinite(total)?total:NaN;
   }
-  static normalizeText(lines){return lines.join('\n').replace(/<[^>]+>/g,'').replace(/\{\\[^}]+\}/g,'').trim()}
+  static normalizeText(lines){return lines.join('\n').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/\{\\[^}]+\}/g,'').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'").trim()}
   static parse(input){
-    const text=String(input||'').replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
+    const text=String(input??'').replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
     if(!text)return [];
     const body=text.replace(/^WEBVTT[^\n]*\n+/i,'');
-    const blocks=body.split(/\n{2,}/).map(x=>x.trim()).filter(Boolean), cues=[];
+    const blocks=body.split(/\n{2,}/).map(x=>x.trim()).filter(Boolean),cues=[];
     for(const block of blocks){
       const lines=block.split('\n').map(x=>x.trimEnd());
-      if(/^NOTE(?:\s|$)/i.test(lines[0]||''))continue;
-      let timingIndex=lines.findIndex(x=>x.includes('-->'));
+      if(/^(NOTE|STYLE|REGION)(?:\s|$)/i.test(lines[0]||''))continue;
+      const timingIndex=lines.findIndex(x=>x.includes('-->'));
       if(timingIndex<0)continue;
       const match=lines[timingIndex].match(/^\s*([^\s]+)\s*-->\s*([^\s]+)(?:\s+.*)?$/);
       if(!match)continue;
       const start=this.time(match[1]),end=this.time(match[2]);
       const cueText=this.normalizeText(lines.slice(timingIndex+1));
-      if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||!cueText)continue;
+      if(!Number.isFinite(start)||start<0||!Number.isFinite(end)||end<=start||!cueText)continue;
       cues.push({start,end,duration:end-start,text:cueText});
     }
     cues.sort((a,b)=>a.start-b.start||a.end-b.end);
     return cues;
   }
   static clips(input,opts={}){
-    const track=Number.isFinite(Number(opts.track))?Number(opts.track):3;
+    const rawTrack=Number(opts.track??3),track=Number.isInteger(rawTrack)&&rawTrack>=0&&rawTrack<=6?rawTrack:3;
     const source=opts.source||'subtitle-import';
     // Imported SRT/VTT cues do not contain per-word timings. Keep their default
     // caption presentation on the static FFmpeg-supported path instead of the
