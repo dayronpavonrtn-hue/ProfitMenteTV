@@ -4,7 +4,32 @@
   if(!renderBtn||typeof bundler==='undefined'||typeof ProfitMenteRenderJobClient==='undefined')return;
   const validation=window.ProfitMenteAsyncRenderValidation||{};
   const queue=new ProfitMenteRenderQueueEngine();
+  const QUEUE_STORAGE_KEY='profitmente:studio:render-queue:v1';
   const safeName=name=>String(name||'profitmente').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120);
+  function persistQueue(){
+    try{
+      if(typeof localStorage==='undefined')return false;
+      const state=queue.exportState();
+      if(!state.items.length)localStorage.removeItem(QUEUE_STORAGE_KEY);
+      else localStorage.setItem(QUEUE_STORAGE_KEY,JSON.stringify(state));
+      return true;
+    }catch(error){console.warn('ProfitMente Studio: no se pudo guardar la cola MP4 local',error);return false}
+  }
+  function restoreQueue(){
+    try{
+      if(typeof localStorage==='undefined')return 0;
+      const raw=localStorage.getItem(QUEUE_STORAGE_KEY);if(!raw)return 0;
+      const restored=queue.restoreState(JSON.parse(raw));
+      if(!restored)localStorage.removeItem(QUEUE_STORAGE_KEY);
+      else persistQueue();
+      return restored;
+    }catch(error){
+      console.warn('ProfitMente Studio: cola MP4 guardada inválida; se descarta sin bloquear Studio',error);
+      try{localStorage.removeItem(QUEUE_STORAGE_KEY)}catch{}
+      return 0;
+    }
+  }
+  const restoredCount=restoreQueue();
   const addBtn=document.createElement('button');addBtn.type='button';addBtn.id='renderQueueAddBtn';addBtn.textContent='+ Cola MP4';addBtn.title='Añade una instantánea del proyecto actual a la cola de render local';
   const runBtn=document.createElement('button');runBtn.type='button';runBtn.id='renderQueueRunBtn';runBtn.textContent='▶ Procesar cola';runBtn.title='Renderiza en serie las instantáneas pendientes usando el motor local gratuito';
   const cancelBtn=document.createElement('button');cancelBtn.type='button';cancelBtn.id='renderQueueCancelBtn';cancelBtn.textContent='■ Detener cola';cancelBtn.title='Cancela el render activo y las salidas pendientes';cancelBtn.hidden=true;
@@ -16,13 +41,14 @@
   renderBtn.insertAdjacentElement('afterend',badge);badge.insertAdjacentElement('beforebegin',cancelBtn);cancelBtn.insertAdjacentElement('beforebegin',runBtn);runBtn.insertAdjacentElement('beforebegin',addBtn);badge.insertAdjacentElement('afterend',panel);
   const statusText={pending:'pendiente',running:'renderizando',done:'listo',error:'error',cancelled:'cancelado'};
   function button(text,title,onClick){const el=document.createElement('button');el.type='button';el.textContent=text;el.title=title;el.onclick=onClick;return el}
+  function changed(action){const result=action();persistQueue();label();return result}
   function renderPanel(){
     panelBody.replaceChildren();
     if(!queue.items.length){const empty=document.createElement('div');empty.textContent='No hay trabajos en la cola.';empty.style.opacity='.7';panelBody.appendChild(empty);return}
     const toolbar=document.createElement('div');toolbar.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
-    const retryAll=button('↻ Reintentar errores','Devuelve a pendientes todos los renders fallidos',()=>{const n=queue.retryFailed();label();setStatus?.(n?`${n} render(es) devuelto(s) a pendientes`:'No hay errores para reintentar')});
+    const retryAll=button('↻ Reintentar errores','Devuelve a pendientes todos los renders fallidos',()=>{const n=changed(()=>queue.retryFailed());setStatus?.(n?`${n} render(es) devuelto(s) a pendientes`:'No hay errores para reintentar')});
     retryAll.disabled=queue.running||!queue.items.some(item=>item.status==='error');
-    const clear=button('Limpiar terminados','Elimina de la lista trabajos listos, fallidos y cancelados',()=>{const n=queue.clearFinished();label();setStatus?.(n?`${n} trabajo(s) retirado(s) de la cola`:'No hay trabajos terminados para limpiar')});
+    const clear=button('Limpiar terminados','Elimina de la lista trabajos listos, fallidos y cancelados',()=>{const n=changed(()=>queue.clearFinished());setStatus?.(n?`${n} trabajo(s) retirado(s) de la cola`:'No hay trabajos terminados para limpiar')});
     clear.disabled=queue.running||!queue.items.some(item=>['done','error','cancelled'].includes(item.status));toolbar.append(retryAll,clear);panelBody.appendChild(toolbar);
     const pending=queue.pending();
     for(const item of queue.items){
@@ -32,12 +58,12 @@
       const order=document.createElement('div');order.style.cssText='display:flex;gap:4px';
       const pendingPos=pending.findIndex(candidate=>candidate.id===item.id);
       if(item.status==='pending'){
-        const up=button('▲','Subir prioridad',()=>{queue.movePending(item.id,-1);label()});up.disabled=queue.running||pendingPos<=0;
-        const down=button('▼','Bajar prioridad',()=>{queue.movePending(item.id,1);label()});down.disabled=queue.running||pendingPos<0||pendingPos>=pending.length-1;order.append(up,down);
+        const up=button('▲','Subir prioridad',()=>changed(()=>queue.movePending(item.id,-1)));up.disabled=queue.running||pendingPos<=0;
+        const down=button('▼','Bajar prioridad',()=>changed(()=>queue.movePending(item.id,1)));down.disabled=queue.running||pendingPos<0||pendingPos>=pending.length-1;order.append(up,down);
       }
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:4px';
-      if(['error','cancelled'].includes(item.status)){const retry=button('↻','Reintentar',()=>{queue.retry(item.id);label()});retry.disabled=queue.running;actions.appendChild(retry)}
-      const remove=button('✕','Quitar de la cola',()=>{if(queue.remove(item.id)){label();setStatus?.(`Quitado de cola MP4: ${item.name}`)}});remove.disabled=item.status==='running'||queue.running;actions.appendChild(remove);
+      if(['error','cancelled'].includes(item.status)){const retry=button('↻','Reintentar',()=>changed(()=>queue.retry(item.id)));retry.disabled=queue.running;actions.appendChild(retry)}
+      const remove=button('✕','Quitar de la cola',()=>{if(changed(()=>queue.remove(item.id)))setStatus?.(`Quitado de cola MP4: ${item.name}`)});remove.disabled=item.status==='running'||queue.running;actions.appendChild(remove);
       row.append(meta,order,actions);panelBody.appendChild(row);
     }
   }
@@ -79,7 +105,7 @@
     }finally{signal.removeEventListener('abort',onAbort);client.reset()}
   }
   function updateStatus(item,summary){
-    label();
+    persistQueue();label();
     if(!item)return;
     if(item.status==='running'){
       const p=Number.isFinite(Number(item.progress?.progress))?` ${Math.round(Number(item.progress.progress))}%`:'';
@@ -90,15 +116,17 @@
   }
   function enqueueCurrent(){
     if(queue.running)throw new Error('Espera a que termine la cola antes de añadir otra versión');
-    const {renderProject,renderAssets}=capture();const item=queue.enqueue(renderProject,renderAssets,{name:renderProject?.name||project?.name||'profitmente'});label();setStatus?.(`Añadido a cola MP4: ${item.name} · snapshot independiente`);return item;
+    const {renderProject,renderAssets}=capture();const item=queue.enqueue(renderProject,renderAssets,{name:renderProject?.name||project?.name||'profitmente'});persistQueue();label();setStatus?.(`Añadido a cola MP4: ${item.name} · snapshot independiente`);return item;
   }
   async function run(){
     if(queue.running)return queue.summary();if(!queue.pending().length){setStatus?.('La cola MP4 está vacía');return queue.summary()}
-    label();try{return await queue.run(renderItem,{continueOnError:true,onUpdate:updateStatus})}finally{label()}
+    label();try{return await queue.run(renderItem,{continueOnError:true,onUpdate:updateStatus})}finally{persistQueue();label()}
   }
   addBtn.onclick=()=>{try{enqueueCurrent()}catch(err){console.error(err);setStatus?.(err?.message||String(err))}};
   runBtn.onclick=()=>{run().catch(err=>{console.error(err);setStatus?.(`No se pudo procesar la cola MP4: ${err?.message||err}`)})};
-  cancelBtn.onclick=()=>{queue.cancel({cancelPending:true});label();setStatus?.('Deteniendo cola MP4…')};
+  cancelBtn.onclick=()=>{queue.cancel({cancelPending:true});persistQueue();label();setStatus?.('Deteniendo cola MP4…')};
+  window.addEventListener?.('beforeunload',persistQueue);
   label();
-  window.ProfitMenteRenderQueue={queue,enqueueCurrent,run,cancel:()=>queue.cancel({cancelPending:true}),renderItem,preflight,refresh:label};
+  if(restoredCount)setStatus?.(`Cola MP4 recuperada: ${restoredCount} trabajo(s). Los renders interrumpidos requieren reintento.`);
+  window.ProfitMenteRenderQueue={queue,enqueueCurrent,run,cancel:()=>{const n=queue.cancel({cancelPending:true});persistQueue();return n},renderItem,preflight,refresh:label,persist:persistQueue,storageKey:QUEUE_STORAGE_KEY};
 })();
