@@ -18,6 +18,8 @@ ALLOWED_TRANSITIONS = {'cut', 'fade', 'zoom', 'slide'}
 ALLOWED_FIT_MODES = {'cover', 'contain'}
 ALLOWED_TEXT_STYLES = {'title', 'label', 'callout'}
 ALLOWED_TEXT_ANIMATIONS = {'none', 'fade', 'pop', 'slide-up'}
+ALLOWED_CAPTION_STYLES = {'dynamic', 'hook-pop'}
+ALLOWED_CAPTION_ANIMATIONS = {'none', 'word-pulse', 'pop', 'word-by-word'}
 ALLOWED_FPS = {24, 30, 60}
 MIN_SPEED = 0.25
 MAX_SPEED = 4.0
@@ -45,6 +47,25 @@ def _number(value):
     if not _finite(value):
         return math.nan
     return float(value)
+
+
+def _has_renderable_word_timings(value):
+    """Return true only when FFmpeg has at least one complete timed word to draw.
+
+    Word-timed captions use the dedicated karaoke/pop rendering path, so their
+    clip-level style/animation are intentionally not interpreted. A malformed or
+    empty list must not be allowed to masquerade as word-timed, otherwise the MP4
+    renderer falls back to the static caption path with potentially different
+    semantics from the editor.
+    """
+    if not isinstance(value, list) or not value:
+        return False
+    for word in value:
+        if not isinstance(word, dict) or not str(word.get('word', '')).strip():
+            continue
+        if _finite(word.get('start')) and _finite(word.get('end')) and float(word.get('end')) > float(word.get('start')):
+            return True
+    return False
 
 
 def inspect(project):
@@ -124,6 +145,23 @@ def inspect(project):
                 issues.append(f'Título "{name}" ({clip_id}): estilo "{style}" no reproducible en MP4.')
             if animation not in ALLOWED_TEXT_ANIMATIONS:
                 issues.append(f'Título "{name}" ({clip_id}): animación "{animation}" no reproducible en MP4.')
+
+        if track == 3 and not _has_renderable_word_timings(clip.get('wordTimings')):
+            style = str(clip.get('style', 'dynamic') or 'dynamic')
+            raw_animation = clip.get('animation', 'none')
+            animation = str(raw_animation or 'none')
+            if style not in ALLOWED_CAPTION_STYLES:
+                issues.append(f'Caption "{name}" ({clip_id}): estilo "{style}" no reproducible en MP4.')
+            if animation not in ALLOWED_CAPTION_ANIMATIONS:
+                issues.append(f'Caption "{name}" ({clip_id}): animación "{animation}" no reproducible en MP4.')
+            elif animation == 'word-by-word':
+                issues.append(
+                    f'Caption "{name}" ({clip_id}): animación "word-by-word" requiere wordTimings válidos para conservar paridad en MP4.'
+                )
+            elif style == 'dynamic' and animation == 'pop':
+                issues.append(f'Caption "{name}" ({clip_id}): animación "pop" solo es reproducible con estilo "hook-pop".')
+            elif style == 'hook-pop' and animation == 'word-pulse':
+                issues.append(f'Caption "{name}" ({clip_id}): animación "word-pulse" solo es reproducible con estilo "dynamic".')
 
     return issues
 
