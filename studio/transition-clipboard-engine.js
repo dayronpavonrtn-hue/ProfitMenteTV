@@ -1,9 +1,17 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteTransitionClipboardEngine=api.ProfitMenteTransitionClipboardEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
   const SUPPORTED=new Set(['cut','fade','slide','zoom']);
-  const numeric=value=>{const n=Number(value);return Number.isFinite(n)?n:null};
-  const canonicalTrack=value=>{if(value===null||value===undefined||typeof value==='boolean')return null;const n=Number(value);return Number.isInteger(n)&&n>=0&&n<=6?n:null};
+  const numeric=value=>{
+    if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
+    const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
+    const n=Number(raw);return Number.isFinite(n)?(Object.is(n,-0)?0:n):null;
+  };
+  const canonicalTrack=value=>{const n=numeric(value);return n!==null&&Number.isInteger(n)&&n>=0&&n<=6?n:null};
+  const idKey=value=>{
+    if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
+    const raw=String(value).trim();if(!raw)return null;const n=numeric(value);return n===null?`s:${raw}`:`n:${n}`;
+  };
   const visual=clip=>[0,1].includes(canonicalTrack(clip?.track));
-  const sameId=(a,b)=>String(a??'')!==''&&String(a)===String(b);
+  const sameId=(a,b)=>{const x=idKey(a),y=idKey(b);return x!==null&&x===y};
   const stateEntries=(project,track)=>{const out=[];for(const map of [project?.trackState,project?.trackStates]){if(!map||typeof map!=='object')continue;for(const [key,value] of Object.entries(map))if(canonicalTrack(key)===track&&value&&typeof value==='object')out.push(value)}return out};
   const locked=(project,clip)=>clip?.locked===true||stateEntries(project,canonicalTrack(clip?.track)).some(state=>state.locked===true);
   class ProfitMenteTransitionClipboardEngine{
@@ -30,7 +38,7 @@
         delete clip.transitionDuration;delete clip.transitionDurationAuto;clip.autoTransition=false;
       }else{
         const duration=numeric(data.duration);
-        if(duration!==null&&duration>0)clip.transitionDuration=Math.max(.05,Math.min(2,Math.min(Math.max(.05,Number(clip.duration)||.05),duration)));
+        if(duration!==null&&duration>0)clip.transitionDuration=Math.max(.05,Math.min(2,Math.min(Math.max(.05,numeric(clip.duration)||.05),duration)));
         else delete clip.transitionDuration;
         clip.transitionDurationAuto=data.durationAuto===true;
         clip.autoTransition=data.autoTransition===true;
@@ -40,5 +48,9 @@
     }
   }
   ProfitMenteTransitionClipboardEngine.SUPPORTED=[...SUPPORTED];
+  ProfitMenteTransitionClipboardEngine.numeric=numeric;
+  ProfitMenteTransitionClipboardEngine.canonicalTrack=canonicalTrack;
+  ProfitMenteTransitionClipboardEngine.idKey=idKey;
+  ProfitMenteTransitionClipboardEngine.sameId=sameId;
   return {ProfitMenteTransitionClipboardEngine};
 });
