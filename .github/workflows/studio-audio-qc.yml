@@ -1,0 +1,39 @@
+name: ProfitMente Studio Audio QC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/audio-qc-engine.js'
+      - 'studio/audio-qc-integration.js'
+      - 'studio/audio-waveform-engine.js'
+      - 'studio/audio-waveform-integration.js'
+      - 'studio/test_audio_qc.mjs'
+      - '.github/workflows/studio-audio-qc.yml'
+  workflow_dispatch:
+
+jobs:
+  audio-qc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check
+        run: |
+          node --check studio/audio-qc-engine.js
+          node --check studio/audio-qc-integration.js
+          node --check studio/audio-waveform-integration.js
+          node --check studio/test_audio_qc.mjs
+
+      - name: Audio QC regressions
+        run: node studio/test_audio_qc.mjs
+
+      - name: Verify local zero-cost boundary
+        run: '! grep -Eiq "stripe|openai|anthropic|runway|replicate|fal\\.ai|elevenlabs|api[_-]?key|billing" studio/audio-qc-engine.js studio/audio-qc-integration.js studio/audio-waveform-integration.js studio/test_audio_qc.mjs'
