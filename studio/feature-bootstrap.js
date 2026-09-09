@@ -17,6 +17,8 @@
     ['media-priority-integration.js','ProfitMenteMediaPriority'],
     ['media-relink-engine.js','ProfitMenteMediaRelinkEngine'],
     ['media-relink-integration.js','ProfitMenteMediaRelink'],
+    ['media-relink-folder-engine.js','ProfitMenteMediaRelinkFolderEngine'],
+    ['media-relink-folder-integration.js','ProfitMenteMediaRelinkFolder'],
     ['offline-media-engine.js','ProfitMenteOfflineMediaEngine'],
     ['offline-media-integration.js','ProfitMenteOfflineMedia'],
     ['media-replace-engine.js','ProfitMenteMediaReplaceEngine'],
