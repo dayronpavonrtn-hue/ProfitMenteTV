@@ -31,6 +31,23 @@ class ProfitMenteMediaPlacementEngine{
   }
   static snapshot(project){return structuredClone(project.clips)}
   static rollback(project,snapshot){project.clips=snapshot;return false}
+  static projectSnapshot(project){
+    if(!project||!Array.isArray(project.clips))return null;
+    return {clips:structuredClone(project.clips),duration:project.duration};
+  }
+  static restoreProject(project,snapshot){
+    if(!project||!snapshot||!Array.isArray(snapshot.clips))return false;
+    project.clips=structuredClone(snapshot.clips);project.duration=snapshot.duration;return true;
+  }
+  static transaction(project,operation){
+    if(!project||!Array.isArray(project.clips)||typeof operation!=='function')return {ok:false,reason:'invalid-transaction'};
+    const before=this.projectSnapshot(project);
+    try{
+      const value=operation();
+      if(value===false||value?.ok===false){this.restoreProject(project,before);return {ok:false,reason:value?.reason||'cancelled',value}}
+      return {ok:true,value};
+    }catch(error){this.restoreProject(project,before);return {ok:false,reason:'operation-failed',error}}
+  }
   static insertSpace(project,track,at,duration,ops){
     if(!project||!Array.isArray(project.clips)||!ops?.split)return {ok:false,reason:'missing-engine',shifted:0};
     if(this.trackKey(track)===null)return {ok:false,reason:'invalid-track',shifted:0};
