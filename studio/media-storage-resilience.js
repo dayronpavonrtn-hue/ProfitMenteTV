@@ -3,7 +3,7 @@
   const memory=new Map();
   const originalPut=typeof putAsset==='function'?putAsset:null;
   const originalGet=typeof getAssets==='function'?getAssets:null;
-  let degraded=false,lastError=null,recovering=false;
+  let degraded=false,lastError=null,recovering=false,persistenceState='unknown';
 
   function markDegraded(err){
     if(!degraded)console.warn('ProfitMente Studio: IndexedDB no disponible; usando biblioteca temporal en memoria.',err);
@@ -42,6 +42,29 @@
     }
   }
 
+  async function requestPersistentStorage(){
+    const storage=typeof navigator!=='undefined'?navigator.storage:null;
+    if(!storage||typeof storage.persist!=='function'){
+      persistenceState='unsupported';
+      return false;
+    }
+    try{
+      if(typeof storage.persisted==='function'&&await storage.persisted()){
+        persistenceState='granted';
+        return true;
+      }
+      const granted=await storage.persist();
+      persistenceState=granted?'granted':'best-effort';
+      return !!granted;
+    }catch(err){
+      // Persistent storage is an optimization. Browsers may reject it based on
+      // engagement/quota policy, so keep IndexedDB working normally when denied.
+      persistenceState='best-effort';
+      console.warn('ProfitMente Studio: almacenamiento persistente no concedido; IndexedDB seguirá en modo normal.',err);
+      return false;
+    }
+  }
+
   // Replace the base app helpers so uploads after an IndexedDB failure remain
   // usable for the current Studio session instead of repeatedly throwing.
   if(originalPut)putAsset=resilientPut;
@@ -66,9 +89,11 @@
   window.ProfitMenteMediaStorageResilience={
     get degraded(){return degraded},
     get lastError(){return lastError},
-    resilientPut,resilientGet,resilientDelete,recoverStartup,
+    get persistenceState(){return persistenceState},
+    resilientPut,resilientGet,resilientDelete,recoverStartup,requestPersistentStorage,
     memoryCount:()=>memory.size
   };
+  requestPersistentStorage();
   recoverStartup();
 
   // Media source duration/dimensions are required by source-window tools such as
