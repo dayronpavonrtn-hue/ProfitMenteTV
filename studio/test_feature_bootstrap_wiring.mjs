@@ -8,11 +8,13 @@ const bridge=fs.readFileSync(new URL('./transition-duration.js',import.meta.url)
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
 const captionTimingIntegration=fs.readFileSync(new URL('./caption-timing-integration.js',import.meta.url),'utf8');
 
-assert.match(html,/transition-duration\.js/,'Studio must load the bootstrap bridge');
-assert.match(bridge,/feature-bootstrap\.js/,'bootstrap bridge must load feature-bootstrap.js');
-assert.match(bridge,/s\.async=false/,'bootstrap bridge must preserve deterministic script ordering');
-assert.match(bridge,/bootstrapFailed:true/,'bootstrap bridge must expose a visible failure signal');
-assert.match(bridge,/document\.scripts/,'bootstrap bridge must avoid duplicate bootstrap injection');
+assert.match(html,/transition-duration\.js/,'Studio must load transition duration tools');
+assert.match(html,/feature-bootstrap\.js/,'Studio document entrypoint must load the advanced feature bootstrap directly');
+const transitionIndex=html.indexOf('transition-duration.js');
+const bootstrapIndex=html.indexOf('feature-bootstrap.js');
+assert.ok(transitionIndex>=0&&bootstrapIndex>transitionIndex,'feature bootstrap must start after explicitly loaded editor tools');
+assert.doesNotMatch(bridge,/feature-bootstrap\.js/,'transition duration must not own global feature startup');
+assert.doesNotMatch(bridge,/ensureFeatureBootstrap/,'transition duration must remain independent from bootstrap orchestration');
 
 for(const required of [
   'caption-timing-engine.js',
