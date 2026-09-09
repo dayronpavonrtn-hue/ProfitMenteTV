@@ -1,0 +1,50 @@
+name: ProfitMente Studio Media Identity Parity QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/media-identity-engine.js'
+      - 'studio/render-media-pruner.js'
+      - 'studio/qa-source-window-guard.js'
+      - 'studio/test_media_identity_parity.mjs'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/verify_zero_cost_release.py'
+      - '.github/workflows/media-identity-parity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-identity-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install free render dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Syntax check
+        run: |
+          node --check studio/media-identity-engine.js
+          node --check studio/render-media-pruner.js
+          node --check studio/qa-source-window-guard.js
+      - name: Shared QA/render media identity regression
+        run: node studio/test_media_identity_parity.mjs
+      - name: Existing identity regressions
+        run: |
+          node studio/test_qa_source_window_guard.mjs
+          node studio/test_render_media_pruner.mjs
+      - name: Zero-cost boundary
+        run: |
+          ! grep -Eiq 'openai|runway|magic.?hour|stripe|api[_-]?key|authorization:|bearer ' studio/media-identity-engine.js studio/render-media-pruner.js studio/qa-source-window-guard.js
+      - name: Full ProfitMente Studio $0 release gate
+        run: python studio/verify_zero_cost_release.py
