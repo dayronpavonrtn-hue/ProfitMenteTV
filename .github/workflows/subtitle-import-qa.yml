@@ -1,0 +1,29 @@
+name: ProfitMente Studio Subtitle Import QA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/subtitle-import-engine.js'
+      - 'studio/subtitle-import-integration.js'
+      - 'studio/subtitle-export-integration.js'
+      - 'studio/test_subtitle_import.mjs'
+      - '.github/workflows/subtitle-import-qa.yml'
+  workflow_dispatch:
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/subtitle-import-engine.js
+          node --check studio/subtitle-import-integration.js
+          node --check studio/subtitle-export-integration.js
+      - name: Subtitle import regression
+        run: node studio/test_subtitle_import.mjs
+      - name: Zero cost boundary
+        run: |
+          ! grep -Eri 'openai|runway|replicate|stripe|paypal|api[_-]?key' studio/subtitle-import-engine.js studio/subtitle-import-integration.js
