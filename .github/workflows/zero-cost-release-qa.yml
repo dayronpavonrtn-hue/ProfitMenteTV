@@ -281,6 +281,12 @@ jobs:
       - name: Verify WebM final resolution, bitrate and render-state safety
         run: node studio/test_webm_render_state.mjs
 
+      - name: Verify WebM render edit lock and project mutation guard
+        run: |
+          node --check studio/webm-render-engine.js
+          node --check studio/webm-render-integration.js
+          node studio/test_webm_render_edit_lock.mjs
+
       - name: Verify browser-local WebM quality control
         run: |
           node --check studio/webm-qc-engine.js
