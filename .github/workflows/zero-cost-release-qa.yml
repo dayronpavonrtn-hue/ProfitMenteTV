@@ -281,6 +281,13 @@ jobs:
       - name: Verify WebM final resolution, bitrate and render-state safety
         run: node studio/test_webm_render_state.mjs
 
+      - name: Verify browser-local WebM quality control
+        run: |
+          node --check studio/webm-qc-engine.js
+          node --check studio/webm-render-integration.js
+          node studio/test_webm_qc.mjs
+          ! grep -Eri 'stripe|runway|openai\.com|api\.openai|anthropic|elevenlabs|paid api|subscription' studio/webm-qc-engine.js studio/webm-render-integration.js
+
       - name: Verify temporal audio ducking in final MP4
         run: python studio/test_audio_ducking_render.py
 
