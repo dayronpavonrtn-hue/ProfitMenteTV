@@ -7,6 +7,7 @@ on:
       - 'studio/transition-duration.js'
       - 'studio/qa-report-integration.js'
       - 'studio/test_feature_bootstrap.mjs'
+      - 'studio/test_feature_bootstrap_wiring.mjs'
       - 'studio/test_qa_report_safe_render.mjs'
       - '.github/workflows/feature-bootstrap-qa.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'studio/transition-duration.js'
       - 'studio/qa-report-integration.js'
       - 'studio/test_feature_bootstrap.mjs'
+      - 'studio/test_feature_bootstrap_wiring.mjs'
       - 'studio/test_qa_report_safe_render.mjs'
 
 jobs:
@@ -31,8 +33,14 @@ jobs:
           node --check studio/transition-duration.js
           node --check studio/qa-report-integration.js
           node --check studio/test_feature_bootstrap.mjs
+          node --check studio/test_feature_bootstrap_wiring.mjs
           node --check studio/test_qa_report_safe_render.mjs
       - name: Bootstrap regression
         run: node studio/test_feature_bootstrap.mjs
+      - name: Bootstrap wiring regression
+        run: node studio/test_feature_bootstrap_wiring.mjs
       - name: Safe QA report regression
         run: node studio/test_qa_report_safe_render.mjs
+      - name: Zero-cost boundary
+        run: |
+          ! grep -Eri "api[_-]?key|openai|runway|replicate|stripe|paid[_-]?api" studio/feature-bootstrap.js studio/media-metadata-engine.js studio/audio-qc-engine.js studio/audio-qc-integration.js studio/render-media-pruner.js
