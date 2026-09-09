@@ -4,23 +4,23 @@ class ProfitMenteAudioQCEngine{
     if(typeof value==='string'&&value.trim()!==''){const n=Number(value);return Number.isFinite(n)?n:fallback}
     return fallback;
   }
-  static clamp(value,min=0,max=2){const n=this.finiteNumber(value,min);return Math.min(max,Math.max(min,n))}
+  static clamp(value,min=0,max=2,fallback=min){const n=this.finiteNumber(value,fallback);return Math.min(max,Math.max(min,n))}
   static dbfs(peak){const p=Math.max(0,this.finiteNumber(peak,0));return p>0?20*Math.log10(p):-Infinity}
   static canonicalTrack(value){const n=this.finiteNumber(value,null);return n!==null&&Number.isInteger(n)&&n>=0&&n<=6?(Object.is(n,-0)?0:n):null}
   static trackGain(project,track){
     const canonical=this.canonicalTrack(track);if(canonical===null)return 1;
     for(const map of [project?.trackState,project?.trackStates]){
       if(!map||typeof map!=='object')continue;
-      for(const [key,state] of Object.entries(map))if(this.canonicalTrack(key)===canonical&&state&&typeof state==='object')return this.clamp(state.gain,0,2);
+      for(const [key,state] of Object.entries(map))if(this.canonicalTrack(key)===canonical&&state&&typeof state==='object')return this.clamp(state.gain,0,2,1);
     }
     return 1;
   }
   static clipGain(project,clip){
     const track=this.canonicalTrack(clip?.track),trackGain=this.trackGain(project,track);
     let volume=1;
-    if(track===5)volume=this.clamp(clip?.volume??.22,0,2);
-    else if(track===4||track===6)volume=this.clamp(clip?.volume??1,0,2);
-    else if(track===0||track===1)volume=this.clamp(clip?.sourceVolume??1,0,2);
+    if(track===5)volume=this.clamp(clip?.volume??.22,0,2,.22);
+    else if(track===4||track===6)volume=this.clamp(clip?.volume??1,0,2,1);
+    else if(track===0||track===1)volume=this.clamp(clip?.sourceVolume??1,0,2,1);
     return trackGain*volume;
   }
   static inspectPeaks(peaks=[],gain=1,{warningDb=-1,clipDb=-0.05}={}){
