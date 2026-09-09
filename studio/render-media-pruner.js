@@ -1,10 +1,16 @@
 (()=>{
+  const root=typeof window!=='undefined'?window:globalThis;
+  let Identity=root.ProfitMenteMediaIdentityEngine;
+  if(!Identity&&typeof require==='function'){try{Identity=require('./media-identity-engine.js').ProfitMenteMediaIdentityEngine}catch{}}
+  const fallbackCanonical=value=>{
+    if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?String(Object.is(value,-0)?0:value):'';
+    if(typeof value!=='string')return '';
+    const text=value.trim();if(!text)return '';
+    if(/^(0|[1-9]\d*)$/.test(text)){const number=Number(text);return Number.isSafeInteger(number)?String(number):''}
+    return text;
+  };
   class ProfitMenteRenderMediaPruner{
-    static canonicalMediaId(value){
-      if(typeof value==='number')return Number.isFinite(value)?String(Object.is(value,-0)?0:value):'';
-      if(typeof value==='string')return value.trim();
-      return '';
-    }
+    static canonicalMediaId(value){return Identity?.canonical?Identity.canonical(value):fallbackCanonical(value)}
     static referencedIds(project){
       const ids=[];
       const seen=new Set();
@@ -34,7 +40,7 @@
       }
       return selected;
     }
-    static install(BundleCtor=globalThis.ProfitMenteBundleEngine){
+    static install(BundleCtor=root.ProfitMenteBundleEngine){
       const proto=BundleCtor?.prototype;
       if(!proto||typeof proto.renderLocal!=='function'||proto.__renderMediaPrunerInstalled)return false;
       const original=proto.renderLocal;
@@ -48,7 +54,7 @@
       return true;
     }
   }
-  if(typeof window!=='undefined')window.ProfitMenteRenderMediaPruner=ProfitMenteRenderMediaPruner;
+  root.ProfitMenteRenderMediaPruner=ProfitMenteRenderMediaPruner;
   if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRenderMediaPruner;
   ProfitMenteRenderMediaPruner.install();
 })();
