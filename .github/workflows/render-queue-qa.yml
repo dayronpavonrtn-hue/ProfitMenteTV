@@ -6,9 +6,11 @@ on:
     paths:
       - 'studio/render-queue-engine.js'
       - 'studio/render-queue-integration.js'
+      - 'studio/render-queue-storage-engine.js'
       - 'studio/render-snapshot-engine.js'
       - 'studio/test_render_queue_engine.mjs'
       - 'studio/test_render_queue_editing.mjs'
+      - 'studio/test_render_queue_storage.mjs'
       - 'studio/feature-bootstrap.js'
       - 'studio/automation-checkpoint.js'
       - '.github/workflows/render-queue-qa.yml'
@@ -31,11 +33,14 @@ jobs:
         run: |
           node --check studio/render-queue-engine.js
           node --check studio/render-queue-integration.js
+          node --check studio/render-queue-storage-engine.js
           node --check studio/automation-checkpoint.js
           node --check studio/test_render_queue_engine.mjs
           node --check studio/test_render_queue_editing.mjs
+          node --check studio/test_render_queue_storage.mjs
           node studio/test_render_queue_engine.mjs
           node studio/test_render_queue_editing.mjs
+          node studio/test_render_queue_storage.mjs
           grep -q "render-queue-engine.js','ProfitMenteRenderQueueEngine" studio/feature-bootstrap.js
           grep -q "render-queue-integration.js" studio/automation-checkpoint.js
           grep -q "ProfitMenteRenderSnapshotEngine" studio/render-queue-integration.js
@@ -44,6 +49,7 @@ jobs:
           grep -q "retryFailed" studio/render-queue-integration.js
           grep -q "exportState" studio/render-queue-engine.js
           grep -q "restoreState" studio/render-queue-engine.js
-          grep -q "profitmente:studio:render-queue:v1" studio/render-queue-integration.js
-          grep -q "beforeunload" studio/render-queue-integration.js
-          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing|subscription' studio/render-queue-engine.js studio/render-queue-integration.js
+          grep -q "ProfitMenteRenderQueueStorageEngine" studio/render-queue-integration.js
+          grep -q "indexedDBFactory" studio/render-queue-storage-engine.js
+          grep -q "pagehide" studio/render-queue-integration.js
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing|subscription' studio/render-queue-engine.js studio/render-queue-integration.js studio/render-queue-storage-engine.js
