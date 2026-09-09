@@ -50,3 +50,12 @@
   const api={render,decodeAsset:decode,clearCache(assetId=null){if(assetId===null||assetId===undefined)cache.clear();else{const id=Engine.canonicalMediaId(assetId);if(id!==null)for(const key of cache.keys())if(key.startsWith(id+'|')||key===id)cache.delete(key)}queueMicrotask(render)},cache};window.ProfitMenteAudioWaveforms=api;
   queueMicrotask(render);
 })();
+(()=>{
+  if(typeof document==='undefined'||window.ProfitMenteAudioQC)return;
+  async function load(src,guard){
+    if(window[guard])return;
+    if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return;
+    await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s)});
+  }
+  queueMicrotask(async()=>{try{await load('audio-qc-engine.js','ProfitMenteAudioQCEngine');await load('audio-qc-integration.js','ProfitMenteAudioQC')}catch(error){console.error('Audio QA no disponible',error)}});
+})();
