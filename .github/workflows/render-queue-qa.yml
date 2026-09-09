@@ -8,6 +8,7 @@ on:
       - 'studio/render-queue-integration.js'
       - 'studio/render-snapshot-engine.js'
       - 'studio/test_render_queue_engine.mjs'
+      - 'studio/test_render_queue_editing.mjs'
       - 'studio/feature-bootstrap.js'
       - 'studio/automation-checkpoint.js'
       - '.github/workflows/render-queue-qa.yml'
@@ -32,9 +33,13 @@ jobs:
           node --check studio/render-queue-integration.js
           node --check studio/automation-checkpoint.js
           node --check studio/test_render_queue_engine.mjs
+          node --check studio/test_render_queue_editing.mjs
           node studio/test_render_queue_engine.mjs
+          node studio/test_render_queue_editing.mjs
           grep -q "render-queue-engine.js','ProfitMenteRenderQueueEngine" studio/feature-bootstrap.js
           grep -q "render-queue-integration.js" studio/automation-checkpoint.js
           grep -q "ProfitMenteRenderSnapshotEngine" studio/render-queue-integration.js
           grep -q "ProfitMenteAudioDuckingEngine" studio/render-queue-integration.js
+          grep -q "movePending" studio/render-queue-integration.js
+          grep -q "retryFailed" studio/render-queue-integration.js
           ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing|subscription' studio/render-queue-engine.js studio/render-queue-integration.js
