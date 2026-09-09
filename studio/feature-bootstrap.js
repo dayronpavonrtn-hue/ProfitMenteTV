@@ -36,6 +36,7 @@
     ['timeline-right-trim.js','ProfitMenteTimelineRightTrimEngine','ProfitMenteTimelineRightTrim'],
     ['preview-format-engine.js','ProfitMentePreviewFormatEngine'],
     ['preview-format-integration.js','ProfitMentePreviewFormat'],
+    ['preview-render-coordinator.js','ProfitMentePreviewRenderCoordinator'],
     ['preview-frame-step-engine.js','ProfitMentePreviewFrameStepEngine'],
     ['preview-frame-step-integration.js','ProfitMentePreviewFrameStep'],
     ['webm-render-engine.js','ProfitMenteWebMRenderEngine'],
