@@ -1,0 +1,36 @@
+name: ProfitMente Studio WebM Render Edit Lock QA
+
+on:
+  push:
+    paths:
+      - 'studio/webm-render-engine.js'
+      - 'studio/webm-render-integration.js'
+      - 'studio/test_webm_render_edit_lock.mjs'
+      - '.github/workflows/webm-render-edit-lock-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/webm-render-engine.js'
+      - 'studio/webm-render-integration.js'
+      - 'studio/test_webm_render_edit_lock.mjs'
+      - '.github/workflows/webm-render-edit-lock-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/webm-render-engine.js
+          node --check studio/webm-render-integration.js
+      - name: Edit lock regression
+        run: node studio/test_webm_render_edit_lock.mjs
+      - name: Zero cost boundary
+        run: |
+          ! grep -Eqi 'stripe|paypal|openai[._-]?api|runway|replicate|elevenlabs|paid[ _-]?api' studio/webm-render-engine.js studio/webm-render-integration.js
