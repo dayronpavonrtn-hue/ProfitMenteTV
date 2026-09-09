@@ -2,7 +2,7 @@
   if(typeof document==='undefined'||typeof ProfitMenteWebMRenderEngine==='undefined'||window.ProfitMenteWebMRender)return;
   const renderBtn=document.querySelector('#renderBtn'),canvas=document.querySelector('#previewCanvas');
   if(!renderBtn||!canvas)return;
-  const engine=new ProfitMenteWebMRenderEngine();let resources=null,qcLoader=null;
+  const engine=new ProfitMenteWebMRenderEngine();let resources=null,qcLoader=null,renderLocked=false,lastBlockedNotice=0;
   let cancelBtn=document.querySelector('#cancelWebmBtn');
   if(!cancelBtn){cancelBtn=document.createElement('button');cancelBtn.id='cancelWebmBtn';cancelBtn.type='button';cancelBtn.textContent='■ Cancelar WebM';cancelBtn.hidden=true;cancelBtn.title='Detener el render WebM y liberar audio/video';renderBtn.insertAdjacentElement('afterend',cancelBtn)}
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -25,6 +25,28 @@
     }
     applyQuality('full');return {width:canvas.width,height:canvas.height,format,quality:'full'};
   }
+  function setRenderLocked(value){
+    renderLocked=!!value;
+    if(document.body?.dataset){if(renderLocked)document.body.dataset.webmRenderLocked='1';else delete document.body.dataset.webmRenderLocked}
+    if(document.body){if(renderLocked)document.body.setAttribute('aria-busy','true');else document.body.removeAttribute('aria-busy')}
+    return renderLocked;
+  }
+  function withinEditor(target,type){
+    if(String(type||'').toLowerCase()==='keydown')return true;
+    return !!target?.closest?.('header,aside,.props,.timeline,#tracks');
+  }
+  function blockEditDuringRender(event){
+    if(!renderLocked||!engine.active)return;
+    const target=event.target;
+    if(event.type==='keydown'&&String(event.key||'').toLowerCase()==='escape'){
+      event.preventDefault();event.stopImmediatePropagation();cancelBtn.click();return;
+    }
+    const block=ProfitMenteWebMRenderEngine.shouldBlockEditEvent({active:true,type:event.type,key:event.key,targetId:target?.id,withinEditor:withinEditor(target,event.type)});
+    if(!block)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const now=Date.now();if(now-lastBlockedNotice>1200){lastBlockedNotice=now;setStatus?.('Render WebM en curso · edición bloqueada para mantener el archivo consistente · usa Cancelar WebM o Esc para detenerlo')}
+  }
+  for(const type of ['click','dblclick','pointerdown','input','change','paste','drop','submit','keydown'])document.addEventListener(type,blockEditDuringRender,true);
   function recorderDone(recorder,chunks){return new Promise((resolve,reject)=>{
     recorder.addEventListener('dataavailable',event=>{if(event.data?.size)chunks.push(event.data)});
     recorder.addEventListener('stop',()=>resolve(new Blob(chunks,{type:'video/webm'})),{once:true});
@@ -48,7 +70,7 @@
   }
   async function cleanup(previousTime,monitorQuality,renderProject){
     safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
-    resources=null;engine.reset();cancelBtn.hidden=true;cancelBtn.disabled=false;renderBtn.disabled=false;
+    resources=null;engine.reset();setRenderLocked(false);cancelBtn.hidden=true;cancelBtn.disabled=false;renderBtn.disabled=false;
     applyQuality(monitorQuality);
     const playhead=document.querySelector('#playhead');
     const restoreTime=project===renderProject?previousTime:Number(playhead?.value||0);
@@ -69,7 +91,7 @@
     const exportSize=applyExportDimensions(renderProject);
     const recorderOptions=ProfitMenteWebMRenderEngine.recorderOptions({mimeType:mime,quality:renderQuality,width:exportSize.width,height:exportSize.height,fps:plan.fps});
     const assertRenderState=()=>{engine.assert(session);ProfitMenteWebMRenderEngine.assertState(renderState,project,assets)};
-    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,width:exportSize.width,height:exportSize.height,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;
+    const session=engine.begin({totalFrames:plan.totalFrames,fps:plan.fps,projectName:renderName,renderQuality,width:exportSize.width,height:exportSize.height,videoBitsPerSecond:recorderOptions.videoBitsPerSecond});renderBtn.disabled=true;cancelBtn.hidden=false;setRenderLocked(true);
     try{
       if(typeof playing!=='undefined'&&playing)document.querySelector('#playBtn')?.click();
       assertRenderState();
@@ -98,5 +120,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,ensureQCEngine,get active(){return engine.active}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,ensureQCEngine,setRenderLocked,get active(){return engine.active},get locked(){return renderLocked}};
 })();
