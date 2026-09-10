@@ -1,14 +1,15 @@
 class ProfitMenteAudioEngine{
  constructor(){this.ctx=null;this.master=null;this.monitor=null;this.recordDest=null;this.nodes=[];this.trackGains={};this.envelopes=typeof ProfitMenteAudioEnvelopeEngine!=='undefined'?new ProfitMenteAudioEnvelopeEngine():null;this.ducking=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine:null}
  init(){if(this.ctx)return;this.ctx=new (window.AudioContext||window.webkitAudioContext)();this.master=this.ctx.createGain();this.monitor=this.ctx.createGain();this.recordDest=this.ctx.createMediaStreamDestination();this.master.connect(this.monitor);this.monitor.connect(this.ctx.destination);this.master.connect(this.recordDest);for(const track of [4,5,6]){const gain=this.ctx.createGain();gain.gain.value=1;gain.connect(this.master);this.trackGains[track]=gain}}
+ finiteNumber(value){if(typeof value==='number')return Number.isFinite(value)?value:null;if(typeof value==='string'){const raw=value.trim();if(!raw)return null;const n=Number(raw);return Number.isFinite(n)?n:null}return null}
  canonicalTrack(track){if(typeof track==='boolean'||track===null||track===undefined)return null;const raw=typeof track==='string'?track.trim():track;if(raw==='')return null;const n=Number(raw);return Number.isInteger(n)&&n>=0&&n<=6?(Object.is(n,-0)?0:n):null}
  trackStateValue(project,track){const canonical=this.canonicalTrack(track);if(canonical===null)return {};for(const map of [project?.trackState,project?.trackStates]){if(!map||typeof map!=='object')continue;for(const [key,value] of Object.entries(map)){if(this.canonicalTrack(key)===canonical&&value&&typeof value==='object')return value}}return {}}
  canonicalMediaId(id){if(id===null||id===undefined||typeof id==='boolean')return null;if(typeof id==='string'){const s=id.trim();if(!s)return null;const n=Number(s);if(Number.isFinite(n))return String(Object.is(n,-0)?0:n);return s}if(typeof id==='number'&&Number.isFinite(id))return String(Object.is(id,-0)?0:id);return null}
  mediaAssigned(id){return this.canonicalMediaId(id)!==null}
  findAsset(assets,id){const key=this.canonicalMediaId(id);if(key===null)return null;return (assets||[]).find(a=>this.canonicalMediaId(a?.id)===key)||null}
- trackGainValue(project,track){const raw=this.trackStateValue(project,track)?.gain,n=Number(raw);return Math.max(0,Math.min(2,Number.isFinite(n)?n:1))}
+ trackGainValue(project,track){const n=this.finiteNumber(this.trackStateValue(project,track)?.gain);return Math.max(0,Math.min(2,n===null?1:n))}
  syncTrackGains(project){this.init();for(const track of [4,5,6])this.trackGains[track].gain.value=this.trackGainValue(project,track)}
- setTrackGain(track,value){this.init();track=this.canonicalTrack(track);if(track===null||!this.trackGains[track])return null;const n=Number(value),gain=Math.max(0,Math.min(2,Number.isFinite(n)?n:1));this.trackGains[track].gain.value=gain;return gain}
+ setTrackGain(track,value){this.init();track=this.canonicalTrack(track);if(track===null||!this.trackGains[track])return null;const n=this.finiteNumber(value),gain=Math.max(0,Math.min(2,n===null?1:n));this.trackGains[track].gain.value=gain;return gain}
  visualTrackHidden(project,track){const s=this.trackStateValue(project,track);return !!(s&&typeof s==='object'&&s.hidden)}
  async buffer(blob){this.init();return await this.ctx.decodeAudioData(await blob.arrayBuffer())}
  musicGain(project,clip){return this.ducking?this.ducking.baseVolume(clip):(clip.volume??.22)}
