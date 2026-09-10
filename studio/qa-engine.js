@@ -1,18 +1,21 @@
 class ProfitMenteQAEngine{
   inspect(project,assets){
     assets=Array.isArray(assets)?assets:[];
-    const mediaIdKey=value=>{if(value===undefined||value===null)return null;const key=String(value).trim();return key||null};
+    const strictNumber=value=>{if(typeof value==='number')return Number.isFinite(value)?value:null;if(typeof value!=='string')return null;const text=value.trim();if(!text||!^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))return null;const number=Number(text);return Number.isFinite(number)?number:null};
+    const trackKey=value=>{const number=strictNumber(value);return number!==null&&Number.isSafeInteger(number)&&number>=0&&number<=6?number:null};
+    const mediaIdKey=value=>{if(typeof value==='string'){const key=value.trim();return key||null}if(typeof value==='number'&&Number.isSafeInteger(value))return String(value);return null};
     const issues=[],warnings=[]; const ids=new Set(assets.map(a=>mediaIdKey(a?.id)).filter(id=>id!==null));
     const VISUAL_TRACKS=[0,1,2,3],AUDIO_TRACKS=[4,5,6];
     const state=track=>{
-      const target=Number(track);
+      const target=trackKey(track);
+      if(target===null)return {hidden:false,muted:false,locked:false,solo:false};
       const read=states=>{
         if(!states||typeof states!=='object')return {};
         const merged={hidden:false,muted:false,locked:false,solo:false};
         for(const [key,value] of Object.entries(states)){
           if(!value||typeof value!=='object')continue;
-          const numeric=Number(key);
-          if((Number.isFinite(target)&&Number.isFinite(numeric)&&numeric===target)||key===String(track)){
+          const numeric=trackKey(key);
+          if(numeric===target){
             merged.hidden=merged.hidden||!!value.hidden;
             merged.muted=merged.muted||!!value.muted;
             merged.locked=merged.locked||!!value.locked;
@@ -26,10 +29,10 @@ class ProfitMenteQAEngine{
     };
     const soloSet=tracks=>{const set=new Set(tracks.filter(track=>state(track).solo));return set.size?set:null};
     const visualSolo=soloSet(VISUAL_TRACKS),audioSolo=soloSet(AUDIO_TRACKS);
-    const activeTrack=track=>{track=Number(track);const s=state(track);if(VISUAL_TRACKS.includes(track))return !s.hidden&&(!visualSolo||visualSolo.has(track));if(AUDIO_TRACKS.includes(track))return !s.muted&&(!audioSolo||audioSolo.has(track));return true};
-    const disabled=c=>!activeTrack(Number(c?.track));
+    const activeTrack=value=>{const track=trackKey(value);if(track===null)return false;const s=state(track);if(VISUAL_TRACKS.includes(track))return !s.hidden&&(!visualSolo||visualSolo.has(track));if(AUDIO_TRACKS.includes(track))return !s.muted&&(!audioSolo||audioSolo.has(track));return false};
+    const disabled=c=>!activeTrack(c?.track);
     const assetKind=a=>a?.type==='video'||a?.type==='image'?'visual':a?.type==='audio'?'audio':'other';
-    const expectedKind=track=>[0,1].includes(Number(track))?'visual':[4,5,6].includes(Number(track))?'audio':'none';
+    const expectedKind=value=>{const track=trackKey(value);return [0,1].includes(track)?'visual':[4,5,6].includes(track)?'audio':'none'};
     const requireBlob=typeof document!=='undefined';
     const usableBlob=a=>{if(!requireBlob&&a?.blob==null)return true;return !!a?.blob&&typeof a.blob.arrayBuffer==='function'&&(a.blob.size==null||Number(a.blob.size)>0)};
     if(!project.clips?.length) issues.push('El timeline está vacío.');
@@ -39,8 +42,10 @@ class ProfitMenteQAEngine{
     const checkWordTimings=c=>{if(c.wordTimings==null)return;if(!Array.isArray(c.wordTimings)){issues.push(`Tiempos de palabras inválidos: ${c.name||c.id}`);return}const start=Number(c.start)||0,end=start+(Number(c.duration)||0);let previous=start-.001;for(let i=0;i<c.wordTimings.length;i++){const w=c.wordTimings[i],ws=Number(w?.start),we=Number(w?.end),word=String(w?.word||'').trim();if(!word)issues.push(`Caption con palabra vacía: ${c.name||c.id}`);if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws){issues.push(`Tiempo de palabra inválido: ${c.name||c.id}`);continue}if(ws<start-.03||we>end+.03)issues.push(`Palabra fuera del rango del caption: ${c.name||c.id}`);if(ws<previous-.01)issues.push(`Palabras desordenadas o solapadas: ${c.name||c.id}`);previous=we}if(c.animation==='word-by-word'&&!c.wordTimings.length)warnings.push(`Caption word-by-word sin palabras sincronizadas: ${c.name||c.id}`)};
     const checkMotionText=c=>{const name=String(c.name||'').trim();if(!name)issues.push(`Texto Motion vacío: ${c.id}`);if(name.length>180)warnings.push(`Texto Motion demasiado largo: ${name.slice(0,32)}…`);if(!['title','label','callout'].includes(c.textStyle||'title'))issues.push(`Estilo Motion inválido: ${name||c.id}`);if(!['none','fade','pop','slide-up'].includes(c.textAnimation||'pop'))issues.push(`Animación Motion inválida: ${name||c.id}`);for(const [field,lo,hi] of [['textX',-45,45],['textY',-45,45],['fontSize',16,84],['boxOpacity',0,1]]){const fallback=field==='textY'?-28:field==='fontSize'?40:field==='boxOpacity' ? .55 : 0,v=Number(c[field]??fallback);if(!Number.isFinite(v)||v<lo||v>hi)issues.push(`${field} fuera de rango en Motion: ${name||c.id}`)}const color=/^#[0-9a-f]{6}$/i;if(c.textColor!=null&&!color.test(String(c.textColor)))issues.push(`Color de texto Motion inválido: ${name||c.id}`);if(c.boxColor!=null&&!color.test(String(c.boxColor)))issues.push(`Color de fondo Motion inválido: ${name||c.id}`)};
     for(const c of project.clips||[]){
-      const track=Number(c.track),inactive=disabled(c),assetId=mediaIdKey(c?.asset);
+      const track=trackKey(c?.track),inactive=disabled(c),assetId=mediaIdKey(c?.asset);
+      if(track===null) issues.push(`Pista inválida: ${c.name||c.id}`);
       if(c.start<0||c.duration<=0||c.start+c.duration>project.duration+.01) issues.push(`Clip fuera de rango: ${c.name||c.id}`);
+      if(!inactive&&[0,1,4,5,6].includes(track)&&c?.asset!=null&&assetId===null) issues.push(`Identidad de medio inválida: ${c.name||c.id}`);
       const a=!inactive&&assetId!==null?assets.find(x=>mediaIdKey(x?.id)===assetId):null;
       if(!inactive&&assetId!==null&&!ids.has(assetId)) issues.push(`Medio faltante: ${c.name||c.id}`);
       if(a){const expected=expectedKind(track),actual=assetKind(a);if(expected!=='none'&&actual!==expected)issues.push(`Tipo de medio incompatible con la pista: ${c.name||a.name}`);if(expected!=='none'&&!usableBlob(a))issues.push(`Archivo de medio vacío o no disponible: ${c.name||a.name}`);if(expected!=='none'&&a.mediaReadable===false)issues.push(`Medio no decodificable: ${c.name||a.name}${a.mediaError?' · '+a.mediaError:''}`)}
@@ -53,14 +58,14 @@ class ProfitMenteQAEngine{
       if(a&&([4,5,6].includes(track)||([0,1].includes(track)&&a.type==='video')))checkEnvelope(c);
       if(a?.duration&&['video','audio'].includes(a.type)){const sourceNeeded=Math.max(0,Number(c.duration)||0)*speed;if(sourceOffset>a.duration+.01) issues.push(`Punto de entrada fuera del archivo fuente: ${c.name||a.name}`);else if(sourceOffset+sourceNeeded>a.duration+.15) warnings.push(`Recorte supera el final del archivo fuente: ${c.name||a.name} · requiere ${(sourceOffset+sourceNeeded).toFixed(2)}s de ${Number(a.duration).toFixed(2)}s`)}
     }
-    const visuals=(project.clips||[]).filter(c=>[0,1].includes(Number(c.track))&&mediaIdKey(c?.asset)!==null&&activeTrack(Number(c.track)));if(!visuals.length) warnings.push('No hay video o imagen visible asignado a las pistas visuales.');
+    const visuals=(project.clips||[]).filter(c=>[0,1].includes(trackKey(c?.track))&&mediaIdKey(c?.asset)!==null&&activeTrack(c?.track));if(!visuals.length) warnings.push('No hay video o imagen visible asignado a las pistas visuales.');
     const colorGraded=visuals.filter(c=>['brightness','contrast','saturation','hue'].some(k=>Math.abs(Number(c[k])||0)>.001));
-    const motion=(project.clips||[]).filter(c=>Number(c.track)===2&&c.name&&activeTrack(2));
-    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(Number(c.track))&&mediaIdKey(c?.asset)!==null&&!c.muted&&activeTrack(Number(c.track)));if(!audio.length) warnings.push('No hay voz, música ni SFX activos.');
-    const captions=(project.clips||[]).filter(c=>Number(c.track)===3&&c.name&&activeTrack(3));if(!captions.length) warnings.push('No hay subtítulos/captions visibles.');
+    const motion=(project.clips||[]).filter(c=>trackKey(c?.track)===2&&c.name&&activeTrack(c?.track));
+    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(trackKey(c?.track))&&mediaIdKey(c?.asset)!==null&&!c.muted&&activeTrack(c?.track));if(!audio.length) warnings.push('No hay voz, música ni SFX activos.');
+    const captions=(project.clips||[]).filter(c=>trackKey(c?.track)===3&&c.name&&activeTrack(c?.track));if(!captions.length) warnings.push('No hay subtítulos/captions visibles.');
     const disabledTracks=[];for(let i=0;i<=6;i++)if(!activeTrack(i))disabledTracks.push(i);if(disabledTracks.length) warnings.push(`Pistas desactivadas para exportación: ${disabledTracks.join(', ')}`);
     const usedVisualIds=new Set(visuals.map(c=>mediaIdKey(c?.asset)).filter(id=>id!==null));for(const a of assets.filter(x=>usedVisualIds.has(mediaIdKey(x?.id))&&['video','image'].includes(x.type))){if(a.width&&a.height){const shortSide=Math.min(a.width,a.height),longSide=Math.max(a.width,a.height);if(shortSide<720||longSide<1280) warnings.push(`Resolución baja para render profesional: ${a.name} (${a.width}×${a.height})`);const portrait=a.height>a.width,landscape=a.width>a.height,usesCover=visuals.some(c=>mediaIdKey(c?.asset)===mediaIdKey(a?.id)&&(c.fitMode||'cover')==='cover');if(usesCover&&project.format==='9:16'&&landscape&&a.width/a.height>1.5) warnings.push(`Medio horizontal requerirá recorte fuerte en 9:16: ${a.name}`);if(usesCover&&project.format==='16:9'&&portrait&&a.height/a.width>1.5) warnings.push(`Medio vertical requerirá recorte fuerte en 16:9: ${a.name}`)}}
-    for(let track=0;track<=6;track++){const cs=(project.clips||[]).filter(c=>Number(c.track)===track).sort((a,b)=>a.start-b.start);for(let i=1;i<cs.length;i++) if(cs[i].start<cs[i-1].start+cs[i-1].duration-.01&&![1,2,3,4,5,6].includes(track)) warnings.push(`Solapamiento en ${track}: ${cs[i-1].name} / ${cs[i].name}`)}
+    for(let track=0;track<=6;track++){const cs=(project.clips||[]).filter(c=>trackKey(c?.track)===track).sort((a,b)=>a.start-b.start);for(let i=1;i<cs.length;i++) if(cs[i].start<cs[i-1].start+cs[i-1].duration-.01&&![1,2,3,4,5,6].includes(track)) warnings.push(`Solapamiento en ${track}: ${cs[i-1].name} / ${cs[i].name}`)}
     const visualSeconds=this.coverage(visuals,project.duration),captionSeconds=this.coverage(captions,project.duration),safeDuration=Math.max(.001,Number(project.duration)||0),score=Math.max(0,100-issues.length*25-warnings.length*7-Math.round(Math.max(0,.75-visualSeconds/safeDuration)*30));
     return {ok:issues.length===0,score,issues,warnings,metrics:{duration:project.duration,clips:(project.clips||[]).length,assets:assets.length,visualCoverage:+(visualSeconds/safeDuration*100).toFixed(1),captionCoverage:+(captionSeconds/safeDuration*100).toFixed(1),motionTextClips:motion.length,colorGradedClips:colorGraded.length,activeAudioClips:audio.length,disabledTracks}};
   }
