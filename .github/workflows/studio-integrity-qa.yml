@@ -32,9 +32,13 @@ jobs:
           node --check studio/render-job-integration.js
           node --check studio/bundle-import-integration.js
           node --check studio/media-storage-resilience.js
+          node --check studio/audio-qc-engine.js
+          node --check studio/audio-qc-integration.js
           node --check studio/qa-engine.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
+      - name: Audio overlap mix QA regression
+        run: node studio/test_audio_qc_mix_overlap.js
       - name: Project transfer regression
         run: |
           node studio/project-transfer-regression.test.js
