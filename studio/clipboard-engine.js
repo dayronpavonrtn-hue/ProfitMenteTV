@@ -5,7 +5,7 @@
     trackState(project,track){const s=project?.trackState||{};const v=s[track]??s[String(track)]??{};return v&&typeof v==='object'?v:{}}
     isLocked(project,track){return !!this.trackState(project,Number(track)).locked}
     createId(prefix='clip'){return root.crypto?.randomUUID?.()||`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`}
-    validNumber(value,{min=0,integer=false}={}){const n=Number(value);return Number.isFinite(n)&&n>=min&&(!integer||Number.isInteger(n))?n:null}
+    validNumber(value,{min=0,integer=false}={}){if(typeof value!=='number'||!Number.isFinite(value)||value<min||(integer&&!Number.isInteger(value)))return null;return value}
     validateClip(clip){
       if(!clip||typeof clip!=='object')return {ok:false,reason:'invalid-clip'};
       const track=this.validNumber(clip.track,{min:0,integer:true});
