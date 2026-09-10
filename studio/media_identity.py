@@ -7,6 +7,7 @@ import re
 
 _NUMERIC_MEDIA_ID = re.compile(r'^[+-]?(?:\d+\.?\d*|\.\d+)$')
 _EXPONENT_ZERO = re.compile(r'e([+-])0+(\d+)$')
+_MAX_SAFE_INTEGER = 2**53 - 1
 
 
 def _javascript_number_string(numeric: float) -> str:
@@ -24,22 +25,26 @@ def _javascript_number_string(numeric: float) -> str:
     return _EXPONENT_ZERO.sub(r'e\1\2', shortest)
 
 
-def _javascript_finite_number(value):
-    """Mirror the browser idKey Number(...) path without object/bool coercion."""
+def _safe_integer_number(value):
+    """Accept only primitive finite integers that JavaScript can represent safely."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     try:
         numeric = float(value)
     except (TypeError, ValueError, OverflowError):
         return None
-    return numeric if math.isfinite(numeric) else None
+    if not math.isfinite(numeric) or not numeric.is_integer():
+        return None
+    if abs(numeric) > _MAX_SAFE_INTEGER:
+        return None
+    return numeric
 
 
 def media_id_key(value):
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        numeric = _javascript_finite_number(value)
+        numeric = _safe_integer_number(value)
         return _javascript_number_string(numeric) if numeric is not None else None
     if not isinstance(value, str):
         return None
@@ -52,7 +57,12 @@ def media_id_key(value):
         except (ValueError, OverflowError):
             numeric = None
         if numeric is not None and math.isfinite(numeric):
-            return _javascript_number_string(numeric)
+            # Legacy string IDs may contain decimal spellings. Canonicalize
+            # fractional numbers (browser Number identity) and safe integers,
+            # but preserve oversized integer strings as textual identities so
+            # they cannot silently collide after IEEE-754 rounding.
+            if not numeric.is_integer() or abs(numeric) <= _MAX_SAFE_INTEGER:
+                return _javascript_number_string(numeric)
     return raw
 
 
