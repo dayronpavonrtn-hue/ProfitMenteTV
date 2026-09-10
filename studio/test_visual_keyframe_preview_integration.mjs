@@ -55,7 +55,7 @@ transforms.length=0;
 await window.renderAt(1);
 const scales=transforms.filter(x=>x[0]==='scale').map(x=>[x[1],x[2]]);
 assert.deepEqual(scales,[[1.5,1.5],[2,2]],'each draw must receive the keyframes of its own clip, not the shared asset identity');
-const translations=transforms.filter(x=>x[0]==='translate'&&x[1]!==500);
+const translations=transforms.filter(x=>x[0]==='translate'&&x[2]===250);
 assert.equal(translations[0][1],400,'lower V1 clip should receive -10% X');
 assert.equal(translations[1][1],700,'upper V2 clip should receive +20% X');
 assert.equal(Object.prototype.hasOwnProperty.call(window,'assetUrl'),false,'modern preview integration must not depend on legacy assetUrl interception');
