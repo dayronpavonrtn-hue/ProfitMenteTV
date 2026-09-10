@@ -4,7 +4,7 @@
   let showAll=false;
   const section=document.createElement('section');section.className='recoveryPanel';section.innerHTML='<h3>Recuperación</h3><div class="projectLibraryActions"><button id="recoverySnapshotBtn">⟲ Crear punto</button><button id="recoveryRefreshBtn">↻ Ver versiones</button><button id="recoveryAllBtn" title="Mostrar también copias de otros proyectos">☰ Ver todos</button></div><div id="recoveryList" class="projectLibraryList"></div>';aside.appendChild(section);
   const status=t=>typeof setStatus==='function'&&setStatus(t);
-  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
   function rows(){return (showAll?engine.list():engine.list(project)).slice(0,showAll?12:6)}
   function render(){
     const el=$('#recoveryList'),list=rows(),toggle=$('#recoveryAllBtn');
@@ -20,9 +20,6 @@
     const afterDraftId=project?.recoveryMeta?.draftId;
     if(project?.libraryId||beforeDraftId||!afterDraftId)return;
     try{
-      // Keep the stable draft identity in the same local project record used on
-      // reload. Use the unwrapped persistence path to avoid recursively taking
-      // another recovery snapshot merely for recovery metadata.
       if(typeof originalPersist==='function')originalPersist();
       else localStorage.setItem('profitmente-project',JSON.stringify(project));
     }catch(err){console.warn('ProfitMente recovery identity persistence failed',err)}
@@ -31,17 +28,21 @@
     const beforeDraftId=project?.recoveryMeta?.draftId||null,snap=engine.capture(project,reason);
     if(snap){persistRecoveryIdentity(beforeDraftId);render()}return snap
   }
-  function ensureCurrentProjectRecovery(){
-    showAll=false;
-    // capture() deduplicates identical states. Calling it unconditionally also
-    // upgrades legacy name-based draft snapshots to a stable identity on boot.
-    capture('inicio');
-  }
+  function ensureCurrentProjectRecovery(){showAll=false;capture('inicio')}
   function flushBeforeRestore(){
     const flush=window.ProfitMenteNewProject?.flushCurrentProject;
     if(typeof flush==='function')return flush()!==false;
     capture('antes de restaurar');
     return true;
+  }
+  function validateRecoverySnapshot(next){
+    const ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(typeof ImportEngine!=='function')throw new Error('No se pudo cargar el validador de proyectos para restaurar este punto');
+    // Validate the untouched snapshot before migration. Migration intentionally
+    // repairs legacy numeric strings, but must never get a chance to coerce
+    // corrupt booleans/objects into valid track, timing, volume or visual data.
+    new ImportEngine().normalize(next);
+    return next;
   }
   function migrateRestoredProject(next){
     const migrate=window.ProfitMenteProjectMigration?.migrateImportedProject;
@@ -57,7 +58,7 @@
   function restore(id){
     let next=engine.restore(id);if(!next)return;
     if(!flushBeforeRestore()){status('No se pudo guardar el proyecto actual; restauración cancelada');return}
-    try{const migrate=migrateRestoredProject;next=migrate(next)}catch(err){console.error(err);status(err.message||'No se pudo restaurar el punto de recuperación');return}
+    try{next=validateRecoverySnapshot(next);next=migrateRestoredProject(next)}catch(err){console.error(err);status(err.message||'No se pudo restaurar el punto de recuperación');return}
     next=normalizeRestoredProject(next);project=next;
     if(typeof persist==='function')persist();else if(typeof originalPersist==='function')originalPersist();
     if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();
