@@ -122,6 +122,8 @@
     ['slide-edit-integration.js','ProfitMenteSlideEdit'],
     ['rate-stretch-engine.js','ProfitMenteRateStretchEngine'],
     ['rate-stretch-integration.js','ProfitMenteRateStretch'],
+    ['visual-keyframe-engine.js','ProfitMenteVisualKeyframeEngine'],
+    ['visual-keyframe-integration.js','ProfitMenteVisualKeyframes'],
     ['freeze-frame-engine.js','ProfitMenteFreezeFrameEngine'],
     ['freeze-frame-integration.js','ProfitMenteFreezeFrame'],
     ['clip-lock-engine.js','ProfitMenteClipLockEngine'],
