@@ -60,5 +60,13 @@ assert.equal(engine.visualTrackHidden(modernProject, 1), true, 'modern hidden st
 
 assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: 9 } } }, 4), 2, 'gain must remain clamped');
 assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: -3 } } }, 4), 0, 'gain must remain clamped');
+assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: true } } }, 4), 1, 'boolean gain must not coerce to 1 as user data');
+assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: false } } }, 4), 1, 'boolean gain must fall back safely');
+assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: {} } } }, 4), 1, 'object gain must fall back safely');
+assert.equal(engine.trackGainValue({ trackStates: { '04': { gain: ' 0.35 ' } } }, 4), 0.35, 'legacy numeric string gain remains supported');
+assert.equal(engine.finiteNumber(NaN), null);
+assert.equal(engine.finiteNumber(Infinity), null);
+assert.equal(engine.finiteNumber(''), null);
+assert.equal(engine.finiteNumber(true), null);
 
 console.log('audio preview identity regression: PASS');
