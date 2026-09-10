@@ -1,0 +1,13 @@
+(()=>{
+  const root=typeof window!=='undefined'?window:globalThis,Engine=root.ProfitMenteVisualCropEngine;if(!Engine||typeof document==='undefined'||root.ProfitMenteVisualCrop)return;
+  const props=document.querySelector('.props');if(!props)return;const engine=new Engine(),$=s=>document.querySelector(s);
+  const panel=document.createElement('section');panel.className='visualCropPanel';panel.innerHTML=`<hr><h3>Recorte</h3><div class="ciGrid"><label>Izquierda %<input id="vcLeft" type="number" min="0" max="95" step="1"></label><label>Derecha %<input id="vcRight" type="number" min="0" max="95" step="1"></label><label>Arriba %<input id="vcTop" type="number" min="0" max="95" step="1"></label><label>Abajo %<input id="vcBottom" type="number" min="0" max="95" step="1"></label></div><div class="ciActions"><button id="vcApply">Aplicar recorte</button><button id="vcReset">Restablecer</button></div><small id="vcInfo"></small>`;props.appendChild(panel);
+  const fields={left:$('#vcLeft'),right:$('#vcRight'),top:$('#vcTop'),bottom:$('#vcBottom')},apply=$('#vcApply'),reset=$('#vcReset'),info=$('#vcInfo');
+  const key=v=>{const s=String(v??'').trim();if(!s)return null;const n=Number(s);return Number.isFinite(n)?`n:${n}`:`s:${s}`},same=(a,b)=>{const x=key(a),y=key(b);return x!==null&&x===y};
+  const selected=()=>project?.clips?.find(c=>same(c?.id,root.ProfitMenteEditTools?.selectedId))||null,playhead=()=>Number($('#playhead')?.value)||0;
+  function refresh(){const c=selected(),ok=engine.eligible(c),locked=ok&&engine.locked(project,c),s=ok?engine.state(c):Engine.defaults();for(const [k,el] of Object.entries(fields)){el.value=String(Math.round(s[k]*100)/100);el.disabled=!ok||locked}apply.disabled=reset.disabled=!ok||locked;info.textContent=!ok?'Selecciona un clip de Video u Overlay.':locked?'Clip o pista bloqueada.':'Recorte no destructivo · se conserva el archivo original.'}
+  function commit(r,label){if(!r?.ok){setStatus?.(r?.reason==='locked'?'Recorte bloqueado por clip o pista':'No se pudo aplicar el recorte');refresh();return}if(r.changed){persist?.();drawTimeline?.();renderAt?.(playhead())}setStatus?.(label);refresh()}
+  apply.onclick=()=>commit(engine.apply(project,selected(),Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value]))),'Recorte visual aplicado');reset.onclick=()=>commit(engine.reset(project,selected()),'Recorte visual restablecido');
+  document.addEventListener('click',e=>{if(e.target.closest?.('.clip'))requestAnimationFrame(refresh)},true);root.addEventListener?.('profitmente:project-loaded',refresh);root.addEventListener?.('profitmente:project-reset',refresh);
+  root.ProfitMenteVisualCrop={engine,refresh};refresh();
+})();
