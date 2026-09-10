@@ -47,4 +47,21 @@ drawn.length=0;
 await context.renderAt(3);
 ok(!drawn.some(x=>x==='UNO'||x==='DOS'),'Una pista captions legacy hidden no debe dibujarse');
 
+// Legacy numeric-string aliases remain supported, including zero-padded keys.
+context.project.trackStates={'03':{hidden:true}};
+drawn.length=0;
+await context.renderAt(3);
+ok(!drawn.some(x=>x==='UNO'||x==='DOS'),'Una pista captions legacy 03 hidden debe seguir ocultándose');
+
+// Corrupt/non-string aliases must never be coerced into a real caption track.
+context.project.trackStates={};
+context.project.trackState={};
+Object.defineProperty(context.project.trackState,'3',{value:{hidden:false},enumerable:true,configurable:true});
+Object.defineProperty(context.project.trackState,'true',{value:{hidden:true},enumerable:true,configurable:true});
+ok(context.ProfitMenteCaptionPreview.captionsHidden()===false,'Una clave textual true no debe ocultar captions');
+
+context.project.trackState={'3':{hidden:false}};
+context.project.trackStates={' 03 ':{hidden:true}};
+ok(context.ProfitMenteCaptionPreview.captionsHidden()===true,'Alias numérico legacy con espacios debe conservar compatibilidad');
+
 console.log('caption overlap preview/render parity regression ok');
