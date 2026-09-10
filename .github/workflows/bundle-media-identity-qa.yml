@@ -4,9 +4,12 @@ on:
   push:
     paths:
       - 'studio/bundle-engine.js'
+      - 'studio/bundle-import-identity-guard.js'
+      - 'studio/bundle-import-integration.js'
       - 'studio/media-import-engine.js'
       - 'studio/media_identity.py'
       - 'studio/test_bundle_media_identity.mjs'
+      - 'studio/test_bundle_import_identity_guard.mjs'
       - 'studio/test_media_identity_collision.py'
       - '.github/workflows/bundle-media-identity-qa.yml'
   workflow_dispatch:
@@ -24,9 +27,15 @@ jobs:
           python-version: '3.12'
       - name: Syntax check bundle engine
         run: node --check studio/bundle-engine.js
+      - name: Syntax check bundle import identity guard
+        run: node --check studio/bundle-import-identity-guard.js
+      - name: Syntax check bundle import integration
+        run: node --check studio/bundle-import-integration.js
       - name: Syntax check media import engine
         run: node --check studio/media-import-engine.js
       - name: Test media identity survives bundle roundtrip
         run: node studio/test_bundle_media_identity.mjs
+      - name: Test strict bundle import identities
+        run: node studio/test_bundle_import_identity_guard.mjs
       - name: Test Python render media identity matches Studio aliases
         run: python studio/test_media_identity_collision.py
