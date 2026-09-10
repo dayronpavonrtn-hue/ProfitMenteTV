@@ -19,6 +19,7 @@ clip = {
 project = {'clips': [clip, {'id': 'audio', 'track': 5, 'duration': 6}]}
 frames = normalize_visual_keyframes(clip)
 assert len(frames) == 3
+assert all(frame['easing'] == 'linear' for frame in frames)
 # Browser semantics: hold the first state before first keyframe, interpolate,
 # then hold the final state after the last keyframe.
 assert state_at(frames, 6, 0)['x'] == -10
@@ -46,6 +47,38 @@ assert len([item for item in expanded['clips'] if item.get('track') == 5]) == 1
 # Original project must remain untouched.
 assert project['clips'][0]['visualKeyframes'][1]['x'] == 20
 assert 'keyframes' not in project['clips'][0]
+
+# Easing semantics must match the browser engine. Curved intervals are split
+# into short linear render segments, while hold remains constant until the cut.
+eased = {'clips': [{
+    'id': 'eased', 'track': 0, 'start': 0, 'duration': 2,
+    'visualKeyframes': [
+        {'time': 0, 'x': 0, 'easing': 'ease-in'},
+        {'time': 2, 'x': 100},
+    ],
+}]}
+eased_frames = normalize_visual_keyframes(eased['clips'][0])
+close(state_at(eased_frames, 2, 1)['x'], 25)
+eased_visual = expand_visual_keyframes(eased)['clips']
+assert len(eased_visual) == 12
+# Step 6 ends at t=1.0, exactly the browser ease-in midpoint (25%).
+close(eased_visual[5]['keyframes']['end']['positionX'], 25)
+
+held = {'clips': [{
+    'id': 'held', 'track': 1, 'start': 0, 'duration': 2,
+    'visualKeyframes': [
+        {'time': 0, 'x': -20, 'easing': 'hold'},
+        {'time': 2, 'x': 80},
+    ],
+}]}
+held_frames = normalize_visual_keyframes(held['clips'][0])
+assert state_at(held_frames, 2, 1.99)['x'] == -20
+assert state_at(held_frames, 2, 2)['x'] == 80
+held_visual = expand_visual_keyframes(held)['clips']
+assert len(held_visual) == 1
+assert held_visual[0]['keyframes']['start']['positionX'] == -20
+assert held_visual[0]['keyframes']['end']['positionX'] == -20
+assert normalize_visual_keyframes({'track': 0, 'duration': 1, 'visualKeyframes': [{'time': 0, 'easing': 'bad'}]})[0]['easing'] == 'linear'
 
 # Legacy/imported numeric-string tracks must follow the same canonical identity
 # contract as the browser preview and the rest of the local render pipeline.
