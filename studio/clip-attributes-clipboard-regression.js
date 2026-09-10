@@ -3,7 +3,7 @@ const assert=require('assert');
 const {ProfitMenteClipAttributesClipboardEngine:Engine}=require('./clip-attributes-clipboard-engine.js');
 
 const project={
-  trackState:{0:{locked:false},4:{locked:false}},
+  trackState:{0:{locked:false},4:{locked:false},5:{locked:false}},
   clips:[
     {id:'visual-a',track:0,start:1,duration:6,asset:'asset-a',sourceOffset:2,fitMode:'contain',flipX:true,positionX:12,positionY:-8,scale:1.4,rotation:9,opacity:.7,motion:'push-in',keyframes:{start:{scale:1},end:{scale:1.5}},visualKeyframes:[{time:0,x:0,y:0,scale:1,rotation:0,opacity:1,easing:'linear'}],transition:'fade'},
     {id:'visual-b',track:1,start:20,duration:3,asset:'asset-b',sourceOffset:7,fitMode:'cover',positionX:0,scale:1,transition:'zoom'},
@@ -50,11 +50,11 @@ assert.equal(captionPaste.reason,'ok');
 assert.equal(project.clips[5].style,'hook-pop');
 assert.equal(project.clips[5].animation,'word-pulse');
 
-project.trackState[4].locked=true;
+project.trackState[5].locked=true;
 const locked=Engine.paste(project,'audio-b',audioCopy.data);
 assert.equal(locked.reason,'locked');
 assert.equal(locked.changed,0);
-project.trackState[4].locked=false;
+project.trackState[5].locked=false;
 project.clips[3].locked=true;
 assert.equal(Engine.paste(project,'audio-b',audioCopy.data).reason,'locked');
 project.clips[3].locked=false;
