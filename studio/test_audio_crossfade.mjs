@@ -31,11 +31,11 @@ project=make();project.clips[0].duration='bad';r=engine.applyNext(project,assets
 project=make();project.clips.push({id:3,track:5,asset:'c',start:4.5,duration:2});p=engine.nextOverlap(project,assets,1);assert.equal(p.next.id,2,'elige el siguiente cronológico');
 
 const integration=readFileSync(new URL('./audio-crossfade-integration.js',import.meta.url),'utf8');
-const bootstrap=readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
+const envelopeIntegration=readFileSync(new URL('./audio-envelope-integration.js',import.meta.url),'utf8');
 assert.match(integration,/ProfitMenteAudioCrossfadeEngine/);
 assert.match(integration,/persist\?\.\(\)/,'persiste una edición válida');
 assert.match(integration,/renderAt\?\.\(/,'refresca preview');
 assert.doesNotMatch(integration,/fetch\(|https?:\/\//,'crossfade permanece local y $0');
-assert.match(bootstrap,/audio-crossfade-engine\.js/,'bootstrap carga motor crossfade');
-assert.match(bootstrap,/audio-crossfade-integration\.js/,'bootstrap carga integración crossfade');
+assert.match(envelopeIntegration,/audio-crossfade-engine\.js/,'inspector carga motor crossfade');
+assert.match(envelopeIntegration,/audio-crossfade-integration\.js/,'inspector carga integración crossfade');
 console.log('Audio crossfade regression OK');
