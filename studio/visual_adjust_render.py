@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""FFmpeg parity helpers for ProfitMente Studio visualAdjustments.
+"""FFmpeg parity helpers for ProfitMente Studio visual adjustments.
 
 The browser stores brightness/contrast/saturation as percentages where 100 is
-neutral and grayscale as a percentage where 0 is neutral.  Keep this helper
+neutral and grayscale as a percentage where 0 is neutral. Keep this helper
 small and dependency-free so MP4 rendering remains fully local/$0.
 """
+
+from visual_crop_render import visual_crop_filter
 
 
 def _finite(value, fallback):
@@ -35,26 +37,23 @@ def normalize_visual_adjustments(clip):
 
 
 def visual_adjust_filter(clip):
-    """Return an FFmpeg filter chain matching Studio visual adjustments.
+    """Return the local FFmpeg visual filter chain used by MP4 rendering.
 
-    Brightness is multiplicative (matching CSS brightness). Contrast uses
-    FFmpeg eq's multiplicative contrast. Saturation and grayscale collapse to
-    an effective saturation factor; grayscale=100 therefore produces a fully
-    monochrome result while intermediate values progressively desaturate.
+    Crop is included here because render_mp4.py already routes every visual
+    clip through this helper. This keeps preview/MP4 parity without a second
+    render path. Brightness is multiplicative (matching CSS brightness), while
+    contrast/saturation use FFmpeg eq. Grayscale collapses into saturation.
     """
+    filters = []
+    crop = visual_crop_filter(clip)
+    if crop:
+        filters.append(crop)
+
     state = normalize_visual_adjustments(clip)
     brightness = state['brightness'] / 100.0
     contrast = state['contrast'] / 100.0
     saturation = (state['saturation'] / 100.0) * (1.0 - state['grayscale'] / 100.0)
 
-    if (
-        abs(brightness - 1.0) < 1e-9
-        and abs(contrast - 1.0) < 1e-9
-        and abs(saturation - 1.0) < 1e-9
-    ):
-        return ''
-
-    filters = []
     if abs(brightness - 1.0) >= 1e-9:
         filters.append(
             f"colorchannelmixer=rr={brightness:.6f}:gg={brightness:.6f}:bb={brightness:.6f}"
