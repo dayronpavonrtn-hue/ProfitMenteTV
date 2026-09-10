@@ -1,0 +1,47 @@
+name: ProfitMente Studio Visual Adjust QA
+
+on:
+  push:
+    paths:
+      - 'studio/visual-adjust-engine.js'
+      - 'studio/visual-adjust-integration.js'
+      - 'studio/visual-keyframe-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_visual_adjust_engine.mjs'
+      - '.github/workflows/visual-adjust-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/visual-adjust-engine.js'
+      - 'studio/visual-adjust-integration.js'
+      - 'studio/visual-keyframe-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_visual_adjust_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  visual-adjust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/visual-adjust-engine.js
+          node --check studio/visual-adjust-integration.js
+          node --check studio/visual-keyframe-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_visual_adjust_engine.mjs
+      - name: Visual adjustment regression
+        run: node studio/test_visual_adjust_engine.mjs
+      - name: Verify Studio wiring and local render path
+        run: |
+          grep -q "visual-adjust-engine.js" studio/feature-bootstrap.js
+          grep -q "visual-adjust-integration.js" studio/feature-bootstrap.js
+          grep -q "ProfitMenteVisualAdjustEngine" studio/visual-keyframe-integration.js
+          grep -q "ctx.filter=adjustEngine.canvasFilter" studio/visual-keyframe-integration.js
+          grep -q "await renderAt(time)" studio/webm-render-integration.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-adjust-engine.js studio/visual-adjust-integration.js
