@@ -37,6 +37,20 @@
     engine.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la cola de render MP4');document.body.appendChild(engine);
   }
   ensureRenderQueue();
+  function ensureClipAttributesClipboard(){
+    if(window.ProfitMenteClipAttributesClipboard)return;
+    const hasScript=name=>[...document.scripts].some(s=>s.src?.endsWith(`/${name}`)||s.src?.endsWith(name));
+    const loadIntegration=()=>{
+      if(window.ProfitMenteClipAttributesClipboard||hasScript('clip-attributes-clipboard-integration.js'))return;
+      const integration=document.createElement('script');integration.src='clip-attributes-clipboard-integration.js';integration.async=false;integration.dataset.profitmenteClipAttributes='1';
+      integration.onerror=()=>console.error('ProfitMente Studio: no se pudo integrar el portapapeles de atributos');document.body.appendChild(integration);
+    };
+    if(window.ProfitMenteClipAttributesClipboardEngine){loadIntegration();return}
+    if(hasScript('clip-attributes-clipboard-engine.js')){setTimeout(ensureClipAttributesClipboard,40);return}
+    const engine=document.createElement('script');engine.src='clip-attributes-clipboard-engine.js';engine.async=false;engine.dataset.profitmenteClipAttributes='1';engine.onload=loadIntegration;
+    engine.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar el portapapeles de atributos');document.body.appendChild(engine);
+  }
+  ensureClipAttributesClipboard();
   function ensureStartupRecoveryNotice(){
     if(!window.__profitmenteStartupRecovered||window.ProfitMenteStartupRecoveryNotice)return;
     if([...document.scripts].some(s=>s.src?.endsWith('/startup-recovery-notice.js')||s.src?.endsWith('startup-recovery-notice.js')))return;
