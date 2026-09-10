@@ -26,6 +26,7 @@ jobs:
         run: |
           node --check studio/app.js
           node --check studio/project-library.js
+          node --check studio/project-import-engine.js
           node --check studio/preview-engine.js
           node --check studio/render-job-client.js
           node --check studio/render-job-integration.js
@@ -35,7 +36,9 @@ jobs:
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
       - name: Project transfer regression
-        run: node studio/project-transfer-regression.test.js
+        run: |
+          node studio/project-transfer-regression.test.js
+          node studio/test_project_import_bounds.mjs
       - name: Atomic bundle restore regression
         run: |
           node studio/test_bundle_import_engine.mjs
