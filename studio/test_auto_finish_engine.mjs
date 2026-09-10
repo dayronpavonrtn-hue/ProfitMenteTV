@@ -17,18 +17,21 @@ const av={...base,clips:[
   {id:'m',track:5,asset:'music'},
   {id:'vo',track:6,asset:'voice'}
 ]};
-assert.deepEqual(Engine.plan(av,[]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','qa']);
-assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','smart-mix','detect-beats','sync-beats','auto-transitions','qa']);
-assert.deepEqual(Engine.plan(av,[{id:'music',type:'audio'}]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(av,[]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(av,[{id:'music',type:'audio'}]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const withBeats={...av,markers:[{time:1,label:'Beat 1'}]};
-assert.deepEqual(Engine.plan(withBeats,[]).steps,['repair','smart-mix','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(withBeats,[]).steps,['repair','smart-mix','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const mutedMusic={...av,trackState:{5:{muted:true}}};
-assert.deepEqual(Engine.plan(mutedMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(mutedMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const manual={...base,clips:[{track:0,asset:'v'},{track:5,asset:'m'}]};
-assert.deepEqual(Engine.plan(manual,[]).steps,['repair','detect-beats','qa']);
+assert.deepEqual(Engine.plan(manual,[]).steps,['repair','detect-beats','audio-headroom','qa']);
+
+const onlySfx={...base,clips:[{track:4,asset:'hit'}]};
+assert.deepEqual(Engine.plan(onlySfx,[]).steps,['repair','detect-beats','audio-headroom','qa']);
 
 // All four visual layers are part of the canonical Studio timeline.
 const upperVisual={...base,clips:[{track:2,asset:'overlay'},{track:3,asset:'logo'}]};
@@ -36,11 +39,11 @@ assert.equal(Engine.inspect(upperVisual,[]).visual,2);
 
 // Legacy restrictions remain conservative when modern state disagrees.
 const legacyMuted={...av,trackState:{5:{muted:false}},trackStates:{5:{muted:true}}};
-assert.deepEqual(Engine.plan(legacyMuted,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(legacyMuted,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 // Audio Solo must prevent an inactive music track from triggering Smart Mix.
 const soloVoice={...av,trackState:{6:{solo:true}}};
-assert.deepEqual(Engine.plan(soloVoice,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(soloVoice,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 assert.equal(Engine.inspect(soloVoice,[]).music,0);
 assert.equal(Engine.inspect(soloVoice,[]).voice,1);
 
@@ -53,19 +56,19 @@ const soloUpper={...base,clips:[
 ],trackState:{2:{solo:true}}};
 assert.equal(Engine.inspect(soloUpper,[]).visual,1);
 assert.equal(Engine.inspect(soloUpper,[]).generated,1);
-assert.deepEqual(Engine.plan(soloUpper,[]).steps,['repair','detect-beats','qa']);
+assert.deepEqual(Engine.plan(soloUpper,[]).steps,['repair','detect-beats','audio-headroom','qa']);
 
 const legacyHiddenGenerated={...av,trackState:{0:{hidden:false}},trackStates:{0:{hidden:true}}};
 assert.equal(Engine.inspect(legacyHiddenGenerated,[]).generated,0);
-assert.deepEqual(Engine.plan(legacyHiddenGenerated,[]).steps,['repair','smart-mix','detect-beats','qa']);
+assert.deepEqual(Engine.plan(legacyHiddenGenerated,[]).steps,['repair','smart-mix','detect-beats','audio-headroom','qa']);
 
 // Canonical track aliases must inherit state instead of bypassing hidden/muted/solo controls.
 const paddedLegacyMusic={...av,trackState:{'05':{muted:true}}};
 assert.equal(Engine.inspect(paddedLegacyMusic,[]).music,0);
-assert.deepEqual(Engine.plan(paddedLegacyMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','qa']);
+assert.deepEqual(Engine.plan(paddedLegacyMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 const paddedLegacyVisual={...av,trackStates:{'+00.0':{hidden:true}}};
 assert.equal(Engine.inspect(paddedLegacyVisual,[]).generated,0);
-assert.deepEqual(Engine.plan(paddedLegacyVisual,[]).steps,['repair','smart-mix','detect-beats','qa']);
+assert.deepEqual(Engine.plan(paddedLegacyVisual,[]).steps,['repair','smart-mix','detect-beats','audio-headroom','qa']);
 
 // A numeric zero is a valid persisted media ID and must not disappear from automation planning.
 const zeroMedia={...base,clips:[{track:'00',asset:0,sceneText:'generated'}]};
