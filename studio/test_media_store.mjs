@@ -8,6 +8,14 @@ backend.failDelete=true;assert.equal(await store.delete('old'),true);assert.equa
 backend.failDelete=false;await store.flush();assert.equal(store.storageAvailable,true);assert.equal(store.pendingDeletes.size,0);assert.equal(backend.items.some(x=>x.id==='old'),false,'pending media deletion is committed after storage recovery');
 const denied=new ProfitMenteMediaStore(null);assert.deepEqual(await denied.loadAll(),[]);await denied.put({id:'session-only',name:'Temporal',type:'image'});assert.equal(denied.storageAvailable,false);assert.equal((await denied.loadAll())[0].id,'session-only');assert.equal(await denied.delete('session-only'),true);assert.deepEqual(await denied.loadAll(),[],'session-only media can still be deleted without IndexedDB');
 await assert.rejects(()=>store.put({id:'',name:'bad'}),/id válido/);
+await assert.rejects(()=>store.put({id:true,name:'boolean-id'}),/id válido/,'boolean ids must never become the string "true" in persistent media');
+await assert.rejects(()=>store.put({id:{value:1},name:'object-id'}),/id válido/,'object ids must never become "[object Object]"');
+await assert.rejects(()=>store.put({id:Number.NaN,name:'nan-id'}),/id válido/,'NaN is not a canonical media identity');
+await assert.rejects(()=>store.put({id:Number.POSITIVE_INFINITY,name:'infinite-id'}),/id válido/,'infinite numeric ids are invalid');
+await assert.rejects(()=>store.put({id:Number.MAX_SAFE_INTEGER+1,name:'unsafe-id'}),/id válido/,'unsafe integer ids are invalid');
+assert.equal(store.get(true),null);assert.equal(store.get({value:1}),null);assert.equal(await store.delete(true),false);assert.equal(await store.delete({value:1}),false);
+const poisonedBackend=new Backend([{id:true,name:'ghost-bool',type:'image'},{id:{value:1},name:'ghost-object',type:'video'},{id:7,name:'valid-number',type:'audio'},{id:'safe-string',name:'valid-string',type:'image'}]);
+const poisonedStore=new ProfitMenteMediaStore(poisonedBackend);const sanitized=await poisonedStore.loadAll();assert.deepEqual(new Set(sanitized.map(x=>x.name)),new Set(['valid-number','valid-string']),'legacy/corrupt persisted ids must be ignored rather than entering the active media library');assert.equal(poisonedStore.get(7)?.name,'valid-number');assert.equal(poisonedStore.get('7')?.name,'valid-number','numeric and canonical numeric-string lookups should resolve the same in-memory asset');
 
 // A second update can arrive while IndexedDB is still committing the first one.
 // The latest in-memory asset must win and remain dirty until that exact version is persisted.
@@ -18,4 +26,4 @@ const raceBackend=new DelayedBackend(),raceStore=new ProfitMenteMediaStore(raceB
 const deleteRaceBackend=new DelayedBackend(),deleteRaceStore=new ProfitMenteMediaStore(deleteRaceBackend);const inflightPut=deleteRaceStore.put({id:'gone',name:'Eliminar',type:'image'});await deleteRaceBackend.started;const inflightDelete=deleteRaceStore.delete('gone');deleteRaceBackend.releaseFirst();await Promise.all([inflightPut,inflightDelete]);assert.equal(deleteRaceStore.get('gone'),null);assert.equal(deleteRaceBackend.items.some(x=>x.id==='gone'),false,'delete queued during a write must win in persistent storage');assert.equal(deleteRaceStore.pendingDeletes.size,0);
 
 const index=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8'),app=fs.readFileSync(new URL('./app.js',import.meta.url),'utf8');assert.ok(index.indexOf('media-store.js')<index.indexOf('app.js'),'media store must load before app.js');assert.match(app,/new ProfitMenteMediaStore\(\)/);assert.match(app,/mediaStore\.loadAll\(\)/);assert.match(app,/mediaStore\.put\(a\)/);
-console.log('Studio resilient media storage + deletion recovery + concurrent flush ordering + runtime wiring OK');
+console.log('Studio resilient media storage + deletion recovery + strict identity + concurrent flush ordering + runtime wiring OK');
