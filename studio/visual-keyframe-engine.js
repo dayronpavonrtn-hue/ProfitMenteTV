@@ -46,7 +46,7 @@
       const deduped=[];
       for(const frame of safe){
         const last=deduped[deduped.length-1];
-        if(last&&Math.abs(last.time-frame.time)<=this.tolerance)deduped[deduped.length-1]=frame;
+        if(last&&Math.abs(last.time-frame.time)<=this.tolerance)deduped[deduped.length-1]={...frame,time:last.time};
         else deduped.push(frame);
       }
       return deduped;
@@ -65,11 +65,11 @@
     upsert(project,clip,localTime,value){
       if(!this.eligible(clip))return {ok:false,reason:'not-visual',changed:false};
       if(this.clipLocked(project,clip))return {ok:false,reason:'locked',changed:false};
-      const time=+this.clampTime(clip,localTime).toFixed(6),next={time,...this.state(value)},frames=this.normalize(clip);
-      const index=frames.findIndex(frame=>Math.abs(frame.time-time)<=this.tolerance);
+      const time=+this.clampTime(clip,localTime).toFixed(6),frames=this.normalize(clip);
+      const index=frames.findIndex(frame=>Math.abs(frame.time-time)<=this.tolerance),stableTime=index>=0?frames[index].time:time,next={time:stableTime,...this.state(value)};
       if(index>=0)frames[index]=next;else frames.push(next);
       frames.sort((a,b)=>a.time-b.time);clip.visualKeyframes=frames;
-      return {ok:true,reason:'ok',changed:true,index:frames.findIndex(frame=>Math.abs(frame.time-time)<=this.tolerance),keyframe:next,count:frames.length};
+      return {ok:true,reason:'ok',changed:true,index:frames.indexOf(next),keyframe:next,count:frames.length};
     }
     remove(project,clip,localTime){
       if(!this.eligible(clip))return {ok:false,reason:'not-visual',changed:false};
