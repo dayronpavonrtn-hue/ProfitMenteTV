@@ -36,6 +36,27 @@ class ProfitMenteAudioQCEngine{
     const visible=waveformEngine.slicePeaks(peaks,{sourceOffset:this.finiteNumber(clip.sourceOffset,0),clipDuration:this.finiteNumber(clip.duration,0),speed:this.finiteNumber(clip.speed,1),sourceDuration:duration,bins:512});
     return {...this.inspectPeaks(visible,this.clipGain(project,clip)),clipId:clip.id,track:this.canonicalTrack(clip.track)};
   }
+  static inspectMixOverlaps(results=[],{warningDb=-1,clipDb=-0.05}={}){
+    const rows=(Array.isArray(results)?results:[]).filter(r=>r?.clip&&Number.isFinite(r.effectivePeak));
+    const events=[];
+    for(const row of rows){
+      const start=this.finiteNumber(row.clip.start,null),duration=this.finiteNumber(row.clip.duration,null);
+      if(start===null||duration===null||duration<=0)continue;
+      events.push({time:start,kind:1,row},{time:start+duration,kind:-1,row});
+    }
+    events.sort((a,b)=>a.time-b.time||a.kind-b.kind);
+    const active=new Set(),segments=[];let last=null;
+    const warnLinear=Math.pow(10,this.finiteNumber(warningDb,-1)/20),clipLinear=Math.pow(10,this.finiteNumber(clipDb,-0.05)/20);
+    for(const event of events){
+      if(last!==null&&event.time>last&&active.size>1){
+        const contributors=[...active],sumPeak=contributors.reduce((sum,row)=>sum+Math.max(0,row.effectivePeak),0),db=this.dbfs(sumPeak),status=sumPeak>=clipLinear?'clipping':sumPeak>=warnLinear?'hot':'ok';
+        if(status!=='ok')segments.push({start:last,end:event.time,duration:event.time-last,status,effectivePeak:sumPeak,dbfs:db,clipIds:contributors.map(r=>r.clip?.id).filter(Boolean)});
+      }
+      if(event.kind<0)active.delete(event.row);else active.add(event.row);last=event.time;
+    }
+    const worst=segments.slice().sort((a,b)=>b.effectivePeak-a.effectivePeak)[0]||null;
+    return {segments,clipping:segments.filter(s=>s.status==='clipping').length,hot:segments.filter(s=>s.status==='hot').length,worst};
+  }
   static summarize(results=[]){
     const list=Array.isArray(results)?results:[],counts={clipping:0,hot:0,ok:0,silent:0,unavailable:0};
     for(const item of list){const key=Object.prototype.hasOwnProperty.call(counts,item?.status)?item.status:'unavailable';counts[key]++}
