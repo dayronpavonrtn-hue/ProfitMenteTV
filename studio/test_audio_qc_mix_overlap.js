@@ -17,14 +17,16 @@ const plan=Engine.planHeadroomFix({clips:rows.map(row=>row.clip)},rows,mix);
 assert.equal(plan.ok,true);
 assert.equal(plan.needed,true);
 assert.ok(plan.gain<1&&plan.gain>0);
+assert.deepEqual(new Set(plan.riskyClipIds),new Set(['voice','music']),'only contributors to unsafe peaks should be adjusted');
 assert.ok(Math.abs((mix.worst.effectivePeak*plan.gain)-Math.pow(10,-1/20))<1e-9,'planned gain must land at -1 dBFS');
 const project={clips:rows.map(row=>({...row.clip}))};
 const mutableRows=rows.map((row,index)=>({...row,clip:project.clips[index]}));
 const applied=Engine.applyHeadroomFix(project,mutableRows,mix);
 assert.equal(applied.ok,true);
-assert.equal(applied.changed,3);
+assert.equal(applied.changed,2,'safe non-overlapping clips must keep their original level');
 assert.ok(Math.abs(project.clips[0].volume-plan.gain)<1e-9);
 assert.ok(Math.abs(project.clips[1].volume-(.22*plan.gain))<1e-9);
+assert.equal(project.clips[2].volume,1,'safe SFX outside the risky overlap must not be attenuated');
 const safe=Engine.inspectMixOverlaps([
  {clip:{id:'a',track:6,start:0,duration:2},effectivePeak:.2},
  {clip:{id:'b',track:5,start:1,duration:2},effectivePeak:.2}
@@ -37,6 +39,7 @@ const safePlan=Engine.planHeadroomFix({},[
 ],safe);
 assert.equal(safePlan.needed,false);
 assert.equal(safePlan.gain,1);
+assert.deepEqual(safePlan.riskyClipIds,[]);
 const lockedRows=[
  {clip:{id:'locked',track:6,start:0,duration:2,volume:1,locked:true},effectivePeak:.8},
  {clip:{id:'other',track:5,start:0,duration:2,volume:.5},effectivePeak:.5}
@@ -54,4 +57,4 @@ const touching=Engine.inspectMixOverlaps([
  {clip:{id:'b',track:5,start:1,duration:1},effectivePeak:.9}
 ]);
 assert.equal(touching.segments.length,0,'touching clips must not be treated as overlapping');
-console.log('Audio QC overlap mix + auto headroom regression OK');
+console.log('Audio QC overlap mix + selective auto headroom regression OK');
