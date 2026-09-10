@@ -37,8 +37,13 @@ jobs:
           node --check studio/qa-engine.js
           node --check studio/recovery-integration.js
           node --check studio/export-preflight.js
+          node --check studio/timeline-word-timing-sync.js
+          node --check studio/ripple-gap-engine.js
+          node --check studio/ripple-gap-integration.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
+      - name: Timeline word timing sync regression
+        run: node studio/test_timeline_word_timing_sync.js
       - name: QA strict identity regression
         run: node studio/test_qa_identity_strictness.js
       - name: Export preflight numeric identity regression
