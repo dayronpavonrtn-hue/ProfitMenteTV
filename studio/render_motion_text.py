@@ -11,6 +11,7 @@ from media_identity import normalize_project_media_ids
 from motion_text_layout import expand_motion_text
 from render_progress import write_progress
 from track_state_render import normalize_track_solo
+from visual_keyframe_render import expand_visual_keyframes
 
 if len(sys.argv)!=4:
     raise SystemExit('Usage: render_motion_text.py project.json assets_dir output.mp4')
@@ -22,10 +23,11 @@ project_path=pathlib.Path(sys.argv[1])
 project=normalize_project_media_ids(normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8'))))
 render_project=expand_motion_text(compact_project_captions(project))
 
-# render_mp4.py remains the visual compositor. Suppress every audio source in
-# its temporary copy, then create the final soundtrack once in render_audio_mix.py.
-# Visual clips are still drawn when muted; muted only disables their source audio.
-video_project=copy.deepcopy(render_project)
+# render_mp4.py remains the visual compositor. Convert the browser's multi-point
+# visualKeyframes into render-only start/end segments before suppressing audio.
+# This keeps preview -> MP4 motion parity without mutating the saved project or
+# duplicating source audio fades at internal keyframe boundaries.
+video_project=expand_visual_keyframes(copy.deepcopy(render_project))
 for clip in video_project.get('clips',[]):
     track=int(clip.get('track',-1))
     if track in (0,1,4,5,6): clip['muted']=True
@@ -46,6 +48,9 @@ with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
     write_progress(35,'Componiendo video y gráficos')
     subprocess.run([sys.executable,str(root/'render_mp4.py'),str(prepared),sys.argv[2],str(video_only)],check=True)
     audio_project=td/'project.audio.json'
+    # Audio intentionally uses the unsplit render project. Segmenting visual clips
+    # is only an FFmpeg-video implementation detail; repeating fades/ducking per
+    # keyframe segment would change the soundtrack.
     audio_project.write_text(json.dumps(render_project,ensure_ascii=False),encoding='utf-8')
     write_progress(72,'Mezclando narración, música y SFX')
     subprocess.run([sys.executable,str(root/'render_audio_mix.py'),str(audio_project),sys.argv[2],str(video_only),sys.argv[3]],check=True)
