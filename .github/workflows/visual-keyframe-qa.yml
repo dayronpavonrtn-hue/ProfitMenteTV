@@ -7,6 +7,7 @@ on:
       - 'studio/visual-keyframe-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_visual_keyframe_engine.mjs'
+      - 'studio/test_visual_keyframe_preview_integration.mjs'
       - '.github/workflows/visual-keyframe-qa.yml'
   pull_request:
     paths:
@@ -14,6 +15,7 @@ on:
       - 'studio/visual-keyframe-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_visual_keyframe_engine.mjs'
+      - 'studio/test_visual_keyframe_preview_integration.mjs'
   workflow_dispatch:
 
 jobs:
@@ -30,8 +32,11 @@ jobs:
           node --check studio/visual-keyframe-integration.js
           node --check studio/feature-bootstrap.js
           node --check studio/test_visual_keyframe_engine.mjs
+          node --check studio/test_visual_keyframe_preview_integration.mjs
       - name: Visual keyframe regression
-        run: node studio/test_visual_keyframe_engine.mjs
+        run: |
+          node studio/test_visual_keyframe_engine.mjs
+          node studio/test_visual_keyframe_preview_integration.mjs
       - name: Verify Studio wiring and render parity
         run: |
           grep -q "visual-keyframe-engine.js" studio/feature-bootstrap.js
