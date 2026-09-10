@@ -30,6 +30,10 @@ assert.deepEqual(project.clips[1].visualKeyframes,project.clips[0].visualKeyfram
 assert.notStrictEqual(project.clips[1].visualKeyframes,project.clips[0].visualKeyframes,'keyframes must be deep-cloned');
 for(const [key,value] of Object.entries(targetBefore))assert.deepEqual(project.clips[1][key],value,`paste must preserve ${key}`);
 
+const durationAwareVisual={version:1,kind:'visual',values:{visualKeyframes:[{time:-2,scale:1},{time:1.5,scale:1.2},{time:99,scale:2}]}};
+assert.equal(Engine.paste(project,'visual-b',durationAwareVisual).reason,'ok');
+assert.deepEqual(project.clips[1].visualKeyframes.map(frame=>frame.time),[0,1.5,3],'visual keyframes must stay inside target clip duration');
+
 const incompatible=Engine.paste(project,'audio-b',visualCopy2.data);
 assert.equal(incompatible.reason,'incompatible');
 assert.equal(project.clips[3].volume,1);
@@ -43,6 +47,11 @@ assert.equal(project.clips[3].fadeInMs,300);
 assert.equal(project.clips[3].fadeOutMs,500);
 assert.equal(project.clips[3].start,10);
 assert.equal(project.clips[3].asset,'audio-b');
+
+const durationAwareAudio={version:1,kind:'audio',values:{fadeInMs:99999,fadeOutMs:8000}};
+assert.equal(Engine.paste(project,'audio-b',durationAwareAudio).reason,'ok');
+assert.equal(project.clips[3].fadeInMs,4000,'fade-in must not exceed target clip duration');
+assert.equal(project.clips[3].fadeOutMs,4000,'fade-out must not exceed target clip duration');
 
 const captionCopy=Engine.copy(project,'caption-a');
 const captionPaste=Engine.paste(project,'caption-b',captionCopy.data);
