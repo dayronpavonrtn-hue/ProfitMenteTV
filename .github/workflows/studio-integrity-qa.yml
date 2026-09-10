@@ -35,6 +35,7 @@ jobs:
           node --check studio/audio-qc-engine.js
           node --check studio/audio-qc-integration.js
           node --check studio/qa-engine.js
+          node --check studio/recovery-integration.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
       - name: QA strict identity regression
@@ -45,6 +46,8 @@ jobs:
         run: |
           node studio/project-transfer-regression.test.js
           node studio/test_project_import_bounds.mjs
+      - name: Recovery restore integrity regression
+        run: node studio/test_recovery_restore_persistence.mjs
       - name: Atomic bundle restore regression
         run: |
           node studio/test_bundle_import_engine.mjs
