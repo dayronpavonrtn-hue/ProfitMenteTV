@@ -45,6 +45,16 @@
       if(changed){clip.duration=+duration.toFixed(6);clip.speed=+speed.toFixed(6)}
       return {...b,ok:true,reason:'ok',changed,requested:+requested.toFixed(6),duration:+duration.toFixed(6),speed:+speed.toFixed(6),clamped:Math.abs(duration-requested)>this.tolerance,sourceSpanAfter:+(duration*speed).toFixed(6),preservedSource:Math.abs(duration*speed-b.sourceSpan)<=1e-5};
     }
+    stretchToSpeed(clip,asset,targetSpeed,nextClip,projectDuration){
+      const requestedSpeed=Number(targetSpeed);
+      if(!Number.isFinite(requestedSpeed)||requestedSpeed<=0)return {ok:false,reason:'invalid-speed',changed:false};
+      const normalized=Math.max(this.minSpeed,Math.min(this.maxSpeed,requestedSpeed));
+      const span=this.sourceSpan(clip);
+      if(!clip||span<=0)return {ok:false,reason:!clip?'no-clip':'invalid-duration',changed:false};
+      const result=this.stretch(clip,asset,span/normalized,nextClip,projectDuration);
+      if(!result.ok)return {...result,requestedSpeed,normalizedSpeed:normalized};
+      return {...result,requestedSpeed:+requestedSpeed.toFixed(6),normalizedSpeed:+normalized.toFixed(6),speedClamped:Math.abs(result.speed-requestedSpeed)>this.tolerance};
+    }
     nextOnTrack(clips,clip){
       if(!clip)return null;
       const end=this.start(clip)+this.duration(clip);
