@@ -12,6 +12,25 @@
       this.buffer=list.map(c=>({...c,__relativeStart:(Number(c.start)||0)-this.anchor}));
       return {copied:this.buffer.length,span:this.span()}
     }
+    cut(project,clips=[]){
+      if(!project||!Array.isArray(project.clips))return {ok:false,reason:'project',removed:0};
+      const list=(clips||[]).filter(Boolean);
+      if(!list.length)return {ok:false,reason:'empty-selection',removed:0};
+      const selected=new Set(list);
+      if(list.some(c=>!project.clips.includes(c)))return {ok:false,reason:'stale-selection',removed:0};
+      const locked=list.filter(c=>c?.locked||this.isLocked(project,c?.track));
+      if(locked.length)return {ok:false,reason:'locked-selection',locked:locked.map(c=>c.id),removed:0};
+      const previousBuffer=structuredClone(this.buffer),previousAnchor=this.anchor,previousClips=project.clips;
+      try{
+        const copied=this.copy(list);
+        if(!copied.copied)throw new Error('clipboard-copy-failed');
+        project.clips=project.clips.filter(c=>!selected.has(c));
+        return {ok:true,removed:list.length,copied:copied.copied,span:copied.span};
+      }catch(error){
+        this.buffer=previousBuffer;this.anchor=previousAnchor;project.clips=previousClips;
+        return {ok:false,reason:'error',error,removed:0};
+      }
+    }
     span(){if(!this.buffer.length)return 0;return Math.max(...this.buffer.map(c=>(Number(c.__relativeStart)||0)+Math.max(0,Number(c.duration)||0)))}
     canPaste(project){
       if(!this.buffer.length)return {ok:false,reason:'empty'};
