@@ -10,7 +10,7 @@ with tempfile.TemporaryDirectory() as td:
     subprocess.run([sys.executable,str(root/'render_mp4.py'),str(project),str(assets),str(out)],check=True)
     probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json',str(out)],text=True))
     s=probe['streams'][0]; assert (s['width'],s['height'])==(1080,1920),s
-    raw=subprocess.check_output(['ffmpeg','-hide_banner','-loglevel','error','-i',str(out),'-vf','select=eq(n\\,10),scale=1:1,format=rgb24','-frames:v','1','-f','rawvideo','-'])
+    raw=subprocess.check_output(['ffmpeg','-hide_banner','-loglevel','error','-i',str(out),'-vf','select=eq(n\,10),scale=1:1,format=rgb24','-frames:v','1','-f','rawvideo','-'])
     assert len(raw)>=3
     r,g,b=raw[:3]; assert max(r,g,b)-min(r,g,b)<18,(r,g,b)
     assert max(r,g,b)<210,(r,g,b)
