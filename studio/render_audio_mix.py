@@ -5,7 +5,7 @@ Keeps preview/render parity for clip fades, track gain, source-video audio and
 music ducking that only applies while voice clips overlap. Uses only FFmpeg.
 """
 from __future__ import annotations
-import json, pathlib, shutil, subprocess, sys, tempfile
+import json, math, pathlib, re, shutil, subprocess, sys, tempfile
 from render_quality import resolve_render_quality
 from track_state_render import normalize_track_solo
 
@@ -15,10 +15,30 @@ if len(sys.argv) != 5:
 project_path=pathlib.Path(sys.argv[1]); assets_dir=pathlib.Path(sys.argv[2]); video_in=pathlib.Path(sys.argv[3]); out=pathlib.Path(sys.argv[4])
 project=normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8')))
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
-duration=max(.25,float(project.get('duration',45) or 45)); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
+clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 VISUAL_AUDIO_TRACKS=(0,1)
 AUDIO_TRACKS=(4,5,6)
+_NUMERIC_TEXT=re.compile(r'^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$')
+
+
+def strict_number(value, default, low=None, high=None):
+    """Parse only finite real numerics or lossless numeric text; never coerce bools/objects."""
+    if isinstance(value,bool) or value is None:
+        number=float(default)
+    elif isinstance(value,(int,float)):
+        number=float(value)
+    elif isinstance(value,str) and _NUMERIC_TEXT.fullmatch(value.strip()):
+        number=float(value.strip())
+    else:
+        number=float(default)
+    if not math.isfinite(number): number=float(default)
+    if low is not None: number=max(float(low),number)
+    if high is not None: number=min(float(high),number)
+    return number
+
+
+duration=strict_number(project.get('duration',45),45,.25)
 
 
 def clip_track(clip):
@@ -37,12 +57,9 @@ def clip_track(clip):
 def state(track):
     value=track_state.get(str(track),track_state.get(track,{}))
     return value if isinstance(value,dict) else {}
-
 def track_muted(track): return bool(state(track).get('muted',False))
 def track_hidden(track): return bool(state(track).get('hidden',False))
-def track_gain(track):
-    try:return max(0,min(2,float(state(track).get('gain',1) if state(track).get('gain') is not None else 1)))
-    except (TypeError,ValueError):return 1.0
+def track_gain(track): return strict_number(state(track).get('gain',1),1,0,2)
 
 def asset_path(asset_id):
     a=amap.get(asset_id)
@@ -57,9 +74,7 @@ def has_audio_stream(asset_id):
     p=subprocess.run(['ffprobe','-v','error','-select_streams','a:0','-show_entries','stream=index','-of','csv=p=0',str(f)],capture_output=True,text=True)
     return p.returncode==0 and bool(p.stdout.strip())
 
-def speed_of(c):
-    try:return max(.25,min(4,float(c.get('speed',1) or 1)))
-    except (TypeError,ValueError):return 1.0
+def speed_of(c): return strict_number(c.get('speed',1),1,.25,4)
 
 def atempo_filters(speed):
     parts=[]; value=float(speed)
@@ -69,19 +84,18 @@ def atempo_filters(speed):
     return ','.join('atempo='+p for p in parts)
 
 def clip_fades(c,d):
-    def n(key,default):
-        try:return max(0,min(d,float(c.get(key,default) if c.get(key) is not None else default)))
-        except (TypeError,ValueError):return min(default,d)
-    fi=n('fadeIn',.18); fo=n('fadeOut',.25); total=fi+fo
+    fi=strict_number(c.get('fadeIn',.18),.18,0,d)
+    fo=strict_number(c.get('fadeOut',.25),.25,0,d)
+    total=fi+fo
     if total>d and total>0: fi*=d/total; fo*=d/total
     return fi,fo
 
 def voice_intervals(music,voice):
     if music.get('ducking') is False:return []
-    ms=max(0,float(music.get('start',0) or 0)); md=max(0,float(music.get('duration',0) or 0)); me=ms+md
+    ms=strict_number(music.get('start',0),0,0); md=strict_number(music.get('duration',0),0,0); me=ms+md
     raw=[]
     for v in voice:
-        vs=max(0,float(v.get('start',0) or 0)); ve=vs+max(0,float(v.get('duration',0) or 0)); s=max(ms,vs); e=min(me,ve)
+        vs=strict_number(v.get('start',0),0,0); ve=vs+strict_number(v.get('duration',0),0,0); s=max(ms,vs); e=min(me,ve)
         if e>s:raw.append([s-ms,e-ms])
     raw.sort(); merged=[]
     for s,e in raw:
@@ -114,20 +128,17 @@ def input_index(asset_id):
     _,f=asset_path(asset_id); idx=1+len(indices); indices[asset_id]=idx; inputs.extend(['-i',str(f)]); return idx
 
 for c,is_source in render_audio:
-    idx=input_index(c['asset']); start=max(0,float(c.get('start',0) or 0)); d=max(.05,min(float(c.get('duration',1) or 1),duration-start)); speed=speed_of(c); offset=max(0,float(c.get('sourceOffset',0) or 0)); fi,fo=clip_fades(c,d); delay=int(round(start*1000)); label=f'[a{len(labels)}]'
+    idx=input_index(c['asset']); start=strict_number(c.get('start',0),0,0,duration); d=max(.05,min(strict_number(c.get('duration',1),1,.05),duration-start)); speed=speed_of(c); offset=strict_number(c.get('sourceOffset',0),0,0); fi,fo=clip_fades(c,d); delay=int(round(start*1000)); label=f'[a{len(labels)}]'
     if is_source:
-        try:base=max(0,min(2,float(c.get('sourceVolume',1) if c.get('sourceVolume') is not None else 1)))
-        except (TypeError,ValueError):base=1
+        base=strict_number(c.get('sourceVolume',1),1,0,2)
         expr=f'{base:.8f}'
     else:
         track=clip_track(c)
         default=.22 if track==5 else 1
-        try:base=max(0,min(4,float(c.get('volume',default) if c.get('volume') is not None else default)))
-        except (TypeError,ValueError):base=default
+        base=strict_number(c.get('volume',default),default,0,4)
         gain=track_gain(track); base*=gain
         if track==5:
-            try:duck=max(0,min(4,float(c.get('duckVolume',.16) if c.get('duckVolume') is not None else .16)))*gain
-            except (TypeError,ValueError):duck=.16*gain
+            duck=strict_number(c.get('duckVolume',.16),.16,0,4)*gain
             duck=min(base,duck); expr=volume_expr(base,duck,voice_intervals(c,voice))
         else:expr=f'{base:.8f}'
     chain=f'[{idx}:a]atrim=start={offset}:duration={d*speed},asetpts=PTS-STARTPTS,{atempo_filters(speed)},volume=\'{expr}\':eval=frame'
