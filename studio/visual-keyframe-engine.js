@@ -1,6 +1,7 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   const DEFAULT_STATE=Object.freeze({x:0,y:0,scale:1,rotation:0,opacity:1});
+  const EASINGS=Object.freeze(['linear','ease-in','ease-out','ease-in-out','hold']);
   class ProfitMenteVisualKeyframeEngine{
     constructor(options={}){
       this.tolerance=Math.max(.0001,Number(options.tolerance)||.001);
@@ -13,6 +14,17 @@
       const n=Number(value);return Number.isFinite(n)?n:fallback;
     }
     canonicalTrack(value){const n=this.finite(value);return Number.isInteger(n)&&n>=0&&n<=6?n:null}
+    canonicalEasing(value){const easing=typeof value==='string'?value.trim().toLowerCase():'';return EASINGS.includes(easing)?easing:'linear'}
+    ease(easing,progress){
+      const p=Math.max(0,Math.min(1,this.finite(progress,0)));
+      switch(this.canonicalEasing(easing)){
+        case 'ease-in':return p*p;
+        case 'ease-out':return 1-(1-p)*(1-p);
+        case 'ease-in-out':return p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+        case 'hold':return p>=1?1:0;
+        default:return p;
+      }
+    }
     trackLocked(project,track){
       const target=this.canonicalTrack(track);if(target===null)return false;
       for(const state of [project?.trackState,project?.trackStates]){
@@ -40,7 +52,7 @@
       for(const frame of frames){
         if(!frame||typeof frame!=='object'||Array.isArray(frame))continue;
         const rawTime=this.finite(frame.time);if(rawTime===null)continue;
-        safe.push({time:+Math.max(0,Math.min(duration,rawTime)).toFixed(6),...this.state(frame)});
+        safe.push({time:+Math.max(0,Math.min(duration,rawTime)).toFixed(6),...this.state(frame),easing:this.canonicalEasing(frame.easing)});
       }
       safe.sort((a,b)=>a.time-b.time);
       const deduped=[];
@@ -51,6 +63,13 @@
       }
       return deduped;
     }
+    easingAt(clip,localTime){
+      const frames=this.normalize(clip);if(!frames.length)return 'linear';
+      const t=this.clampTime(clip,localTime);
+      let active=frames[0];
+      for(const frame of frames){if(frame.time<=t+this.tolerance)active=frame;else break}
+      return this.canonicalEasing(active.easing);
+    }
     stateAt(clip,localTime){
       const frames=this.normalize(clip);if(!frames.length)return {...DEFAULT_STATE};
       const t=this.clampTime(clip,localTime);
@@ -58,7 +77,7 @@
       const last=frames[frames.length-1];if(t>=last.time-this.tolerance)return this.state(last);
       let left=frames[0],right=last;
       for(let i=1;i<frames.length;i++)if(t<=frames[i].time+this.tolerance){left=frames[i-1];right=frames[i];break}
-      const span=Math.max(this.tolerance,right.time-left.time),p=Math.max(0,Math.min(1,(t-left.time)/span));
+      const span=Math.max(this.tolerance,right.time-left.time),raw=Math.max(0,Math.min(1,(t-left.time)/span)),p=this.ease(left.easing,raw);
       const a=this.state(left),b=this.state(right),mix=(x,y)=>x+(y-x)*p;
       return {x:mix(a.x,b.x),y:mix(a.y,b.y),scale:mix(a.scale,b.scale),rotation:mix(a.rotation,b.rotation),opacity:mix(a.opacity,b.opacity)};
     }
@@ -66,7 +85,10 @@
       if(!this.eligible(clip))return {ok:false,reason:'not-visual',changed:false};
       if(this.clipLocked(project,clip))return {ok:false,reason:'locked',changed:false};
       const time=+this.clampTime(clip,localTime).toFixed(6),frames=this.normalize(clip);
-      const index=frames.findIndex(frame=>Math.abs(frame.time-time)<=this.tolerance),stableTime=index>=0?frames[index].time:time,next={time:stableTime,...this.state(value)};
+      const index=frames.findIndex(frame=>Math.abs(frame.time-time)<=this.tolerance),stableTime=index>=0?frames[index].time:time;
+      const hasEasing=value&&typeof value==='object'&&Object.prototype.hasOwnProperty.call(value,'easing');
+      const easing=this.canonicalEasing(hasEasing?value.easing:(index>=0?frames[index].easing:'linear'));
+      const next={time:stableTime,...this.state(value),easing};
       if(index>=0)frames[index]=next;else frames.push(next);
       frames.sort((a,b)=>a.time-b.time);clip.visualKeyframes=frames;
       return {ok:true,reason:'ok',changed:true,index:frames.indexOf(next),keyframe:next,count:frames.length};
@@ -87,5 +109,5 @@
     }
   }
   root.ProfitMenteVisualKeyframeEngine=ProfitMenteVisualKeyframeEngine;
-  if(typeof module!=='undefined'&&module.exports)module.exports={ProfitMenteVisualKeyframeEngine,DEFAULT_STATE};
+  if(typeof module!=='undefined'&&module.exports)module.exports={ProfitMenteVisualKeyframeEngine,DEFAULT_STATE,EASINGS};
 })();
