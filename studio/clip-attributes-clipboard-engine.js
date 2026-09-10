@@ -41,6 +41,26 @@
     if(field==='keyframes'||field==='visualKeyframes')return clone(value);
     return clone(value);
   };
+  const targetDurationMs=clip=>{const seconds=numeric(clip?.duration);return seconds!==null&&seconds>0?seconds*1000:null};
+  const clampVisualKeyframes=(value,clip)=>{
+    const duration=numeric(clip?.duration);
+    if(!Array.isArray(value)||duration===null||duration<=0)return clone(value);
+    return value.map(frame=>{
+      if(!frame||typeof frame!=='object'||Array.isArray(frame))return clone(frame);
+      const out=clone(frame),time=numeric(frame.time);
+      if(time!==null)out.time=Math.max(0,Math.min(duration,time));
+      return out;
+    });
+  };
+  const safeValueForTarget=(field,value,clip)=>{
+    const safe=safeValue(field,value);
+    if(field==='fadeInMs'||field==='fadeOutMs'){
+      const limit=targetDurationMs(clip);
+      return limit===null?safe:Math.min(limit,safe);
+    }
+    if(field==='visualKeyframes')return clampVisualKeyframes(safe,clip);
+    return safe;
+  };
 
   class ProfitMenteClipAttributesClipboardEngine{
     static copy(project,selectedId){
@@ -60,7 +80,7 @@
       if(locked(project,clip))return {changed:0,reason:'locked'};
       if(!this.compatible(project,selectedId,data))return {changed:0,reason:'incompatible'};
       const allowed=new Set(fieldsFor(targetKind)),patch={};
-      for(const [field,value] of Object.entries(data.values))if(allowed.has(field))patch[field]=safeValue(field,value);
+      for(const [field,value] of Object.entries(data.values))if(allowed.has(field))patch[field]=safeValueForTarget(field,value,clip);
       const before={};for(const field of Object.keys(patch))before[field]=own(clip,field)?clone(clip[field]):undefined;
       try{
         let changed=0;
