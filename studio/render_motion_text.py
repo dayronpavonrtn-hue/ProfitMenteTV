@@ -29,8 +29,16 @@ render_project=expand_motion_text(compact_project_captions(project))
 # duplicating source audio fades at internal keyframe boundaries.
 video_project=expand_visual_keyframes(copy.deepcopy(render_project))
 for clip in video_project.get('clips',[]):
-    track=int(clip.get('track',-1))
-    if track in (0,1,4,5,6): clip['muted']=True
+    if not isinstance(clip,dict):
+        continue
+    # normalize_track_solo() already canonicalizes only lossless numeric track
+    # values. Do not call int() here: Python would otherwise coerce True/False
+    # into tracks 1/0 and malformed imported data could silently change render
+    # semantics before validation. Exact membership keeps browser/render identity
+    # rules aligned while still supporting canonicalized legacy numeric strings.
+    track=clip.get('track',-1)
+    if track in (0,1,4,5,6):
+        clip['muted']=True
 
 with tempfile.TemporaryDirectory(prefix='profitmente-render-project-') as td:
     td=pathlib.Path(td)
