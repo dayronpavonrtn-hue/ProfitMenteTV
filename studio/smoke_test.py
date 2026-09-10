@@ -13,8 +13,10 @@ def run(cmd):
 def probe_file(path):
     probe=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,codec_name,width,height','-show_entries','format=duration,size','-of','json',str(path)],check=True,capture_output=True,text=True)
     return json.loads(probe.stdout)
-run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','color=c=#151a23:s=360x640:r=30:d=3','-c:v','libx264','-pix_fmt','yuv420p',assets/'scene1.mp4'])
-run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','color=c=#242c39:s=360x640:r=30:d=3','-c:v','libx264','-pix_fmt','yuv420p',assets/'scene2.mp4'])
+# Moving, non-black fixtures keep the smoke test compatible with production black/freeze QC
+# without weakening those checks just to accommodate artificial solid-color test clips.
+run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','testsrc2=size=360x640:rate=30:duration=3','-c:v','libx264','-pix_fmt','yuv420p',assets/'scene1.mp4'])
+run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','testsrc=size=360x640:rate=30:duration=3','-c:v','libx264','-pix_fmt','yuv420p',assets/'scene2.mp4'])
 run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','sine=frequency=180:sample_rate=48000:duration=6','-c:a','pcm_s16le',assets/'music.wav'])
 run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=5','-c:a','pcm_s16le',assets/'voice.wav'])
 run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','sine=frequency=880:sample_rate=48000:duration=0.4','-c:a','pcm_s16le',assets/'sfx.wav'])
