@@ -5,7 +5,7 @@ on:
     paths:
       - 'studio/visual-crop-engine.js'
       - 'studio/visual-crop-integration.js'
-      - 'studio/visual-crop-render.py'
+      - 'studio/visual_crop_render.py'
       - 'studio/visual_adjust_render.py'
       - 'studio/visual-adjust-integration.js'
       - 'studio/test_visual_crop.mjs'
@@ -14,7 +14,7 @@ on:
     paths:
       - 'studio/visual-crop-engine.js'
       - 'studio/visual-crop-integration.js'
-      - 'studio/visual-crop-render.py'
+      - 'studio/visual_crop_render.py'
       - 'studio/visual_adjust_render.py'
       - 'studio/visual-adjust-integration.js'
       - 'studio/test_visual_crop.mjs'
