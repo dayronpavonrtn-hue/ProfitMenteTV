@@ -1,0 +1,29 @@
+name: ProfitMente Studio Project Import Bounds QA
+
+on:
+  push:
+    paths:
+      - 'studio/project-import-engine.js'
+      - 'studio/test_project_import_bounds.mjs'
+      - '.github/workflows/project-import-bounds-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project-import-engine.js'
+      - 'studio/test_project_import_bounds.mjs'
+      - '.github/workflows/project-import-bounds-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  project-import-bounds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check project importer syntax
+        run: node --check studio/project-import-engine.js
+      - name: Verify imported timeline bounds
+        run: node studio/test_project_import_bounds.mjs
+      - name: Verify Studio integrity
+        run: node studio/test_studio_integrity.mjs
