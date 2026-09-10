@@ -7,8 +7,10 @@ on:
       - 'studio/visual-crop-integration.js'
       - 'studio/visual_crop_render.py'
       - 'studio/visual_adjust_render.py'
+      - 'studio/render_mp4.py'
       - 'studio/visual-adjust-integration.js'
       - 'studio/test_visual_crop.mjs'
+      - 'studio/test_visual_adjust_render.py'
       - '.github/workflows/visual-crop-qa.yml'
   pull_request:
     paths:
@@ -16,8 +18,10 @@ on:
       - 'studio/visual-crop-integration.js'
       - 'studio/visual_crop_render.py'
       - 'studio/visual_adjust_render.py'
+      - 'studio/render_mp4.py'
       - 'studio/visual-adjust-integration.js'
       - 'studio/test_visual_crop.mjs'
+      - 'studio/test_visual_adjust_render.py'
   workflow_dispatch:
 
 jobs:
@@ -37,15 +41,20 @@ jobs:
           node --check studio/visual-crop-integration.js
           node --check studio/visual-adjust-integration.js
           node --check studio/test_visual_crop.mjs
-          python -m py_compile studio/visual_crop_render.py
+          python -m py_compile studio/visual_crop_render.py studio/visual_adjust_render.py studio/test_visual_adjust_render.py studio/render_mp4.py
       - name: Crop regression
-        run: node studio/test_visual_crop.mjs
-      - name: Verify preview wiring
+        run: |
+          node studio/test_visual_crop.mjs
+          python studio/test_visual_adjust_render.py
+      - name: Verify preview and MP4 wiring
         run: |
           grep -q "visual-crop-engine.js" studio/visual-adjust-integration.js
           grep -q "visual-crop-integration.js" studio/visual-adjust-integration.js
           grep -q "renderWithCrop" studio/visual-crop-integration.js
           grep -q "drawImage" studio/visual-crop-integration.js
+          grep -q "from visual_crop_render import visual_crop_filter" studio/visual_adjust_render.py
+          grep -q "from visual_adjust_render import visual_adjust_filter" studio/render_mp4.py
+          grep -q "adjust=visual_adjust_filter(clip)" studio/render_mp4.py
       - name: Verify zero-cost boundary
         run: |
-          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-crop-engine.js studio/visual-crop-integration.js studio/visual_crop_render.py
+          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-crop-engine.js studio/visual-crop-integration.js studio/visual_crop_render.py studio/visual_adjust_render.py studio/test_visual_adjust_render.py
