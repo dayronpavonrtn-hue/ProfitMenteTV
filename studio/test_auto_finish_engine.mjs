@@ -79,9 +79,28 @@ assert.deepEqual(Engine.plan(zeroMedia,[{id:0,type:'image'}]).steps,['repair','f
 // Invalid identifiers/tracks stay excluded instead of being coerced into track/media zero.
 assert.equal(Engine.hasMediaId(false),false);
 assert.equal(Engine.hasMediaId('   '),false);
+assert.equal(Engine.hasMediaId({}),false);
+assert.equal(Engine.hasMediaId([]),false);
+assert.equal(Engine.hasMediaId(NaN),false);
+assert.equal(Engine.hasMediaId(Infinity),false);
+assert.equal(Engine.hasMediaId(1.5),false);
+assert.equal(Engine.hasMediaId(Number.MAX_SAFE_INTEGER+1),false);
 assert.equal(Engine.canonicalTrack(false),null);
 assert.equal(Engine.canonicalTrack(''),null);
-assert.equal(Engine.inspect({...base,clips:[{track:false,asset:'bad'},{track:'',asset:'bad'}]},[{id:false,type:'image'},{id:'   ',type:'video'}]).visual,0);
-assert.equal(Engine.inspect(base,[{id:false,type:'image'},{id:'   ',type:'video'}]).visualAssets,0);
+assert.equal(Engine.canonicalTrack({valueOf:()=>0}),null);
+assert.equal(Engine.canonicalTrack([]),null);
+assert.equal(Engine.canonicalTrack([5]),null);
+assert.equal(Engine.canonicalTrack('05'),5);
+assert.equal(Engine.canonicalTrack('+00.0'),0);
+assert.equal(Engine.inspect({...base,clips:[
+  {track:false,asset:'bad'},
+  {track:'',asset:'bad'},
+  {track:{valueOf:()=>0},asset:'bad'},
+  {track:0,asset:{}},
+  {track:5,asset:[]},
+  {track:6,asset:Number.MAX_SAFE_INTEGER+1}
+]},[{id:false,type:'image'},{id:'   ',type:'video'},{id:{},type:'image'},{id:[],type:'video'}]).visual,0);
+assert.equal(Engine.inspect(base,[{id:false,type:'image'},{id:'   ',type:'video'},{id:{},type:'image'},{id:[],type:'video'},{id:1.5,type:'image'}]).visualAssets,0);
+assert.deepEqual(Engine.plan({...base,clips:[{track:5,asset:{}},{track:6,asset:[]}]},[]).steps,['repair','qa']);
 
 console.log('auto-finish-engine regression: ok');
