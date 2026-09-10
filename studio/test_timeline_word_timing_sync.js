@@ -1,6 +1,7 @@
 const assert=require('assert');
 require('./timeline-operations.js');
 require('./timeline-word-timing-sync.js');
+const {ProfitMenteRippleGapEngine:RippleGap}=require('./ripple-gap-engine.js');
 
 const Ops=globalThis.ProfitMenteTimelineOperations;
 assert(Ops,'ProfitMenteTimelineOperations must be available');
@@ -66,6 +67,29 @@ function clip(id,track,start,duration,words=[],extra={}){
   const before=JSON.stringify(project);
   assert.strictEqual(ops.rippleDelete(project,'a'),null,'locked affected clip must reject rippleDelete');
   assert.strictEqual(JSON.stringify(project),before,'failed ripple delete must not alter word timings');
+}
+
+{
+  const project={duration:9,markers:[{time:5.5}],workRange:{start:5,end:8},clips:[
+    clip('a',0,0,2,[word(.2,.7)]),
+    clip('b',1,0,3,[word(.4,1.1)]),
+    clip('c',0,5,2,[word(5.2,6.1)]),
+    clip('d',1,6,1,[word(6.1,6.7)])
+  ]};
+  const result=RippleGap.apply(project,4);
+  assert(result.ok,'global ripple gap should close the empty 3-5s interval');
+  assert.strictEqual(result.gap.start,3);
+  assert.strictEqual(result.gap.end,5);
+  assert.strictEqual(result.wordsShifted,2);
+  const c=project.clips.find(x=>x.id==='c'),d=project.clips.find(x=>x.id==='d');
+  assert.strictEqual(c.start,3);
+  assert.strictEqual(c.wordTimings[0].start,3.2);
+  assert.strictEqual(c.wordTimings[0].end,4.1);
+  assert.strictEqual(d.start,4);
+  assert.strictEqual(d.wordTimings[0].start,4.1);
+  assert.strictEqual(project.markers[0].time,3.5);
+  assert.strictEqual(project.workRange.start,3);
+  assert.strictEqual(project.workRange.end,6);
 }
 
 console.log('timeline word timing sync regression: ok');
