@@ -28,4 +28,10 @@
   document.addEventListener('click',event=>{if(event.target.closest?.('.clip'))requestAnimationFrame(refresh)},true);
   root.addEventListener?.('profitmente:project-loaded',refresh);root.addEventListener?.('profitmente:project-reset',refresh);
   root.ProfitMenteVisualAdjustments={engine,refresh};refresh();
+
+  // Load the companion crop tool without requiring another static script tag.
+  (async()=>{
+    const load=src=>new Promise((resolve,reject)=>{if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return resolve();const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s)});
+    try{if(!root.ProfitMenteVisualCropEngine)await load('visual-crop-engine.js');if(!root.ProfitMenteVisualCrop)await load('visual-crop-integration.js')}catch(err){console.error(err);setStatus?.('Recorte visual no disponible: '+err.message)}
+  })();
 })();
