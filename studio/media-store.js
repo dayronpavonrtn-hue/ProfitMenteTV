@@ -1,6 +1,14 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteMediaStore=api.ProfitMenteMediaStore;root.ProfitMenteIndexedDbMediaBackend=api.ProfitMenteIndexedDbMediaBackend})(typeof globalThis!=='undefined'?globalThis:this,function(){
 const DB='profitmente-studio',STORE='media';
-function keyOf(v){if(v===null||v===undefined)return null;const s=String(v).trim();return s||null}
+function keyOf(value){
+  if(typeof value==='number'){
+    if(!Number.isSafeInteger(value)||value<0)return null;
+    return String(Object.is(value,-0)?0:value);
+  }
+  if(typeof value!=='string')return null;
+  const text=value.trim();
+  return text||null;
+}
 class ProfitMenteIndexedDbMediaBackend{
   constructor(indexedDBApi=globalThis.indexedDB){this.indexedDB=indexedDBApi}
   open(){return new Promise((resolve,reject)=>{if(!this.indexedDB){reject(new Error('IndexedDB no disponible'));return}let req;try{req=this.indexedDB.open(DB,1)}catch(error){reject(error);return}req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('No se pudo abrir IndexedDB'))})}
