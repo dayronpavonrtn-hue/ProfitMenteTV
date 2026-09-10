@@ -1,6 +1,13 @@
 (()=>{
   if(typeof document==='undefined'||!window.ProfitMenteRippleGapEngine)return;
   const E=window.ProfitMenteRippleGapEngine,$=s=>document.querySelector(s);
+  function ensureWordTimingSync(){
+    if(window.ProfitMenteTimelineWordTimingSync||document.querySelector('script[data-profitmente-word-sync]'))return;
+    const script=document.createElement('script');script.src='timeline-word-timing-sync.js';script.async=false;script.dataset.profitmenteWordSync='1';
+    script.onerror=()=>console.warn('No se pudo cargar la sincronización de word timings de timeline');
+    document.body.appendChild(script);
+  }
+  ensureWordTimingSync();
   function typing(){return ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)}
   function now(){const el=$('#playhead'),n=Number(el?.value);return Number.isFinite(n)?n:0}
   function refresh(time){
@@ -25,7 +32,8 @@
     }
     refresh(result.gap.start);
     const seconds=result.gap.duration.toFixed(2),moved=result.changed?` · ${result.changed} clip(s) desplazados`:'';
-    setStatus?.(`Hueco cerrado · ${seconds}s eliminados${moved}`);return result;
+    const words=result.wordsShifted?` · ${result.wordsShifted} palabra(s) sincronizadas`:'';
+    setStatus?.(`Hueco cerrado · ${seconds}s eliminados${moved}${words}`);return result;
   }
   function mount(){
     const head=document.querySelector('.timelineHead');if(!head||$('#rippleGapBtn'))return;
