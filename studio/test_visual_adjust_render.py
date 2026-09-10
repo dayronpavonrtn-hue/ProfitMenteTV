@@ -37,8 +37,10 @@ assert 'colorchannelmixer=rr=0.500000' in f, f
 f = visual_adjust_filter({'visualAdjustments': {'grayscale': 100}})
 assert 'saturation=0.000000' in f, f
 
+# 200% saturation combined with 50% grayscale is effectively neutral (1.0),
+# so the renderer should optimize the no-op away instead of emitting eq.
 f = visual_adjust_filter({'visualAdjustments': {'saturation': 200, 'grayscale': 50}})
-assert 'saturation=1.000000' in f, f
+assert f == '', f
 
 f = visual_adjust_filter({'visualAdjustments': {'brightness': 'bad', 'contrast': None}})
 assert f == '', f
