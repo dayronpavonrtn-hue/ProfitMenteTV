@@ -5,17 +5,23 @@ on:
     paths:
       - 'studio/visual-keyframe-engine.js'
       - 'studio/visual-keyframe-integration.js'
+      - 'studio/visual_keyframe_render.py'
+      - 'studio/render_motion_text.py'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_visual_keyframe_engine.mjs'
       - 'studio/test_visual_keyframe_preview_integration.mjs'
+      - 'studio/test_visual_keyframe_render.py'
       - '.github/workflows/visual-keyframe-qa.yml'
   pull_request:
     paths:
       - 'studio/visual-keyframe-engine.js'
       - 'studio/visual-keyframe-integration.js'
+      - 'studio/visual_keyframe_render.py'
+      - 'studio/render_motion_text.py'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_visual_keyframe_engine.mjs'
       - 'studio/test_visual_keyframe_preview_integration.mjs'
+      - 'studio/test_visual_keyframe_render.py'
   workflow_dispatch:
 
 jobs:
@@ -26,6 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Syntax check
         run: |
           node --check studio/visual-keyframe-engine.js
@@ -33,10 +42,12 @@ jobs:
           node --check studio/feature-bootstrap.js
           node --check studio/test_visual_keyframe_engine.mjs
           node --check studio/test_visual_keyframe_preview_integration.mjs
+          python -m py_compile studio/visual_keyframe_render.py studio/render_motion_text.py studio/test_visual_keyframe_render.py
       - name: Visual keyframe regression
         run: |
           node studio/test_visual_keyframe_engine.mjs
           node studio/test_visual_keyframe_preview_integration.mjs
+          python studio/test_visual_keyframe_render.py
       - name: Verify Studio wiring and render parity
         run: |
           grep -q "visual-keyframe-engine.js" studio/feature-bootstrap.js
@@ -44,6 +55,8 @@ jobs:
           grep -q "renderWithKeyframes" studio/visual-keyframe-integration.js
           grep -q "await renderAt(time)" studio/webm-render-integration.js
           grep -q "clipLocked" studio/visual-keyframe-engine.js
+          grep -q "expand_visual_keyframes" studio/render_motion_text.py
+          grep -q "visualKeyframes" studio/visual_keyframe_render.py
       - name: Verify zero-cost boundary
         run: |
-          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-keyframe-engine.js studio/visual-keyframe-integration.js
+          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-keyframe-engine.js studio/visual-keyframe-integration.js studio/visual_keyframe_render.py studio/render_motion_text.py
