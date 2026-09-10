@@ -25,6 +25,14 @@ def _finite(value, fallback=None):
     return number if math.isfinite(number) else fallback
 
 
+def _canonical_track(value):
+    number = _finite(value)
+    if number is None or not float(number).is_integer():
+        return None
+    track = int(number)
+    return track if 0 <= track <= 6 else None
+
+
 def _clamp(value, low, high):
     return max(low, min(high, value))
 
@@ -101,7 +109,7 @@ def expand_visual_keyframes(project):
     result = copy.deepcopy(project)
     expanded = []
     for clip in result.get("clips", []) or []:
-        if not isinstance(clip, dict) or clip.get("track") not in (0, 1):
+        if not isinstance(clip, dict) or _canonical_track(clip.get("track")) not in (0, 1):
             expanded.append(clip)
             continue
         frames = normalize_visual_keyframes(clip)
