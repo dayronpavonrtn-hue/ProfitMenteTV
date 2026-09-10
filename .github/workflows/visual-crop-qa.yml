@@ -1,0 +1,51 @@
+name: ProfitMente Studio Visual Crop QA
+
+on:
+  push:
+    paths:
+      - 'studio/visual-crop-engine.js'
+      - 'studio/visual-crop-integration.js'
+      - 'studio/visual-crop-render.py'
+      - 'studio/visual_adjust_render.py'
+      - 'studio/visual-adjust-integration.js'
+      - 'studio/test_visual_crop.mjs'
+      - '.github/workflows/visual-crop-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/visual-crop-engine.js'
+      - 'studio/visual-crop-integration.js'
+      - 'studio/visual-crop-render.py'
+      - 'studio/visual_adjust_render.py'
+      - 'studio/visual-adjust-integration.js'
+      - 'studio/test_visual_crop.mjs'
+  workflow_dispatch:
+
+jobs:
+  visual-crop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: |
+          node --check studio/visual-crop-engine.js
+          node --check studio/visual-crop-integration.js
+          node --check studio/visual-adjust-integration.js
+          node --check studio/test_visual_crop.mjs
+          python -m py_compile studio/visual_crop_render.py
+      - name: Crop regression
+        run: node studio/test_visual_crop.mjs
+      - name: Verify preview wiring
+        run: |
+          grep -q "visual-crop-engine.js" studio/visual-adjust-integration.js
+          grep -q "visual-crop-integration.js" studio/visual-adjust-integration.js
+          grep -q "renderWithCrop" studio/visual-crop-integration.js
+          grep -q "drawImage" studio/visual-crop-integration.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-crop-engine.js studio/visual-crop-integration.js studio/visual_crop_render.py
