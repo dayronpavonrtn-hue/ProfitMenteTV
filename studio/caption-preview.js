@@ -1,7 +1,14 @@
 (()=>{
   const baseRender=renderAt;
   let captionRenderEpoch=0;
-  function canonicalTrack(value){const parsed=Number(value);return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value}
+  function canonicalTrack(value){
+    if(typeof value==='number')return Number.isFinite(value)&&Number.isInteger(value)?value:value;
+    if(typeof value!=='string')return value;
+    const raw=value.trim();
+    if(!/^[+-]?\d+$/.test(raw))return value;
+    const parsed=Number(raw);
+    return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value;
+  }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
     const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
