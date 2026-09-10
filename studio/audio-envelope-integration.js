@@ -37,4 +37,15 @@
   const oldDraw=window.drawTimeline;if(typeof oldDraw==='function')window.drawTimeline=function(){oldDraw();requestAnimationFrame(draw)};
   setInterval(draw,600);draw();
   window.ProfitMenteAudioEnvelope={engine,draw,applySelected:save};
+  const loadScript=(src,ready)=>new Promise((resolve,reject)=>{
+    if(ready?.())return resolve();
+    const existing=[...document.scripts].find(s=>s.src.endsWith('/'+src)||s.src.endsWith(src));
+    if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',reject,{once:true});return}
+    const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s);
+  });
+  (async()=>{try{
+    await loadScript('audio-crossfade-engine.js',()=>!!window.ProfitMenteAudioCrossfadeEngine);
+    await loadScript('audio-crossfade-integration.js',()=>!!window.ProfitMenteAudioCrossfade);
+  }catch(err){console.error(err);setStatus?.('Studio activo, pero no se pudo cargar la herramienta de crossfade')}
+  })();
 })();
