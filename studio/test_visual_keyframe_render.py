@@ -47,6 +47,16 @@ assert len([item for item in expanded['clips'] if item.get('track') == 5]) == 1
 assert project['clips'][0]['visualKeyframes'][1]['x'] == 20
 assert 'keyframes' not in project['clips'][0]
 
+# Legacy/imported numeric-string tracks must follow the same canonical identity
+# contract as the browser preview and the rest of the local render pipeline.
+legacy = {'clips': [{
+    'id': 'legacy', 'track': '01', 'duration': 2,
+    'visualKeyframes': [{'time': 0, 'x': 0}, {'time': 1, 'x': 50}],
+}]}
+legacy_expanded = expand_visual_keyframes(legacy)
+assert len(legacy_expanded['clips']) == 2
+assert all('visualKeyframes' not in item for item in legacy_expanded['clips'])
+
 # Match JS normalization: booleans/invalid times are ignored; duplicate-near
 # times keep the stable timestamp and latest state; visual values are clamped.
 corrupt = {
