@@ -37,6 +37,8 @@ jobs:
           node --check studio/qa-engine.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
+      - name: QA strict identity regression
+        run: node studio/test_qa_identity_strictness.js
       - name: Audio overlap mix QA regression
         run: node studio/test_audio_qc_mix_overlap.js
       - name: Project transfer regression
