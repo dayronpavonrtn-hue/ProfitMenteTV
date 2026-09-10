@@ -14,13 +14,24 @@ const project=clips=>({mode:'Automático',duration:20,clips});
 
 assert.equal(P.canonicalTrack('+06.0'),6,'legacy numeric narration aliases must remain compatible');
 assert.equal(P.canonicalTrack('-0'),0,'negative zero must normalize to track zero');
-for(const value of [false,true,null,undefined,{},[],Symbol('6'),6.5,7,'','  ','6x']){
+assert.equal(P.canonicalTrack('6e0'),6,'decimal scientific legacy track aliases must remain compatible');
+for(const value of [false,true,null,undefined,{},[],Symbol('6'),6.5,7,'','  ','6x','0x6','0b110','0o6','Infinity','NaN']){
   assert.equal(P.canonicalTrack(value),null,`invalid track identity must be rejected: ${String(value)}`);
+}
+
+assert.equal(P.finiteNumber('+20.0',0),20,'legacy decimal numeric strings must remain compatible');
+assert.equal(P.finiteNumber('2e1',0),20,'scientific decimal numeric strings must remain compatible');
+for(const value of ['0x14','0b10100','0o24','Infinity','NaN',true,{},[]]){
+  assert.equal(P.finiteNumber(value,7),7,`non-decimal or coercible numeric metadata must fall back: ${String(value)}`);
 }
 
 let r=P.narrationCoverage(qa(),project([{track:'+06.0',start:0,duration:20,asset:'voice'}]));
 assert.equal(r.metrics.narrationCoverage,100,'legacy narration aliases must count toward export coverage');
 assert.equal(r.warnings.length,0);
+
+r=P.narrationCoverage(qa(),project([{track:'0x6',start:0,duration:20,asset:'fake'}]));
+assert.equal(r.metrics.narrationCoverage,0,'hex track aliases must not masquerade as narration clips');
+assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
 
 r=P.narrationCoverage(qa(),project([{track:{valueOf(){return 6}},start:0,duration:20,asset:'fake'}]));
 assert.equal(r.metrics.narrationCoverage,0,'coercible objects must never masquerade as narration clips');
@@ -31,6 +42,10 @@ assert.equal(r.metrics.narrationCoverage,100,'invalid start metadata must fall b
 
 r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:{valueOf(){return 20}},asset:'voice'}]));
 assert.equal(r.metrics.narrationCoverage,0,'coercible duration objects must not create fake narration coverage');
+assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
+
+r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:'0x14',asset:'voice'}]));
+assert.equal(r.metrics.narrationCoverage,0,'hex duration metadata must not create fake narration coverage');
 assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
 
 r=P.narrationCoverage(qa(),{mode:'Automático',duration:20,clips:[{track:true,start:0,duration:20,asset:null,pending:true}]});
