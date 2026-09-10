@@ -1,10 +1,19 @@
 class ProfitMenteVisualAdjustEngine{
-  static finite(value,fallback){const n=Number(value);return Number.isFinite(n)?n:fallback}
+  static finite(value,fallback){
+    if(typeof value!=='number'&&typeof value!=='string')return fallback;
+    if(typeof value==='string'&&!value.trim())return fallback;
+    const n=Number(value);return Number.isFinite(n)?n:fallback;
+  }
+  static canonicalTrack(value){
+    if(typeof value==='number')return Number.isSafeInteger(value)?value:null;
+    if(typeof value!=='string'||!value.trim()||!^[+-]?\d+$/.test(value.trim()))return null;
+    const n=Number(value);return Number.isSafeInteger(n)?n:null;
+  }
   static clamp(value,min,max,fallback){return Math.max(min,Math.min(max,this.finite(value,fallback)))}
   static defaults(){return {brightness:100,contrast:100,saturation:100,grayscale:0}}
   eligible(clip){return !!clip&&['video','image','overlay'].includes(String(clip.type||'').toLowerCase())}
   normalize(value){
-    const src=value&&typeof value==='object'?value:{};
+    const src=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
     return {
       brightness:ProfitMenteVisualAdjustEngine.clamp(src.brightness,0,300,100),
       contrast:ProfitMenteVisualAdjustEngine.clamp(src.contrast,0,300,100),
@@ -17,9 +26,15 @@ class ProfitMenteVisualAdjustEngine{
   canvasFilter(clip){const s=this.state(clip);return `brightness(${s.brightness}%) contrast(${s.contrast}%) saturate(${s.saturation}%) grayscale(${s.grayscale}%)`}
   clipLocked(project,clip){
     if(!clip)return true;if(clip.locked===true)return true;
-    const track=Number(clip.track);const states=project?.trackStates;
-    if(Array.isArray(states)){const row=states.find(x=>Number(x?.track??x?.id)===track);if(row?.locked===true)return true}
-    if(states&&typeof states==='object'&&!Array.isArray(states)){const row=states[track]??states[String(track)];if(row?.locked===true||row===true)return true}
+    const track=ProfitMenteVisualAdjustEngine.canonicalTrack(clip.track);if(track===null)return true;
+    const states=project?.trackStates;
+    if(Array.isArray(states)){
+      const row=states.find(x=>ProfitMenteVisualAdjustEngine.canonicalTrack(x?.track??x?.id)===track);
+      if(row?.locked===true)return true;
+    }
+    if(states&&typeof states==='object'&&!Array.isArray(states)){
+      const row=states[track]??states[String(track)];if(row?.locked===true||row===true)return true;
+    }
     return false;
   }
   apply(project,clip,patch={}){
