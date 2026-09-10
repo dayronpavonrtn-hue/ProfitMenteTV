@@ -45,4 +45,29 @@ const e=new ProfitMenteRateStretchEngine();
   const clips=[{id:'a',track:1,start:1,duration:2},{id:'x',track:2,start:3,duration:2},{id:'b',track:1,start:5,duration:2},{id:'c',track:1,start:9,duration:2}];
   assert.equal(e.nextOnTrack(clips,clips[0]).id,'b');
 }
+{
+  const clip={id:'speed',asset:'v1',track:1,start:0,duration:10,speed:1,sourceOffset:2};
+  const asset={id:'v1',type:'video',duration:40};
+  const r=e.stretchToSpeed(clip,asset,2.5,null,60);
+  assert.equal(r.ok,true);assert.equal(r.changed,true);assert.equal(clip.speed,2.5);assert.equal(clip.duration,4);assert.equal(r.preservedSource,true);assert.equal(r.speedClamped,false);
+}
+{
+  const clip={id:'slow',asset:'a1',track:5,start:0,duration:4,speed:1,sourceOffset:0};
+  const asset={id:'a1',type:'audio',duration:30};
+  const r=e.stretchToSpeed(clip,asset,.25,null,60);
+  assert.equal(r.ok,true);assert.equal(clip.speed,.25);assert.equal(clip.duration,16);assert.equal(r.preservedSource,true);
+}
+{
+  const clip={id:'limit',asset:'v1',track:1,start:0,duration:4,speed:1,sourceOffset:0};
+  const next={id:'b',asset:'v2',track:1,start:6,duration:2,speed:1};
+  const asset={id:'v1',type:'video',duration:20};
+  const r=e.stretchToSpeed(clip,asset,.25,next,30);
+  assert.equal(r.ok,true);assert.equal(clip.duration,6);assert.ok(Math.abs(clip.speed-(4/6))<1e-6);assert.equal(r.speedClamped,true);assert.equal(r.preservedSource,true);
+}
+{
+  const clip={id:'bad',asset:'v1',track:1,start:0,duration:4,speed:1,sourceOffset:0};
+  const asset={id:'v1',type:'video',duration:20};
+  assert.equal(e.stretchToSpeed(clip,asset,'nope',null,30).reason,'invalid-speed');
+  assert.equal(clip.duration,4);assert.equal(clip.speed,1);
+}
 console.log('Rate Stretch regression: OK');
