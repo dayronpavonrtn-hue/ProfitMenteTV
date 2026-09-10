@@ -5,6 +5,8 @@ on:
     paths:
       - 'studio/auto-finish-engine.js'
       - 'studio/auto-finish-integration.js'
+      - 'studio/audio-qc-engine.js'
+      - 'studio/audio-qc-integration.js'
       - 'studio/export-preflight.js'
       - 'studio/beat-detect-integration.js'
       - 'studio/feature-bootstrap.js'
@@ -27,6 +29,8 @@ jobs:
         run: |
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
+          node --check studio/audio-qc-engine.js
+          node --check studio/audio-qc-integration.js
           node --check studio/export-preflight.js
           node --check studio/beat-detect-integration.js
           node --check studio/feature-bootstrap.js
