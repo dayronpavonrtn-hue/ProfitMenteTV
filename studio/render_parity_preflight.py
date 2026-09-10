@@ -25,6 +25,14 @@ MIN_SPEED = 0.25
 MAX_SPEED = 4.0
 MIN_TRANSITION_DURATION = 0.05
 MAX_TRANSITION_DURATION = 2.0
+VISUAL_ADJUSTMENT_RANGES = {
+    'brightness': (0.0, 300.0),
+    'contrast': (0.0, 300.0),
+    'saturation': (0.0, 300.0),
+    'grayscale': (0.0, 100.0),
+}
+VISUAL_CROP_FIELDS = ('left', 'right', 'top', 'bottom')
+MAX_VISUAL_CROP = 95.0
 
 
 def _finite(value):
@@ -47,6 +55,65 @@ def _number(value):
     if not _finite(value):
         return math.nan
     return float(value)
+
+
+def _validate_visual_state(clip, clip_id, name):
+    """Reject visual values the render helpers would otherwise silently repair."""
+    issues = []
+    adjustments = clip.get('visualAdjustments')
+    if adjustments is not None:
+        if not isinstance(adjustments, dict):
+            issues.append(f'Clip "{name}" ({clip_id}): visualAdjustments debe ser un objeto válido.')
+        else:
+            for field, (low, high) in VISUAL_ADJUSTMENT_RANGES.items():
+                if field not in adjustments or adjustments.get(field) is None:
+                    continue
+                value = adjustments.get(field)
+                if not _finite(value):
+                    issues.append(f'Clip "{name}" ({clip_id}): visualAdjustments.{field} no es un número válido.')
+                    continue
+                number = float(value)
+                if number < low or number > high:
+                    issues.append(
+                        f'Clip "{name}" ({clip_id}): visualAdjustments.{field}={number:g} fuera de rango; '
+                        f'usa {low:g}–{high:g}.'
+                    )
+
+    crop = clip.get('visualCrop')
+    if crop is not None:
+        if not isinstance(crop, dict):
+            issues.append(f'Clip "{name}" ({clip_id}): visualCrop debe ser un objeto válido.')
+        else:
+            values = {}
+            for field in VISUAL_CROP_FIELDS:
+                if field not in crop or crop.get(field) is None:
+                    values[field] = 0.0
+                    continue
+                value = crop.get(field)
+                if not _finite(value):
+                    issues.append(f'Clip "{name}" ({clip_id}): visualCrop.{field} no es un número válido.')
+                    values[field] = math.nan
+                    continue
+                number = float(value)
+                values[field] = number
+                if number < 0.0 or number > MAX_VISUAL_CROP:
+                    issues.append(
+                        f'Clip "{name}" ({clip_id}): visualCrop.{field}={number:g} fuera de rango; '
+                        f'usa 0–{MAX_VISUAL_CROP:g}%.'
+                    )
+            horizontal = values.get('left', 0.0) + values.get('right', 0.0)
+            vertical = values.get('top', 0.0) + values.get('bottom', 0.0)
+            if math.isfinite(horizontal) and horizontal > MAX_VISUAL_CROP + 1e-9:
+                issues.append(
+                    f'Clip "{name}" ({clip_id}): recorte horizontal total {horizontal:g}% excede '
+                    f'{MAX_VISUAL_CROP:g}% y sería reescalado durante el render.'
+                )
+            if math.isfinite(vertical) and vertical > MAX_VISUAL_CROP + 1e-9:
+                issues.append(
+                    f'Clip "{name}" ({clip_id}): recorte vertical total {vertical:g}% excede '
+                    f'{MAX_VISUAL_CROP:g}% y sería reescalado durante el render.'
+                )
+    return issues
 
 
 def _has_renderable_word_timings(value):
@@ -110,6 +177,7 @@ def inspect(project):
                         f'Clip "{name}" ({clip_id}): duración de transición inválida ({value!r}); '
                         f'usa {MIN_TRANSITION_DURATION:.2f}–{upper:.2f} s.'
                     )
+            issues.extend(_validate_visual_state(clip, clip_id, name))
 
         numeric_fields = ('start', 'duration', 'sourceOffset', 'speed')
         invalid_numeric = set()
