@@ -1,0 +1,44 @@
+name: ProfitMente Studio Visual Keyframe QA
+
+on:
+  push:
+    paths:
+      - 'studio/visual-keyframe-engine.js'
+      - 'studio/visual-keyframe-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_visual_keyframe_engine.mjs'
+      - '.github/workflows/visual-keyframe-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/visual-keyframe-engine.js'
+      - 'studio/visual-keyframe-integration.js'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/test_visual_keyframe_engine.mjs'
+  workflow_dispatch:
+
+jobs:
+  visual-keyframes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/visual-keyframe-engine.js
+          node --check studio/visual-keyframe-integration.js
+          node --check studio/feature-bootstrap.js
+          node --check studio/test_visual_keyframe_engine.mjs
+      - name: Visual keyframe regression
+        run: node studio/test_visual_keyframe_engine.mjs
+      - name: Verify Studio wiring and render parity
+        run: |
+          grep -q "visual-keyframe-engine.js" studio/feature-bootstrap.js
+          grep -q "visual-keyframe-integration.js" studio/feature-bootstrap.js
+          grep -q "renderWithKeyframes" studio/visual-keyframe-integration.js
+          grep -q "await renderAt(time)" studio/webm-render-integration.js
+          grep -q "clipLocked" studio/visual-keyframe-engine.js
+      - name: Verify zero-cost boundary
+        run: |
+          ! grep -Eqi "stripe|openai|runway|replicate|fal\.ai|api[_-]?key|authorization:|bearer " studio/visual-keyframe-engine.js studio/visual-keyframe-integration.js
