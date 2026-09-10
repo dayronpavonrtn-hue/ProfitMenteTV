@@ -25,7 +25,7 @@ assert.throws(
 
 assert.throws(
   ()=>engine.normalize({...base,clips:[{id:'bool-track',track:true,start:0,duration:1}]}),
-  /Pista de clip inválida/,
+  /Pista de clip inválid[oa]/,
   'boolean tracks must not be coerced into real timeline tracks'
 );
 
