@@ -34,8 +34,8 @@
   $('#playhead')?.addEventListener('input',()=>requestAnimationFrame(refresh));
   root.addEventListener?.('profitmente:project-loaded',refresh);root.addEventListener?.('profitmente:project-reset',refresh);
 
-  const originalRender=root.renderAt,originalAssetUrl=root.assetUrl;
-  let rendering=false,pendingTime=null,pendingWaiters=[],currentClip=null;
+  const originalRender=root.renderAt;
+  let rendering=false,pendingTime=null,pendingWaiters=[];
   function activeCandidates(time){
     const t=Number(time)||0;
     return (project?.clips||[]).filter(c=>{
@@ -43,27 +43,22 @@
       const start=Number(c.start),duration=Number(c.duration);if(!Number.isFinite(start)||!Number.isFinite(duration)||duration<=0||t<start||t>=start+duration)return false;
       const asset=(typeof assets!=='undefined'&&Array.isArray(assets))?assets.find(a=>sameId(a?.id,c.asset)):null;
       return !!asset&&['image','video'].includes(asset.type)&&asset.blob!=null;
-    }).sort((a,b)=>(Number(a.track)||0)-(Number(b.track)||0));
+    }).sort((a,b)=>(engine.canonicalTrack(a.track)-engine.canonicalTrack(b.track))||(Number(a.start)-Number(b.start)));
   }
   async function performRender(time){
     if(typeof originalRender!=='function')return;
-    const t=Number(time)||0,candidates=activeCandidates(t),remaining=[...candidates];
+    const t=Number(time)||0,candidates=activeCandidates(t);
+    let drawIndex=0;
     const hadDraw=Object.prototype.hasOwnProperty.call(ctx,'drawImage'),previousDraw=ctx.drawImage;
-    const hadAsset=Object.prototype.hasOwnProperty.call(root,'assetUrl'),previousAsset=root.assetUrl;
-    if(typeof originalAssetUrl==='function')root.assetUrl=async function(id){
-      const index=remaining.findIndex(c=>sameId(c?.asset,id));currentClip=index>=0?remaining.splice(index,1)[0]:null;
-      return originalAssetUrl.call(this,id);
-    };
     ctx.drawImage=function(source,...args){
-      const clip=currentClip;if(!clip)return previousDraw.apply(ctx,[source,...args]);
-      const state=engine.stateAt(clip,t-(Number(clip.start)||0)),dx=state.x/100*canvas.width,dy=state.y/100*canvas.height;
+      const clip=candidates[drawIndex++]||null;
+      if(!clip)return previousDraw.apply(ctx,[source,...args]);
+      const state=engine.stateAt(clip,t-Number(clip.start)),dx=state.x/100*canvas.width,dy=state.y/100*canvas.height;
       ctx.save();ctx.globalAlpha*=state.opacity;ctx.translate(canvas.width/2+dx,canvas.height/2+dy);ctx.rotate(state.rotation*Math.PI/180);ctx.scale(state.scale,state.scale);ctx.translate(-canvas.width/2,-canvas.height/2);
-      try{return previousDraw.apply(ctx,[source,...args])}finally{ctx.restore();currentClip=null}
+      try{return previousDraw.apply(ctx,[source,...args])}finally{ctx.restore()}
     };
     try{return await originalRender(t)}finally{
-      currentClip=null;
       if(hadDraw)ctx.drawImage=previousDraw;else delete ctx.drawImage;
-      if(typeof originalAssetUrl==='function'){if(hadAsset)root.assetUrl=previousAsset;else delete root.assetUrl}
     }
   }
   async function renderWithKeyframes(time){
