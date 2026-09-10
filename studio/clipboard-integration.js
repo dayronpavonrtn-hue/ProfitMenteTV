@@ -20,6 +20,20 @@
     persist?.();drawTimeline?.();renderAt?.(+$('#playhead')?.value||0);status(message)
   }
   function copy(){const clips=selectedClips();const r=engine.copy(clips);if(!r.copied){status('Selecciona uno o varios clips para copiar');return}status(`${r.copied} clip${r.copied===1?'':'s'} copiado${r.copied===1?'':'s'} · separación preservada`)}
+  function cut(){
+    const clips=selectedClips(),r=engine.cut(project,clips);
+    if(!r.ok){
+      if(r.reason==='empty-selection')status('Selecciona uno o varios clips para cortar');
+      else if(r.reason==='locked-selection')status('Corte bloqueado: la selección contiene clips o pistas bloqueadas');
+      else if(r.reason==='stale-selection')status('Corte cancelado: la selección ya no coincide con la timeline');
+      else status('No se pudo cortar la selección');
+      return r
+    }
+    const multi=ensureSelectionApi();multi?.clear?.();
+    if(window.ProfitMenteEditTools?.selectedId!=null)window.ProfitMenteEditTools?.select?.(null);
+    commit(`${r.removed} clip${r.removed===1?'':'s'} cortado${r.removed===1?'':'s'} · listo para pegar`);
+    return r
+  }
   function paste(){
     const t=+$('#playhead')?.value||0,r=engine.paste(project,t);
     if(!r.ok){if(r.reason==='empty')status('No hay clips copiados');else if(r.reason==='locked-tracks')status(`Pegado bloqueado: pista${r.locked.length===1?'':'s'} ${r.locked.join(', ')} bloqueada${r.locked.length===1?'':'s'}`);else if(r.reason==='too-long')status('Pegado bloqueado: el grupo copiado es más largo que el proyecto');return}
@@ -33,9 +47,11 @@
   document.addEventListener('keydown',e=>{
     if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
     const el=document.activeElement,tag=el?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag)||el?.isContentEditable)return;
-    if(e.key.toLowerCase()==='c'){if(selectedClips().length){e.preventDefault();copy()}}
-    else if(e.key.toLowerCase()==='v'){if(engine.count){e.preventDefault();paste()}}
-    else if(e.key.toLowerCase()==='d'){if(selectedClips().length){e.preventDefault();duplicate()}}
+    const key=e.key.toLowerCase();
+    if(key==='c'){if(selectedClips().length){e.preventDefault();copy()}}
+    else if(key==='x'){if(selectedClips().length){e.preventDefault();cut()}}
+    else if(key==='v'){if(engine.count){e.preventDefault();paste()}}
+    else if(key==='d'){if(selectedClips().length){e.preventDefault();duplicate()}}
   });
-  ensureSelectionApi();window.ProfitMenteClipboard={engine,copy,paste,duplicate};
+  ensureSelectionApi();window.ProfitMenteClipboard={engine,copy,cut,paste,duplicate};
 })();
