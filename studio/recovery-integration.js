@@ -4,7 +4,7 @@
   let showAll=false;
   const section=document.createElement('section');section.className='recoveryPanel';section.innerHTML='<h3>Recuperación</h3><div class="projectLibraryActions"><button id="recoverySnapshotBtn">⟲ Crear punto</button><button id="recoveryRefreshBtn">↻ Ver versiones</button><button id="recoveryAllBtn" title="Mostrar también copias de otros proyectos">☰ Ver todos</button></div><div id="recoveryList" class="projectLibraryList"></div>';aside.appendChild(section);
   const status=t=>typeof setStatus==='function'&&setStatus(t);
-  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   function rows(){return (showAll?engine.list():engine.list(project)).slice(0,showAll?12:6)}
   function render(){
     const el=$('#recoveryList'),list=rows(),toggle=$('#recoveryAllBtn');
@@ -35,12 +35,21 @@
     capture('antes de restaurar');
     return true;
   }
-  function validateRecoverySnapshot(next){
+  function validateRecoveryPrimitives(next){
+    if(!next||typeof next!=='object'||Array.isArray(next)||!Array.isArray(next.clips))throw new Error('Punto de recuperación dañado');
+    const primitive=value=>typeof value==='number'||typeof value==='string';
+    if(next.duration!=null&&!primitive(next.duration))throw new Error('Duración dañada en el punto de recuperación');
+    const numericKeys=['track','start','duration','speed','sourceOffset','volume','sourceVolume','positionX','positionY','scale','rotation','opacity','fadeIn','fadeOut'];
+    for(const clip of next.clips){
+      if(!clip||typeof clip!=='object'||Array.isArray(clip))throw new Error('Clip dañado en el punto de recuperación');
+      for(const key of numericKeys){if(clip[key]!=null&&!primitive(clip[key]))throw new Error(`${key} dañado en el punto de recuperación`)}
+      if(clip.asset!=null&&!['string','number'].includes(typeof clip.asset))throw new Error('Identidad de medio dañada en el punto de recuperación');
+    }
+    return next;
+  }
+  function validateMigratedRecovery(next){
     const ImportEngine=window.ProfitMenteProjectImportEngine;
     if(typeof ImportEngine!=='function')throw new Error('No se pudo cargar el validador de proyectos para restaurar este punto');
-    // Validate the untouched snapshot before migration. Migration intentionally
-    // repairs legacy numeric strings, but must never get a chance to coerce
-    // corrupt booleans/objects into valid track, timing, volume or visual data.
     new ImportEngine().normalize(next);
     return next;
   }
@@ -58,7 +67,7 @@
   function restore(id){
     let next=engine.restore(id);if(!next)return;
     if(!flushBeforeRestore()){status('No se pudo guardar el proyecto actual; restauración cancelada');return}
-    try{next=validateRecoverySnapshot(next);next=migrateRestoredProject(next)}catch(err){console.error(err);status(err.message||'No se pudo restaurar el punto de recuperación');return}
+    try{next=validateRecoveryPrimitives(next);next=migrateRestoredProject(next);next=validateMigratedRecovery(next)}catch(err){console.error(err);status(err.message||'No se pudo restaurar el punto de recuperación');return}
     next=normalizeRestoredProject(next);project=next;
     if(typeof persist==='function')persist();else if(typeof originalPersist==='function')originalPersist();
     if(typeof drawTimeline==='function')drawTimeline();if(typeof drawLibrary==='function')drawLibrary();if(typeof syncForm==='function')syncForm();
