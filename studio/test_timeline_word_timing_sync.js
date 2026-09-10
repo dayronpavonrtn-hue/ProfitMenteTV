@@ -6,6 +6,7 @@ const {ProfitMenteRippleGapEngine:RippleGap}=require('./ripple-gap-engine.js');
 const Ops=globalThis.ProfitMenteTimelineOperations;
 assert(Ops,'ProfitMenteTimelineOperations must be available');
 const ops=new Ops();
+const near=(actual,expected,message='')=>assert(Math.abs(actual-expected)<1e-9,message||`${actual} != ${expected}`);
 
 function word(start,end,word='x'){return {start,end,duration:end-start,word}}
 function clip(id,track,start,duration,words=[],extra={}){
@@ -22,13 +23,13 @@ function clip(id,track,start,duration,words=[],extra={}){
   const removed=ops.rippleDelete(project,'b');
   assert(removed,'rippleDelete should succeed');
   const moved=project.clips.find(c=>c.id==='c');
-  assert.strictEqual(moved.start,3);
-  assert.strictEqual(moved.wordTimings[0].start,3.1);
-  assert.strictEqual(moved.wordTimings[0].end,3.9);
-  assert(Math.abs(moved.wordTimings[0].duration-.8)<1e-9);
+  near(moved.start,3);
+  near(moved.wordTimings[0].start,3.1);
+  near(moved.wordTimings[0].end,3.9);
+  near(moved.wordTimings[0].duration,.8);
   const other=project.clips.find(c=>c.id==='other');
-  assert.strictEqual(other.start,5,'another track must not move');
-  assert.strictEqual(other.wordTimings[0].start,5.2,'another track word timings must stay unchanged');
+  near(other.start,5,'another track must not move');
+  near(other.wordTimings[0].start,5.2,'another track word timings must stay unchanged');
 }
 
 {
@@ -41,11 +42,11 @@ function clip(id,track,start,duration,words=[],extra={}){
   assert.strictEqual(moved,2);
   const b=project.clips.find(c=>c.id==='b');
   const c=project.clips.find(c=>c.id==='c');
-  assert.strictEqual(b.start,1);
-  assert.strictEqual(b.wordTimings[0].start,1.1);
-  assert.strictEqual(c.start,2);
-  assert.strictEqual(c.wordTimings[0].start,2.2);
-  assert.strictEqual(c.wordTimings[0].end,3.4);
+  near(b.start,1);
+  near(b.wordTimings[0].start,1.1);
+  near(c.start,2);
+  near(c.wordTimings[0].start,2.2);
+  near(c.wordTimings[0].end,3.4);
 }
 
 {
@@ -78,18 +79,18 @@ function clip(id,track,start,duration,words=[],extra={}){
   ]};
   const result=RippleGap.apply(project,4);
   assert(result.ok,'global ripple gap should close the empty 3-5s interval');
-  assert.strictEqual(result.gap.start,3);
-  assert.strictEqual(result.gap.end,5);
+  near(result.gap.start,3);
+  near(result.gap.end,5);
   assert.strictEqual(result.wordsShifted,2);
   const c=project.clips.find(x=>x.id==='c'),d=project.clips.find(x=>x.id==='d');
-  assert.strictEqual(c.start,3);
-  assert.strictEqual(c.wordTimings[0].start,3.2);
-  assert.strictEqual(c.wordTimings[0].end,4.1);
-  assert.strictEqual(d.start,4);
-  assert.strictEqual(d.wordTimings[0].start,4.1);
-  assert.strictEqual(project.markers[0].time,3.5);
-  assert.strictEqual(project.workRange.start,3);
-  assert.strictEqual(project.workRange.end,6);
+  near(c.start,3);
+  near(c.wordTimings[0].start,3.2);
+  near(c.wordTimings[0].end,4.1);
+  near(d.start,4);
+  near(d.wordTimings[0].start,4.1);
+  near(project.markers[0].time,3.5);
+  near(project.workRange.start,3);
+  near(project.workRange.end,6);
 }
 
 console.log('timeline word timing sync regression: ok');
