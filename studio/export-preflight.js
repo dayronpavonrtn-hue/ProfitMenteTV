@@ -1,20 +1,22 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
   class ProfitMenteExportPreflight{
-    static canonicalTrack(value){
-      if(typeof value!=='number'&&typeof value!=='string')return null;
-      const raw=typeof value==='string'?value.trim():value;
-      if(raw==='')return null;
+    static strictFinite(value){
+      if(typeof value==='number')return Number.isFinite(value)?value:null;
+      if(typeof value!=='string')return null;
+      const raw=value.trim();
+      if(!raw||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
       const n=Number(raw);
-      if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
+      return Number.isFinite(n)?n:null;
+    }
+    static canonicalTrack(value){
+      const n=this.strictFinite(value);
+      if(n===null||!Number.isInteger(n)||n<0||n>6)return null;
       return Object.is(n,-0)?0:n;
     }
     static finiteNumber(value,fallback=0){
-      if(typeof value!=='number'&&typeof value!=='string')return fallback;
-      const raw=typeof value==='string'?value.trim():value;
-      if(raw==='')return fallback;
-      const n=Number(raw);
-      return Number.isFinite(n)?n:fallback;
+      const n=this.strictFinite(value);
+      return n===null?fallback:n;
     }
     static summarize(qa,health){
       qa=qa||{ok:false,score:0,issues:['QA no disponible'],warnings:[],metrics:{}};health=health||{ok:false,render_ready:false};
