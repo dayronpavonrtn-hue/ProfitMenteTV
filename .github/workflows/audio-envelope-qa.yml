@@ -5,15 +5,21 @@ on:
     paths:
       - 'studio/audio-envelope-engine.js'
       - 'studio/audio-envelope-integration.js'
+      - 'studio/audio-crossfade-engine.js'
+      - 'studio/audio-crossfade-integration.js'
       - 'studio/index.html'
       - 'studio/test_audio_envelope_engine.mjs'
+      - 'studio/test_audio_crossfade.mjs'
       - '.github/workflows/audio-envelope-qa.yml'
   pull_request:
     paths:
       - 'studio/audio-envelope-engine.js'
       - 'studio/audio-envelope-integration.js'
+      - 'studio/audio-crossfade-engine.js'
+      - 'studio/audio-crossfade-integration.js'
       - 'studio/index.html'
       - 'studio/test_audio_envelope_engine.mjs'
+      - 'studio/test_audio_crossfade.mjs'
   workflow_dispatch:
 
 jobs:
@@ -28,12 +34,20 @@ jobs:
         run: |
           node --check studio/audio-envelope-engine.js
           node --check studio/audio-envelope-integration.js
+          node --check studio/audio-crossfade-engine.js
+          node --check studio/audio-crossfade-integration.js
           node --check studio/test_audio_envelope_engine.mjs
+          node --check studio/test_audio_crossfade.mjs
       - name: Audio envelope regression
         run: node studio/test_audio_envelope_engine.mjs
-      - name: Verify Studio wiring
+      - name: Audio crossfade regression
+        run: node studio/test_audio_crossfade.mjs
+      - name: Verify Studio wiring and zero-cost boundary
         run: |
           grep -q "audio-envelope-engine.js" studio/index.html
           grep -q "audio-envelope-integration.js" studio/index.html
           grep -q "ciAudioEnvelopeWrap" studio/audio-envelope-integration.js
           grep -q "clipLocked" studio/audio-envelope-engine.js
+          grep -q "audio-crossfade-engine.js" studio/audio-envelope-integration.js
+          grep -q "audio-crossfade-integration.js" studio/audio-envelope-integration.js
+          ! grep -E "fetch\(|https?://|api[_-]?key|stripe|openai" studio/audio-crossfade-engine.js studio/audio-crossfade-integration.js
