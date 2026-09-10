@@ -1,0 +1,41 @@
+name: ProfitMente Studio Clip Attributes Clipboard QA
+
+on:
+  push:
+    paths:
+      - 'studio/clip-attributes-clipboard-engine.js'
+      - 'studio/clip-attributes-clipboard-integration.js'
+      - 'studio/clip-attributes-clipboard-regression.js'
+      - 'studio/automation-checkpoint.js'
+      - '.github/workflows/clip-attributes-clipboard-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/clip-attributes-clipboard-engine.js'
+      - 'studio/clip-attributes-clipboard-integration.js'
+      - 'studio/clip-attributes-clipboard-regression.js'
+      - 'studio/automation-checkpoint.js'
+  workflow_dispatch:
+
+jobs:
+  clip-attributes-clipboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/clip-attributes-clipboard-engine.js
+          node --check studio/clip-attributes-clipboard-integration.js
+          node --check studio/clip-attributes-clipboard-regression.js
+          node --check studio/automation-checkpoint.js
+      - name: Clip attributes clipboard regression
+        run: node studio/clip-attributes-clipboard-regression.js
+      - name: Verify Studio wiring and zero-cost boundary
+        run: |
+          grep -q "clip-attributes-clipboard-engine.js" studio/automation-checkpoint.js
+          grep -q "clip-attributes-clipboard-integration.js" studio/automation-checkpoint.js
+          grep -q "Copiar atributos" studio/clip-attributes-clipboard-integration.js
+          grep -q "Pegar atributos" studio/clip-attributes-clipboard-integration.js
+          ! grep -E "fetch\(|https?://|api[_-]?key|stripe|openai|paypal" studio/clip-attributes-clipboard-engine.js studio/clip-attributes-clipboard-integration.js
