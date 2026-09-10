@@ -56,6 +56,7 @@
       if(s.voice&&s.music)steps.push('smart-mix');
       if(s.music||s.voice||s.sfx){if(!s.beats)steps.push('detect-beats');if(s.generated>1)steps.push('sync-beats')}
       if(s.generated>1)steps.push('auto-transitions');
+      if(s.music||s.voice||s.sfx)steps.push('audio-headroom');
       steps.push('qa');
       return {steps,summary:s};
     }
