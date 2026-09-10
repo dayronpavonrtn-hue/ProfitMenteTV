@@ -12,17 +12,25 @@ const source={
   trackStates:{0:{locked:true}},
   clips:[{id:'late',track:0,name:'Late protected clip',start:20,duration:6,locked:true,asset:'camera-a'}]
 };
-const normalized=importer.normalize(source);
-const migrated=migration.migrate(normalized).project;
+// User-facing JSON imports are strict: a declared 8 s project must not smuggle a
+// clip ending at 26 s past preview/render bounds. Legacy recovery still keeps its
+// duration-extension migration below, where the migration engine owns that repair.
+assert.throws(()=>importer.normalize(source),/Clip excede la duración del proyecto/,'strict JSON import must reject stale project bounds before replacing the active edit');
+const migrated=migration.migrate(source).project;
 assert.equal(migrated.version,CURRENT_VERSION);
-assert.equal(migrated.duration,26,'import pipeline must expand stale duration instead of hiding/truncating late media');
+assert.equal(migrated.duration,26,'legacy migration must still recover stale persisted projects by extending duration');
 assert.equal(migrated.clips[0].start,20);
 assert.equal(migrated.clips[0].duration,6);
 assert.equal(migrated.clips[0].locked,true);
 assert.equal(migrated.clips[0].asset,'camera-a');
 assert.equal(migrated.trackState[0].locked,true,'legacy track locks must migrate to the canonical trackState map');
 assert.equal('trackStates' in migrated,false,'legacy trackStates must be removed after canonical migration');
-assert.equal('libraryId' in migrated,false,'imported projects remain detached from the source library identity');
+assert.equal(migrated.libraryId,'old-local-id','local legacy migration must preserve its library identity; only external import detaches it');
+// Once migrated into canonical bounds, the same payload is safe to pass through
+// the external-import validator, which must detach the foreign library identity.
+const normalizedMigrated=importer.normalize(migrated);
+assert.equal(normalizedMigrated.duration,26);
+assert.equal('libraryId' in normalizedMigrated,false,'external import validation must detach library identity after canonical migration');
 
 const integration=fs.readFileSync(new URL('./project-import-integration.js',import.meta.url),'utf8');
 const flushCallAt=integration.indexOf('if(!flushCurrentProject())return;');
