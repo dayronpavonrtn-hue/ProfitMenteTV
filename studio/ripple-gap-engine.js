@@ -70,6 +70,18 @@
       if(t>gap.start)return gap.start;
       return t;
     }
+    static shiftWordTimings(clip,delta){
+      if(!Array.isArray(clip?.wordTimings)||Math.abs(delta)<1e-9)return 0;
+      let shifted=0;
+      for(const word of clip.wordTimings){
+        if(!word||typeof word!=='object'||Array.isArray(word))continue;
+        const start=this.finite(word.start,null),end=this.finite(word.end,null);let changed=false;
+        if(start!==null){word.start=Math.max(0,start+delta);changed=true}
+        if(end!==null){word.end=Math.max(0,end+delta);changed=true}
+        if(changed){const a=this.finite(word.start,null),b=this.finite(word.end,null);if(a!==null&&b!==null)word.duration=Math.max(0,b-a);shifted++}
+      }
+      return shifted;
+    }
     static plan(project,time,minGap=.001){
       const valid=this.validate(project);if(!valid.ok)return {...valid,changed:0};
       const found=this.gapAt(project,time,minGap);if(!found.ok)return {...found,changed:0};
@@ -87,7 +99,12 @@
     }
     static apply(project,time,minGap=.001){
       const plan=this.plan(project,time,minGap);if(!plan.ok)return plan;
-      for(const move of plan.moves)move.clip.start=move.start;
+      let wordsShifted=0;
+      for(const move of plan.moves){
+        const previous=this.finite(move.clip.start,move.start),delta=move.start-previous;
+        move.clip.start=move.start;
+        wordsShifted+=this.shiftWordTimings(move.clip,delta);
+      }
       project.duration=plan.newDuration;
       if(Array.isArray(project.markers))for(const marker of project.markers)if(marker&&typeof marker==='object'&&!Array.isArray(marker))marker.time=this.shiftAuxTime(marker.time,plan.gap);
       if(project.workRange&&typeof project.workRange==='object'&&!Array.isArray(project.workRange)){
@@ -95,7 +112,7 @@
         project.workRange.end=this.shiftAuxTime(project.workRange.end,plan.gap);
         if(this.finite(project.workRange.end,null)!==null&&this.finite(project.workRange.start,null)!==null&&project.workRange.end<project.workRange.start)project.workRange.end=project.workRange.start;
       }
-      return plan;
+      return {...plan,wordsShifted};
     }
   }
   return {ProfitMenteRippleGapEngine};
