@@ -2,15 +2,14 @@
   const root=typeof window!=='undefined'?window:globalThis;
   const VISUAL_TRACKS=[0,1,2,3],AUDIO_TRACKS=[4,5,6];
   function canonicalTrack(value){
-    if(typeof value==='boolean'||value==null)return null;
-    if(typeof value==='string'&&!value.trim())return null;
+    if(typeof value==='number')return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
+    if(typeof value!=='string'||!value.trim())return null;
     const n=Number(value);
     return Number.isFinite(n)&&Number.isInteger(n)&&n>=0&&n<=6?n:null;
   }
   function hasMediaId(value){
-    if(typeof value==='boolean'||value==null)return false;
     if(typeof value==='string')return value.trim().length>0;
-    return typeof value==='number'?Number.isFinite(value):true;
+    return typeof value==='number'&&Number.isSafeInteger(value);
   }
   function statesFor(source,track){
     const wanted=canonicalTrack(track);
