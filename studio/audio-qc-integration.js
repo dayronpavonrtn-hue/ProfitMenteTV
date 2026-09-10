@@ -32,17 +32,17 @@
     }finally{busy=false;button.disabled=false;updateHeadroomButton()}
   }
   async function fixHeadroom(){
-    if(busy)return;try{
-      if(!lastAnalysis)await inspect();if(!lastAnalysis)return;
+    if(busy)return {ok:false,reason:'busy',changed:0};try{
+      if(!lastAnalysis)await inspect();if(!lastAnalysis)return {ok:false,reason:'analysis-unavailable',changed:0};
       const plan=Engine.planHeadroomFix(project,lastAnalysis.rows,lastAnalysis.mix,{targetDb:-1});
-      if(!plan.needed){resultEl.hidden=false;resultEl.textContent='La mezcla ya tiene headroom seguro (≤ -1 dBFS).';if(typeof setStatus==='function')setStatus('Audio QA: no fue necesario ajustar headroom');return}
-      if(!plan.ok){resultEl.hidden=false;resultEl.textContent=`No se modificó la mezcla: ${plan.lockedClipIds.length} clip(s) de riesgo están bloqueados.`;if(typeof setStatus==='function')setStatus('Headroom no corregido: desbloquea los clips o pistas de riesgo');return}
-      const applied=Engine.applyHeadroomFix(project,lastAnalysis.rows,lastAnalysis.mix,{targetDb:-1});if(!applied.changed)return;
+      if(!plan.needed){resultEl.hidden=false;resultEl.textContent='La mezcla ya tiene headroom seguro (≤ -1 dBFS).';if(typeof setStatus==='function')setStatus('Audio QA: no fue necesario ajustar headroom');return {...plan,ok:true,reason:'already-safe',changed:0}}
+      if(!plan.ok){resultEl.hidden=false;resultEl.textContent=`No se modificó la mezcla: ${plan.lockedClipIds.length} clip(s) de riesgo están bloqueados.`;if(typeof setStatus==='function')setStatus('Headroom no corregido: desbloquea los clips o pistas de riesgo');return {...plan,reason:'locked-risk',changed:0}}
+      const applied=Engine.applyHeadroomFix(project,lastAnalysis.rows,lastAnalysis.mix,{targetDb:-1});if(!applied.changed)return {...applied,reason:'no-editable-risk'};
       if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+(document.querySelector('#playhead')?.value||0));
       document.dispatchEvent(new CustomEvent('profitmente:audio-headroom-fixed',{detail:applied}));lastAnalysis=null;
       if(typeof setStatus==='function')setStatus(`Headroom corregido · ${applied.changed} clip(s) · ${applied.gainDb.toFixed(1)} dB`);
-      await inspect();
-    }catch(error){console.error(error);resultEl.hidden=false;resultEl.textContent='No se pudo corregir el headroom: '+(error?.message||error);if(typeof setStatus==='function')setStatus(resultEl.textContent)}
+      const analysis=await inspect();return {...applied,reason:'corrected',analysis};
+    }catch(error){console.error(error);resultEl.hidden=false;resultEl.textContent='No se pudo corregir el headroom: '+(error?.message||error);if(typeof setStatus==='function')setStatus(resultEl.textContent);return {ok:false,reason:'error',changed:0,error:String(error?.message||error)}}
   }
   button?.addEventListener('click',()=>inspect().catch(error=>{console.error(error);resultEl.hidden=false;resultEl.textContent='No se pudo analizar el audio: '+error.message;if(typeof setStatus==='function')setStatus(resultEl.textContent)}));
   headroomBtn?.addEventListener('click',fixHeadroom);
