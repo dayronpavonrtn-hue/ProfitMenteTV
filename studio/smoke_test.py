@@ -3,7 +3,7 @@
 Creates synthetic media with FFmpeg, validates projects, renders MP4 and verifies them with ffprobe.
 Usage: python studio/smoke_test.py [workdir]
 """
-import json, pathlib, subprocess, sys, tempfile
+import json, pathlib, subprocess, sys, tempfile, tarfile
 ROOT=pathlib.Path(__file__).resolve().parent
 work=pathlib.Path(sys.argv[1]).resolve() if len(sys.argv)>1 else pathlib.Path(tempfile.mkdtemp(prefix='profitmente-smoke-'))
 assets=work/'assets'; assets.mkdir(parents=True,exist_ok=True)
@@ -27,6 +27,33 @@ assert any(s.get('codec_type')=='audio' for s in streams),streams
 assert 5.8<=float(info['format']['duration'])<=6.2,info
 assert int(info['format']['size'])>10000,info
 
+# Exercise the actual production export boundary used by Studio: portable bundle,
+# canonical media IDs, structural/parity/media preflights, composition, full decode,
+# post-render QC and atomic MP4 publication. A legacy numeric alias deliberately
+# crosses the bundle boundary so the smoke test also proves browser/render identity
+# normalization is wired into the real export path rather than only unit-tested.
+bundle_project=json.loads(json.dumps(project))
+bundle_project['name']='ProfitMente Production Bundle Smoke Test'
+bundle_project['assets'][0]['id']='007'
+bundle_project['clips'][0]['asset']=7
+bundle_project_path=work/'bundle-project.json'
+bundle_project_path.write_text(json.dumps(bundle_project,ensure_ascii=False,indent=2),encoding='utf-8')
+bundle=work/'profitmente-smoke.profitmente.tar'; bundle_output=work/'profitmente-bundle-smoke.mp4'
+with tarfile.open(bundle,'w:') as tar:
+    tar.add(bundle_project_path,arcname='project.json')
+    for media in bundle_project['assets']:
+        tar.add(assets/media['name'],arcname=f"assets/{media['name']}")
+run([sys.executable,ROOT/'render_bundle.py',bundle,bundle_output])
+bundle_info=probe_file(bundle_output); bundle_streams=bundle_info['streams']; bundle_video=next(s for s in bundle_streams if s.get('codec_type')=='video')
+assert bundle_video['width']==1080 and bundle_video['height']==1920,bundle_video
+assert any(s.get('codec_type')=='audio' for s in bundle_streams),bundle_streams
+assert 5.8<=float(bundle_info['format']['duration'])<=6.2,bundle_info
+assert int(bundle_info['format']['size'])>10000,bundle_info
+bundle_qc_path=bundle_output.with_suffix(bundle_output.suffix+'.qc.json')
+assert bundle_qc_path.is_file(),bundle_qc_path
+bundle_qc=json.loads(bundle_qc_path.read_text(encoding='utf-8'))
+assert bundle_qc.get('ok') is True,bundle_qc
+
 # Second render verifies that a normal video clip keeps its own embedded audio even
 # when the user has not duplicated that sound onto Music/Voice/SFX tracks.
 source_video=assets/'source-audio.mp4'; source_project_path=work/'source-audio-project.json'; source_output=work/'source-audio-render.mp4'
@@ -38,4 +65,4 @@ source_info=probe_file(source_output); source_streams=source_info['streams']
 assert any(s.get('codec_type')=='audio' for s in source_streams),source_streams
 assert 1.8<=float(source_info['format']['duration'])<=2.2,source_info
 assert int(source_info['format']['size'])>5000,source_info
-print(json.dumps({'ok':True,'output':str(output),'source_audio_output':str(source_output),'probe':info},indent=2)); print('PROFITMENTE STUDIO SMOKE TEST: PASS')
+print(json.dumps({'ok':True,'output':str(output),'bundle_output':str(bundle_output),'bundle_qc':bundle_qc,'source_audio_output':str(source_output),'probe':info},indent=2)); print('PROFITMENTE STUDIO SMOKE TEST: PASS')
