@@ -3,6 +3,10 @@
   const input=document.querySelector('#bundleInput'),button=document.querySelector('#importBundleBtn');if(!input||!button)return;
   const bundler=new ProfitMenteBundleEngine(),importer=new ProfitMenteBundleImportEngine();
   const status=t=>{if(typeof setStatus==='function')setStatus(t)};
+  function ensureIdentityGuard(){
+    if(window.ProfitMenteBundleImportIdentityGuard)return Promise.resolve(window.ProfitMenteBundleImportIdentityGuard);
+    return new Promise((resolve,reject)=>{const existing=[...document.scripts].find(s=>s.src.endsWith('/bundle-import-identity-guard.js')||s.src.endsWith('bundle-import-identity-guard.js'));if(existing){existing.addEventListener('load',()=>resolve(window.ProfitMenteBundleImportIdentityGuard),{once:true});existing.addEventListener('error',()=>reject(new Error('No se pudo cargar la validación de identidad del paquete')),{once:true});return}const s=document.createElement('script');s.src='bundle-import-identity-guard.js';s.async=false;s.onload=()=>window.ProfitMenteBundleImportIdentityGuard?resolve(window.ProfitMenteBundleImportIdentityGuard):reject(new Error('La validación de identidad del paquete no se activó'));s.onerror=()=>reject(new Error('No se pudo cargar la validación de identidad del paquete'));document.body.appendChild(s)})
+  }
   function normalizeRestoredProject(value){
     const ImportEngine=window.ProfitMenteProjectImportEngine;
     if(typeof ImportEngine==='function')return new ImportEngine().normalize(value);
@@ -60,7 +64,8 @@
       if(window.ProfitMenteNewProject?.flushCurrentProject&&!window.ProfitMenteNewProject.flushCurrentProject())return false;
       stopPlayback();status('Verificando y restaurando paquete completo…');
       if(importer.assertSafeTar)await importer.assertSafeTar(file);
-      const restored=await bundler.parse(file);
+      const identityGuard=await ensureIdentityGuard();
+      const restored=identityGuard.validateRestoredBundle(await bundler.parse(file));
       const normalized=migrateRestoredProject(restored.project);
       const prepared=importer.prepare(normalized,restored.assets,Array.isArray(previousAssets)?previousAssets:[]);
       const storage=await assertImportStorageCapacity(prepared.assetsToPersist);
