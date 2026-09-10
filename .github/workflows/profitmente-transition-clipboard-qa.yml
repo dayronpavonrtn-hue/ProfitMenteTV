@@ -24,8 +24,10 @@ jobs:
           node --check studio/manual-transition-integration.js
       - name: Test transition clipboard behavior
         run: node studio/transition-clipboard-regression.js
-      - name: Verify live wiring
+      - name: Verify strict UI identity and live wiring
         run: |
+          grep -q "Engine.sameId" studio/transition-clipboard-integration.js
+          grep -q "Engine.canonicalTrack" studio/transition-clipboard-integration.js
           grep -q "transition-clipboard-engine.js" studio/manual-transition-integration.js
           grep -q "transition-clipboard-integration.js" studio/manual-transition-integration.js
       - name: Enforce zero-cost boundary
