@@ -40,10 +40,14 @@ jobs:
           node --check studio/timeline-word-timing-sync.js
           node --check studio/ripple-gap-engine.js
           node --check studio/ripple-gap-integration.js
+          node --check studio/visual-keyframe-engine.js
+          node --check studio/visual-keyframe-render-baker.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
       - name: Timeline word timing sync regression
         run: node studio/test_timeline_word_timing_sync.js
+      - name: Visual keyframe MP4 compatibility regression
+        run: node studio/test_visual_keyframe_render_baker.js
       - name: QA strict identity regression
         run: node studio/test_qa_identity_strictness.js
       - name: Export preflight numeric identity regression
