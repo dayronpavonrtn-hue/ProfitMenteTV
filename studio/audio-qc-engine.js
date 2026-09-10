@@ -15,6 +15,15 @@ class ProfitMenteAudioQCEngine{
     }
     return 1;
   }
+  static trackLocked(project,track){
+    const canonical=this.canonicalTrack(track);if(canonical===null)return false;
+    for(const map of [project?.trackState,project?.trackStates]){
+      if(!map||typeof map!=='object')continue;
+      for(const [key,state] of Object.entries(map))if(this.canonicalTrack(key)===canonical&&state&&typeof state==='object'&&state.locked===true)return true;
+    }
+    return false;
+  }
+  static clipLocked(project,clip){return !!clip&&(clip.locked===true||this.trackLocked(project,clip.track))}
   static clipGain(project,clip){
     const track=this.canonicalTrack(clip?.track),trackGain=this.trackGain(project,track);
     let volume=1;
@@ -56,6 +65,30 @@ class ProfitMenteAudioQCEngine{
     }
     const worst=segments.slice().sort((a,b)=>b.effectivePeak-a.effectivePeak)[0]||null;
     return {segments,clipping:segments.filter(s=>s.status==='clipping').length,hot:segments.filter(s=>s.status==='hot').length,worst};
+  }
+  static planHeadroomFix(project,results=[],mix=null,{targetDb=-1}={}){
+    const rows=(Array.isArray(results)?results:[]).filter(row=>row?.clip&&Number.isFinite(row.effectivePeak));
+    const analysis=mix&&Array.isArray(mix.segments)?mix:this.inspectMixOverlaps(rows);
+    const target=this.finiteNumber(targetDb,-1),targetLinear=Math.pow(10,target/20);
+    const worstClip=rows.reduce((peak,row)=>Math.max(peak,Math.max(0,row.effectivePeak)),0),worstMix=Math.max(0,this.finiteNumber(analysis?.worst?.effectivePeak,0)),worstPeak=Math.max(worstClip,worstMix);
+    if(worstPeak<=targetLinear||worstPeak<=1e-9)return {ok:true,needed:false,gain:1,gainDb:0,targetDb:target,worstPeak,worstDb:this.dbfs(worstPeak),lockedClipIds:[]};
+    const riskyIds=new Set();
+    for(const row of rows)if(row.effectivePeak>targetLinear&&row.clip?.id!=null)riskyIds.add(String(row.clip.id));
+    for(const segment of analysis?.segments||[])if(segment.effectivePeak>targetLinear)for(const id of segment.clipIds||[])riskyIds.add(String(id));
+    const lockedClipIds=rows.filter(row=>riskyIds.has(String(row.clip?.id))&&this.clipLocked(project,row.clip)).map(row=>row.clip.id);
+    const gain=Math.min(1,targetLinear/worstPeak),gainDb=this.dbfs(gain);
+    return {ok:lockedClipIds.length===0,needed:true,gain,gainDb,targetDb:target,worstPeak,worstDb:this.dbfs(worstPeak),lockedClipIds,riskyClipIds:[...riskyIds]};
+  }
+  static applyHeadroomFix(project,results=[],mix=null,options={}){
+    const plan=this.planHeadroomFix(project,results,mix,options);if(!plan.needed||!plan.ok)return {...plan,changed:0};
+    const rows=(Array.isArray(results)?results:[]).filter(row=>row?.clip&&Number.isFinite(row.effectivePeak));let changed=0;
+    for(const row of rows){
+      const clip=row.clip,track=this.canonicalTrack(clip.track);if(![0,1,4,5,6].includes(track)||this.clipLocked(project,clip))continue;
+      if(track===0||track===1)clip.sourceVolume=this.clamp((clip.sourceVolume??1)*plan.gain,0,2,1);
+      else clip.volume=this.clamp((clip.volume??(track===5?.22:1))*plan.gain,0,2,track===5?.22:1);
+      changed++;
+    }
+    return {...plan,changed};
   }
   static summarize(results=[]){
     const list=Array.isArray(results)?results:[],counts={clipping:0,hot:0,ok:0,silent:0,unavailable:0};
