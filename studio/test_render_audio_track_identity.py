@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression for strict track identity in the local FFmpeg audio bridge."""
+"""Regression for strict track identity and numerics in the local FFmpeg audio bridge."""
 from __future__ import annotations
 import json
 import pathlib
@@ -59,4 +59,16 @@ with tempfile.TemporaryDirectory(prefix='profitmente-audio-track-id-') as td:
 source=(ROOT/'render_audio_mix.py').read_text(encoding='utf-8')
 assert "int(c.get('track'" not in source
 assert 'type(value) is int' in source
-print('Render audio strict track identity QA OK')
+assert 'def strict_number(' in source
+assert 'isinstance(value,bool)' in source
+assert 'math.isfinite(number)' in source
+# All user-controlled audio numerics must pass through the strict parser so a
+# boolean/object cannot silently become a valid gain, speed, offset or fade.
+for field in ('gain','speed','fadeIn','fadeOut','start','duration','sourceOffset','sourceVolume','volume','duckVolume'):
+    assert f"c.get('{field}'" in source or field=='gain', field
+assert "float(state(track).get('gain'" not in source
+assert "float(c.get('sourceVolume'" not in source
+assert "float(c.get('volume'" not in source
+assert "float(c.get('duckVolume'" not in source
+assert "float(c.get('speed'" not in source
+print('Render audio strict track/numeric identity QA OK')
