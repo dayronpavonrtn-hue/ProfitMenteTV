@@ -81,6 +81,15 @@
             else if(r?.locked)skipped.push(`transiciones protegidas ${r.locked}`);
             else completed.push('transiciones 0');
           }else skipped.push('transiciones');
+        }else if(step==='audio-headroom'){
+          if(window.ProfitMenteAudioQC?.fixHeadroom){
+            const r=await window.ProfitMenteAudioQC.fixHeadroom();
+            if(r?.error)throw new Error(`Headroom automático: ${r.error}`);
+            if(r?.reason==='corrected')completed.push(`headroom ${r.changed} clip(s)`);
+            else if(r?.reason==='already-safe')completed.push('headroom seguro');
+            else if(r?.reason==='locked-risk')skipped.push(`headroom protegido ${r.lockedClipIds?.length||0}`);
+            else skipped.push('headroom');
+          }else skipped.push('headroom');
         }else if(step==='qa'){
           lastReport=runQA();
           if(lastReport)completed.push(`QA ${lastReport.score}/100`);else skipped.push('QA');
@@ -131,7 +140,7 @@
   function install(){
     const anchor=$('#generateBtn')||$('#qaBtn');if(!anchor)return;
     let btn=$('#autoFinishBtn');
-    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, relleno visual, mezcla, ritmo, transiciones, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
+    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, relleno visual, mezcla, ritmo, transiciones, headroom, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
     if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
