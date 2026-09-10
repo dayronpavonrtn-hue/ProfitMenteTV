@@ -17,6 +17,19 @@ const locked={duration:12,clips:[],trackState:{2:{locked:true}}};r=e.paste(locke
 const tooLongEngine=new ProfitMenteClipboardEngine();tooLongEngine.copy([{id:'x',track:0,start:0,duration:9}]);r=tooLongEngine.paste({duration:5,clips:[],trackState:{}},0);assert.equal(r.ok,false);assert.equal(r.reason,'too-long');
 const empty=new ProfitMenteClipboardEngine();assert.equal(empty.paste({duration:10,clips:[]},0).reason,'empty');
 
+// Corrupt timeline metadata must never enter a project through copy/paste.
+const strictEngine=new ProfitMenteClipboardEngine();strictEngine.copy([{id:'keep',track:0,start:0,duration:1,name:'Keep'}]);
+for(const [clip,reason] of [
+  [{id:'bad-track',track:true,start:0,duration:1},'invalid-track'],
+  [{id:'bad-track-2',track:1.5,start:0,duration:1},'invalid-track'],
+  [{id:'bad-start',track:0,start:Infinity,duration:1},'invalid-start'],
+  [{id:'bad-duration',track:0,start:0,duration:0},'invalid-duration'],
+  [{id:'bad-duration-2',track:0,start:0,duration:'nope'},'invalid-duration']
+]){r=strictEngine.copy([clip]);assert.equal(r.ok,false);assert.equal(r.reason,reason);assert.equal(strictEngine.count,1)}
+const strictProject={duration:10,clips:[],trackState:{}};r=strictEngine.paste(strictProject,NaN);assert.equal(r.ok,false);assert.equal(r.reason,'invalid-paste-time');assert.equal(strictProject.clips.length,0);
+r=strictEngine.paste({duration:Infinity,clips:[],trackState:{}},0);assert.equal(r.ok,false);assert.equal(r.reason,'invalid-project-duration');
+strictEngine.buffer=[{id:'poison',track:0,start:0,duration:1,__relativeStart:NaN}];r=strictEngine.paste({duration:10,clips:[],trackState:{}},0);assert.equal(r.ok,false);assert.equal(r.reason,'invalid-relative-start');
+
 // A pasted group must never stay linked to the source group.
 const groupedEngine=new ProfitMenteClipboardEngine();
 const grouped=[
@@ -35,5 +48,6 @@ const duplicateProject={duration:14,clips:structuredClone(grouped),trackState:{}
 
 const duplicateLocked=new ProfitMenteClipboardEngine();const lockedProject={duration:10,clips:[{id:'l',track:3,start:1,duration:2}],trackState:{3:{locked:true}}};r=duplicateLocked.duplicate(lockedProject,lockedProject.clips);assert.equal(r.ok,false);assert.equal(r.reason,'locked-tracks');assert.equal(lockedProject.clips.length,1);
 const noSpaceProject={duration:5,clips:[{id:'n',track:0,start:3,duration:2}],trackState:{}};r=new ProfitMenteClipboardEngine().duplicate(noSpaceProject,noSpaceProject.clips);assert.equal(r.ok,false);assert.equal(r.reason,'no-space');assert.equal(noSpaceProject.clips.length,1);
+const staleProject={duration:10,clips:[{id:'real',track:0,start:1,duration:1}],trackState:{}};r=new ProfitMenteClipboardEngine().duplicate(staleProject,[{id:'real',track:0,start:1,duration:1}]);assert.equal(r.ok,false);assert.equal(r.reason,'stale-selection');assert.equal(staleProject.clips.length,1);
 
 console.log('clipboard engine ok');
