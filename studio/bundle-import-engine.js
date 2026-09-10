@@ -2,18 +2,25 @@
 class ProfitMenteBundleImportEngine{
   constructor({idFactory}={}){this.idFactory=idFactory||(()=>crypto.randomUUID())}
   mediaIdKey(value){
-    if(value===undefined||value===null)return null;
-    const raw=String(value).trim();if(!raw)return null;
+    if(typeof value==='number')return Number.isSafeInteger(value)?String(Object.is(value,-0)?0:value):null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw)return null;
     const numeric=Number(raw);
-    return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
+    return Number.isFinite(numeric)&&Number.isSafeInteger(numeric)?String(Object.is(numeric,-0)?0:numeric):raw;
+  }
+  primitiveText(value){return typeof value==='string'?value.trim():''}
+  finiteNonNegative(value){
+    if(typeof value!=='number'&&typeof value!=='string')return 0;
+    if(typeof value==='string'&&!value.trim())return 0;
+    const numeric=Number(value);return Number.isFinite(numeric)&&numeric>=0?numeric:0;
   }
   identity(asset={}){
-    const hash=String(asset.sourceContentHash||'').trim();if(hash)return `hash:${hash}`;
-    const fingerprint=String(asset.sourceFingerprint||'').trim();if(fingerprint)return `fingerprint:${fingerprint}`;
-    return `meta:${String(asset.name||'')}|${Number(asset.size)||0}|${String(asset.mime||'')}|${Number(asset.sourceLastModified)||0}`;
+    const hash=this.primitiveText(asset.sourceContentHash);if(hash)return `hash:${hash}`;
+    const fingerprint=this.primitiveText(asset.sourceFingerprint);if(fingerprint)return `fingerprint:${fingerprint}`;
+    return `meta:${this.primitiveText(asset.name)}|${this.finiteNonNegative(asset.size)}|${this.primitiveText(asset.mime)}|${this.finiteNonNegative(asset.sourceLastModified)}`;
   }
   cloneAsset(asset={}){const copy={...asset};if(asset.blob)copy.blob=asset.blob;return copy}
-  assetBytes(asset={}){const blobSize=Number(asset?.blob?.size);if(Number.isFinite(blobSize)&&blobSize>=0)return blobSize;const declared=Number(asset?.size);return Number.isFinite(declared)&&declared>=0?declared:0}
+  assetBytes(asset={}){const blobSize=Number(asset?.blob?.size);if(Number.isFinite(blobSize)&&blobSize>=0)return blobSize;const declared=this.finiteNonNegative(asset?.size);return declared}
   requiredPersistBytes(assets=[]){return (Array.isArray(assets)?assets:[]).reduce((sum,asset)=>sum+this.assetBytes(asset),0)}
   storagePreflight(assets=[],estimate={}){
     const required=this.requiredPersistBytes(assets),quota=Number(estimate?.quota),usage=Number(estimate?.usage);
@@ -65,7 +72,8 @@ class ProfitMenteBundleImportEngine{
     for(const asset of existing){const key=this.mediaIdKey(asset?.id);if(key!==null&&!byId.has(key))byId.set(key,asset)}
     const merged=existing.map(a=>this.cloneAsset(a)),toPersist=[],idMap=new Map();let reused=0,remapped=0,added=0;
     for(const source of incoming){
-      const sourceKey=this.mediaIdKey(source?.id);if(sourceKey===null)throw new Error('Medio del paquete sin identificador');
+      if(!source||typeof source!=='object'||Array.isArray(source))throw new Error('Medio del paquete inválido');
+      const sourceKey=this.mediaIdKey(source.id);if(sourceKey===null)throw new Error('Medio del paquete sin identificador');
       const local=byId.get(sourceKey);
       if(local&&this.identity(local)===this.identity(source)){
         const localId=local.id;if(String(localId)!==String(source.id))idMap.set(sourceKey,localId);
