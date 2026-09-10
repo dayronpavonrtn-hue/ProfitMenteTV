@@ -47,6 +47,7 @@ class ProfitMenteProjectImportEngine{
       if(start<0||clipDuration<=0)throw new Error('Tiempo de clip inválido');
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
       if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
+      if(end>out.duration+1e-9)throw new Error('Clip excede la duración del proyecto');
       const copy=structuredClone(c);
       copy.track=track;copy.start=start;copy.duration=clipDuration;
       normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');
