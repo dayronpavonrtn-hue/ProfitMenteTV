@@ -110,4 +110,8 @@
   }
   root.ProfitMenteVisualKeyframeEngine=ProfitMenteVisualKeyframeEngine;
   if(typeof module!=='undefined'&&module.exports)module.exports={ProfitMenteVisualKeyframeEngine,DEFAULT_STATE,EASINGS};
+  if(typeof document!=='undefined'&&!root.__profitmenteVisualKeyframeRenderBakerLoader){
+    root.__profitmenteVisualKeyframeRenderBakerLoader=true;
+    const script=document.createElement('script');script.src='visual-keyframe-render-baker.js';script.async=false;script.onerror=()=>console.error('No se pudo cargar visual-keyframe-render-baker.js');document.body.appendChild(script);
+  }
 })();
