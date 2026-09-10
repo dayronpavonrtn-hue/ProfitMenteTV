@@ -17,6 +17,21 @@ project=normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8')
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
 duration=max(.25,float(project.get('duration',45) or 45)); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
+VISUAL_AUDIO_TRACKS=(0,1)
+AUDIO_TRACKS=(4,5,6)
+
+
+def clip_track(clip):
+    """Return only an already-canonical render track, never a coerced value.
+
+    normalize_track_solo() converts lossless legacy numerics such as "06" to 6.
+    Values it intentionally leaves malformed (including booleans) must remain
+    ineligible here: int(True) == 1 and int("6") == 6 would otherwise let bad
+    imported data masquerade as a real Studio track or raise during export.
+    """
+    if not isinstance(clip,dict): return None
+    value=clip.get('track')
+    return value if type(value) is int and 0 <= value <= 6 else None
 
 
 def state(track):
@@ -80,9 +95,9 @@ def volume_expr(base,duck,intervals):
     return expr
 
 # Audio-track clips. Visual clip mute/visibility governs original source audio.
-audio=[c for c in clips if int(c.get('track',-1)) in (4,5,6) and c.get('asset') and not c.get('muted') and not track_muted(int(c.get('track',-1)))]
-voice=[c for c in audio if int(c.get('track',-1))==6]
-visual=[c for c in clips if int(c.get('track',-1)) in (0,1) and c.get('asset') and not c.get('muted') and not track_muted(int(c.get('track',-1))) and not track_hidden(int(c.get('track',-1)))]
+audio=[c for c in clips if clip_track(c) in AUDIO_TRACKS and c.get('asset') and not c.get('muted') and not track_muted(clip_track(c))]
+voice=[c for c in audio if clip_track(c)==6]
+visual=[c for c in clips if clip_track(c) in VISUAL_AUDIO_TRACKS and c.get('asset') and not c.get('muted') and not track_muted(clip_track(c)) and not track_hidden(clip_track(c))]
 source_audio=[c for c in visual if amap.get(c.get('asset'),{}).get('type')=='video' and has_audio_stream(c['asset'])]
 render_audio=[]
 for c in audio:
@@ -105,7 +120,8 @@ for c,is_source in render_audio:
         except (TypeError,ValueError):base=1
         expr=f'{base:.8f}'
     else:
-        track=int(c.get('track',5)); default=.22 if track==5 else 1
+        track=clip_track(c)
+        default=.22 if track==5 else 1
         try:base=max(0,min(4,float(c.get('volume',default) if c.get('volume') is not None else default)))
         except (TypeError,ValueError):base=default
         gain=track_gain(track); base*=gain
