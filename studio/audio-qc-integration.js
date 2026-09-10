@@ -21,10 +21,10 @@
         const decoded=await window.ProfitMenteAudioWaveforms.decodeAsset(asset);if(!decoded){rows.push({clip,status:'unavailable',reason:'decode_failed'});continue}
         const inspection=Engine.inspectClip({project,clip,peaks:decoded.peaks,sourceDuration:decoded.duration,waveformEngine:Wave});rows.push({...inspection,clip});mark(clip,inspection);
       }
-      const summary=Engine.summarize(rows);const worst=rows.filter(r=>Number.isFinite(r.dbfs)).sort((a,b)=>b.dbfs-a.dbfs)[0];
-      const parts=[`${summary.total} clip(s)`,`${summary.clipping} clipping`,`${summary.hot} cerca de 0 dB`,`${summary.silent} silencioso(s)`];if(summary.unavailable)parts.push(`${summary.unavailable} sin analizar`);if(worst)parts.push(`pico máx. ${worst.dbfs.toFixed(1)} dBFS`);
-      resultEl.textContent=parts.join(' · ');if(typeof setStatus==='function')setStatus(summary.clipping?`Audio QA: ${summary.clipping} clip(s) con riesgo de clipping`:'Audio QA completado: sin clipping detectado');
-      document.dispatchEvent(new CustomEvent('profitmente:audio-qc',{detail:{summary,rows}}));return {summary,rows};
+      const summary=Engine.summarize(rows),mix=Engine.inspectMixOverlaps(rows);const worst=rows.filter(r=>Number.isFinite(r.dbfs)).sort((a,b)=>b.dbfs-a.dbfs)[0];
+      const parts=[`${summary.total} clip(s)`,`${summary.clipping} clipping`,`${summary.hot} cerca de 0 dB`,`${summary.silent} silencioso(s)`];if(summary.unavailable)parts.push(`${summary.unavailable} sin analizar`);if(worst)parts.push(`pico clip ${worst.dbfs.toFixed(1)} dBFS`);if(mix.clipping)parts.push(`${mix.clipping} tramo(s) de mezcla con clipping estimado`);else if(mix.hot)parts.push(`${mix.hot} tramo(s) de mezcla cerca de 0 dB`);if(mix.worst)parts.push(`mezcla máx. ${mix.worst.dbfs.toFixed(1)} dBFS`);
+      resultEl.textContent=parts.join(' · ');const totalRisk=summary.clipping+mix.clipping;if(typeof setStatus==='function')setStatus(totalRisk?`Audio QA: ${totalRisk} riesgo(s) de clipping entre clips y mezcla`:'Audio QA completado: sin clipping detectado');
+      document.dispatchEvent(new CustomEvent('profitmente:audio-qc',{detail:{summary,mix,rows}}));return {summary,mix,rows};
     }finally{button.disabled=false}
   }
   button?.addEventListener('click',()=>inspect().catch(error=>{console.error(error);resultEl.hidden=false;resultEl.textContent='No se pudo analizar el audio: '+error.message;if(typeof setStatus==='function')setStatus(resultEl.textContent)}));
