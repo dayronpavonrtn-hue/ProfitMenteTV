@@ -6,7 +6,7 @@ class ProfitMenteVisualAdjustEngine{
   }
   static canonicalTrack(value){
     if(typeof value==='number')return Number.isSafeInteger(value)?value:null;
-    if(typeof value!=='string'||!value.trim()||!^[+-]?\d+$/.test(value.trim()))return null;
+    if(typeof value!=='string'||!value.trim()||!/^[+-]?\d+$/.test(value.trim()))return null;
     const n=Number(value);return Number.isSafeInteger(n)?n:null;
   }
   static clamp(value,min,max,fallback){return Math.max(min,Math.min(max,this.finite(value,fallback)))}
