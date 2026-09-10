@@ -54,6 +54,22 @@ assert.equal(canonicalConflict.project.assets[0].id,'canonical-import-safe');
 assert.deepEqual(canonicalConflict.assetsToPersist.map(a=>a.id),['canonical-import-safe']);
 assert.deepEqual(canonicalConflict.stats,{added:0,reused:0,remapped:1,totalIncoming:1});
 
+assert.equal(conflictEngine.mediaIdKey(true),null,'boolean media IDs must never be coerced into text identities');
+assert.equal(conflictEngine.mediaIdKey({toString:()=> 'asset-a'}),null,'object media IDs must never participate in canonical identity');
+assert.equal(conflictEngine.mediaIdKey([]),null,'array media IDs must never participate in canonical identity');
+assert.equal(conflictEngine.mediaIdKey(Number.MAX_SAFE_INTEGER+1),null,'unsafe numeric media IDs must be rejected');
+assert.equal(conflictEngine.mediaIdKey(-0),'0','negative zero should canonicalize to the stable zero identity');
+assert.equal(conflictEngine.mediaIdKey('007'),'7','legacy numeric string IDs should remain canonically compatible');
+assert.equal(conflictEngine.mediaIdKey('7.0'),'7','legacy decimal integer strings should remain canonically compatible');
+assert.equal(conflictEngine.mediaIdKey('asset-7'),'asset-7','normal textual IDs should remain intact');
+assert.throws(()=>conflictEngine.prepare({clips:[]},[{id:true,name:'bad.mp4'}],[]),/sin identificador/,'boolean package IDs must be rejected before persistence');
+assert.throws(()=>conflictEngine.prepare({clips:[]},[{id:{toString:()=> 'asset-a'},name:'bad.mp4'}],[]),/sin identificador/,'object package IDs must be rejected before persistence');
+assert.throws(()=>conflictEngine.prepare({clips:[]},[[{id:'nested'}]],[]),/Medio del paquete inválido/,'array package assets must be rejected before persistence');
+const poisonedIdentityA={id:'poison-a',name:{toString:()=> 'same.mp4'},mime:{toString:()=> 'video/mp4'},size:{valueOf:()=>10},sourceContentHash:{toString:()=> 'same-hash'},blob:new Blob(['a'])};
+const poisonedIdentityB={...poisonedIdentityA,id:'poison-b',blob:new Blob(['b'])};
+assert.equal(conflictEngine.identity(poisonedIdentityA),'meta:|0||0','non-primitive metadata must not be coerced into a dedupe identity');
+assert.equal(conflictEngine.identity(poisonedIdentityA),conflictEngine.identity(poisonedIdentityB),'invalid metadata should collapse only to the inert fallback rather than executing coercion hooks');
+
 assert.throws(()=>conflictEngine.prepare({clips:[]},[{name:'sin-id'}],[]),/sin identificador/);
 assert.throws(()=>conflictEngine.prepare({clips:null},[],[]),/timeline válida/);
 
