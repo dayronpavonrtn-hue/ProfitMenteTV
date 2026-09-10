@@ -68,6 +68,17 @@ def clip_speed(clip):
     try:return max(.25,min(4.0,float(clip.get('speed',1) or 1)))
     except (TypeError,ValueError):return 1.0
 
+def atempo_filters(speed):
+    """Build FFmpeg-compatible audio tempo stages for Studio's 0.25x-4x range."""
+    speed=max(.25,min(4.0,float(speed)))
+    factors=[]; remaining=speed
+    while remaining < .5-1e-9:
+        factors.append(.5); remaining/=.5
+    while remaining > 2.0+1e-9:
+        factors.append(2.0); remaining/=2.0
+    if abs(remaining-1.0)>1e-9:factors.append(remaining)
+    return [f'atempo={factor:.8g}' for factor in factors]
+
 def bounded(clip,key,default,low,high):
     try:return max(low,min(high,float(clip.get(key,default))))
     except (TypeError,ValueError):return default
@@ -113,9 +124,6 @@ def visual_chain(idx,asset,start,d,clip,label):
     motion=clip.get('motion',''); trans=clip.get('transition','cut'); speed=clip_speed(clip); source_offset=max(0,float(clip.get('sourceOffset',0) or 0)); src=f'[{idx}:v]'; fit=clip.get('fitMode','cover')
     if fit not in ('cover','contain'):fit='cover'
     if fit=='contain':
-        # Keep letterbox/pillarbox pixels transparent so an overlay on V2 does
-        # not paint black over lower visual tracks. V1 still resolves against
-        # the black project base, matching the browser preview in both cases.
         chain=f'format=rgba,scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black@0,fps={fps}'
     elif motion in ('slow-zoom','push-in') and not has_keyframes(clip):
         step='.0018' if motion=='push-in' else '.0008'
@@ -157,8 +165,6 @@ for c in visual+audio:add_input(c['asset'])
 
 base_input=len(input_index); inputs.extend(['-f','lavfi','-i',f'color=c=0x090b10:s={w}x{h}:r={fps}:d={duration}'])
 filters.append(f'[{base_input}:v]setpts=PTS-STARTPTS[vbase0]'); base='[vbase0]'
-# Track number defines compositing depth: V1 (0) below overlays (1).
-# Within a track, later-starting clips are composited later so overlap behavior matches the timeline.
 for n,c in enumerate(sorted(visual,key=lambda x:(int(x.get('track',0)),float(x.get('start',0))))):
     idx=input_index[c['asset']]; a=amap[c['asset']]; start=max(0,float(c.get('start',0))); d=max(.05,min(float(c.get('duration',1)),duration-start)); end=start+d
     vin=f'[vis{n}]'; nxt=f'[vbase{n+1}]'; visual_chain(idx,a,start,d,c,vin)
@@ -177,7 +183,6 @@ for n,c in enumerate(sorted(visual,key=lambda x:(int(x.get('track',0)),float(x.g
         filters.append(f"{base}{vin}overlay=x='{xbase}':y='{ybase}':eof_action=pass:enable='between(t,{start},{end})'{nxt}")
     base=nxt
 
-# Track 2: text/titles. This layer is rendered before captions so track 3 stays on top.
 motionn=0
 for c in [x for x in clips if int(x.get('track',-1))==2 and str(x.get('name','')).strip() and not track_hidden(2)]:
     start=max(0,float(c.get('start',0))); end=min(duration,start+max(.05,float(c.get('duration',1)))); d=max(.05,end-start)
@@ -249,7 +254,10 @@ def append_audio_filter(c,n,source=False):
         track=int(c.get('track',5)); default=.22 if track==5 else 1.0; vol=max(0,min(4,float(c.get('volume',default))))
         if track==5 and any(overlap(c,v) for v in voice): vol=min(vol,.16)
     fade_in,fade_out=clip_fades(c,d); fadeout_start=max(0,d-fade_out); delay=int(round(start*1000)); label=f'[a{n}]'
-    chain=f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS,atempo={speed},volume={vol}'
+    audio_fx=atempo_filters(speed)
+    chain=f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS'
+    if audio_fx:chain+=','+','.join(audio_fx)
+    chain+=f',volume={vol}'
     if fade_in>0: chain+=f',afade=t=in:st=0:d={fade_in}'
     if fade_out>0: chain+=f',afade=t=out:st={fadeout_start}:d={fade_out}'
     chain+=f',adelay={delay}|{delay}{label}'
