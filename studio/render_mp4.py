@@ -8,6 +8,7 @@ from caption_layout import layout_caption
 from caption_word_layout import fit_word_caption
 from render_quality import resolve_render_quality
 from track_state_render import normalize_track_solo
+from visual_adjust_render import visual_adjust_filter
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
@@ -124,6 +125,8 @@ def visual_chain(idx,asset,start,d,clip,label):
     if asset.get('type')=='image': chain+=f',trim=duration={d}'
     else: chain=f'trim=start={source_offset}:duration={d*speed},setpts=(PTS-STARTPTS)/{speed},'+chain
     chain+=','+color_filter(clip)
+    adjust=visual_adjust_filter(clip)
+    if adjust: chain+=','+adjust
     if clip.get('flipX'): chain+=',hflip'
     if clip.get('flipY'): chain+=',vflip'
     td=transition_duration(clip,d)
