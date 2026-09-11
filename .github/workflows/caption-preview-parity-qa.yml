@@ -9,6 +9,7 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_caption_preview_compact.mjs'
       - 'studio/test_caption_overlap_preview_parity.mjs'
+      - 'studio/test_caption_preview_timing.mjs'
       - '.github/workflows/caption-preview-parity-qa.yml'
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - 'studio/feature-bootstrap.js'
       - 'studio/test_caption_preview_compact.mjs'
       - 'studio/test_caption_overlap_preview_parity.mjs'
+      - 'studio/test_caption_preview_timing.mjs'
   workflow_dispatch:
 
 jobs:
@@ -36,10 +38,12 @@ jobs:
           node --check studio/feature-bootstrap.js
           node --check studio/test_caption_preview_compact.mjs
           node --check studio/test_caption_overlap_preview_parity.mjs
+          node --check studio/test_caption_preview_timing.mjs
       - name: Caption preview regression
         run: |
           node studio/test_caption_preview_compact.mjs
           node studio/test_caption_overlap_preview_parity.mjs
+          node studio/test_caption_preview_timing.mjs
       - name: Verify Studio integration
         run: |
           grep -q "caption-compact-engine.js" studio/feature-bootstrap.js
