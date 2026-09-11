@@ -15,6 +15,37 @@
     text(value,fallback=''){return typeof value==='string'?value.trim():fallback}
     clipEnd(clip){return this.nonNegative(clip?.start,0)+this.nonNegative(clip?.duration,0)}
     overlaps(a,b){const epsilon=1e-6;return this.nonNegative(a?.start,0)<this.clipEnd(b)-epsilon&&this.nonNegative(b?.start,0)<this.clipEnd(a)-epsilon}
+    overlapDuration(a,b){
+      const start=Math.max(this.nonNegative(a?.start,0),this.nonNegative(b?.start,0));
+      const end=Math.min(this.clipEnd(a),this.clipEnd(b));
+      return Math.max(0,end-start);
+    }
+    coveredDuration(clips,scene){
+      const sceneStart=this.nonNegative(scene?.start,0),sceneEnd=this.clipEnd(scene);
+      if(sceneEnd<=sceneStart)return 0;
+      const spans=(Array.isArray(clips)?clips:[]).map(clip=>[
+        Math.max(sceneStart,this.nonNegative(clip?.start,0)),
+        Math.min(sceneEnd,this.clipEnd(clip))
+      ]).filter(([start,end])=>end-start>1e-6).sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+      let covered=0,current=null;
+      for(const span of spans){
+        if(!current){current=span.slice();continue}
+        if(span[0]<=current[1]+1e-6)current[1]=Math.max(current[1],span[1]);
+        else{covered+=current[1]-current[0];current=span.slice()}
+      }
+      if(current)covered+=current[1]-current[0];
+      return covered;
+    }
+    captionCoverageEnough(captions,scene){
+      const duration=this.nonNegative(scene?.duration,0);if(duration<=.1)return false;
+      const required=Math.min(duration,Math.max(.5,duration*.55));
+      return this.coveredDuration(captions,scene)+1e-6>=required;
+    }
+    brollCoverageEnough(broll,scene){
+      const duration=this.nonNegative(scene?.duration,0);if(duration<.5)return false;
+      const required=Math.min(duration,Math.max(.2,Math.min(.5,duration*.08)));
+      return this.coveredDuration(broll,scene)+1e-6>=required;
+    }
     id(prefix='manual'){const uuid=root.crypto?.randomUUID?.();return uuid?`${prefix}_${uuid}`:`${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`}
     assetUsable(asset){
       if(!asset||asset.mediaReadable===false||!['video','image'].includes(asset.type)||this.mediaKey(asset.id)==null)return false;
@@ -40,7 +71,7 @@
       for(const scene of scenes){
         const text=this.text(scene?.sceneText)||this.text(scene?.script);
         const start=this.nonNegative(scene?.start,0),duration=this.nonNegative(scene?.duration,0);
-        if(!text||duration<=.1||captions.some(c=>this.overlaps(c,scene))){skipped++;continue}
+        if(!text||duration<=.1||this.captionCoverageEnough(captions,scene)){skipped++;continue}
         const inset=Math.min(.15,duration*.08),capStart=start+inset,capDuration=Math.max(.1,duration-inset*2);
         const rawWordTimings=typeof this.engine.captionWords==='function'?this.engine.captionWords(text,capStart,capDuration):[];
         const wordTimings=Array.isArray(rawWordTimings)?rawWordTimings:[];
@@ -64,7 +95,7 @@
       let added=0,skipped=0;
       for(const scene of scenes){
         if(added>=max)break;
-        const sceneDuration=this.nonNegative(scene?.duration,0);if(sceneDuration<.5||broll.some(c=>this.overlaps(c,scene))){skipped++;continue}
+        const sceneDuration=this.nonNegative(scene?.duration,0);if(sceneDuration<.5||this.brollCoverageEnough(broll,scene)){skipped++;continue}
         const desired=Math.min(3,Math.max(.75,sceneDuration*.32));
         const alternatives=visual.filter(a=>!this.sameMedia(a.id,scene.asset));
         const pool=alternatives.length?alternatives:visual;
