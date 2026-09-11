@@ -12,11 +12,14 @@ class ProfitMenteSplitEditEngine{
     if(!Array.isArray(timings))return null;
     const lo=this.timingNumber(start),cut=this.timingNumber(split),hi=this.timingNumber(end);if(lo===null||cut===null||hi===null||cut<=lo||cut>=hi)return {left:[],right:[]};
     const left=[],right=[];
+    const pushClipped=(target,timing,boundStart,boundEnd,ws,we)=>{
+      const next=this.clone(timing);next.start=this.round(Math.max(boundStart,ws));next.end=this.round(Math.min(boundEnd,we));next.duration=this.round(Math.max(0,next.end-next.start));if(next.duration>0)target.push(next);
+    };
     for(const timing of timings){
       if(!timing||typeof timing!=='object'||Array.isArray(timing))continue;
       const ws=this.timingNumber(timing.start),we=this.timingNumber(timing.end);if(ws===null||we===null||we<=ws||we<=lo||ws>=hi)continue;
-      const target=(ws+we)/2<cut?left:right,boundStart=target===left?lo:cut,boundEnd=target===left?cut:hi,next=this.clone(timing);
-      next.start=this.round(Math.max(boundStart,ws));next.end=this.round(Math.min(boundEnd,we));next.duration=this.round(Math.max(0,next.end-next.start));if(next.duration>0)target.push(next);
+      if(ws<cut&&we>lo)pushClipped(left,timing,lo,cut,ws,we);
+      if(we>cut&&ws<hi)pushClipped(right,timing,cut,hi,ws,we);
     }
     const normalize=list=>list.sort((a,b)=>a.start-b.start||a.end-b.end).map((item,index)=>{const next={...item};if(Object.prototype.hasOwnProperty.call(next,'index'))next.index=index;return next});
     return {left:normalize(left),right:normalize(right)};
