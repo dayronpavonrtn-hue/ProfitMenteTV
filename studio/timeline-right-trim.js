@@ -2,6 +2,17 @@
 class ProfitMenteTimelineRightTrimEngine{
   static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+  static trimWordTimings(timings,start,end){
+    if(!Array.isArray(timings))return timings;
+    const lo=Number(start),hi=Number(end);if(!Number.isFinite(lo)||!Number.isFinite(hi)||hi<=lo)return [];
+    const out=[];
+    for(const timing of timings){
+      if(!timing||typeof timing!=='object')continue;
+      const ws=Number(timing.start),we=Number(timing.end);if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws||we<=lo||ws>=hi)continue;
+      const item=structuredClone(timing);item.start=this.round(Math.max(lo,ws));item.end=this.round(Math.min(hi,we));item.duration=this.round(Math.max(0,item.end-item.start));if(item.duration>0)out.push(item);
+    }
+    return out;
+  }
   static calculate(project={},clip={},candidateEnd=0,{playhead=null,tolerance=.15,minDuration=.25,sourceDuration=0,snapEngine=null}={}){
     const projectDuration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,projectDuration),speed=Math.max(.01,Number(clip.speed)||1),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0),requestedMin=Math.max(.001,Number(minDuration)||.25),requestedMinEnd=this.round(Math.min(projectDuration,start+requestedMin));
     let maxEnd=projectDuration;const source=Number(sourceDuration);
@@ -25,8 +36,8 @@ if(typeof document!=='undefined')(()=>{
   function sourceDuration(c){const a=assetFor(c);return a&&(a.type==='video'||a.type==='audio')?Math.max(0,Number(a.duration)||0):0}
   function tolerance(lane){const w=Math.max(1,lane?.clientWidth||1),seconds=(Math.max(1,Number(project.duration)||1)/w)*10;return Math.max(.035,Math.min(.35,seconds))}
   function playhead(){const v=Number(document.querySelector('#playhead')?.value);return Number.isFinite(v)?v:null}
-  function down(e){if(e.button!==0)return;const el=e.target?.closest?.('.clip');if(!el)return;const rect=el.getBoundingClientRect();if(e.clientX<rect.right-10)return;const clip=clipFor(el);if(!clip)return;e.preventDefault();e.stopImmediatePropagation();const lane=el.parentElement,laneRect=lane?.getBoundingClientRect?.();if(!laneRect?.width)return;sessions.set(e.pointerId,{clip,el,lane,x:e.clientX,end:(Number(clip.start)||0)+Math.max(.001,Number(clip.duration)||.001),sourceDuration:sourceDuration(clip)});el.classList.add('dragging','trim-right');try{el.setPointerCapture(e.pointerId)}catch{}}
-  function move(e){const s=sessions.get(e.pointerId);if(!s)return;e.preventDefault();const delta=(e.clientX-s.x)/Math.max(1,s.lane.clientWidth||1)*Math.max(.001,Number(project.duration)||1),candidate=s.end+delta,result=Engine.calculate(project,s.clip,candidate,{playhead:playhead(),tolerance:tolerance(s.lane),sourceDuration:s.sourceDuration,snapEngine:e.altKey?null:Snap});s.clip.duration=result.duration;s.el.style.width=`${Math.max(2,s.clip.duration/project.duration*100)}%`;s.el.classList.toggle('snapped',!!result.snapped);if(result.snapped)s.el.dataset.snapTarget=String(result.target);else delete s.el.dataset.snapTarget;}
+  function down(e){if(e.button!==0)return;const el=e.target?.closest?.('.clip');if(!el)return;const rect=el.getBoundingClientRect();if(e.clientX<rect.right-10)return;const clip=clipFor(el);if(!clip)return;e.preventDefault();e.stopImmediatePropagation();const lane=el.parentElement,laneRect=lane?.getBoundingClientRect?.();if(!laneRect?.width)return;sessions.set(e.pointerId,{clip,el,lane,x:e.clientX,end:(Number(clip.start)||0)+Math.max(.001,Number(clip.duration)||.001),sourceDuration:sourceDuration(clip),wordTimings:Array.isArray(clip.wordTimings)?structuredClone(clip.wordTimings):null});el.classList.add('dragging','trim-right');try{el.setPointerCapture(e.pointerId)}catch{}}
+  function move(e){const s=sessions.get(e.pointerId);if(!s)return;e.preventDefault();const delta=(e.clientX-s.x)/Math.max(1,s.lane.clientWidth||1)*Math.max(.001,Number(project.duration)||1),candidate=s.end+delta,result=Engine.calculate(project,s.clip,candidate,{playhead:playhead(),tolerance:tolerance(s.lane),sourceDuration:s.sourceDuration,snapEngine:e.altKey?null:Snap});s.clip.duration=result.duration;if(s.wordTimings)s.clip.wordTimings=Engine.trimWordTimings(s.wordTimings,Number(s.clip.start)||0,result.end);s.el.style.width=`${Math.max(2,s.clip.duration/project.duration*100)}%`;s.el.classList.toggle('snapped',!!result.snapped);if(result.snapped)s.el.dataset.snapTarget=String(result.target);else delete s.el.dataset.snapTarget;}
   function end(e){const s=sessions.get(e.pointerId);if(!s)return;sessions.delete(e.pointerId);s.el.classList.remove('dragging','trim-right','snapped');delete s.el.dataset.snapTarget;if(typeof persist==='function')persist();if(typeof renderAt==='function')void renderAt(+(document.querySelector('#playhead')?.value||0));window.dispatchEvent(new CustomEvent('profitmente:clip-right-trimmed',{detail:{id:s.clip.id,duration:s.clip.duration,end:(Number(s.clip.start)||0)+s.clip.duration}}));}
   document.addEventListener('pointerdown',down,true);document.addEventListener('pointermove',move,true);document.addEventListener('pointerup',end,true);document.addEventListener('pointercancel',end,true);window.ProfitMenteTimelineRightTrim={engine:Engine};
 })();
