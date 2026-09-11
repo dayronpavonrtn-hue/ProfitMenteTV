@@ -43,7 +43,10 @@ class ProfitMenteCaptionSplitEngine{
     const left=[],right=[];
     for(const item of Array.isArray(words)?words:[]){
       if(!item||typeof item!=='object')continue;const ws=this.strictNumber(item.start),we=this.strictNumber(item.end),word=String(item.word??'').trim();if(ws===null||we===null||!word||we<=ws||we<=start||ws>=end)continue;
-      const midpoint=(ws+we)/2,target=midpoint<split?left:right,boundStart=target===left?start:split,boundEnd=target===left?split:end,next=this.normalizedWord(item,boundStart,boundEnd);if(next)target.push(next);
+      if(ws<split&&we>split){
+        const leftPart=this.normalizedWord(item,start,split),rightPart=this.normalizedWord(item,split,end);if(leftPart)left.push(leftPart);if(rightPart)right.push(rightPart);continue;
+      }
+      const target=we<=split?left:right,boundStart=target===left?start:split,boundEnd=target===left?split:end,next=this.normalizedWord(item,boundStart,boundEnd);if(next)target.push(next);
     }
     const reindex=list=>list.sort((a,b)=>a.start-b.start||a.end-b.end).map((item,index)=>({...item,index}));return {left:reindex(left),right:reindex(right)};
   }
