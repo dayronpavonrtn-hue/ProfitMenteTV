@@ -47,6 +47,7 @@ jobs:
           node --check studio/ripple-gap-integration.js
           node --check studio/visual-keyframe-engine.js
           node --check studio/visual-keyframe-render-baker.js
+          node --check studio/generator-manual-tools.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
       - name: Local media metadata regression
@@ -63,6 +64,8 @@ jobs:
         run: node studio/test_timeline_trim_word_timings.mjs
       - name: Visual keyframe MP4 compatibility regression
         run: node studio/test_visual_keyframe_render_baker.js
+      - name: Generator auxiliary coverage regression
+        run: node studio/test_generator_aux_coverage.js
       - name: QA strict identity regression
         run: node studio/test_qa_identity_strictness.js
       - name: Export preflight numeric identity regression
