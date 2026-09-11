@@ -41,6 +41,8 @@ jobs:
           node --check studio/recovery-integration.js
           node --check studio/export-preflight.js
           node --check studio/timeline-word-timing-sync.js
+          node --check studio/timeline-left-trim.js
+          node --check studio/timeline-right-trim.js
           node --check studio/ripple-gap-engine.js
           node --check studio/ripple-gap-integration.js
           node --check studio/visual-keyframe-engine.js
@@ -57,6 +59,8 @@ jobs:
         run: node studio/test_media_library_cross_project_identity.mjs
       - name: Timeline word timing sync regression
         run: node studio/test_timeline_word_timing_sync.js
+      - name: Timeline trim word timing regression
+        run: node studio/test_timeline_trim_word_timings.mjs
       - name: Visual keyframe MP4 compatibility regression
         run: node studio/test_visual_keyframe_render_baker.js
       - name: QA strict identity regression
