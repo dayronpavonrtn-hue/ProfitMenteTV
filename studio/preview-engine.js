@@ -129,8 +129,17 @@
     const lines=[];let line='';for(const word of hard){const candidate=line?`${line} ${word}`:word;if(line&&ctx.measureText(candidate).width>maxWidth){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);return {size:minSize,lines:lines.slice(0,maxLines),lineHeight:Math.round(minSize*1.16)};
   }
   function activeCaptions(t){return project.clips.filter(c=>canonicalTrack(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0))}
+  function hasActiveWordTiming(cap,t){
+    const normalize=window.ProfitMenteCaptionPreview?.normalizeWordTimings;
+    if(typeof normalize==='function'){
+      const words=normalize(cap);
+      return Array.isArray(words)&&words.some(w=>t>=w.start&&t<w.end);
+    }
+    const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];
+    return words.some(w=>t>=Number(w.start)&&t<Number(w.end));
+  }
   function drawCaptionClip(cap,t){
-    const words=Array.isArray(cap.wordTimings)?cap.wordTimings:[];if(words.some(w=>t>=Number(w.start)&&t<Number(w.end)))return;
+    if(hasActiveWordTiming(cap,t))return;
     const hook=cap.style==='hook-pop',start=Number(cap.start||0),anim=cap.animation||'';let y=canvas.height*(hook?.69:.72),size=hook?38:30;
     if(anim==='pop')y-=9*Math.exp(-10*Math.max(0,t-start))*Math.cos(28*Math.max(0,t-start));if(anim==='word-pulse')y-=3*Math.sin(8*Math.max(0,t-start));
     const compact=window.ProfitMenteCaptionCompactEngine?new window.ProfitMenteCaptionCompactEngine():null,text=compact?compact.textAtTime(cap,t):String(cap.name||'');
@@ -144,5 +153,5 @@
     let painted=0;for(const c of active){if(await drawClip(c,t,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
     if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(t);
   };
-  window.ProfitMentePreviewEngine={invalidate,clearCache(){invalidate();for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={invalidate,clearCache(){invalidate();for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,isTrackHidden:trackHidden,transitionDuration,transformFor,captionLayout,activeCaptions,hasActiveWordTiming,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
