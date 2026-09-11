@@ -2,6 +2,17 @@
 class ProfitMenteTimelineLeftTrimEngine{
   static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+  static trimWordTimings(timings,start,end){
+    if(!Array.isArray(timings))return timings;
+    const lo=Number(start),hi=Number(end);if(!Number.isFinite(lo)||!Number.isFinite(hi)||hi<=lo)return [];
+    const out=[];
+    for(const timing of timings){
+      if(!timing||typeof timing!=='object')continue;
+      const ws=Number(timing.start),we=Number(timing.end);if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws||we<=lo||ws>=hi)continue;
+      const item=structuredClone(timing);item.start=this.round(Math.max(lo,ws));item.end=this.round(Math.min(hi,we));item.duration=this.round(Math.max(0,item.end-item.start));if(item.duration>0)out.push(item);
+    }
+    return out;
+  }
   static calculate(project={},clip={},candidateStart=0,{playhead=null,tolerance=.15,minDuration=.25,sourceBound=false,snapEngine=null}={}){
     const projectDuration=Math.max(.001,Number(project.duration)||1),start=this.clamp(clip.start,0,projectDuration),duration=Math.max(.001,Number(clip.duration)||.001),end=this.round(Math.min(projectDuration,start+duration)),speed=Math.max(.01,Number(clip.speed)||1),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0),requestedMin=Math.max(.001,Number(minDuration)||.25),maxStart=this.round(Math.max(0,end-Math.min(requestedMin,end))),sourceMin=sourceBound?this.round(Math.max(0,start-sourceOffset/speed)):0,minStart=Math.min(sourceMin,maxStart);
     let next=this.round(this.clamp(candidateStart,minStart,maxStart)),snapped=false,target=null;
@@ -29,14 +40,14 @@ if(typeof document!=='undefined')(()=>{
     if(e.button!==0)return;const el=e.target?.closest?.('.clip');if(!el)return;const rect=el.getBoundingClientRect();if(e.clientX>rect.left+10)return;
     const clip=clipFor(el);if(!clip)return;e.preventDefault();e.stopImmediatePropagation();
     const lane=el.parentElement,laneRect=lane?.getBoundingClientRect?.();if(!laneRect?.width)return;
-    sessions.set(e.pointerId,{clip,el,lane,x:e.clientX,start:Number(clip.start)||0,duration:Math.max(.001,Number(clip.duration)||.001),sourceOffset:Math.max(0,Number(clip.sourceOffset)||0),sourceBound:sourceBound(clip)});
+    sessions.set(e.pointerId,{clip,el,lane,x:e.clientX,start:Number(clip.start)||0,duration:Math.max(.001,Number(clip.duration)||.001),sourceOffset:Math.max(0,Number(clip.sourceOffset)||0),sourceBound:sourceBound(clip),wordTimings:Array.isArray(clip.wordTimings)?structuredClone(clip.wordTimings):null});
     el.classList.add('dragging','trim-left');try{el.setPointerCapture(e.pointerId)}catch{}
   }
   function move(e){
     const s=sessions.get(e.pointerId);if(!s)return;e.preventDefault();
     const delta=(e.clientX-s.x)/Math.max(1,s.lane.clientWidth||1)*Math.max(.001,Number(project.duration)||1),candidate=s.start+delta;
     const result=Engine.calculate(project,s.clip,candidate,{playhead:playhead(),tolerance:tolerance(s.lane),sourceBound:s.sourceBound,snapEngine:e.altKey?null:Snap});
-    s.clip.start=result.start;s.clip.duration=result.duration;if(s.sourceBound)s.clip.sourceOffset=result.sourceOffset;
+    s.clip.start=result.start;s.clip.duration=result.duration;if(s.sourceBound)s.clip.sourceOffset=result.sourceOffset;if(s.wordTimings)s.clip.wordTimings=Engine.trimWordTimings(s.wordTimings,result.start,result.start+result.duration);
     s.el.style.left=`${s.clip.start/project.duration*100}%`;s.el.style.width=`${Math.max(2,s.clip.duration/project.duration*100)}%`;
     s.el.classList.toggle('snapped',!!result.snapped);if(result.snapped)s.el.dataset.snapTarget=String(result.target);else delete s.el.dataset.snapTarget;
   }
