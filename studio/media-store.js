@@ -19,7 +19,7 @@ class ProfitMenteIndexedDbMediaBackend{
 class ProfitMenteMediaStore{
   constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null}
   values(){return Array.from(this.memory.values())}
-  async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}try{const items=await this.backend.loadAll();this.memory.clear();for(const asset of items||[]){const key=keyOf(asset?.id);if(key)this.memory.set(key,asset)}this.storageAvailable=true;this.lastError=null;this.loaded=true;return this.values()}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
+  async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}try{const items=await this.backend.loadAll();this.memory.clear();const ambiguous=new Set();for(const asset of items||[]){const key=keyOf(asset?.id);if(!key||ambiguous.has(key))continue;if(this.memory.has(key)){this.memory.delete(key);ambiguous.add(key);continue}this.memory.set(key,asset)}this.storageAvailable=true;this.lastError=null;this.loaded=true;return this.values()}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
   async put(asset){await this.putMany([asset]);return asset}
   async putMany(assets){
     const list=Array.from(assets||[]);if(!list.length)return [];
