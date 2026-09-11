@@ -30,5 +30,5 @@ const imported=engine.normalize({kind:'profitmente-studio-project',project:expor
 assert.equal(imported.libraryId,undefined);
 assert.equal(imported.assets.find(a=>engine.idKey(a.id)==='n:7').sourceContentHash,'newhash');
 const source=await readFile(new URL('./project-portability.js',import.meta.url),'utf8');
-assert.equal(source.includes('projectInput.onchange'),false,'portability must not override the guarded JSON importer');
+assert.equal(/projectInput\s*\.\s*onchange\s*=/.test(source),false,'portability must not override the guarded JSON importer');
 console.log('Project export media metadata regression: ok');
