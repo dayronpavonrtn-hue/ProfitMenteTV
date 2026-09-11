@@ -109,6 +109,14 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
+  const {api}=boot({});
+  assert.equal(api.normalizeProject({clips:[],duration:' 3e1 '}).duration,30,'legacy numeric duration strings remain supported');
+  for(const value of [true,false,null,[],[30],{}, {valueOf(){return 30}},'', '   ',Number.NaN,Infinity]){
+    assert.equal(api.normalizeProject({clips:[],duration:value}).duration,45,`startup duration must not coerce ${String(value)} into a project length`);
+  }
+}
+
+{
   const {result,localStorage}=boot({});
   assert.equal(result.ok,true);
   assert.equal(result.empty,true);
