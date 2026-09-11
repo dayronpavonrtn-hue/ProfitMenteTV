@@ -26,6 +26,7 @@ assert.equal(missing.sourceFingerprint,'fp-missing');
 assert.equal(exported.assets.some(a=>a.id==='unused'),false);
 assert.equal(exported.assets.some(a=>a.id==='unused-old'),false);
 assert.throws(()=>engine.serialize({...project,clips:[{id:'x',track:0,start:0,duration:1,asset:7}]},[{id:7},{id:'7'}]),/duplicado|ambiguo/,'ambiguous live identities must block export');
+assert.throws(()=>engine.serialize({...project,clips:[{id:'x',track:0,start:0,duration:1,asset:7}],assets:[{id:7,name:'uno.mp4'},{id:'7',name:'otro.mp4'}]},[]),/guardado.*duplicado|guardado.*ambiguo/i,'ambiguous stored identities must block offline export');
 const imported=engine.normalize({kind:'profitmente-studio-project',project:exported});
 assert.equal(imported.libraryId,undefined);
 assert.equal(imported.assets.find(a=>engine.idKey(a.id)==='n:7').sourceContentHash,'newhash');
