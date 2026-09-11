@@ -22,6 +22,16 @@ class ProfitMenteProjectImportEngine{
       if(!Number.isFinite(value))throw new Error(`${label} inválido`);
       return value;
     };
+    const identityKey=raw=>{
+      if(typeof raw!=='string')return null;
+      const value=raw.trim();
+      if(!value)return null;
+      if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(value)){
+        const numeric=Number(value);
+        if(Number.isFinite(numeric))return `n:${Object.is(numeric,-0)?0:numeric}`;
+      }
+      return `s:${value}`;
+    };
     const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
     const canonicalEasing=value=>{
       const easing=typeof value==='string'?value.trim().toLowerCase():'';
@@ -108,7 +118,10 @@ class ProfitMenteProjectImportEngine{
       normalizeVisualAdjustments(copy);
       normalizeVisualKeyframes(copy,clipDuration);
       let id=typeof copy.id==='string'&&copy.id.trim()?copy.id.trim():`imported-clip-${index+1}`;
-      if(ids.has(id))throw new Error('ID de clip duplicado');ids.add(id);copy.id=id;
+      const idIdentity=identityKey(id);
+      if(idIdentity===null)throw new Error('ID de clip inválido');
+      if(ids.has(idIdentity))throw new Error('ID de clip duplicado o ambiguo');
+      ids.add(idIdentity);copy.id=id;
       return copy;
     });
     delete out.libraryId;
