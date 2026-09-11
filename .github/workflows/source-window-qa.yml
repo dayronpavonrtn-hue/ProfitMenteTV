@@ -1,0 +1,37 @@
+name: ProfitMente Studio Source Window QA
+
+on:
+  push:
+    paths:
+      - 'studio/source-window-engine.js'
+      - 'studio/qa-autofix.js'
+      - 'studio/test_source_window.js'
+      - 'studio/test_source_window_autofix.js'
+      - '.github/workflows/source-window-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/source-window-engine.js'
+      - 'studio/qa-autofix.js'
+      - 'studio/test_source_window.js'
+      - 'studio/test_source_window_autofix.js'
+      - '.github/workflows/source-window-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  source-window:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: JavaScript syntax
+        run: |
+          node --check studio/source-window-engine.js
+          node --check studio/qa-autofix.js
+          node --check studio/test_source_window.js
+          node --check studio/test_source_window_autofix.js
+      - name: Source window regression
+        run: node studio/test_source_window.js
+      - name: Safe QA source window repair regression
+        run: node studio/test_source_window_autofix.js
