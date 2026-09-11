@@ -50,6 +50,8 @@ jobs:
         run: node studio/test_media_metadata_engine.js
       - name: Strict media relink identity regression
         run: node studio/test_media_relink.mjs
+      - name: Strict preview media identity regression
+        run: node studio/test_preview_media_identity.mjs
       - name: Timeline word timing sync regression
         run: node studio/test_timeline_word_timing_sync.js
       - name: Visual keyframe MP4 compatibility regression
