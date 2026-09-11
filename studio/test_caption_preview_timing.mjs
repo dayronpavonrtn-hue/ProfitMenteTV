@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const source=fs.readFileSync(new URL('./caption-preview.js',import.meta.url),'utf8');
+const sandbox={
+  renderAt:async()=>{},
+  project:{clips:[],trackState:{}},
+  window:{},
+  canvas:{width:540,height:960},
+  ctx:{},
+  console
+};
+vm.createContext(sandbox);
+vm.runInContext(source,sandbox,{filename:'caption-preview.js'});
+const {normalizeWordTimings,finiteNumber}=sandbox.window.ProfitMenteCaptionPreview;
+
+assert.equal(finiteNumber(true),null,'booleans must not be accepted as numeric timing values');
+assert.equal(finiteNumber({value:1}),null,'objects must not be coerced into timing values');
+assert.equal(finiteNumber('  '),null,'blank strings must not be accepted');
+assert.equal(finiteNumber('1.25'),1.25,'numeric strings should remain compatible');
+
+assert.deepEqual(
+  JSON.parse(JSON.stringify(normalizeWordTimings({
+    track:3,start:10,duration:4,wordTimingMode:'relative',
+    wordTimings:[
+      {word:'Hola',start:0,end:1},
+      {word:'mundo',start:1,duration:1.5},
+      {word:'fin',start:3.5,end:5}
+    ]
+  }))),
+  [
+    {word:'Hola',start:10,end:11,duration:1},
+    {word:'mundo',start:11,end:12.5,duration:1.5},
+    {word:'fin',start:13.5,end:14,duration:.5}
+  ],
+  'relative timings must be converted to absolute timeline time and clipped to the caption'
+);
+
+assert.deepEqual(
+  JSON.parse(JSON.stringify(normalizeWordTimings({
+    track:3,start:10,duration:4,wordTimingMode:'absolute',
+    wordTimings:[
+      {text:'dos',start:12,duration:1},
+      {word:'uno',start:10,end:11},
+      {word:'fuera',start:20,end:21},
+      {word:'malo',start:false,end:13},
+      {word:'invertido',start:13,end:12}
+    ]
+  }))),
+  [
+    {word:'uno',start:10,end:11,duration:1},
+    {word:'dos',start:12,end:13,duration:1}
+  ],
+  'absolute timings must be sorted and invalid/out-of-range values discarded'
+);
+
+assert.deepEqual(
+  JSON.parse(JSON.stringify(normalizeWordTimings({
+    track:3,start:8,duration:3,
+    wordTimings:[
+      {word:'auto',start:0,end:1},
+      {word:'detecta',start:1,end:2.5}
+    ]
+  }))),
+  [
+    {word:'auto',start:8,end:9,duration:1},
+    {word:'detecta',start:9,end:10.5,duration:1.5}
+  ],
+  'legacy clip-relative timings should be detected when they clearly fall inside the clip duration'
+);
+
+assert.deepEqual(
+  JSON.parse(JSON.stringify(normalizeWordTimings({
+    track:3,start:2,duration:2,
+    wordTimings:[
+      {word:'A',start:2,end:2.8},
+      {word:'B',start:2.8,duration:.7}
+    ]
+  }))),
+  [
+    {word:'A',start:2,end:2.8,duration:.7999999999999998},
+    {word:'B',start:2.8,end:3.5,duration:.7000000000000002}
+  ],
+  'existing absolute Studio timings must remain absolute'
+);
+
+console.log('Caption preview timing regression passed');
