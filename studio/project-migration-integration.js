@@ -21,9 +21,33 @@
   function migrateImportedProject(value){
     return engine.migrate(value).project;
   }
+  function primitiveFinite(value){
+    if(typeof value!=='number'&&typeof value!=='string')return null;
+    if(typeof value==='string'&&!value.trim())return null;
+    const number=Number(value);
+    return Number.isFinite(number)?number:null;
+  }
+  function extendStaleImportedDuration(source){
+    if(!source||typeof source!=='object'||Array.isArray(source)||!Array.isArray(source.clips))return source;
+    const declared=primitiveFinite(source.duration);
+    if(declared===null||declared<=0||declared>86400)return source;
+    let required=declared;
+    for(const clip of source.clips){
+      if(!clip||typeof clip!=='object'||Array.isArray(clip))continue;
+      const start=primitiveFinite(clip.start??0),duration=primitiveFinite(clip.duration??0);
+      if(start===null||duration===null||start<0||duration<=0)continue;
+      const end=start+duration;
+      if(Number.isFinite(end)&&end<=86400)required=Math.max(required,end);
+    }
+    return required>declared+1e-9?{...source,duration:required}:source;
+  }
   function normalizeImportedProject(Library,value){
     const ImportEngine=window.ProfitMenteProjectImportEngine;
-    if(typeof ImportEngine==='function')return new ImportEngine().normalize(value);
+    if(typeof ImportEngine==='function'){
+      const importer=new ImportEngine();
+      const source=typeof importer.unwrap==='function'?importer.unwrap(value):value;
+      return importer.normalize(extendStaleImportedDuration(source));
+    }
     return Library.normalizeImportedProject(value);
   }
   function installProjectLibraryImportMigration(){
