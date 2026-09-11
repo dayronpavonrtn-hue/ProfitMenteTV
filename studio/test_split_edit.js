@@ -16,6 +16,19 @@ function approx(actual,expected,eps=1e-9){assert(Math.abs(actual-expected)<=eps,
 }
 
 {
+  const clip={id:'words',track:3,name:'uno dos tres',start:10,duration:6,wordTimings:[{index:0,word:'uno',start:10.2,end:11.1,duration:.9},{index:1,word:'dos',start:12.4,end:13.6,duration:1.2},{index:2,word:'tres',start:14,end:15.2,duration:1.2}]};
+  const r=Engine.split(clip,13,{idFactory:()=> 'words-r'});
+  assert(r.ok);assert.deepEqual(r.left.wordTimings.map(w=>w.word),['uno']);assert.deepEqual(r.right.wordTimings.map(w=>w.word),['dos','tres']);assert.equal(r.right.wordTimings[0].start,13);assert.equal(r.right.wordTimings[0].end,13.6);assert.equal(r.right.wordTimings[0].duration,.6);assert.deepEqual(r.right.wordTimings.map(w=>w.index),[0,1]);assert.equal(r.left.name,'uno');assert.equal(r.right.name,'dos tres');assert.deepEqual(r.wordTimings,{left:1,right:2});
+}
+
+{
+  const original=[{index:0,word:'left',start:'1.0',end:'1.5'},{index:1,word:'bad',start:true,end:2.2},{index:2,word:'right',start:'3e0',end:'3.8'}];
+  const clip={id:'strict',track:3,name:'left right',start:0,duration:4,wordTimings:original};
+  const r=Engine.split(clip,2,{idFactory:()=> 'strict-r'});
+  assert(r.ok);assert.deepEqual(r.left.wordTimings.map(w=>w.word),['left']);assert.deepEqual(r.right.wordTimings.map(w=>w.word),['right']);assert.deepEqual(clip.wordTimings,original);
+}
+
+{
   const clip={id:'kf',track:0,name:'Motion',start:0,duration:10,keyframes:{start:{positionX:-20,scale:1,opacity:0},end:{positionX:20,scale:2,opacity:1}}};
   const r=Engine.split(clip,2.5,{idFactory:()=> 'kf-r'});
   assert(r.ok);approx(r.left.keyframes.end.positionX,-10);approx(r.left.keyframes.end.scale,1.25);approx(r.right.keyframes.start.opacity,.25);assert.deepEqual(r.left.keyframes.end,r.right.keyframes.start);
