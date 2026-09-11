@@ -7,6 +7,7 @@ MP4 matches WebAudio preview ducking, track gain, fades and source-video audio.
 """
 import copy,json,pathlib,subprocess,sys,tempfile
 from caption_compact import compact_project_captions
+from caption_render_timing import normalize_project_caption_timings
 from media_identity import normalize_project_media_ids
 from motion_text_layout import expand_motion_text
 from render_progress import write_progress
@@ -21,6 +22,11 @@ project_path=pathlib.Path(sys.argv[1])
 # here rather than relying only on render_bundle.py. Numeric/string legacy IDs
 # (including id 0) then reach video and audio renderers with one canonical key.
 project=normalize_project_media_ids(normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8'))))
+# Caption timing normalization is render-only. It accepts Studio-native absolute
+# timings plus imported/legacy clip-relative timings and start+duration entries,
+# then emits the absolute start/end shape consumed by render_mp4.py. Corrupt or
+# out-of-range entries are removed instead of reaching FFmpeg expressions.
+project=normalize_project_caption_timings(project)
 render_project=expand_motion_text(compact_project_captions(project))
 
 # render_mp4.py remains the visual compositor. Convert the browser's multi-point
