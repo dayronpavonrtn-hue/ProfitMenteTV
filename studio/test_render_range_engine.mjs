@@ -39,4 +39,18 @@ const legacyRelative={name:'Legacy relative',duration:20,clips:[{id:'legacy',tra
 const legacyOut=Engine.extract(legacyRelative,11,13,[]).clips[0];
 assert.deepEqual(legacyOut.wordTimings,[{word:'LEGACY',start:0,end:.5},{word:'MODE',start:1.5,end:2}]);
 
+// Range rendering must follow the same strict numeric rules as preview/preflight.
+assert.equal(Engine.timingNumber(true),null);assert.equal(Engine.timingNumber([6]),null);assert.equal(Engine.timingNumber({value:6}),null);assert.equal(Engine.timingNumber(' 6.5 '),6.5);assert.equal(Engine.timingNumber('1e1'),10);
+assert.equal(Engine.normalize(project,true,12).start,0,'boolean range start must not coerce to 1');
+assert.equal(Engine.normalize(project,6,[12]).end,20,'array range end must not coerce to 12');
+d=Engine.previewDecision(project,6,12,true,false);assert.equal(d.action,'seek-start','boolean playhead must be treated as invalid');assert.equal(d.time,6);
+const stringNumeric=structuredClone(project);stringNumeric.duration='20';stringNumeric.clips[0].start='2';stringNumeric.clips[0].duration='10';stringNumeric.clips[0].sourceOffset='1';stringNumeric.clips[0].speed='2';
+const stringOut=Engine.extract(stringNumeric,'6','12',assets);assert.equal(stringOut.duration,6);assert.equal(stringOut.clips.find(c=>c.id==='v1').sourceOffset,9,'legacy numeric strings must remain supported');
+for(const bad of [true,[20],{value:20},'NaN','Infinity'])assert.throws(()=>Engine.extract({...project,duration:bad},6,12,assets),/duración del proyecto/i);
+for(const [field,value,pattern] of [['start',true,/tiempos inválidos/i],['duration',[10],/tiempos inválidos/i],['speed',{},/velocidad inválida/i],['sourceOffset',false,/sourceOffset inválido/i]]){
+  const badProject=structuredClone(project);badProject.clips[0][field]=value;assert.throws(()=>Engine.extract(badProject,6,12,assets),pattern,`${field} must reject non-scalar numeric coercion`);
+}
+const markerProject=structuredClone(project);markerProject.markers=[{id:'bad-bool',time:true},{id:'bad-array',time:[8]},{id:'good-string',time:'8'}];
+assert.deepEqual(Engine.extract(markerProject,6,12,assets).markers,[{id:'good-string',time:2}],'invalid marker scalars must not be coerced into the range');
+
 console.log('render range engine ok');
