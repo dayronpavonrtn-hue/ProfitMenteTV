@@ -121,4 +121,25 @@ const scene=(overrides={})=>({id:'scene',track:0,start:0,duration:10,sceneText:'
   assert.equal(broll.name,'B-roll · medio','nombre corrupto debe usar etiqueta segura');
 }
 
+{
+  const project={clips:[scene(),{id:'bad-caption',track:3,start:0,duration:10,name:'',wordTimings:[]}]};
+  const result=tools.addMissingCaptions(project);
+  assert.equal(result.added,1,'caption vacío no debe bloquear la reparación automática');
+  assert.equal(project.clips.filter(c=>String(c.track)==='3').length,2,'el caption válido debe añadirse junto al placeholder inválido');
+}
+
+{
+  const assets=[{id:'alt',type:'video',name:'alt.mp4',duration:8}];
+  const project={clips:[scene(),{id:'bad-broll',track:1,start:1,duration:2,asset:'missing'}]};
+  const result=tools.addBroll(project,assets);
+  assert.equal(result.added,1,'B-roll con asset ausente no debe marcar una escena como cubierta');
+  assert(project.clips.some(c=>String(c.track)==='1'&&c.asset==='alt'),'debe insertar B-roll con un medio visual realmente disponible');
+}
+
+{
+  const assets=[{id:'alt',type:'video',name:'alt.mp4',duration:8}];
+  const project={clips:[scene(),{id:'tiny-broll',track:1,start:1,duration:.01,asset:'alt'}]};
+  assert.equal(tools.addBroll(project,assets).added,1,'B-roll casi vacío no debe impedir completar la escena');
+}
+
 console.log('Generator manual tools regression: OK');
