@@ -2,12 +2,9 @@
   const baseRender=renderAt;
   let captionRenderEpoch=0;
   function canonicalTrack(value){
-    if(typeof value==='number')return Number.isFinite(value)&&Number.isInteger(value)?value:value;
-    if(typeof value!=='string')return value;
-    const raw=value.trim();
-    if(!/^[+-]?\d+$/.test(raw))return value;
-    const parsed=Number(raw);
-    return Number.isFinite(parsed)&&Number.isInteger(parsed)?parsed:value;
+    if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
+    const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
+    const parsed=Number(raw);return Number.isInteger(parsed)&&parsed>=0?Object.is(parsed,-0)?0:parsed:null;
   }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
@@ -29,6 +26,14 @@
     if(typeof value==='string'&&!value.trim())return null;
     const number=Number(value);
     return Number.isFinite(number)?number:null;
+  }
+  function activeCaptionFallback(t){
+    const time=finiteNumber(t);if(time===null)return[];
+    return project.clips.filter(c=>{
+      if(canonicalTrack(c?.track)!==3)return false;
+      const start=finiteNumber(c?.start),duration=finiteNumber(c?.duration);
+      return start!==null&&duration!==null&&duration>0&&time>=start&&time<start+duration;
+    });
   }
   function normalizeWordTimings(clip){
     if(!clip||typeof clip!=='object'||!Array.isArray(clip.wordTimings))return[];
@@ -88,12 +93,12 @@
     // pending. Never let an obsolete word overlay land on top of that newer frame.
     if(epoch!==captionRenderEpoch)return;
     if(captionsHidden())return;
-    const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
+    const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||activeCaptionFallback(t);
     for(const cap of active){
       if(epoch!==captionRenderEpoch)return;
       const word=normalizeWordTimings(cap).find(w=>t>=w.start&&t<w.end);
       if(word)drawWord(word,t);
     }
   };
-  window.ProfitMenteCaptionPreview={captionsHidden,finiteNumber,normalizeWordTimings,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
+  window.ProfitMenteCaptionPreview={captionsHidden,canonicalTrack,finiteNumber,activeCaptionFallback,normalizeWordTimings,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
 })();
