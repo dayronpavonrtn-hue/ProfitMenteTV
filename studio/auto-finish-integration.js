@@ -45,6 +45,7 @@
       renderBtn.disabled=false;
     }
   }
+  function generatorTools(){return window.ProfitMenteGeneratorManualToolsIntegration?.tools||null}
   async function run(){
     if(busy)return null;busy=true;const btn=$('#autoFinishBtn');if(btn){btn.disabled=true;btn.textContent='Finalizando…'}
     const completed=[],skipped=[];lastReport=null;lastPreflight=null;const automationSnapshot=captureAutomationState();
@@ -53,6 +54,24 @@
       for(const step of plan.steps){
         if(step==='repair'){
           const r=window.ProfitMenteQAAutofix?.repair?.(project,assets);if(r){completed.push(`reparación ${r.changed||0}`)}else skipped.push('reparación');
+        }else if(step==='scene-captions'){
+          const tools=generatorTools();
+          if(tools?.addMissingCaptions){
+            const r=tools.addMissingCaptions(project);
+            if(r?.locked)skipped.push('subtítulos protegidos');
+            else if(r?.added)completed.push(`subtítulos ${r.added}`);
+            else completed.push('subtítulos completos');
+          }else skipped.push('subtítulos por escena');
+        }else if(step==='scene-broll'){
+          const tools=generatorTools();
+          if(tools?.addBroll){
+            const wanted=Math.max(1,Math.min(12,Number(plan.summary?.missingBroll)||4));
+            const r=tools.addBroll(project,assets,{maxClips:wanted});
+            if(r?.locked)skipped.push('B-roll protegido');
+            else if(!r?.available)skipped.push('B-roll sin medios');
+            else if(r?.added)completed.push(`B-roll ${r.added}`);
+            else completed.push('B-roll completo');
+          }else skipped.push('B-roll por escena');
         }else if(step==='fill-visual-gaps'){
           if(window.profitMenteVisualGapFill?.run){
             const r=window.profitMenteVisualGapFill.run(true),created=Array.isArray(r?.created)?r.created.length:0,unresolved=Array.isArray(r?.unresolved)?r.unresolved:[];
@@ -140,7 +159,7 @@
   function install(){
     const anchor=$('#generateBtn')||$('#qaBtn');if(!anchor)return;
     let btn=$('#autoFinishBtn');
-    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: reparación segura, relleno visual, mezcla, ritmo, transiciones, headroom, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
+    if(!btn){btn=document.createElement('button');btn.id='autoFinishBtn';btn.type='button';btn.textContent='✨ Auto Finish';btn.title='Finaliza localmente el montaje: completa subtítulos y B-roll por escena, reparación segura, relleno visual, mezcla, ritmo, transiciones, headroom, QA y preflight de exportación. No publica ni usa servicios de pago.';btn.onclick=run;anchor.insertAdjacentElement('afterend',btn)}
     if(!$('#autoFinishRenderBtn')){const render=document.createElement('button');render.id='autoFinishRenderBtn';render.type='button';render.textContent='✨ Auto Finish + MP4';render.title='Finaliza, valida y, solo si QA y preflight pasan, inicia la exportación MP4 local $0. No publica ni usa servicios de pago.';render.onclick=runAndRender;btn.insertAdjacentElement('afterend',render)}
   }
   install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
