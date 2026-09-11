@@ -6,8 +6,14 @@
     trackLocked(project,track){return typeof this.engine.trackLocked==='function'&&this.engine.trackLocked(project,track)}
     mediaKey(value){return typeof this.engine.mediaKey==='function'?this.engine.mediaKey(value):null}
     sameMedia(a,b){const left=this.mediaKey(a),right=this.mediaKey(b);return left!=null&&left===right}
-    clipEnd(clip){return (Number(clip?.start)||0)+Math.max(0,Number(clip?.duration)||0)}
-    overlaps(a,b){const epsilon=1e-6;return (Number(a?.start)||0)<this.clipEnd(b)-epsilon&&(Number(b?.start)||0)<this.clipEnd(a)-epsilon}
+    finiteNumber(value,fallback=0){
+      if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return fallback;
+      const raw=typeof value==='string'?value.trim():value;if(raw==='')return fallback;
+      const number=Number(raw);return Number.isFinite(number)?number:fallback;
+    }
+    nonNegative(value,fallback=0){return Math.max(0,this.finiteNumber(value,fallback))}
+    clipEnd(clip){return this.nonNegative(clip?.start,0)+this.nonNegative(clip?.duration,0)}
+    overlaps(a,b){const epsilon=1e-6;return this.nonNegative(a?.start,0)<this.clipEnd(b)-epsilon&&this.nonNegative(b?.start,0)<this.clipEnd(a)-epsilon}
     id(prefix='manual'){const uuid=root.crypto?.randomUUID?.();return uuid?`${prefix}_${uuid}`:`${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,10)}`}
     assetUsable(asset){
       if(!asset||asset.mediaReadable===false||!['video','image'].includes(asset.type)||this.mediaKey(asset.id)==null)return false;
@@ -18,12 +24,12 @@
     addMissingCaptions(project){
       if(!project||!Array.isArray(project.clips))return {added:0,skipped:0,locked:false};
       if(this.trackLocked(project,3))return {added:0,skipped:0,locked:true};
-      const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>(Number(a.start)||0)-(Number(b.start)||0));
+      const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>this.nonNegative(a?.start,0)-this.nonNegative(b?.start,0));
       const captions=project.clips.filter(c=>this.canonicalTrack(c?.track)==='3');
       let added=0,skipped=0;
       for(const scene of scenes){
         const text=String(scene?.sceneText||scene?.script||'').trim();
-        const start=Number(scene?.start)||0,duration=Math.max(0,Number(scene?.duration)||0);
+        const start=this.nonNegative(scene?.start,0),duration=this.nonNegative(scene?.duration,0);
         if(!text||duration<=.1||captions.some(c=>this.overlaps(c,scene))){skipped++;continue}
         const inset=Math.min(.15,duration*.08),capStart=start+inset,capDuration=Math.max(.1,duration-inset*2);
         const wordTimings=typeof this.engine.captionWords==='function'?this.engine.captionWords(text,capStart,capDuration):[];
@@ -37,28 +43,30 @@
       if(this.trackLocked(project,1))return {added:0,skipped:0,locked:true,available:0};
       const visual=(Array.isArray(assets)?assets:[]).filter(a=>this.assetUsable(a));
       if(!visual.length)return {added:0,skipped:0,locked:false,available:0};
-      const max=Math.max(1,Math.min(12,Number(options.maxClips)||4));
+      const requestedMax=this.finiteNumber(options?.maxClips,4),max=Math.max(1,Math.min(12,Math.trunc(requestedMax)||4));
       const format=project.format||'9:16',seed=typeof this.engine.hash==='function'?this.engine.hash(project.name||project.title||'ProfitMente'):1;
-      const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>(Number(a.start)||0)-(Number(b.start)||0));
+      const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>this.nonNegative(a?.start,0)-this.nonNegative(b?.start,0));
       const broll=project.clips.filter(c=>this.canonicalTrack(c?.track)==='1');
       let added=0,skipped=0;
       for(const scene of scenes){
         if(added>=max)break;
-        const sceneDuration=Math.max(0,Number(scene?.duration)||0);if(sceneDuration<.5||broll.some(c=>this.overlaps(c,scene))){skipped++;continue}
-        let desired=Math.min(3,Math.max(.75,sceneDuration*.32));
+        const sceneDuration=this.nonNegative(scene?.duration,0);if(sceneDuration<.5||broll.some(c=>this.overlaps(c,scene))){skipped++;continue}
+        const desired=Math.min(3,Math.max(.75,sceneDuration*.32));
         const alternatives=visual.filter(a=>!this.sameMedia(a.id,scene.asset));
         const pool=alternatives.length?alternatives:visual;
         const candidates=pool.map(asset=>{
-          const known=Number(asset.duration)||0;
+          const known=this.nonNegative(asset?.duration,0);
           const duration=asset.type==='video'&&known>0?Math.min(desired,known):desired;
           if(duration<.2)return null;
           const score=typeof this.engine.scoreAsset==='function'?this.engine.scoreAsset(asset,scene.keywords||[],format,duration):0;
           return {asset,duration,score};
         }).filter(Boolean).sort((a,b)=>b.score-a.score||String(a.asset.name||'').localeCompare(String(b.asset.name||'')));
         const chosen=candidates[0];if(!chosen){skipped++;continue}
-        const duration=Math.min(chosen.duration,sceneDuration),room=Math.max(0,sceneDuration-duration),start=(Number(scene.start)||0)+Math.min(room,sceneDuration*.5);
-        const probe={duration};const sourceOffset=typeof this.engine.sourceOffset==='function'?this.engine.sourceOffset(chosen.asset,probe,seed+added*37):0;
-        const clip={id:this.id('broll'),track:1,name:`B-roll · ${chosen.asset.name||'medio'}`,start:+start.toFixed(3),duration:+duration.toFixed(3),asset:chosen.asset.id,sourceOffset:Number(sourceOffset)||0,volume:0,transition:'fade'};
+        const duration=Math.min(chosen.duration,sceneDuration),room=Math.max(0,sceneDuration-duration),start=this.nonNegative(scene?.start,0)+Math.min(room,sceneDuration*.5);
+        const probe={duration};const rawSourceOffset=typeof this.engine.sourceOffset==='function'?this.engine.sourceOffset(chosen.asset,probe,seed+added*37):0;
+        const knownDuration=this.nonNegative(chosen.asset?.duration,0),maxOffset=chosen.asset?.type==='video'&&knownDuration>0?Math.max(0,knownDuration-duration):Infinity;
+        const sourceOffset=Math.min(maxOffset,this.nonNegative(rawSourceOffset,0));
+        const clip={id:this.id('broll'),track:1,name:`B-roll · ${chosen.asset.name||'medio'}`,start:+start.toFixed(3),duration:+duration.toFixed(3),asset:chosen.asset.id,sourceOffset:Number.isFinite(sourceOffset)?+sourceOffset.toFixed(3):0,volume:0,transition:'fade'};
         project.clips.push(clip);broll.push(clip);added++;
       }
       return {added,skipped,locked:false,available:visual.length};
