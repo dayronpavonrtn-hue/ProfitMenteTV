@@ -56,7 +56,7 @@
       const visualClips=clips.filter(c=>{const track=canonicalTrack(c?.track);return track!=null&&VISUAL_TRACKS.includes(track)&&hasMediaId(c?.asset)&&isTrackActive(project,track,'visual')});
       const activeAudio=track=>clips.filter(c=>canonicalTrack(c?.track)===track&&hasMediaId(c?.asset)&&!c.muted&&isTrackActive(project,track,'audio'));
       const generated=visualClips.filter(c=>sceneText(c));
-      const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
+      const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&isTrackActive(project,0,'visual')&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
       const captions=clips.filter(c=>canonicalTrack(c?.track)===3);
       const broll=clips.filter(c=>canonicalTrack(c?.track)===1);
       const beats=(project?.markers||[]).filter(m=>/^Beat\b/i.test(String(m?.label||'')));
