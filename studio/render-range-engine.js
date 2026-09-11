@@ -5,6 +5,19 @@ class ProfitMenteRenderRangeEngine{
     const raw=value.trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
     const numeric=Number(raw);return Number.isFinite(numeric)?numeric:null;
   }
+  static identityKey(value){
+    if(typeof value==='number')return Number.isFinite(value)?`n:${Object.is(value,-0)?0:value}`:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw)return null;
+    if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){const numeric=Number(raw);if(Number.isFinite(numeric))return `n:${Object.is(numeric,-0)?0:numeric}`}
+    return `s:${raw}`;
+  }
+  static resolveAsset(assets,id){
+    const key=this.identityKey(id);if(key===null)return null;
+    const matches=(Array.isArray(assets)?assets:[]).filter(asset=>this.identityKey(asset?.id)===key);
+    if(matches.length>1)throw new Error(`La identidad del medio ${String(id)} es ambigua en la biblioteca.`);
+    return matches[0]||null;
+  }
   static round(value){const numeric=this.timingNumber(value);return numeric!==null?Math.round(numeric*1000000)/1000000:0}
   static wordTimingsAreRelative(clip={}){
     const rawMode=typeof clip.wordTimingMode==='string'?clip.wordTimingMode.trim().toLowerCase():'';
@@ -59,8 +72,8 @@ class ProfitMenteRenderRangeEngine{
     const c=structuredClone(projectClip),start=this.timingNumber(c.start),duration=this.timingNumber(c.duration);if(start===null||duration===null||duration<0)return null;
     const end=start+duration,from=Math.max(start,range.start),to=Math.min(end,range.end);if(to<=from)return null;
     const words=this.clippedWordTimings(projectClip,from,to,range),delta=from-start;c.start=from-range.start;c.duration=to-from;
-    if(c.asset){
-      const asset=assets.find(a=>a?.id===c.asset),parsedSpeed=this.timingNumber(c.speed),speed=Math.max(.01,parsedSpeed!==null?parsedSpeed:1),parsedOffset=this.timingNumber(c.sourceOffset),sourceOffset=parsedOffset!==null?parsedOffset:0;
+    if(this.identityKey(c.asset)!==null){
+      const asset=this.resolveAsset(assets,c.asset),parsedSpeed=this.timingNumber(c.speed),speed=Math.max(.01,parsedSpeed!==null?parsedSpeed:1),parsedOffset=this.timingNumber(c.sourceOffset),sourceOffset=parsedOffset!==null?parsedOffset:0;
       if(asset?.type==='image')c.sourceOffset=0;
       else c.sourceOffset=Math.max(0,sourceOffset+delta*speed);
     }
