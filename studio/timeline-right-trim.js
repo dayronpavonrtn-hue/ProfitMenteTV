@@ -2,14 +2,15 @@
 class ProfitMenteTimelineRightTrimEngine{
   static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+  static timingNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:null;if(typeof v!=='string')return null;const s=v.trim();if(!s||!^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s))return null;const n=Number(s);return Number.isFinite(n)?n:null}
   static trimWordTimings(timings,start,end){
     if(!Array.isArray(timings))return timings;
-    const lo=Number(start),hi=Number(end);if(!Number.isFinite(lo)||!Number.isFinite(hi)||hi<=lo)return [];
+    const lo=this.timingNumber(start),hi=this.timingNumber(end);if(lo===null||hi===null||hi<=lo)return [];
     const out=[];
     for(const timing of timings){
-      if(!timing||typeof timing!=='object')continue;
-      const ws=Number(timing.start),we=Number(timing.end);if(!Number.isFinite(ws)||!Number.isFinite(we)||we<=ws||we<=lo||ws>=hi)continue;
-      const item=structuredClone(timing);item.start=this.round(Math.max(lo,ws));item.end=this.round(Math.min(hi,we));item.duration=this.round(Math.max(0,item.end-item.start));if(item.duration>0)out.push(item);
+      if(!timing||typeof timing!=='object'||Array.isArray(timing))continue;
+      const ws=this.timingNumber(timing.start),we=this.timingNumber(timing.end);if(ws===null||we===null||we<=ws||we<=lo||ws>=hi)continue;
+      const item=structuredClone(timing);item.start=this.round(Math.max(lo,ws));item.end=this.round(Math.min(hi,we));item.duration=this.round(Math.max(0,item.end-item.start));if(item.duration>0){if(Object.prototype.hasOwnProperty.call(item,'index'))item.index=out.length;out.push(item)}
     }
     return out;
   }
