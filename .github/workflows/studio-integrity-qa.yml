@@ -34,6 +34,7 @@ jobs:
           node --check studio/media-storage-resilience.js
           node --check studio/media-metadata-engine.js
           node --check studio/media-relink-engine.js
+          node --check studio/media-library-cross-project-guard.js
           node --check studio/audio-qc-engine.js
           node --check studio/audio-qc-integration.js
           node --check studio/qa-engine.js
@@ -52,6 +53,8 @@ jobs:
         run: node studio/test_media_relink.mjs
       - name: Strict preview media identity regression
         run: node studio/test_preview_media_identity.mjs
+      - name: Cross-project media identity regression
+        run: node studio/test_media_library_cross_project_identity.mjs
       - name: Timeline word timing sync regression
         run: node studio/test_timeline_word_timing_sync.js
       - name: Visual keyframe MP4 compatibility regression
