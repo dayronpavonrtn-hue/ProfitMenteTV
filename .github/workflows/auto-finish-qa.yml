@@ -5,6 +5,8 @@ on:
     paths:
       - 'studio/auto-finish-engine.js'
       - 'studio/auto-finish-integration.js'
+      - 'studio/generator-manual-tools.js'
+      - 'studio/generator-manual-tools-integration.js'
       - 'studio/audio-qc-engine.js'
       - 'studio/audio-qc-integration.js'
       - 'studio/export-preflight.js'
@@ -14,6 +16,7 @@ on:
       - 'studio/test_auto_finish_wiring.mjs'
       - 'studio/test_auto_finish_atomicity.mjs'
       - 'studio/test_auto_finish_render_wait.mjs'
+      - 'studio/tests/generator-manual-tools-regression.js'
       - '.github/workflows/auto-finish-qa.yml'
   workflow_dispatch:
 
@@ -29,6 +32,8 @@ jobs:
         run: |
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
+          node --check studio/generator-manual-tools.js
+          node --check studio/generator-manual-tools-integration.js
           node --check studio/audio-qc-engine.js
           node --check studio/audio-qc-integration.js
           node --check studio/export-preflight.js
@@ -36,6 +41,8 @@ jobs:
           node --check studio/feature-bootstrap.js
       - name: Auto Finish regression
         run: node studio/test_auto_finish_engine.mjs
+      - name: Manual scene helper regression
+        run: node studio/tests/generator-manual-tools-regression.js
       - name: Verify Studio wiring
         run: node studio/test_auto_finish_wiring.mjs
       - name: Verify atomic rollback
