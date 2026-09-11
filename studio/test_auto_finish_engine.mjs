@@ -28,26 +28,22 @@ const mutedMusic={...av,trackState:{5:{muted:true}}};
 assert.deepEqual(Engine.plan(mutedMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const manual={...base,clips:[{track:0,asset:'v'},{track:5,asset:'m'}]};
-assert.deepEqual(Engine.plan(manual,[]).steps,['repair','detect-beats','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(manual,[]).steps=['repair','detect-beats','audio-headroom','qa']);
 
 const onlySfx={...base,clips:[{track:4,asset:'hit'}]};
 assert.deepEqual(Engine.plan(onlySfx,[]).steps,['repair','detect-beats','audio-headroom','qa']);
 
-// All four visual layers are part of the canonical Studio timeline.
 const upperVisual={...base,clips:[{track:2,asset:'overlay'},{track:3,asset:'logo'}]};
 assert.equal(Engine.inspect(upperVisual,[]).visual,2);
 
-// Legacy restrictions remain conservative when modern state disagrees.
 const legacyMuted={...av,trackState:{5:{muted:false}},trackStates:{5:{muted:true}}};
 assert.deepEqual(Engine.plan(legacyMuted,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
-// Audio Solo must prevent an inactive music track from triggering Smart Mix.
 const soloVoice={...av,trackState:{6:{solo:true}}};
 assert.deepEqual(Engine.plan(soloVoice,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 assert.equal(Engine.inspect(soloVoice,[]).music,0);
 assert.equal(Engine.inspect(soloVoice,[]).voice,1);
 
-// Visual Solo/legacy hidden state must not schedule transitions for inactive generated clips.
 const soloUpper={...base,clips:[
   {track:0,asset:'hidden-gen-a',sceneText:'a'},
   {track:0,asset:'hidden-gen-b',sceneText:'b'},
@@ -62,7 +58,6 @@ const legacyHiddenGenerated={...av,trackState:{0:{hidden:false}},trackStates:{0:
 assert.equal(Engine.inspect(legacyHiddenGenerated,[]).generated,0);
 assert.deepEqual(Engine.plan(legacyHiddenGenerated,[]).steps,['repair','smart-mix','detect-beats','audio-headroom','qa']);
 
-// Canonical track aliases must inherit state instead of bypassing hidden/muted/solo controls.
 const paddedLegacyMusic={...av,trackState:{'05':{muted:true}}};
 assert.equal(Engine.inspect(paddedLegacyMusic,[]).music,0);
 assert.deepEqual(Engine.plan(paddedLegacyMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
@@ -70,13 +65,11 @@ const paddedLegacyVisual={...av,trackStates:{'+00.0':{hidden:true}}};
 assert.equal(Engine.inspect(paddedLegacyVisual,[]).generated,0);
 assert.deepEqual(Engine.plan(paddedLegacyVisual,[]).steps,['repair','smart-mix','detect-beats','audio-headroom','qa']);
 
-// A numeric zero is a valid persisted media ID and must not disappear from automation planning.
 const zeroMedia={...base,clips:[{track:'00',asset:0,sceneText:'generated'}]};
 assert.equal(Engine.inspect(zeroMedia,[{id:0,type:'image'}]).visual,1);
 assert.equal(Engine.inspect(zeroMedia,[{id:0,type:'image'}]).visualAssets,1);
 assert.deepEqual(Engine.plan(zeroMedia,[{id:0,type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
 
-// Invalid identifiers/tracks stay excluded instead of being coerced into track/media zero.
 assert.equal(Engine.hasMediaId(false),false);
 assert.equal(Engine.hasMediaId('   '),false);
 assert.equal(Engine.hasMediaId({}),false);
@@ -92,6 +85,9 @@ assert.equal(Engine.canonicalTrack([]),null);
 assert.equal(Engine.canonicalTrack([5]),null);
 assert.equal(Engine.canonicalTrack('05'),5);
 assert.equal(Engine.canonicalTrack('+00.0'),0);
+assert.equal(Engine.mediaKey('007'),Engine.mediaKey(7));
+assert.equal(Engine.mediaKey('+08.0'),Engine.mediaKey(8));
+assert.equal(Engine.mediaKey(false),null);
 assert.equal(Engine.inspect({...base,clips:[
   {track:false,asset:'bad'},
   {track:'',asset:'bad'},
@@ -103,7 +99,6 @@ assert.equal(Engine.inspect({...base,clips:[
 assert.equal(Engine.inspect(base,[{id:false,type:'image'},{id:'   ',type:'video'},{id:{},type:'image'},{id:[],type:'video'},{id:1.5,type:'image'}]).visualAssets,0);
 assert.deepEqual(Engine.plan({...base,clips:[{track:5,asset:{}},{track:6,asset:[]}]},[]).steps,['repair','qa']);
 
-// Auto Finish must now reuse the scene-aware local generator tools before generic gap filling.
 const unfinishedScenes={...base,duration:12,clips:[
   {id:'s1',track:0,asset:'primary',sceneText:'Primera escena',start:0,duration:5},
   {id:'s2',track:0,asset:'primary',sceneText:'Segunda escena',start:5,duration:5},
@@ -116,13 +111,29 @@ assert.equal(unfinishedState.missingBroll,2);
 assert.deepEqual(Engine.plan(unfinishedScenes,[{id:'primary',type:'video',duration:20},{id:'overlay',type:'image'}]).steps,['repair','scene-captions','scene-broll','fill-visual-gaps','auto-transitions','qa']);
 
 const completedScenes={...unfinishedScenes,clips:[...unfinishedScenes.clips,
-  {id:'c2',track:3,start:5.1,duration:4.7},
+  {id:'c2',track:3,name:'Segunda escena',start:5.1,duration:4.7},
   {id:'b1',track:1,asset:'overlay',start:1,duration:1},
   {id:'b2',track:1,asset:'overlay',start:6,duration:1}
 ]};
 assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingCaptions,0);
 assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingBroll,0);
 assert.deepEqual(Engine.plan(completedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
+
+const phantomHelpers={...unfinishedScenes,clips:[...unfinishedScenes.clips,
+  {id:'empty-caption',track:3,start:5,duration:4.5,name:'',wordTimings:[]},
+  {id:'missing-broll',track:1,start:1,duration:2,asset:'missing'},
+  {id:'tiny-broll',track:1,start:6,duration:.01,asset:'overlay'}
+]};
+const phantomState=Engine.inspect(phantomHelpers,[{id:'overlay',type:'image'}]);
+assert.equal(phantomState.missingCaptions,1,'caption vacío no debe cubrir una escena');
+assert.equal(phantomState.missingBroll,2,'B-roll ausente o casi vacío no debe cubrir escenas');
+assert.deepEqual(Engine.plan(phantomHelpers,[{id:'overlay',type:'image'}]).steps,['repair','scene-captions','scene-broll','fill-visual-gaps','auto-transitions','qa']);
+
+const timedCaption={...unfinishedScenes,clips:[...unfinishedScenes.clips,{id:'timed',track:3,start:5,duration:4.5,wordTimings:[{word:'Segunda',duration:.3}]}]};
+assert.equal(Engine.inspect(timedCaption,[{id:'overlay',type:'image'}]).missingCaptions,0,'word timings útiles deben contar como caption válido');
+
+const legacyBroll={...unfinishedScenes,clips:[...unfinishedScenes.clips,{id:'legacy-b',track:1,start:1,duration:1,asset:'007'}]};
+assert.equal(Engine.inspect(legacyBroll,[{id:7,type:'video'}]).missingBroll,1,'IDs legacy equivalentes deben reconocer cobertura válida de una escena');
 
 const protectedScenes={...unfinishedScenes,trackState:{1:{locked:true},3:{locked:true}}};
 const protectedState=Engine.inspect(protectedScenes,[{id:'overlay',type:'image'}]);
@@ -132,8 +143,6 @@ assert.equal(protectedState.missingCaptions,0);
 assert.equal(protectedState.missingBroll,0);
 assert.deepEqual(Engine.plan(protectedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
 
-// Hidden or Solo-excluded helper tracks are intentionally inactive. Auto Finish must not
-// mutate them or treat invisible helper clips as production-complete coverage.
 const hiddenHelpers={...unfinishedScenes,trackState:{1:{hidden:true},3:{hidden:true}}};
 const hiddenHelperState=Engine.inspect(hiddenHelpers,[{id:'overlay',type:'image'}]);
 assert.equal(hiddenHelperState.captionTrackActive,false);
