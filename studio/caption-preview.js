@@ -23,6 +23,43 @@
     const current=trackStateValue(project?.trackState,3),legacy=trackStateValue(project?.trackStates,3);
     return !!(current?.hidden||legacy?.hidden);
   }
+  function finiteNumber(value){
+    if(typeof value==='boolean'||value===null||value===undefined)return null;
+    if(typeof value!=='number'&&typeof value!=='string')return null;
+    if(typeof value==='string'&&!value.trim())return null;
+    const number=Number(value);
+    return Number.isFinite(number)?number:null;
+  }
+  function normalizeWordTimings(clip){
+    if(!clip||typeof clip!=='object'||!Array.isArray(clip.wordTimings))return[];
+    const clipStart=finiteNumber(clip.start),clipDuration=finiteNumber(clip.duration);
+    if(clipStart===null||clipDuration===null||clipDuration<=0)return[];
+    const clipEnd=clipStart+clipDuration;
+    const rawMode=typeof clip.wordTimingMode==='string'?clip.wordTimingMode.trim().toLowerCase():'';
+    const mode=rawMode==='relative'||rawMode==='absolute'?rawMode:'';
+    const normalized=[];
+    for(const timing of clip.wordTimings){
+      if(!timing||typeof timing!=='object'||Array.isArray(timing))continue;
+      const rawWord=typeof timing.word==='string'?timing.word:(typeof timing.text==='string'?timing.text:'');
+      const word=rawWord.trim();
+      if(!word)continue;
+      let start=finiteNumber(timing.start),end=finiteNumber(timing.end);
+      const duration=finiteNumber(timing.duration);
+      if(start===null)continue;
+      if(end===null&&duration!==null&&duration>0)end=start+duration;
+      if(end===null||end<=start)continue;
+      let relative=mode==='relative'||timing.relative===true;
+      if(!mode&&!relative){
+        relative=clipStart>1e-6&&start>=-1e-6&&end<=clipDuration+1e-6&&start<clipStart-1e-6;
+      }
+      if(relative){start+=clipStart;end+=clipStart}
+      start=Math.max(clipStart,start);end=Math.min(clipEnd,end);
+      if(end-start<=1e-6)continue;
+      normalized.push({word,start,end,duration:end-start});
+    }
+    normalized.sort((a,b)=>a.start-b.start||a.end-b.end||a.word.localeCompare(b.word));
+    return normalized;
+  }
   function fitWordFont(ctx,text,baseSize,maxWidth,minSize=22){
     const safeBase=Math.max(minSize,Number(baseSize)||minSize),safeWidth=Math.max(1,Number(maxWidth)||1);
     ctx.font=`900 ${Math.round(safeBase)}px Arial`;
@@ -54,10 +91,9 @@
     const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||project.clips.filter(c=>Number(c.track)===3&&t>=Number(c.start||0)&&t<Number(c.start||0)+Number(c.duration||0));
     for(const cap of active){
       if(epoch!==captionRenderEpoch)return;
-      if(!Array.isArray(cap.wordTimings))continue;
-      const word=cap.wordTimings.find(w=>t>=Number(w.start)&&t<Number(w.end));
+      const word=normalizeWordTimings(cap).find(w=>t>=w.start&&t<w.end);
       if(word)drawWord(word,t);
     }
   };
-  window.ProfitMenteCaptionPreview={captionsHidden,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
+  window.ProfitMenteCaptionPreview={captionsHidden,finiteNumber,normalizeWordTimings,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
 })();
