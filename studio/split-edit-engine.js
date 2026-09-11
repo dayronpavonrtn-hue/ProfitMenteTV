@@ -8,6 +8,29 @@ class ProfitMenteSplitEditEngine{
     const numeric=Number(raw);return Number.isFinite(numeric)?numeric:null;
   }
   static round(value){const numeric=Number(value);return Number.isFinite(numeric)?Math.round(numeric*1000000)/1000000:0}
+  static wordTimingsAreRelative(clip={}){
+    const rawMode=typeof clip.wordTimingMode==='string'?clip.wordTimingMode.trim().toLowerCase():'';
+    if(rawMode==='relative')return true;if(rawMode==='absolute')return false;
+    const timings=Array.isArray(clip.wordTimings)?clip.wordTimings:[];
+    if(timings.some(item=>item?.relative===true))return true;
+    const start=this.timingNumber(clip.start),duration=this.timingNumber(clip.duration);if(start===null||duration===null||start<=1e-6||duration<=0)return false;
+    const valid=timings.map(item=>({start:this.timingNumber(item?.start),end:this.timingNumber(item?.end)})).filter(item=>item.start!==null&&item.end!==null&&item.end>item.start);
+    return !!valid.length&&valid.every(item=>item.start>=-1e-6&&item.end<=duration+1e-6)&&valid.some(item=>item.start<start-1e-6);
+  }
+  static absoluteWordTimings(clip={}){
+    if(!Array.isArray(clip.wordTimings))return null;
+    if(!this.wordTimingsAreRelative(clip))return this.clone(clip.wordTimings);
+    const base=this.timingNumber(clip.start)??0;
+    return clip.wordTimings.map(item=>{
+      if(!item||typeof item!=='object'||Array.isArray(item))return item;
+      const next=this.clone(item),start=this.timingNumber(item.start),end=this.timingNumber(item.end);
+      if(start!==null)next.start=this.round(start+base);if(end!==null)next.end=this.round(end+base);return next;
+    });
+  }
+  static relativizeWordTimings(timings=[],base=0){
+    const origin=this.timingNumber(base)??0;
+    return timings.map(item=>{const next=this.clone(item),start=this.timingNumber(item.start),end=this.timingNumber(item.end);if(start!==null)next.start=this.round(start-origin);if(end!==null)next.end=this.round(end-origin);if(start!==null&&end!==null)next.duration=this.round(Math.max(0,end-start));return next});
+  }
   static partitionWordTimings(timings,start,split,end){
     if(!Array.isArray(timings))return null;
     const lo=this.timingNumber(start),cut=this.timingNumber(split),hi=this.timingNumber(end);if(lo===null||cut===null||hi===null||cut<=lo||cut>=hi)return {left:[],right:[]};
@@ -48,10 +71,12 @@ class ProfitMenteSplitEditEngine{
     left.duration=leftDuration;right.start=t;right.duration=rightDuration;right.id=typeof idFactory==='function'?idFactory():globalThis.crypto?.randomUUID?.()||`split-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     right.sourceOffset=sourceCut;
     const base=String(clip.name||'Clip').replace(/ · [12]$/,'');left.name=base+' · 1';right.name=base+' · 2';
-    const words=this.partitionWordTimings(clip.wordTimings,start,t,end);
+    const relativeWords=this.wordTimingsAreRelative(clip),absoluteWords=this.absoluteWordTimings(clip),words=this.partitionWordTimings(absoluteWords,start,t,end);
     if(words){
-      left.wordTimings=words.left;right.wordTimings=words.right;
-      if(Number(clip.track)===3){const leftText=words.left.map(item=>String(item.word??'').trim()).filter(Boolean).join(' '),rightText=words.right.map(item=>String(item.word??'').trim()).filter(Boolean).join(' ');if(leftText)left.name=leftText;if(rightText)right.name=rightText}
+      left.wordTimings=relativeWords?this.relativizeWordTimings(words.left,start):words.left;
+      right.wordTimings=relativeWords?this.relativizeWordTimings(words.right,t):words.right;
+      if(relativeWords){left.wordTimingMode='relative';right.wordTimingMode='relative'}
+      if(Number(clip.track)===3){const leftText=left.wordTimings.map(item=>String(item.word??'').trim()).filter(Boolean).join(' '),rightText=right.wordTimings.map(item=>String(item.word??'').trim()).filter(Boolean).join(' ');if(leftText)left.name=leftText;if(rightText)right.name=rightText}
     }
     const mid=this.keyframeMid(clip.keyframes,ratio);
     if(mid){left.keyframes={...this.clone(clip.keyframes),end:this.clone(mid)};right.keyframes={...this.clone(clip.keyframes),start:this.clone(mid)}}
