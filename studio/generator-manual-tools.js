@@ -79,9 +79,13 @@
         }).filter(Boolean).sort((a,b)=>b.score-a.score||this.text(a.asset?.name,'medio').localeCompare(this.text(b.asset?.name,'medio')));
         const chosen=candidates[0];if(!chosen){skipped++;continue}
         const duration=Math.min(chosen.duration,sceneDuration),room=Math.max(0,sceneDuration-duration),start=this.nonNegative(scene?.start,0)+Math.min(room,sceneDuration*.5);
-        const probe={duration};const rawSourceOffset=typeof this.engine.sourceOffset==='function'?this.engine.sourceOffset(chosen.asset,probe,seed+added*37):0;
-        const knownDuration=this.nonNegative(chosen.asset?.duration,0),maxOffset=chosen.asset?.type==='video'&&knownDuration>0?Math.max(0,knownDuration-duration):Infinity;
-        const sourceOffset=Math.min(maxOffset,this.nonNegative(rawSourceOffset,0));
+        const knownDuration=this.nonNegative(chosen.asset?.duration,0);
+        let sourceOffset=0;
+        if(chosen.asset?.type==='video'&&knownDuration>0){
+          const probe={duration};
+          const rawSourceOffset=typeof this.engine.sourceOffset==='function'?this.engine.sourceOffset(chosen.asset,probe,seed+added*37):0;
+          sourceOffset=Math.min(Math.max(0,knownDuration-duration),this.nonNegative(rawSourceOffset,0));
+        }
         const clip={id:this.id('broll'),track:1,name:`B-roll · ${this.text(chosen.asset?.name,'medio')}`,start:+start.toFixed(3),duration:+duration.toFixed(3),asset:chosen.asset.id,sourceOffset:Number.isFinite(sourceOffset)?+sourceOffset.toFixed(3):0,volume:0,transition:'fade'};
         project.clips.push(clip);broll.push(clip);added++;
       }
