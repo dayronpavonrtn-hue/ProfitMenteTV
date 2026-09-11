@@ -66,6 +66,37 @@
   }
   installInsertTimeSync();
 
+  function installRippleWordSync(){
+    const Ops=root.ProfitMenteTimelineOperations;
+    if(!Ops?.prototype||Ops.prototype.__profitmenteRippleWordSync)return;
+    const baseRippleDelete=Ops.prototype.rippleDelete,baseCloseGaps=Ops.prototype.closeGaps;
+    if(typeof baseRippleDelete!=='function'||typeof baseCloseGaps!=='function')return;
+    Object.defineProperty(Ops.prototype,'__profitmenteRippleWordSync',{value:true,configurable:false});
+    const snapshot=project=>new Map((Array.isArray(project?.clips)?project.clips:[]).map(c=>[c,{start:strictNumber(c?.start)}]));
+    const sync=(project,before)=>{
+      let clipsShifted=0,wordsShifted=0;
+      for(const clip of Array.isArray(project?.clips)?project.clips:[]){
+        const previous=before.get(clip)?.start,current=strictNumber(clip?.start);
+        if(previous===null||previous===undefined||current===null)continue;
+        const delta=current-previous;if(Math.abs(delta)<.000001)continue;
+        clipsShifted++;wordsShifted+=shiftWordTimings(clip,delta);
+      }
+      return {clipsShifted,wordsShifted};
+    };
+    Ops.prototype.rippleDelete=function(project,id){
+      const before=snapshot(project),result=baseRippleDelete.call(this,project,id);
+      if(!result)return result;
+      const counts=sync(project,before);if(result&&typeof result==='object')Object.assign(result,{rippleWordsShifted:counts.wordsShifted});
+      return result;
+    };
+    Ops.prototype.closeGaps=function(project,track){
+      const before=snapshot(project),result=baseCloseGaps.call(this,project,track);
+      if(!result)return result;
+      sync(project,before);return result;
+    };
+  }
+  installRippleWordSync();
+
   function loadRippleTrim(){
     if(typeof document==='undefined'||root.ProfitMenteRippleTrim)return;
     const load=(src,ready)=>new Promise((resolve,reject)=>{
