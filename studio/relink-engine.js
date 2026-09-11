@@ -18,6 +18,16 @@ class ProfitMenteRelinkEngine{
   filePath(file={}){
     return this.cleanPath(file?.sourceRelativePath||file?.webkitRelativePath||file?.name||'');
   }
+  fileFingerprint(file={}){
+    const name=String(file?.name||'').trim().toLowerCase(),size=Number(file?.size??file?.blob?.size??0)||0,mime=String(file?.type||file?.mime||'').toLowerCase(),modified=Number(file?.lastModified??file?.sourceLastModified??0)||0;
+    return `${name}|${size}|${mime}|${modified}`;
+  }
+  fingerprintMatch(expected={},file={}){
+    const stored=String(expected?.sourceFingerprint||'').trim();return !!stored&&stored===this.fileFingerprint(file);
+  }
+  exactPathMatch(expected={},file={}){
+    const expectedPath=this.cleanPath(expected?.sourceRelativePath),filePath=this.filePath(file);return !!expectedPath&&!!filePath&&expectedPath===filePath;
+  }
   manifest(assets=[]){
     return (assets||[]).filter(a=>this.canonicalId(a?.id)!==null).map(a=>{
       const row={id:a.id,name:a.name||'',type:a.type||'',mime:a.mime||''};
@@ -95,6 +105,7 @@ class ProfitMenteRelinkEngine{
     let score=0;
     const en=this.normalize(expected?.name),fn=this.normalize(file?.name),et=expected?.type||String(expected?.mime||'').split('/')[0],ft=this.inferType(file);
     if(et&&ft&&et!==ft)return -1000;
+    if(this.fingerprintMatch(expected,file))score+=220;
     const expectedPath=this.cleanPath(expected?.sourceRelativePath),filePath=this.filePath(file);
     if(expectedPath&&filePath){
       if(expectedPath===filePath)score+=160;
@@ -114,17 +125,23 @@ class ProfitMenteRelinkEngine{
     if(expected?.lastModified&&file?.lastModified&&Math.abs(Number(expected.lastModified)-Number(file.lastModified))<2000)score+=10;
     return score;
   }
+  ranked(expected,files=[]){return (files||[]).map((file,index)=>({file,index,score:this.score(expected,file)})).filter(x=>x.score>=65).sort((a,b)=>b.score-a.score)}
+  isAmbiguous(expected,ranked=[]){
+    if(ranked.length<2)return false;
+    const [best,next]=ranked;if(this.fingerprintMatch(expected,best.file)||this.exactPathMatch(expected,best.file)&&!this.exactPathMatch(expected,next.file))return false;
+    return best.score-next.score<20;
+  }
   match(project,assets,files){
-    const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[];
+    const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],ambiguous=[];
     for(const expected of missing){
-      let best=-1,bestScore=-Infinity;
-      remaining.forEach((file,i)=>{const s=this.score(expected,file);if(s>bestScore){bestScore=s;best=i}});
-      if(best>=0&&bestScore>=65){matches.push({expected,file:remaining[best],score:bestScore});remaining.splice(best,1)}
+      const ranked=this.ranked(expected,remaining);if(!ranked.length)continue;
+      if(this.isAmbiguous(expected,ranked)){ambiguous.push({expected,candidates:ranked.slice(0,3)});continue}
+      const best=ranked[0];matches.push({expected,file:best.file,score:best.score});remaining.splice(remaining.indexOf(best.file),1);
     }
-    return {missing,matches,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
+    return {missing,matches,ambiguous,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
   }
   async matchVerified(project,assets,files){
-    const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],hashRejected=[];
+    const missing=this.missing(project,assets),remaining=[...(files||[])],matches=[],hashRejected=[],ambiguous=[];
     const hashCache=new Map();
     const hashesFor=async file=>{
       if(hashCache.has(file))return hashCache.get(file);
@@ -132,7 +149,8 @@ class ProfitMenteRelinkEngine{
       hashCache.set(file,hashes);return hashes;
     };
     for(const expected of missing){
-      const ranked=remaining.map((file,index)=>({file,index,score:this.score(expected,file)})).filter(x=>x.score>=65).sort((a,b)=>b.score-a.score);
+      const ranked=this.ranked(expected,remaining);if(!ranked.length)continue;
+      if(!expected?.sourceContentHash&&this.isAmbiguous(expected,ranked)){ambiguous.push({expected,candidates:ranked.slice(0,3)});continue}
       let accepted=null;
       for(const candidate of ranked){
         let hash=null,hashes=null;
@@ -146,7 +164,7 @@ class ProfitMenteRelinkEngine{
       }
       if(accepted){matches.push({expected,file:accepted.file,score:accepted.score,hash:accepted.hash,hashes:accepted.hashes});remaining.splice(remaining.indexOf(accepted.file),1)}
     }
-    return {missing,matches,hashRejected,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
+    return {missing,matches,hashRejected,ambiguous,unmatchedMissing:missing.filter(m=>!matches.some(x=>this.sameId(x.expected.id,m.id))),unusedFiles:remaining};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteRelinkEngine=ProfitMenteRelinkEngine;
@@ -169,10 +187,10 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRelinkE
   if(basePersist)persist=function(){engine.syncManifest(project,assets);return basePersist()};
   async function relinkFiles(files){
     files=[...(files||[])];if(!files.length)return;
-    const result=await engine.matchVerified(project,assets,files);if(!result.matches.length){const detail=result.hashRejected?.length?' Los candidatos parecidos no coinciden con la huella del archivo original.':'';setStatus?.(`No encontré coincidencias seguras.${detail} Selecciona los archivos originales o la carpeta raíz donde fueron importados.`);return}
+    const result=await engine.matchVerified(project,assets,files);if(!result.matches.length){const hashDetail=result.hashRejected?.length?' Los candidatos parecidos no coinciden con la huella del archivo original.':'';const ambiguityDetail=result.ambiguous?.length?' Hay varios candidatos demasiado parecidos; no hice una reconexión automática para evitar sustituir el medio equivocado.':'';setStatus?.(`No encontré coincidencias seguras.${hashDetail}${ambiguityDetail} Selecciona los archivos originales o la carpeta raíz donde fueron importados.`);return}
     let restored=0;
-    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceContentHash:m.hash||m.expected.sourceContentHash||'',sourceLegacyContentHash:m.hashes?.legacy||m.expected.sourceLegacyContentHash||'',sourceHashVersion:m.expected.sourceHashVersion||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>engine.sameId(a?.id,asset.id));if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
-    engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}`:`${restored} medios reconectados · proyecto completo`);
+    for(const m of result.matches){const type=engine.inferType(m.file);if(!['video','image','audio'].includes(type))continue;const asset={...m.expected,id:m.expected.id,name:m.expected.name||m.file.name,type,mime:m.file.type||m.expected.mime||'',blob:m.file,size:m.file.size,lastModified:m.file.lastModified||m.expected.lastModified||0,sourceRelativePath:engine.filePath(m.file)||m.expected.sourceRelativePath||'',sourceFingerprint:engine.fileFingerprint(m.file)||m.expected.sourceFingerprint||'',sourceContentHash:m.hash||m.expected.sourceContentHash||'',sourceLegacyContentHash:m.hashes?.legacy||m.expected.sourceLegacyContentHash||'',sourceHashVersion:m.expected.sourceHashVersion||''};delete asset.mediaReadable;await putAsset(asset);const i=assets.findIndex(a=>engine.sameId(a?.id,asset.id));if(i>=0)assets[i]=asset;else assets.push(asset);restored++}
+    engine.syncManifest(project,assets);if(typeof persist==='function')persist();drawLibrary();drawTimeline();await renderAt(+document.querySelector('#playhead').value||0);const left=refresh();const ambiguity=result.ambiguous?.length?` · ${result.ambiguous.length} candidato(s) ambiguo(s) omitido(s)`:'';setStatus?.(left.length?`${restored} medios reconectados · todavía faltan ${left.length}${ambiguity}`:`${restored} medios reconectados · proyecto completo`);
   }
   button.onclick=()=>input.click();folderButton.onclick=()=>folderInput.click();
   input.onchange=async e=>{try{await relinkFiles(e.target.files)}finally{e.target.value=''}};
