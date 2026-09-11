@@ -2,7 +2,7 @@
 class ProfitMenteTimelineRightTrimEngine{
   static round(v){const n=Number(v);return Number.isFinite(n)?Math.round(n*1000000)/1000000:0}
   static clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
-  static timingNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:null;if(typeof v!=='string')return null;const s=v.trim();if(!s||!^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s))return null;const n=Number(s);return Number.isFinite(n)?n:null}
+  static timingNumber(v){if(typeof v==='number')return Number.isFinite(v)?v:null;if(typeof v!=='string')return null;const s=v.trim();if(!s||!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(s))return null;const n=Number(s);return Number.isFinite(n)?n:null}
   static trimWordTimings(timings,start,end){
     if(!Array.isArray(timings))return timings;
     const lo=this.timingNumber(start),hi=this.timingNumber(end);if(lo===null||hi===null||hi<=lo)return [];
