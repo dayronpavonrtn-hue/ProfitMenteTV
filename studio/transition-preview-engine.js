@@ -11,18 +11,28 @@
     if(d===null||d<=0||raw===null||raw<=0)return null;
     return Math.max(.05,Math.min(2,d,raw));
   }
+  function above(candidate,current){
+    if(!current)return true;
+    if(candidate.track!==current.track)return candidate.track>current.track;
+    if(candidate.start!==current.start)return candidate.start>current.start;
+    return candidate.order>current.order;
+  }
   class ProfitMenteTransitionPreviewEngine{
     static state(project,time){
       const t=scalar(time);if(t===null)return null;
-      let selected=null;
+      let selected=null,order=0;
       for(const clip of Array.isArray(project?.clips)?project.clips:[]){
+        const clipOrder=order++;
         const tr=track(clip?.track),start=scalar(clip?.start),duration=scalar(clip?.duration),td=normalizeDuration(clip),type=String(clip?.transition||'cut').toLowerCase();
         if(tr===null||start===null||duration===null||duration<=0||!TYPES.has(type)||td===null)continue;
         if(t<start||t>=start+duration||t>=start+td)continue;
         const progress=Math.max(0,Math.min(1,(t-start)/td));
-        if(!selected||tr>=selected.track)selected={type,progress,track:tr,start,duration:td,clipId:clip.id??null};
+        const candidate={type,progress,track:tr,start,duration:td,clipId:clip.id??null,order:clipOrder};
+        if(above(candidate,selected))selected=candidate;
       }
-      return selected;
+      if(!selected)return null;
+      const {order:_order,...state}=selected;
+      return state;
     }
     static transform(state,width,height){
       const w=Math.max(1,scalar(width)||1),h=Math.max(1,scalar(height)||1),p=Math.max(0,Math.min(1,scalar(state?.progress)??1));
