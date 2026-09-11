@@ -39,6 +39,13 @@ const legacyRelative={name:'Legacy relative',duration:20,clips:[{id:'legacy',tra
 const legacyOut=Engine.extract(legacyRelative,11,13,[]).clips[0];
 assert.deepEqual(legacyOut.wordTimings,[{word:'LEGACY',start:0,end:.5},{word:'MODE',start:1.5,end:2}]);
 
+// Range rendering must preserve the same media identity semantics as the persistent library.
+const legacyMediaProject={name:'Legacy media ids',duration:20,clips:[{id:'legacy-image',track:1,asset:'7',start:4,duration:8,sourceOffset:5}]};
+const legacyMediaOut=Engine.extract(legacyMediaProject,6,10,[{id:7,type:'image'}]).clips[0];
+assert.equal(legacyMediaOut.sourceOffset,0,'numeric/string-equivalent image ids must still resolve as images');
+assert.equal(Engine.resolveAsset([{id:'asset-1',type:'video'}],' asset-1 ')?.type,'video','string media ids should tolerate legacy surrounding whitespace');
+assert.throws(()=>Engine.extract(legacyMediaProject,6,10,[{id:7,type:'image'},{id:'7',type:'video'}]),/identidad.+ambigua/i,'ambiguous numeric/string media identities must never select an arbitrary asset');
+
 // Range rendering must follow the same strict numeric rules as preview/preflight.
 assert.equal(Engine.timingNumber(true),null);assert.equal(Engine.timingNumber([6]),null);assert.equal(Engine.timingNumber({value:6}),null);assert.equal(Engine.timingNumber(' 6.5 '),6.5);assert.equal(Engine.timingNumber('1e1'),10);
 assert.equal(Engine.normalize(project,true,12).start,0,'boolean range start must not coerce to 1');
