@@ -11,14 +11,26 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   class ProfitMenteMediaLibraryCrossProjectGuard{
     static mediaIdKey(value){
-      if(value===undefined||value===null||typeof value==='boolean')return null;
-      const raw=String(value).trim();if(!raw)return null;
-      const numeric=Number(raw);
-      return Number.isFinite(numeric)&&Number.isInteger(numeric)?String(numeric):raw;
+      if(value===undefined||value===null||typeof value==='boolean'||typeof value==='symbol'||typeof value==='bigint'||typeof value==='object')return null;
+      if(typeof value==='number'){
+        if(!Number.isSafeInteger(value)||value<0)return null;
+        return String(Object.is(value,-0)?0:value);
+      }
+      const raw=value.trim();if(!raw)return null;
+      if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
+        const numeric=Number(raw);
+        if(!Number.isSafeInteger(numeric)||numeric<0)return null;
+        return String(Object.is(numeric,-0)?0:numeric);
+      }
+      return raw;
     }
     static libraryIdKey(value){
-      if(value===undefined||value===null||typeof value==='boolean')return null;
-      const raw=String(value).trim();return raw||null;
+      if(value===undefined||value===null||typeof value==='boolean'||typeof value==='symbol'||typeof value==='bigint'||typeof value==='object')return null;
+      if(typeof value==='number'){
+        if(!Number.isSafeInteger(value)||value<0)return null;
+        return String(Object.is(value,-0)?0:value);
+      }
+      const raw=value.trim();return raw||null;
     }
     static sameProject(a,b){
       const left=this.libraryIdKey(a?.libraryId),right=this.libraryIdKey(b?.libraryId);
