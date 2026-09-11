@@ -15,6 +15,7 @@
     });
     return sourceLoadPromise;
   }
+  if(typeof document==='undefined')ensureSourceWindow();
   class ProfitMenteQAAutofix{
     static clamp(v,lo,hi,fallback=lo){const n=Number(v);return Math.max(lo,Math.min(hi,Number.isFinite(n)?n:fallback))}
     static isLocked(project,clip){
