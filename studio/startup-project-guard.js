@@ -49,8 +49,12 @@
 
   function quarantine(storage,raw){
     if(raw==null)return null;
-    try{storage.removeItem(PRIMARY_KEY)}catch{}
-    try{storage.setItem(BACKUP_KEY,raw);return BACKUP_KEY}catch{return null}
+    // Preserve the corrupt payload before removing the active slot. If the
+    // backup write is denied (quota/security/private mode), leave PRIMARY_KEY
+    // untouched so the only forensic copy is never destroyed.
+    try{storage.setItem(BACKUP_KEY,raw)}catch{return null}
+    try{storage.removeItem(PRIMARY_KEY)}catch{return null}
+    return BACKUP_KEY;
   }
 
   function persist(storage,project){
@@ -93,6 +97,9 @@
       return {ok:true,empty:false,backupKey:null,project};
     }catch(error){
       const backupKey=quarantine(storage,raw);
+      if(!backupKey){
+        return {ok:false,empty:false,backupKey:null,error,project:fallback,quarantineFailed:true,preservedCorruptPrimary:true,fallback:true};
+      }
       const recovered=recoverLastGood(storage);
       if(recovered)return {ok:true,empty:false,backupKey,error,project:recovered.project,quarantined:true,recoveredLastGood:true,recoveryKey:recovered.recoveryKey};
       return {ok:false,empty:false,backupKey,error,project:fallback,quarantined:true,fallback:true};
@@ -113,6 +120,10 @@
       root.__profitmenteStartupRecovered={reason:'corrupt-project-storage',backupKey:result.backupKey};
       try{document.documentElement.dataset.projectRecovered='corrupt-startup'}catch{}
       console.warn('ProfitMente Studio isolated a corrupt startup project and preserved a backup.',result.error);
+    }else if(result?.quarantineFailed){
+      root.__profitmenteStartupRecovered={reason:'corrupt-project-preserved',backupKey:null};
+      try{document.documentElement.dataset.projectRecovered='corrupt-preserved'}catch{}
+      console.warn('ProfitMente Studio found a corrupt startup project but could not create a backup, so the original value was preserved.',result.error);
     }else if(result?.storageUnavailable){
       root.__profitmenteStartupRecovered={reason:'storage-unavailable',backupKey:null};
       try{document.documentElement.dataset.projectRecovered='storage-unavailable'}catch{}
