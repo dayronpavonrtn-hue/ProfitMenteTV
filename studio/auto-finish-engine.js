@@ -57,16 +57,18 @@
       const activeAudio=track=>clips.filter(c=>canonicalTrack(c?.track)===track&&hasMediaId(c?.asset)&&!c.muted&&isTrackActive(project,track,'audio'));
       const generated=visualClips.filter(c=>sceneText(c));
       const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&isTrackActive(project,0,'visual')&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
-      const captions=clips.filter(c=>canonicalTrack(c?.track)===3);
-      const broll=clips.filter(c=>canonicalTrack(c?.track)===1);
+      const captionTrackActive=isTrackActive(project,3,'visual');
+      const brollTrackActive=isTrackActive(project,1,'visual');
+      const captions=captionTrackActive?clips.filter(c=>canonicalTrack(c?.track)===3):[];
+      const broll=brollTrackActive?clips.filter(c=>canonicalTrack(c?.track)===1):[];
       const beats=(project?.markers||[]).filter(m=>/^Beat\b/i.test(String(m?.label||'')));
       const autoTransitions=generated.filter(c=>c.autoTransition).length;
       const visualAssets=safeAssets.filter(a=>hasMediaId(a?.id)&&['video','image'].includes(String(a?.type||'').toLowerCase())).length;
       const captionTrackLocked=trackState(project,3).locked;
       const brollTrackLocked=trackState(project,1).locked;
-      const missingCaptions=captionTrackLocked?0:scenes.filter(scene=>!captions.some(c=>overlaps(c,scene))).length;
-      const missingBroll=brollTrackLocked||!visualAssets?0:scenes.filter(scene=>!broll.some(c=>overlaps(c,scene))).length;
-      return {visual:visualClips.length,generated:generated.length,scenes:scenes.length,voice:activeAudio(6).length,music:activeAudio(5).length,sfx:activeAudio(4).length,beats:beats.length,autoTransitions,assets:safeAssets.length,visualAssets,missingCaptions,missingBroll,captionTrackLocked,brollTrackLocked};
+      const missingCaptions=captionTrackLocked||!captionTrackActive?0:scenes.filter(scene=>!captions.some(c=>overlaps(c,scene))).length;
+      const missingBroll=brollTrackLocked||!brollTrackActive||!visualAssets?0:scenes.filter(scene=>!broll.some(c=>overlaps(c,scene))).length;
+      return {visual:visualClips.length,generated:generated.length,scenes:scenes.length,voice:activeAudio(6).length,music:activeAudio(5).length,sfx:activeAudio(4).length,beats:beats.length,autoTransitions,assets:safeAssets.length,visualAssets,missingCaptions,missingBroll,captionTrackLocked,brollTrackLocked,captionTrackActive,brollTrackActive};
     }
     static plan(project,assets=[]){
       const s=this.inspect(project,assets),steps=['repair'];
