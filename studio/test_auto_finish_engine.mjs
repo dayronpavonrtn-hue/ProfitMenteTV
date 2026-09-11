@@ -28,7 +28,7 @@ const mutedMusic={...av,trackState:{5:{muted:true}}};
 assert.deepEqual(Engine.plan(mutedMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const manual={...base,clips:[{track:0,asset:'v'},{track:5,asset:'m'}]};
-assert.deepEqual(Engine.plan(manual,[]).steps=['repair','detect-beats','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(manual,[]).steps,['repair','detect-beats','audio-headroom','qa']);
 
 const onlySfx={...base,clips:[{track:4,asset:'hit'}]};
 assert.deepEqual(Engine.plan(onlySfx,[]).steps,['repair','detect-beats','audio-headroom','qa']);
