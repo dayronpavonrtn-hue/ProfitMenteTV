@@ -52,8 +52,11 @@ jobs:
           node --check studio/visual-keyframe-engine.js
           node --check studio/visual-keyframe-render-baker.js
           node --check studio/generator-manual-tools.js
+          node --check studio/startup-project-guard.js
       - name: Studio wiring and media integrity
         run: node studio/test_studio_integrity.mjs
+      - name: Startup project recovery regression
+        run: node studio/test_startup_corruption_guard.mjs
       - name: Local media metadata regression
         run: node studio/test_media_metadata_engine.js
       - name: Strict media relink identity regression
