@@ -23,7 +23,8 @@ const assets=[
   {id:'007',type:'image',blob:{id:'canonical-seven'}},
   {id:8,type:'image',blob:{id:'number-eight'}},
   {id:0,type:'image',blob:{id:'zero'}},
-  {id:'hero-a',type:'image',blob:{id:'text-hero'}}
+  {id:'hero-a',type:'image',blob:{id:'text-hero'}},
+  {id:'true',type:'image',blob:{id:'text-true'}}
 ];
 const project={mode:'Manual',trackState:{},clips:[
   {id:'c1',track:0,asset:'7.0',start:0,duration:1,name:'decimal alias to padded numeric media'},
@@ -58,11 +59,28 @@ assert.equal(engine.mediaIdKey(0),'n:0');
 assert.equal(engine.mediaIdKey('-0'),'n:0');
 assert.equal(engine.mediaIdKey(' hero-a '),'s:hero-a');
 assert.equal(engine.mediaIdKey('   '),null);
+assert.equal(engine.mediaIdKey(true),null,'booleans must never alias textual media ids');
+assert.equal(engine.mediaIdKey(false),null,'booleans must be invalid media references');
+assert.equal(engine.mediaIdKey({id:8}),null,'objects must be invalid media references');
+assert.equal(engine.mediaIdKey([8]),null,'arrays must be invalid media references');
+assert.equal(engine.mediaIdKey(8.5),null,'fractional numeric media ids must be rejected');
+assert.equal(engine.mediaIdKey('8.5'),null,'fractional numeric-looking strings must be rejected');
+assert.equal(engine.mediaIdKey(Number.MAX_SAFE_INTEGER+1),null,'unsafe numeric media ids must be rejected');
+assert.equal(engine.mediaIdKey(String(Number.MAX_SAFE_INTEGER+1)),null,'unsafe numeric-looking strings must be rejected');
+assert.equal(engine.mediaIdKey(-1),null,'negative numeric media ids must be rejected');
 assert.equal(engine.assetById(7).id,'007');
 assert.equal(engine.assetById('7.0').id,'007');
 assert.equal(engine.assetById(' +08.0 ').id,8);
 assert.equal(engine.assetById('-0').id,0);
 assert.equal(engine.assetById(' hero-a ').id,'hero-a');
+assert.equal(engine.assetById(true),undefined,'boolean true must not resolve the string id "true"');
+assert.equal(engine.assetById('true').id,'true','explicit textual ids remain valid');
+
+assets.push({id:7,type:'image',blob:{id:'duplicate-seven'}});
+assert.equal(engine.assetById(7),undefined,'ambiguous canonical media identities must fail closed');
+assert.equal(engine.assetById('7.0'),undefined,'legacy aliases must also fail closed when identity is ambiguous');
+assets.pop();
+assert.equal(engine.assetById('7.0').id,'007','resolution must recover after ambiguity is removed');
 
 texts.length=0;
 await context.renderAt(4.5);
