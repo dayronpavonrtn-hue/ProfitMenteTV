@@ -73,13 +73,14 @@ class ProfitMenteSourceWindowEngine{
     }).map((item,index)=>Object.prototype.hasOwnProperty.call(item,'index')?{...item,index}:item);
   }
   static reconcileSelected(edited){
-    const project=globalThis.project,assets=globalThis.assets;
+    const currentProject=typeof project!=='undefined'?project:globalThis.project;
+    const currentAssets=typeof assets!=='undefined'?assets:globalThis.assets;
     const selectedId=globalThis.ProfitMenteEditTools?.selectedId;
-    if(selectedId==null||!Array.isArray(project?.clips)||!Array.isArray(assets))return {changed:false};
-    const clip=project.clips.find(c=>this.sameId(c?.id,selectedId));if(!clip||this.locked(project,clip))return {changed:false,locked:!!clip};
-    const asset=assets.find(a=>this.sameId(a?.id,clip.asset));if(!asset||!['video','audio'].includes(asset.type)||!(this.number(asset.duration,0)>0))return {changed:false};
+    if(selectedId==null||!Array.isArray(currentProject?.clips)||!Array.isArray(currentAssets))return {changed:false};
+    const clip=currentProject.clips.find(c=>this.sameId(c?.id,selectedId));if(!clip||this.locked(currentProject,clip))return {changed:false,locked:!!clip};
+    const asset=currentAssets.find(a=>this.sameId(a?.id,clip.asset));if(!asset||!['video','audio'].includes(asset.type)||!(this.number(asset.duration,0)>0))return {changed:false};
     const beforeDuration=this.number(clip.duration,0);
-    const remaining=Math.max(.001,this.number(project.duration,0)-Math.max(0,this.number(clip.start,0)));
+    const remaining=Math.max(.001,this.number(currentProject.duration,0)-Math.max(0,this.number(clip.start,0)));
     const result=this.normalize(clip,asset,{projectRemaining:remaining,edited});
     if(!result.changed)return result;
     clip.speed=result.speed;clip.duration=result.duration;clip.sourceOffset=result.sourceOffset;
