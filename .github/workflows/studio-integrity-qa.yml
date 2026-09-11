@@ -27,6 +27,7 @@ jobs:
           node --check studio/app.js
           node --check studio/project-library.js
           node --check studio/project-import-engine.js
+          node --check studio/project-portability.js
           node --check studio/preview-engine.js
           node --check studio/caption-preview.js
           node --check studio/render-job-client.js
@@ -61,6 +62,8 @@ jobs:
         run: node studio/test_caption_preview_timing.mjs
       - name: Cross-project media identity regression
         run: node studio/test_media_library_cross_project_identity.mjs
+      - name: Project export media metadata regression
+        run: node studio/test_project_export_metadata.mjs
       - name: Timeline word timing sync regression
         run: node studio/test_timeline_word_timing_sync.js
       - name: Timeline trim word timing regression
