@@ -28,7 +28,7 @@ const mutedMusic={...av,trackState:{5:{muted:true}}};
 assert.deepEqual(Engine.plan(mutedMusic,[]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const manual={...base,clips:[{track:0,asset:'v'},{track:5,asset:'m'}]};
-assert.deepEqual(Engine.plan(manual,[]).steps,['repair','detect-beats','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(manual,[]).steps=['repair','detect-beats','audio-headroom','qa']);
 
 const onlySfx={...base,clips:[{track:4,asset:'hit'}]};
 assert.deepEqual(Engine.plan(onlySfx,[]).steps,['repair','detect-beats','audio-headroom','qa']);
@@ -102,5 +102,39 @@ assert.equal(Engine.inspect({...base,clips:[
 ]},[{id:false,type:'image'},{id:'   ',type:'video'},{id:{},type:'image'},{id:[],type:'video'}]).visual,0);
 assert.equal(Engine.inspect(base,[{id:false,type:'image'},{id:'   ',type:'video'},{id:{},type:'image'},{id:[],type:'video'},{id:1.5,type:'image'}]).visualAssets,0);
 assert.deepEqual(Engine.plan({...base,clips:[{track:5,asset:{}},{track:6,asset:[]}]},[]).steps,['repair','qa']);
+
+// Auto Finish must now reuse the scene-aware local generator tools before generic gap filling.
+const unfinishedScenes={...base,duration:12,clips:[
+  {id:'s1',track:0,asset:'primary',sceneText:'Primera escena',start:0,duration:5},
+  {id:'s2',track:0,asset:'primary',sceneText:'Segunda escena',start:5,duration:5},
+  {id:'c1',track:3,name:'Primera escena',start:.1,duration:4.8}
+]};
+const unfinishedState=Engine.inspect(unfinishedScenes,[{id:'primary',type:'video',duration:20},{id:'overlay',type:'image'}]);
+assert.equal(unfinishedState.scenes,2);
+assert.equal(unfinishedState.missingCaptions,1);
+assert.equal(unfinishedState.missingBroll,2);
+assert.deepEqual(Engine.plan(unfinishedScenes,[{id:'primary',type:'video',duration:20},{id:'overlay',type:'image'}]).steps,['repair','scene-captions','scene-broll','fill-visual-gaps','qa']);
+
+const completedScenes={...unfinishedScenes,clips:[...unfinishedScenes.clips,
+  {id:'c2',track:3,start:5.1,duration:4.7},
+  {id:'b1',track:1,asset:'overlay',start:1,duration:1},
+  {id:'b2',track:1,asset:'overlay',start:6,duration:1}
+]};
+assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingCaptions,0);
+assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingBroll,0);
+assert.deepEqual(Engine.plan(completedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
+
+const protectedScenes={...unfinishedScenes,trackState:{1:{locked:true},3:{locked:true}}};
+const protectedState=Engine.inspect(protectedScenes,[{id:'overlay',type:'image'}]);
+assert.equal(protectedState.captionTrackLocked,true);
+assert.equal(protectedState.brollTrackLocked,true);
+assert.equal(protectedState.missingCaptions,0);
+assert.equal(protectedState.missingBroll,0);
+assert.deepEqual(Engine.plan(protectedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
+
+const inactiveScenes={...unfinishedScenes,trackState:{0:{hidden:true}}};
+assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).scenes,0);
+assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).missingCaptions,0);
+assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).missingBroll,0);
 
 console.log('auto-finish-engine regression: ok');
