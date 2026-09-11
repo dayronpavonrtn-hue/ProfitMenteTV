@@ -101,3 +101,18 @@
   }
   boot();
 })();
+
+(()=>{
+  if(typeof document==='undefined')return;
+  const has=name=>[...document.scripts].some(s=>s.src?.endsWith('/'+name)||s.src?.endsWith(name));
+  const load=(name,onload)=>{
+    if(has(name)){onload?.();return}
+    const script=document.createElement('script');script.src=name;script.async=false;script.onload=()=>onload?.();
+    script.onerror=()=>console.error(`ProfitMente Studio: no se pudo cargar ${name}`);document.body.appendChild(script);
+  };
+  const integration=()=>{
+    if(window.ProfitMenteGeneratorManualToolsIntegration||has('generator-manual-tools-integration.js'))return;
+    load('generator-manual-tools-integration.js');
+  };
+  if(window.ProfitMenteGeneratorManualTools)integration();else load('generator-manual-tools.js',integration);
+})();
