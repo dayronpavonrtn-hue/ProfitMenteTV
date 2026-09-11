@@ -80,12 +80,11 @@
     static inspect(project,assets=[]){
       const clips=Array.isArray(project?.clips)?project.clips:[];
       const safeAssets=Array.isArray(assets)?assets:[];
-      const validateCatalog=safeAssets.length>0;
-      const audioKeys=audioAssetKeys(safeAssets);
+      const audioKeys=audioAssetKeys(safeAssets),validateAudioCatalog=audioKeys.size>0;
       const visualClips=clips.filter(c=>{const track=canonicalTrack(c?.track);return track!=null&&VISUAL_TRACKS.includes(track)&&hasMediaId(c?.asset)&&isTrackActive(project,track,'visual')});
       const activeAudio=track=>clips.filter(c=>{
         if(canonicalTrack(c?.track)!==track||!hasMediaId(c?.asset)||c.muted||!isTrackActive(project,track,'audio'))return false;
-        if(!validateCatalog)return true;
+        if(!validateAudioCatalog)return true;
         const key=mediaKey(c?.asset);return key!=null&&audioKeys.has(key);
       });
       const generated=visualClips.filter(c=>sceneText(c));
