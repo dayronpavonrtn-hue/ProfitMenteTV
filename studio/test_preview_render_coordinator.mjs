@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const {createCoordinator}=require('./preview-render-coordinator.js');
+const {createCoordinator,finitePreviewTime}=require('./preview-render-coordinator.js');
 
 const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej});return {promise,resolve,reject}};
 
@@ -72,9 +72,25 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{res
 }
 
 {
-  const coordinator=createCoordinator(async()=>{});
-  await assert.rejects(coordinator.request(Number.NaN),/finite/);
-  await assert.rejects(coordinator.request(Infinity),/finite/);
+  const seen=[];
+  const coordinator=createCoordinator(async time=>{seen.push(time)});
+  const accepted=[' 2.5 ','1e1','+0','-0.25'];
+  for(const value of accepted){
+    const expected=Number(value);
+    assert.equal(finitePreviewTime(value),expected);
+    const result=await coordinator.request(value);
+    assert.equal(result.status,'rendered');
+  }
+  assert.deepEqual(seen,accepted.map(Number),'numeric strings persisted by legacy projects must remain compatible');
+}
+
+{
+  const coordinator=createCoordinator(async()=>{throw new Error('invalid preview time must never reach renderer')});
+  for(const value of [Number.NaN,Infinity,-Infinity,true,false,null,undefined,'','   ',[],[1],{}, {valueOf(){return 1}}]){
+    assert.equal(finitePreviewTime(value),null);
+    await assert.rejects(coordinator.request(value),/finite numeric scalar/);
+  }
+  assert.equal(coordinator.snapshot().requested,0,'rejected values must not alter coordinator request statistics');
 }
 
 console.log('Preview render coordinator regression: OK');
