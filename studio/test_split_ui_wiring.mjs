@@ -5,10 +5,12 @@ const editTools=await fs.readFile(new URL('./edit-tools.js',import.meta.url),'ut
 const timelineOps=await fs.readFile(new URL('./timeline-operations.js',import.meta.url),'utf8');
 const index=await fs.readFile(new URL('./index.html',import.meta.url),'utf8');
 
-assert.match(editTools,/const locked=c=>!!project\.trackState/,'edit-tools must expose a track-lock guard');
+assert.match(editTools,/ProfitMenteEditLockGuard\?\.isLocked/,'edit-tools must prefer the shared edit-lock guard when available');
+assert.match(editTools,/project\?\.trackState/,'edit-tools must retain modern trackState lock fallback');
+assert.match(editTools,/project\?\.trackStates/,'edit-tools must retain legacy trackStates lock fallback');
 assert.match(editTools,/if\(locked\(c\)\)\{status\('La pista está bloqueada'\);return\}/,'split must refuse locked tracks');
 assert.match(editTools,/e\.preventDefault\(\);e\.stopImmediatePropagation\(\);split\(\)/,'canonical S shortcut must stop later duplicate handlers');
-assert.match(editTools,/if\(index<0\)\{status\('El clip cambió antes de completar el corte'\);return\}/,'async split must abort safely if the clip disappeared');
+assert.match(editTools,/if\(clipById\(selectedId\)!==c\)\{status\('El clip cambió antes de completar el corte'\);return\}/,'async split must abort safely if the selected clip changed or disappeared');
 
 const editPos=index.indexOf('<script src="edit-tools.js"></script>');
 const timelinePos=index.indexOf('<script src="timeline-operations.js"></script>');
