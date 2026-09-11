@@ -5,16 +5,25 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
   const mediaIdKey=value=>{
-    if(value===undefined||value===null)return null;
-    const raw=String(value).trim();
+    if(value===undefined||value===null||typeof value==='boolean'||typeof value==='symbol'||typeof value==='bigint'||typeof value==='object')return null;
+    if(typeof value==='number'){
+      if(!Number.isSafeInteger(value)||value<0)return null;
+      return `n:${Object.is(value,-0)?0:value}`;
+    }
+    const raw=value.trim();
     if(!raw)return null;
     if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)){
       const numeric=Number(raw);
-      if(Number.isFinite(numeric))return `n:${numeric}`;
+      if(!Number.isSafeInteger(numeric)||numeric<0)return null;
+      return `n:${Object.is(numeric,-0)?0:numeric}`;
     }
     return `s:${raw}`;
   };
-  function assetById(id){const key=mediaIdKey(id);return key===null?undefined:assets.find(a=>mediaIdKey(a?.id)===key)}
+  function assetById(id){
+    const key=mediaIdKey(id);if(key===null)return undefined;let found;
+    for(const asset of assets){if(mediaIdKey(asset?.id)!==key)continue;if(found)return undefined;found=asset}
+    return found;
+  }
   function canonicalTrack(value){
     if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
     const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
