@@ -116,3 +116,13 @@
   };
   if(window.ProfitMenteGeneratorManualTools)integration();else load('generator-manual-tools.js',integration);
 })();
+
+(()=>{
+  if(typeof document==='undefined'||window.ProfitMenteQANumericScalarGuard)return;
+  if([...document.scripts].some(s=>s.src?.endsWith('/qa-numeric-scalar-guard.js')||s.src?.endsWith('qa-numeric-scalar-guard.js')))return;
+  const script=document.createElement('script');
+  script.src='qa-numeric-scalar-guard.js';
+  script.async=false;
+  script.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la validación numérica estricta del QA');
+  document.body.appendChild(script);
+})();
