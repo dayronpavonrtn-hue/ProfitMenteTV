@@ -132,6 +132,25 @@ assert.equal(protectedState.missingCaptions,0);
 assert.equal(protectedState.missingBroll,0);
 assert.deepEqual(Engine.plan(protectedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
 
+// Hidden or Solo-excluded helper tracks are intentionally inactive. Auto Finish must not
+// mutate them or treat invisible helper clips as production-complete coverage.
+const hiddenHelpers={...unfinishedScenes,trackState:{1:{hidden:true},3:{hidden:true}}};
+const hiddenHelperState=Engine.inspect(hiddenHelpers,[{id:'overlay',type:'image'}]);
+assert.equal(hiddenHelperState.captionTrackActive,false);
+assert.equal(hiddenHelperState.brollTrackActive,false);
+assert.equal(hiddenHelperState.missingCaptions,0);
+assert.equal(hiddenHelperState.missingBroll,0);
+assert.deepEqual(Engine.plan(hiddenHelpers,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
+
+const soloPrimary={...unfinishedScenes,trackState:{0:{solo:true}}};
+const soloPrimaryState=Engine.inspect(soloPrimary,[{id:'overlay',type:'image'}]);
+assert.equal(soloPrimaryState.scenes,2);
+assert.equal(soloPrimaryState.captionTrackActive,false);
+assert.equal(soloPrimaryState.brollTrackActive,false);
+assert.equal(soloPrimaryState.missingCaptions,0);
+assert.equal(soloPrimaryState.missingBroll,0);
+assert.deepEqual(Engine.plan(soloPrimary,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
+
 const inactiveScenes={...unfinishedScenes,trackState:{0:{hidden:true}}};
 assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).scenes,0);
 assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).missingCaptions,0);
