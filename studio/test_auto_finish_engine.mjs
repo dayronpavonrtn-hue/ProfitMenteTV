@@ -113,7 +113,7 @@ const unfinishedState=Engine.inspect(unfinishedScenes,[{id:'primary',type:'video
 assert.equal(unfinishedState.scenes,2);
 assert.equal(unfinishedState.missingCaptions,1);
 assert.equal(unfinishedState.missingBroll,2);
-assert.deepEqual(Engine.plan(unfinishedScenes,[{id:'primary',type:'video',duration:20},{id:'overlay',type:'image'}]).steps,['repair','scene-captions','scene-broll','fill-visual-gaps','qa']);
+assert.deepEqual(Engine.plan(unfinishedScenes,[{id:'primary',type:'video',duration:20},{id:'overlay',type:'image'}]).steps,['repair','scene-captions','scene-broll','fill-visual-gaps','auto-transitions','qa']);
 
 const completedScenes={...unfinishedScenes,clips:[...unfinishedScenes.clips,
   {id:'c2',track:3,start:5.1,duration:4.7},
@@ -122,7 +122,7 @@ const completedScenes={...unfinishedScenes,clips:[...unfinishedScenes.clips,
 ]};
 assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingCaptions,0);
 assert.equal(Engine.inspect(completedScenes,[{id:'overlay',type:'image'}]).missingBroll,0);
-assert.deepEqual(Engine.plan(completedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
+assert.deepEqual(Engine.plan(completedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
 
 const protectedScenes={...unfinishedScenes,trackState:{1:{locked:true},3:{locked:true}}};
 const protectedState=Engine.inspect(protectedScenes,[{id:'overlay',type:'image'}]);
@@ -130,7 +130,7 @@ assert.equal(protectedState.captionTrackLocked,true);
 assert.equal(protectedState.brollTrackLocked,true);
 assert.equal(protectedState.missingCaptions,0);
 assert.equal(protectedState.missingBroll,0);
-assert.deepEqual(Engine.plan(protectedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','qa']);
+assert.deepEqual(Engine.plan(protectedScenes,[{id:'overlay',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
 
 const inactiveScenes={...unfinishedScenes,trackState:{0:{hidden:true}}};
 assert.equal(Engine.inspect(inactiveScenes,[{id:'overlay',type:'image'}]).scenes,0);
