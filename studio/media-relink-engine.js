@@ -4,10 +4,16 @@ class ProfitMenteMediaRelinkEngine{
     const mime=String(file.type||file.mime||'').toLowerCase(),top=mime.split('/')[0];
     return ['video','image','audio'].includes(top)?top:null;
   }
+  static identityEngine(){
+    if(typeof ProfitMenteMediaIdentityEngine!=='undefined')return ProfitMenteMediaIdentityEngine;
+    if(typeof module!=='undefined'&&module.exports&&typeof require==='function'){
+      try{return require('./media-identity-engine.js').ProfitMenteMediaIdentityEngine}catch(_err){return null}
+    }
+    return null;
+  }
   static mediaIdKey(value){
-    if(value===undefined||value===null)return null;
-    const key=String(value).trim();
-    return key||null;
+    const identity=this.identityEngine();
+    return identity?identity.key(value):null;
   }
   static fileSize(value={}){return Math.max(0,Number(value.size??value.blob?.size??value.sourceSize??0)||0)}
   static normalizedName(value={}){return String(value.name||'').trim().toLowerCase()}
@@ -33,16 +39,10 @@ class ProfitMenteMediaRelinkEngine{
         if(storedCurrent!==hashes.current)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
         return {ok:true,reason:'content-hash-match',confidence:'strong'};
       }
-      // Projects created during the sample-v2 rollout may have kept the modern
-      // content hash but lost sourceHashVersion when a used asset became offline.
-      // A direct current-hash equality is still collision-resistant and safe.
       if(!storedVersion&&storedCurrent&&hashes.current&&storedCurrent===hashes.current)return {ok:true,reason:'content-hash-match',confidence:'strong'};
       const expectedLegacy=storedLegacy||(!storedVersion?storedCurrent:'');
       if(expectedLegacy&&hashes.legacy){
         if(expectedLegacy===hashes.legacy){
-          // The former first+last-MB hash can collide for large files. Require
-          // the original metadata fingerprint as a second factor. Do not fall
-          // through to name/size matching after a known legacy-hash collision.
           if(fingerprintMatch)return {ok:true,reason:'legacy-content-hash-match',confidence:'high'};
           return {ok:false,reason:'legacy-hash-unverified',confidence:'none'};
         }
@@ -50,7 +50,6 @@ class ProfitMenteMediaRelinkEngine{
       }
       if(storedVersion==='sample-v2'&&storedCurrent&&hashes.current)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
     }else if(storedCurrent&&hashes.current){
-      // Backwards compatibility for callers/tests that still pass one hash.
       if(storedCurrent!==hashes.current)return {ok:false,reason:'content-hash-mismatch',confidence:'strong'};
       return {ok:true,reason:'content-hash-match',confidence:'strong'};
     }
@@ -99,13 +98,14 @@ class ProfitMenteMediaRelinkEngine{
     return {ok:true,asset,before,identity};
   }
   static sourceWindowIssues(project={},assets=[]){
-    const map=new Map(),issues=[];
+    const map=new Map(),ambiguous=new Set(),issues=[];
     for(const asset of assets||[]){
       const key=this.mediaIdKey(asset?.id);
-      if(key!==null&&!map.has(key))map.set(key,asset);
+      if(key===null||ambiguous.has(key))continue;
+      if(map.has(key)){map.delete(key);ambiguous.add(key)}else map.set(key,asset);
     }
     for(const clip of project.clips||[]){
-      const key=this.mediaIdKey(clip?.asset),asset=key===null?null:map.get(key);
+      const key=this.mediaIdKey(clip?.asset),asset=key===null||ambiguous.has(key)?null:map.get(key);
       if(!asset||!['video','audio'].includes(asset.type))continue;
       const native=Math.max(0,Number(asset.duration)||0);if(!native)continue;
       const offset=Math.max(0,Number(clip.sourceOffset)||0),duration=Math.max(0,Number(clip.duration)||0),speed=Math.max(.01,Number(clip.speed)||1),end=offset+duration*speed;
