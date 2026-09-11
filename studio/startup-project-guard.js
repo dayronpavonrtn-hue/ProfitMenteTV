@@ -10,16 +10,25 @@
     return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',clips:[]};
   }
 
+  function numberValue(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const text=value.trim();
+    if(!text)return null;
+    const parsed=Number(text);
+    return Number.isFinite(parsed)?parsed:null;
+  }
+
   function normalizeProject(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
     if(value.clips!=null&&!Array.isArray(value.clips))return null;
-    const duration=Number(value.duration);
+    const duration=numberValue(value.duration);
     return {
       ...value,
       version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',
       name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',
       mode:MODES.has(value.mode)?value.mode:'Automático',
-      duration:Number.isFinite(duration)&&duration>0?Math.max(1,duration):45,
+      duration:duration!==null&&duration>0?Math.max(1,duration):45,
       format:FORMATS.has(value.format)?value.format:'9:16',
       clips:Array.isArray(value.clips)?value.clips:[]
     };
