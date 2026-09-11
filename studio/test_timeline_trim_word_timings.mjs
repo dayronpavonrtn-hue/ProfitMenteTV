@@ -15,7 +15,7 @@ const words=[
 let trimmed=L.trimWordTimings(words,3,7);
 assert.deepEqual(trimmed.map(x=>x.word),['cross-left','middle','cross-right']);
 assert.deepEqual(trimmed.map(x=>[x.start,x.end,x.duration]),[[3,3.5,.5],[4,5,1],[5.5,6.5,1]]);
-assert.deepEqual(words[1],[{word:'cross-left',start:2.5,end:3.5,duration:1}],'trim helper must not mutate the drag-session snapshot');
+assert.deepEqual(words[1],{word:'cross-left',start:2.5,end:3.5,duration:1},'trim helper must not mutate the drag-session snapshot');
 
 trimmed=R.trimWordTimings(words,1,6);
 assert.deepEqual(trimmed.map(x=>x.word),['zero','cross-left','middle','cross-right']);
