@@ -83,10 +83,13 @@ jobs:
           node studio/test_bundle_import_engine.mjs
           node studio/test_media_storage_resilience.mjs
       - name: Critical Python syntax
-        run: python -m py_compile studio/render_mp4.py studio/studio_server.py studio/output_qc.py studio/validate_project.py studio/media_identity.py studio/test_strict_render_media_identity.py
+        run: python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/caption_render_timing.py studio/studio_server.py studio/output_qc.py studio/validate_project.py studio/media_identity.py studio/test_strict_render_media_identity.py studio/test_caption_render_timing.py
       - name: Strict render media identity regression
         working-directory: studio
         run: python test_strict_render_media_identity.py
+      - name: Caption render timing regression
+        working-directory: studio
+        run: python test_caption_render_timing.py
       - name: Render numeric validation regression
         run: python studio/test_validate_project_numeric.py
       - name: Post-render output QC regression
