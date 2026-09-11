@@ -41,6 +41,7 @@ jobs:
           node --check studio/audio-qc-engine.js
           node --check studio/audio-qc-integration.js
           node --check studio/qa-engine.js
+          node --check studio/qa-numeric-scalar-guard.js
           node --check studio/recovery-integration.js
           node --check studio/export-preflight.js
           node --check studio/timeline-word-timing-sync.js
@@ -77,6 +78,8 @@ jobs:
         run: node studio/test_generator_aux_coverage.js
       - name: QA strict identity regression
         run: node studio/test_qa_identity_strictness.js
+      - name: QA strict numeric scalar regression
+        run: node studio/test_qa_numeric_scalar_guard.js
       - name: Export preflight numeric identity regression
         run: node studio/test_export_preflight_identity.mjs
       - name: Audio overlap mix QA regression
