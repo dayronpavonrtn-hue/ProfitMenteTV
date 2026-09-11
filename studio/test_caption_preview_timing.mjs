@@ -13,12 +13,31 @@ const sandbox={
 };
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox,{filename:'caption-preview.js'});
-const {normalizeWordTimings,finiteNumber}=sandbox.window.ProfitMenteCaptionPreview;
+const {normalizeWordTimings,finiteNumber,canonicalTrack,activeCaptionFallback}=sandbox.window.ProfitMenteCaptionPreview;
 
 assert.equal(finiteNumber(true),null,'booleans must not be accepted as numeric timing values');
 assert.equal(finiteNumber({value:1}),null,'objects must not be coerced into timing values');
 assert.equal(finiteNumber('  '),null,'blank strings must not be accepted');
 assert.equal(finiteNumber('1.25'),1.25,'numeric strings should remain compatible');
+assert.equal(canonicalTrack('3.0'),3,'legacy numeric-string track aliases should remain compatible');
+assert.equal(canonicalTrack(false),null,'boolean track values must not be coerced to track zero');
+assert.equal(canonicalTrack([3]),null,'array track values must not be coerced to caption track three');
+assert.equal(canonicalTrack('3.5'),null,'fractional track values must be rejected');
+
+sandbox.project.clips=[
+  {id:'ok-number',track:3,start:10,duration:2},
+  {id:'ok-string',track:'3.0',start:'10',duration:'2'},
+  {id:'bad-track-array',track:[3],start:10,duration:2},
+  {id:'bad-start-array',track:3,start:[10],duration:2},
+  {id:'bad-duration-bool',track:3,start:10,duration:true},
+  {id:'zero-duration',track:3,start:10,duration:0}
+];
+assert.deepEqual(
+  Array.from(activeCaptionFallback(10.5),clip=>clip.id),
+  ['ok-number','ok-string'],
+  'fallback caption selection must preserve legacy numeric strings without coercing corrupt track or timing values'
+);
+assert.deepEqual(activeCaptionFallback(false),[],'invalid playhead values must not activate captions');
 
 assert.deepEqual(
   JSON.parse(JSON.stringify(normalizeWordTimings({
