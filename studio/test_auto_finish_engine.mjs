@@ -18,8 +18,8 @@ const av={...base,clips:[
   {id:'vo',track:6,asset:'voice'}
 ]};
 assert.deepEqual(Engine.plan(av,[]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
-assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','auto-transitions','qa']);
-assert.deepEqual(Engine.plan(av,[{id:'music',type:'audio'}]).steps,['repair','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'}]).steps,['repair','fill-visual-gaps','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
+assert.deepEqual(Engine.plan(av,[{id:'music',type:'audio'}]).steps,['repair','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 assert.deepEqual(Engine.plan(av,[{id:'img',type:'image'},{id:'music',type:'audio'},{id:'voice',type:'audio'}]).steps,['repair','fill-visual-gaps','smart-mix','detect-beats','sync-beats','auto-transitions','audio-headroom','qa']);
 
 const withBeats={...av,markers:[{time:1,label:'Beat 1'}]};
