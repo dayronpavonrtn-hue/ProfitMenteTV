@@ -22,4 +22,21 @@ d=Engine.previewDecision(project,6,12,12,false);assert.equal(d.action,'stop');as
 d=Engine.previewDecision(project,6,12,12,true);assert.equal(d.action,'loop');assert.equal(d.time,6);
 d=Engine.previewDecision(project,6,12,5.8,true);assert.equal(d.action,'seek-start');assert.equal(d.time,6);
 d=Engine.previewDecision(project,6,6.1,6.05,true);assert.equal(d.action,'invalid');
+
+const relativeProject={name:'Relative captions',duration:20,clips:[{id:'rel',track:3,name:'ONE CROSS TWO',start:10,duration:6,wordTimingMode:'relative',wordTimings:[
+  {word:'ONE',start:.2,end:1.2,duration:1,index:0},
+  {word:'CROSS',start:1.5,end:3.5,duration:2,index:1},
+  {word:'TWO',start:4,end:5,duration:1,index:2}
+]}]};
+const relativeOut=Engine.extract(relativeProject,11,13,[]),relativeCaption=relativeOut.clips[0];
+assert.equal(relativeCaption.start,0);assert.equal(relativeCaption.duration,2);assert.equal(relativeCaption.wordTimingMode,'relative');
+assert.deepEqual(relativeCaption.wordTimings,[
+  {word:'ONE',start:0,end:.2,duration:.2,index:0},
+  {word:'CROSS',start:.5,end:2,duration:1.5,index:1}
+]);
+
+const legacyRelative={name:'Legacy relative',duration:20,clips:[{id:'legacy',track:3,name:'LEGACY MODE',start:10,duration:5,wordTimings:[{word:'LEGACY',start:0,end:1.5},{word:'MODE',start:2.5,end:4.5}]}]};
+const legacyOut=Engine.extract(legacyRelative,11,13,[]).clips[0];
+assert.deepEqual(legacyOut.wordTimings,[{word:'LEGACY',start:0,end:.5},{word:'MODE',start:1.5,end:2}]);
+
 console.log('render range engine ok');
