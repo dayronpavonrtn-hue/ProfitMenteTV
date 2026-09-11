@@ -85,4 +85,27 @@ assert.deepEqual(legacyIdIssues.map(issue=>issue.clipId),['legacy-number','legac
 assert.equal(legacyIdIssues[0].assetId,'7','reported issue must retain the canonical asset record id');
 assert.equal(legacyIdIssues[2].assetId,0,'reported issue must preserve a valid numeric zero asset id');
 
+assert.equal(Engine.mediaIdKey(true),null,'boolean media ids must fail closed');
+assert.equal(Engine.mediaIdKey({id:7}),null,'object media ids must fail closed');
+assert.equal(Engine.mediaIdKey([7]),null,'array media ids must fail closed');
+assert.equal(Engine.mediaIdKey(Number.MAX_SAFE_INTEGER+1),null,'unsafe numeric media ids must fail closed');
+assert.equal(Engine.mediaIdKey(7),Engine.mediaIdKey(' 7 '),'safe numeric and legacy string ids must share one identity');
+const corruptIdentityProject={clips:[
+  {id:'boolean-corrupt',asset:true,duration:3,speed:2,sourceOffset:0},
+  {id:'object-corrupt',asset:{toString:()=> 'v1'},duration:3,speed:2,sourceOffset:0},
+  {id:'unsafe-number',asset:Number.MAX_SAFE_INTEGER+1,duration:3,speed:2,sourceOffset:0}
+]};
+const corruptIdentityAssets=[
+  {id:'true',type:'video',duration:1},
+  {id:'v1',type:'video',duration:1},
+  {id:String(Number.MAX_SAFE_INTEGER+1),type:'video',duration:1}
+];
+assert.deepEqual(Engine.sourceWindowIssues(corruptIdentityProject,corruptIdentityAssets),[],'malformed clip ids must never coerce into valid relink targets');
+const ambiguousIdentityAssets=[
+  {id:7,type:'video',duration:1},
+  {id:'7',type:'video',duration:1}
+];
+const ambiguousIdentityProject={clips:[{id:'duplicate-id',asset:7,duration:2,speed:1,sourceOffset:0}]};
+assert.deepEqual(Engine.sourceWindowIssues(ambiguousIdentityProject,ambiguousIdentityAssets),[],'duplicate canonical asset identities must fail closed instead of selecting the first asset');
+
 console.log('Media relink regression: OK');
