@@ -20,7 +20,14 @@ class ProfitMenteMediaStore{
   constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null}
   values(){return Array.from(this.memory.values())}
   async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}try{const items=await this.backend.loadAll();this.memory.clear();for(const asset of items||[]){const key=keyOf(asset?.id);if(key)this.memory.set(key,asset)}this.storageAvailable=true;this.lastError=null;this.loaded=true;return this.values()}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
-  async put(asset){const key=keyOf(asset?.id);if(!key)throw new Error('El medio necesita un id válido');this.memory.set(key,asset);this.pendingDeletes.delete(key);this.dirty.add(key);await this.flush();return asset}
+  async put(asset){await this.putMany([asset]);return asset}
+  async putMany(assets){
+    const list=Array.from(assets||[]);if(!list.length)return [];
+    const prepared=[];const seen=new Set();
+    for(const asset of list){const key=keyOf(asset?.id);if(!key)throw new Error('El medio necesita un id válido');if(seen.has(key))throw new Error(`El lote contiene un id de medio duplicado: ${key}`);seen.add(key);prepared.push([key,asset])}
+    for(const [key,asset] of prepared){this.memory.set(key,asset);this.pendingDeletes.delete(key);this.dirty.add(key)}
+    await this.flush();return prepared.map(([,asset])=>asset)
+  }
   async delete(id){const key=keyOf(id);if(!key)return false;const existed=this.memory.delete(key);this.dirty.delete(key);this.pendingDeletes.add(key);await this.flush();return existed}
   async flush(){
     if(this.flushPromise)return this.flushPromise;
