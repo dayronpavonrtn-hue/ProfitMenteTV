@@ -2,11 +2,12 @@
 
 Studio projects historically used absolute timeline word timings, while imported or
 hand-authored projects may contain clip-relative timings and may provide either
-``end`` or ``duration``.  Keep this parsing outside render_mp4.py so it is easy to
+``end`` or ``duration``. Keep this parsing outside render_mp4.py so it is easy to
 regression-test without invoking FFmpeg.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import math
 
 
@@ -26,18 +27,7 @@ def _number(value):
 
 
 def normalize_word_timings(clip, clip_start, clip_end):
-    """Return safe ``(word, start, end)`` tuples in absolute timeline seconds.
-
-    Accepted inputs:
-    - Studio's native absolute ``start`` + ``end`` timings.
-    - ``start`` + ``duration`` timings.
-    - Relative timings when ``wordTimingMode == 'relative'`` or an individual
-      timing has ``relative: true``.
-    - Legacy relative timings without a mode when their complete range clearly
-      fits inside the clip-local duration.
-
-    Invalid entries are ignored and every valid interval is clamped to the clip.
-    """
+    """Return safe ``(word, start, end)`` tuples in absolute timeline seconds."""
     if not isinstance(clip, dict):
         return []
     start = _number(clip_start)
@@ -77,9 +67,6 @@ def normalize_word_timings(clip, clip_start, clip_end):
 
         relative = mode == "relative" or timing.get("relative") is True
         if not mode and not relative:
-            # Auto-detect common imported/legacy clip-local timings.  Native
-            # absolute timings normally sit at/after clip_start; values that
-            # begin before it but fit entirely in the clip duration are local.
             relative = (
                 start > 1e-6
                 and word_start >= -1e-6
@@ -98,3 +85,33 @@ def normalize_word_timings(clip, clip_start, clip_end):
 
     normalized.sort(key=lambda item: (item[1], item[2], item[0]))
     return normalized
+
+
+def normalize_project_caption_timings(project):
+    """Return a render-only project with canonical absolute word timings."""
+    result = deepcopy(project) if isinstance(project, dict) else {}
+    clips = result.get("clips") if isinstance(result.get("clips"), list) else []
+    for clip in clips:
+        if not isinstance(clip, dict):
+            continue
+        track = clip.get("track")
+        if track not in (3, "3") or "wordTimings" not in clip:
+            continue
+        start = _number(clip.get("start"))
+        duration = _number(clip.get("duration"))
+        if start is None or duration is None or duration <= 0:
+            clip["wordTimings"] = []
+            continue
+        end = start + duration
+        normalized = normalize_word_timings(clip, start, end)
+        clip["wordTimings"] = [
+            {
+                "word": word,
+                "start": round(word_start, 6),
+                "end": round(word_end, 6),
+                "duration": round(word_end - word_start, 6),
+            }
+            for word, word_start, word_end in normalized
+        ]
+        clip["wordTimingMode"] = "absolute"
+    return result
