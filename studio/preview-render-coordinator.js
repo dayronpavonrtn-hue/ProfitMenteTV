@@ -12,6 +12,15 @@
     window.renderAt=(time)=>coordinator.request(time);
   }
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
+  function finitePreviewTime(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();
+    if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
+    const parsed=Number(raw);
+    return Number.isFinite(parsed)?parsed:null;
+  }
+
   function createCoordinator(render,options={}){
     if(typeof render!=='function')throw new TypeError('render must be a function');
     const invalidate=typeof options?.invalidate==='function'?options.invalidate:null;
@@ -69,8 +78,8 @@
     }
 
     function request(time){
-      const n=Number(time);
-      if(!Number.isFinite(n))return Promise.reject(new TypeError('preview time must be finite'));
+      const n=finitePreviewTime(time);
+      if(n===null)return Promise.reject(new TypeError('preview time must be a finite numeric scalar'));
       stats.requested++;
       const seq=++sequence;
       return new Promise((resolve,reject)=>{
@@ -84,5 +93,5 @@
     function snapshot(){return {...stats,active,hasPending:!!pending,sequence,activeSequence:activeJob?.sequence??null};}
     return {request,snapshot};
   }
-  return {createCoordinator};
+  return {createCoordinator,finitePreviewTime};
 });
