@@ -37,7 +37,7 @@ assert.deepEqual(
   ['ok-number','ok-string'],
   'fallback caption selection must preserve legacy numeric strings without coercing corrupt track or timing values'
 );
-assert.deepEqual(activeCaptionFallback(false),[],'invalid playhead values must not activate captions');
+assert.deepEqual(Array.from(activeCaptionFallback(false)),[],'invalid playhead values must not activate captions');
 
 assert.deepEqual(
   JSON.parse(JSON.stringify(normalizeWordTimings({
