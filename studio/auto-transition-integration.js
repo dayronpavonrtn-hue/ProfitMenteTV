@@ -11,6 +11,14 @@
     if($('#autoTransitionBtn'))return;const anchor=$('#autoFinishBtn')||$('#generateBtn')||$('#qaBtn');if(!anchor)return;
     const btn=document.createElement('button');btn.id='autoTransitionBtn';btn.type='button';btn.textContent='✨ Transiciones auto';btn.title='Aplica transiciones locales a escenas generadas contiguas sin sobrescribir ajustes manuales ni clips/pistas bloqueados.';btn.onclick=()=>run(false);anchor.insertAdjacentElement('afterend',btn);
   }
-  install();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
+  function load(src,guard){
+    if(guard&&window[guard])return Promise.resolve();
+    if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return Promise.resolve();
+    return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s)});
+  }
+  async function installPreviewRenderer(){
+    try{await load('transition-preview-engine.js','ProfitMenteTransitionPreviewEngine');await load('transition-preview-integration.js','ProfitMenteTransitionPreview')}catch(error){console.error(error);setStatus?.('Transiciones configuradas · preview visual no disponible')}
+  }
+  install();installPreviewRenderer();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
   window.ProfitMenteAutoTransitions={inspect:()=>Engine.inspect(project),run,force:()=>run(true)};
 })();
