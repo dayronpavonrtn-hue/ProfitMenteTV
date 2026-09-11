@@ -5,7 +5,7 @@
   const ctx=canvas.getContext('2d'),buffer=document.createElement('canvas'),bctx=buffer.getContext('2d');
   async function renderWithTransition(time){
     await original(time);
-    const state=Engine.state(window.project,time);if(!state)return;
+    const state=Engine.state(project,time);if(!state)return;
     if(buffer.width!==canvas.width||buffer.height!==canvas.height){buffer.width=canvas.width;buffer.height=canvas.height}
     bctx.clearRect(0,0,buffer.width,buffer.height);bctx.drawImage(canvas,0,0);
     const tr=Engine.transform(state,canvas.width,canvas.height);
@@ -13,5 +13,5 @@
     const dw=canvas.width*tr.scale,dh=canvas.height*tr.scale;ctx.drawImage(buffer,tr.x,tr.y,dw,dh);ctx.restore();
   }
   window.renderAt=renderWithTransition;
-  window.ProfitMenteTransitionPreview={state:(t)=>Engine.state(window.project,t),renderAt:renderWithTransition};
+  window.ProfitMenteTransitionPreview={state:(t)=>Engine.state(project,t),renderAt:renderWithTransition};
 })();
