@@ -22,7 +22,7 @@ class ProfitMenteProjectPortability{
   }
   static serialize(project,assets=[]){
     const refs=this.referenced(project),stored=new Map(),live=new Map();
-    for(const asset of Array.isArray(project?.assets)?project.assets:[]){const key=this.idKey(asset?.id);if(key!==null&&!stored.has(key))stored.set(key,asset)}
+    for(const asset of Array.isArray(project?.assets)?project.assets:[]){const key=this.idKey(asset?.id);if(key===null)continue;if(stored.has(key))throw new Error(`Identificador de medio guardado duplicado o ambiguo: ${String(asset.id)}`);stored.set(key,asset)}
     for(const asset of Array.isArray(assets)?assets:[]){const key=this.idKey(asset?.id);if(key===null)continue;if(live.has(key))throw new Error(`Identificador de medio duplicado o ambiguo: ${String(asset.id)}`);live.set(key,asset)}
     const media=[];
     for(const [key,rawId] of refs){
