@@ -87,6 +87,27 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
+  const {api}=boot({});
+  const raw='{"cannot-back-up"';
+  const lastGood=JSON.stringify({name:'Último válido',duration:18,clips:[]});
+  const values=new Map([[api.PRIMARY_KEY,raw],[api.LAST_GOOD_KEY,lastGood]]);
+  let removed=false;
+  const storage={
+    getItem(k){return values.get(k)??null},
+    setItem(k,v){if(k===api.BACKUP_KEY)throw new Error('quota');values.set(k,String(v))},
+    removeItem(k){removed=true;values.delete(k)}
+  };
+  const result=api.guard(storage);
+  assert.equal(result.ok,false,'failed quarantine cannot be reported as a safe recovery');
+  assert.equal(result.quarantineFailed,true,'backup failure is explicitly surfaced');
+  assert.equal(result.preservedCorruptPrimary,true,'caller can tell the original forensic payload was intentionally retained');
+  assert.equal(removed,false,'primary project must not be deleted when the backup write fails');
+  assert.equal(values.get(api.PRIMARY_KEY),raw,'corrupt primary remains intact when no backup can be created');
+  assert.equal(values.get(api.LAST_GOOD_KEY),lastGood,'last-known-good snapshot remains untouched');
+  assert.equal(values.has(api.BACKUP_KEY),false,'failed backup must not be treated as committed');
+}
+
+{
   const raw='{"broken"';
   const {result,recovered,localStorage}=boot({'profitmente-project':raw,'profitmente-project-last-good':'[]'});
   assert.equal(result.ok,false,'invalid recovery snapshot must not be trusted');
