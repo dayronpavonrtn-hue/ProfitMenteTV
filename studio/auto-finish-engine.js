@@ -66,9 +66,12 @@
     });
   }
   function usableCaption(clip){return finiteNonNegative(clip?.duration)>.05&&(!!captionText(clip)||hasUsableWordTiming(clip))}
-  function visualAssetKeys(assets){
-    return new Set((Array.isArray(assets)?assets:[]).filter(asset=>['video','image'].includes(String(asset?.type||'').toLowerCase())).map(asset=>mediaKey(asset?.id)).filter(Boolean));
+  function assetKeysByType(assets,types){
+    const wanted=new Set(types);
+    return new Set((Array.isArray(assets)?assets:[]).filter(asset=>wanted.has(String(asset?.type||'').toLowerCase())).map(asset=>mediaKey(asset?.id)).filter(Boolean));
   }
+  function visualAssetKeys(assets){return assetKeysByType(assets,['video','image'])}
+  function audioAssetKeys(assets){return assetKeysByType(assets,['audio'])}
   function usableBroll(clip,assetKeys){
     const key=mediaKey(clip?.asset);
     return finiteNonNegative(clip?.duration)>.05&&key!=null&&assetKeys.has(key);
@@ -77,8 +80,14 @@
     static inspect(project,assets=[]){
       const clips=Array.isArray(project?.clips)?project.clips:[];
       const safeAssets=Array.isArray(assets)?assets:[];
+      const validateCatalog=safeAssets.length>0;
+      const audioKeys=audioAssetKeys(safeAssets);
       const visualClips=clips.filter(c=>{const track=canonicalTrack(c?.track);return track!=null&&VISUAL_TRACKS.includes(track)&&hasMediaId(c?.asset)&&isTrackActive(project,track,'visual')});
-      const activeAudio=track=>clips.filter(c=>canonicalTrack(c?.track)===track&&hasMediaId(c?.asset)&&!c.muted&&isTrackActive(project,track,'audio'));
+      const activeAudio=track=>clips.filter(c=>{
+        if(canonicalTrack(c?.track)!==track||!hasMediaId(c?.asset)||c.muted||!isTrackActive(project,track,'audio'))return false;
+        if(!validateCatalog)return true;
+        const key=mediaKey(c?.asset);return key!=null&&audioKeys.has(key);
+      });
       const generated=visualClips.filter(c=>sceneText(c));
       const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&isTrackActive(project,0,'visual')&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
       const captionTrackActive=isTrackActive(project,3,'visual');
