@@ -22,11 +22,20 @@
       if(offline?.assetUsable&&!offline.assetUsable(asset))return false;
       return true;
     }
+    captionUsable(clip){
+      if(this.nonNegative(clip?.duration,0)<=.05)return false;
+      if(this.text(clip?.name)||this.text(clip?.text)||this.text(clip?.sceneText)||this.text(clip?.script))return true;
+      return Array.isArray(clip?.wordTimings)&&clip.wordTimings.some(item=>(this.text(item?.word)||this.text(item?.text))&&this.nonNegative(item?.duration,0)>.001);
+    }
+    brollUsable(clip,visualKeys){
+      const key=this.mediaKey(clip?.asset);
+      return this.nonNegative(clip?.duration,0)>.05&&key!=null&&visualKeys.has(key);
+    }
     addMissingCaptions(project){
       if(!project||!Array.isArray(project.clips))return {added:0,skipped:0,locked:false};
       if(this.trackLocked(project,3))return {added:0,skipped:0,locked:true};
       const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>this.nonNegative(a?.start,0)-this.nonNegative(b?.start,0));
-      const captions=project.clips.filter(c=>this.canonicalTrack(c?.track)==='3');
+      const captions=project.clips.filter(c=>this.canonicalTrack(c?.track)==='3'&&this.captionUsable(c));
       let added=0,skipped=0;
       for(const scene of scenes){
         const text=this.text(scene?.sceneText)||this.text(scene?.script);
@@ -45,12 +54,13 @@
       if(this.trackLocked(project,1))return {added:0,skipped:0,locked:true,available:0};
       const visual=(Array.isArray(assets)?assets:[]).filter(a=>this.assetUsable(a));
       if(!visual.length)return {added:0,skipped:0,locked:false,available:0};
+      const visualKeys=new Set(visual.map(asset=>this.mediaKey(asset.id)).filter(Boolean));
       const requestedMax=this.finiteNumber(options?.maxClips,4),max=Math.max(1,Math.min(12,Math.trunc(requestedMax)||4));
       const format=['9:16','16:9','1:1'].includes(this.text(project?.format))?this.text(project.format):'9:16';
       const seedText=this.text(project?.name)||this.text(project?.title)||'ProfitMente';
       const seed=typeof this.engine.hash==='function'?this.engine.hash(seedText):1;
       const scenes=project.clips.filter(c=>this.canonicalTrack(c?.track)==='0').sort((a,b)=>this.nonNegative(a?.start,0)-this.nonNegative(b?.start,0));
-      const broll=project.clips.filter(c=>this.canonicalTrack(c?.track)==='1');
+      const broll=project.clips.filter(c=>this.canonicalTrack(c?.track)==='1'&&this.brollUsable(c,visualKeys));
       let added=0,skipped=0;
       for(const scene of scenes){
         if(added>=max)break;
