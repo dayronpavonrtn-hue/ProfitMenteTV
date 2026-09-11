@@ -9,10 +9,21 @@
   }
   function shiftWordTimings(clip,delta){
     if(!Array.isArray(clip?.wordTimings)||!delta)return 0;
+    const currentStart=strictNumber(clip.start),clipDuration=strictNumber(clip.duration);
+    const previousStart=currentStart===null?null:currentStart-delta;
+    const declaredMode=typeof clip.wordTimingMode==='string'?clip.wordTimingMode.trim().toLowerCase():'';
+    const mode=declaredMode==='relative'||declaredMode==='absolute'?declaredMode:'';
     let shifted=0;
     for(const word of clip.wordTimings){
       if(!word||typeof word!=='object')continue;
-      const start=strictNumber(word.start),end=strictNumber(word.end);
+      const start=strictNumber(word.start),end=strictNumber(word.end),wordDuration=strictNumber(word.duration);
+      const effectiveEnd=end!==null?end:(start!==null&&wordDuration!==null&&wordDuration>0?start+wordDuration:null);
+      let relative=mode==='relative'||word.relative===true;
+      if(mode==='absolute')relative=false;
+      else if(!mode&&!relative&&previousStart!==null&&clipDuration!==null&&previousStart>1e-6&&start!==null&&effectiveEnd!==null){
+        relative=start>=-1e-6&&effectiveEnd<=clipDuration+1e-6&&start<previousStart-1e-6;
+      }
+      if(relative)continue;
       let changed=false;
       if(start!==null){word.start=Math.max(0,start+delta);changed=true}
       if(end!==null){word.end=Math.max(0,end+delta);changed=true}
