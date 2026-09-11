@@ -11,6 +11,15 @@
     if(typeof value==='string')return value.trim().length>0;
     return typeof value==='number'&&Number.isSafeInteger(value);
   }
+  function mediaKey(value){
+    if(typeof value==='number')return Number.isSafeInteger(value)?`n:${Object.is(value,-0)?0:value}`:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw)return null;
+    if(/^[+-]?\d+(?:\.0+)?$/.test(raw)){
+      const n=Number(raw);if(Number.isSafeInteger(n))return `n:${Object.is(n,-0)?0:n}`;
+    }
+    return `s:${raw}`;
+  }
   function statesFor(source,track){
     const wanted=canonicalTrack(track);
     if(wanted==null||!source||typeof source!=='object')return [];
@@ -49,6 +58,21 @@
     return aEnd>bStart+1e-6&&bEnd>aStart+1e-6;
   }
   function sceneText(clip){return String(clip?.sceneText||clip?.script||'').trim()}
+  function captionText(clip){return String(clip?.name||clip?.text||clip?.sceneText||clip?.script||'').trim()}
+  function hasUsableWordTiming(clip){
+    return Array.isArray(clip?.wordTimings)&&clip.wordTimings.some(item=>{
+      const word=String(item?.word||item?.text||'').trim();
+      return !!word&&finiteNonNegative(item?.duration)>1e-3;
+    });
+  }
+  function usableCaption(clip){return finiteNonNegative(clip?.duration)>.05&&(!!captionText(clip)||hasUsableWordTiming(clip))}
+  function visualAssetKeys(assets){
+    return new Set((Array.isArray(assets)?assets:[]).filter(asset=>['video','image'].includes(String(asset?.type||'').toLowerCase())).map(asset=>mediaKey(asset?.id)).filter(Boolean));
+  }
+  function usableBroll(clip,assetKeys){
+    const key=mediaKey(clip?.asset);
+    return finiteNonNegative(clip?.duration)>.05&&key!=null&&assetKeys.has(key);
+  }
   class ProfitMenteAutoFinishEngine{
     static inspect(project,assets=[]){
       const clips=Array.isArray(project?.clips)?project.clips:[];
@@ -59,11 +83,12 @@
       const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&isTrackActive(project,0,'visual')&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
       const captionTrackActive=isTrackActive(project,3,'visual');
       const brollTrackActive=isTrackActive(project,1,'visual');
-      const captions=captionTrackActive?clips.filter(c=>canonicalTrack(c?.track)===3):[];
-      const broll=brollTrackActive?clips.filter(c=>canonicalTrack(c?.track)===1):[];
+      const assetKeys=visualAssetKeys(safeAssets);
+      const captions=captionTrackActive?clips.filter(c=>canonicalTrack(c?.track)===3&&usableCaption(c)):[];
+      const broll=brollTrackActive?clips.filter(c=>canonicalTrack(c?.track)===1&&usableBroll(c,assetKeys)):[];
       const beats=(project?.markers||[]).filter(m=>/^Beat\b/i.test(String(m?.label||'')));
       const autoTransitions=generated.filter(c=>c.autoTransition).length;
-      const visualAssets=safeAssets.filter(a=>hasMediaId(a?.id)&&['video','image'].includes(String(a?.type||'').toLowerCase())).length;
+      const visualAssets=assetKeys.size;
       const captionTrackLocked=trackState(project,3).locked;
       const brollTrackLocked=trackState(project,1).locked;
       const missingCaptions=captionTrackLocked||!captionTrackActive?0:scenes.filter(scene=>!captions.some(c=>overlaps(c,scene))).length;
@@ -85,8 +110,11 @@
   }
   ProfitMenteAutoFinishEngine.canonicalTrack=canonicalTrack;
   ProfitMenteAutoFinishEngine.hasMediaId=hasMediaId;
+  ProfitMenteAutoFinishEngine.mediaKey=mediaKey;
   ProfitMenteAutoFinishEngine.trackState=trackState;
   ProfitMenteAutoFinishEngine.overlaps=overlaps;
+  ProfitMenteAutoFinishEngine.usableCaption=usableCaption;
+  ProfitMenteAutoFinishEngine.usableBroll=usableBroll;
   root.ProfitMenteAutoFinishEngine=ProfitMenteAutoFinishEngine;
   if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteAutoFinishEngine;
 })();
