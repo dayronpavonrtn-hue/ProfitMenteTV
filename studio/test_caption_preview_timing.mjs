@@ -85,4 +85,39 @@ assert.deepEqual(
   'existing absolute Studio timings must remain absolute'
 );
 
+const previewSource=fs.readFileSync(new URL('./preview-engine.js',import.meta.url),'utf8');
+const previewSandbox={
+  renderAt:async()=>{},
+  project:{clips:[],trackState:{}},
+  assets:[],
+  window:{ProfitMenteCaptionPreview:{normalizeWordTimings}},
+  canvas:{width:540,height:960},
+  ctx:{},
+  console,
+  Blob:class Blob{},
+  URL:{createObjectURL(){return 'blob:test'},revokeObjectURL(){}},
+  Image:class Image{},
+  document:{createElement(){return {}}},
+  setTimeout,
+  clearTimeout,
+  $:()=>null
+};
+vm.createContext(previewSandbox);
+vm.runInContext(previewSource,previewSandbox,{filename:'preview-engine.js'});
+const {hasActiveWordTiming}=previewSandbox.window.ProfitMentePreviewEngine;
+const relativeCaption={
+  track:3,start:10,duration:4,wordTimingMode:'relative',
+  wordTimings:[{word:'Hola',start:0,end:1},{word:'mundo',start:1,end:2}]
+};
+assert.equal(
+  hasActiveWordTiming(relativeCaption,10.5),
+  true,
+  'the base preview must suppress the full caption while a normalized relative word is active'
+);
+assert.equal(
+  hasActiveWordTiming(relativeCaption,12.5),
+  false,
+  'the base preview should fall back to the normal caption outside normalized word intervals'
+);
+
 console.log('Caption preview timing regression passed');
