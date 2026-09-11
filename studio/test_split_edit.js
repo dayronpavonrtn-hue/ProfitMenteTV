@@ -18,7 +18,7 @@ function approx(actual,expected,eps=1e-9){assert(Math.abs(actual-expected)<=eps,
 {
   const clip={id:'words',track:3,name:'uno dos tres',start:10,duration:6,wordTimings:[{index:0,word:'uno',start:10.2,end:11.1,duration:.9},{index:1,word:'dos',start:12.4,end:13.6,duration:1.2},{index:2,word:'tres',start:14,end:15.2,duration:1.2}]};
   const r=Engine.split(clip,13,{idFactory:()=> 'words-r'});
-  assert(r.ok);assert.deepEqual(r.left.wordTimings.map(w=>w.word),['uno']);assert.deepEqual(r.right.wordTimings.map(w=>w.word),['dos','tres']);assert.equal(r.right.wordTimings[0].start,13);assert.equal(r.right.wordTimings[0].end,13.6);assert.equal(r.right.wordTimings[0].duration,.6);assert.deepEqual(r.right.wordTimings.map(w=>w.index),[0,1]);assert.equal(r.left.name,'uno');assert.equal(r.right.name,'dos tres');assert.deepEqual(r.wordTimings,{left:1,right:2});
+  assert(r.ok);assert.deepEqual(r.left.wordTimings.map(w=>w.word),['uno','dos']);assert.deepEqual(r.right.wordTimings.map(w=>w.word),['dos','tres']);assert.equal(r.left.wordTimings[1].start,12.4);assert.equal(r.left.wordTimings[1].end,13);assert.equal(r.left.wordTimings[1].duration,.6);assert.equal(r.right.wordTimings[0].start,13);assert.equal(r.right.wordTimings[0].end,13.6);assert.equal(r.right.wordTimings[0].duration,.6);assert.deepEqual(r.left.wordTimings.map(w=>w.index),[0,1]);assert.deepEqual(r.right.wordTimings.map(w=>w.index),[0,1]);assert.equal(r.left.name,'uno dos');assert.equal(r.right.name,'dos tres');assert.deepEqual(r.wordTimings,{left:2,right:2});
 }
 
 {
