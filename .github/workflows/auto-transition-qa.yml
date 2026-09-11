@@ -5,10 +5,13 @@ on:
     paths:
       - 'studio/auto-transition-engine.js'
       - 'studio/auto-transition-integration.js'
+      - 'studio/transition-preview-engine.js'
+      - 'studio/transition-preview-integration.js'
       - 'studio/auto-finish-engine.js'
       - 'studio/auto-finish-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_auto_transition_engine.mjs'
+      - 'studio/test_transition_preview_engine.mjs'
       - 'studio/test_auto_finish_engine.mjs'
       - 'studio/test_auto_finish_wiring.mjs'
       - '.github/workflows/auto-transition-qa.yml'
@@ -26,10 +29,14 @@ jobs:
         run: |
           node --check studio/auto-transition-engine.js
           node --check studio/auto-transition-integration.js
+          node --check studio/transition-preview-engine.js
+          node --check studio/transition-preview-integration.js
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
       - name: Auto transition regression
         run: node studio/test_auto_transition_engine.mjs
+      - name: Transition preview regression
+        run: node studio/test_transition_preview_engine.mjs
       - name: Auto Finish regression
         run: node studio/test_auto_finish_engine.mjs
       - name: Verify Studio wiring
