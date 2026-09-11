@@ -88,4 +88,37 @@ const scene=(overrides={})=>({id:'scene',track:0,start:0,duration:10,sceneText:'
   assert.equal(broll.sourceOffset,0,'offset corrupto o sin duración conocida debe quedar seguro');
 }
 
+{
+  const project={clips:[scene({sceneText:{toString:()=> 'caption falso'},script:['texto falso']})]};
+  const result=tools.addMissingCaptions(project);
+  assert.equal(result.added,0,'metadata textual corrupta no debe producir captions sintéticos');
+  assert.equal(project.clips.length,1,'caption corrupto no debe mutar el proyecto');
+}
+
+{
+  class BadCaptionEngine extends EngineStub{captionWords(){return {not:'an array'}}}
+  const localTools=new ManualTools(new BadCaptionEngine());
+  const project={clips:[scene()]};
+  assert.equal(localTools.addMissingCaptions(project).added,1);
+  const caption=project.clips.find(c=>String(c.track)==='3');
+  assert.deepEqual(caption.wordTimings,[],'timings inválidos deben degradar a lista vacía segura');
+}
+
+{
+  class StrictMetadataEngine extends EngineStub{
+    hash(value){assert.equal(typeof value,'string');return 11}
+    scoreAsset(asset,keywords,format){
+      assert(keywords.every(value=>typeof value==='string'),'keywords enviados al motor deben ser texto');
+      assert.equal(format,'9:16','formato corrupto debe volver al default seguro');
+      return {valueOf:()=>999};
+    }
+  }
+  const localTools=new ManualTools(new StrictMetadataEngine());
+  const project={format:{toString:()=> '16:9'},name:{toString:()=> 'nombre falso'},clips:[scene({duration:4,keywords:['dinero',{toString:()=> 'falso'},'',null]})]};
+  const result=localTools.addBroll(project,[{id:'alt',type:'video',name:{toString:()=> 'nombre corrupto'},duration:8}]);
+  assert.equal(result.added,1,'metadata corrupta no debe romper la inserción de B-roll');
+  const broll=project.clips.find(c=>String(c.track)==='1');
+  assert.equal(broll.name,'B-roll · medio','nombre corrupto debe usar etiqueta segura');
+}
+
 console.log('Generator manual tools regression: OK');
