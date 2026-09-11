@@ -63,4 +63,29 @@ const scene=(overrides={})=>({id:'scene',track:0,start:0,duration:10,sceneText:'
   assert.equal(result.added,0);
 }
 
+{
+  const project={clips:[scene({start:{valueOf:()=>7},duration:{valueOf:()=>8}})]};
+  const result=tools.addMissingCaptions(project);
+  assert.equal(result.added,0,'objetos coercibles no deben crear captions con tiempos falsos');
+  assert.equal(project.clips.length,1,'tiempos corruptos no deben mutar el proyecto');
+}
+
+{
+  const project={clips:[scene({start:'1.5',duration:'4'})]};
+  const result=tools.addMissingCaptions(project);
+  assert.equal(result.added,1,'strings numéricos legacy deben seguir siendo válidos');
+  const caption=project.clips.find(c=>String(c.track)==='3');
+  assert(caption.start>=1.5&&caption.start+caption.duration<=5.5+1e-6,'caption legacy debe respetar el rango de escena');
+}
+
+{
+  const project={format:'9:16',clips:[scene({duration:6})]};
+  const assets=[{id:'alt',type:'video',name:'alt.mp4',duration:{valueOf:()=>50}}];
+  const result=tools.addBroll(project,assets);
+  assert.equal(result.added,1,'duración de asset corrupta no debe impedir usar el medio como B-roll');
+  const broll=project.clips.find(c=>String(c.track)==='1');
+  assert(broll.duration<=3+1e-6,'objeto coercible no debe inflar la duración conocida de la fuente');
+  assert.equal(broll.sourceOffset,0,'offset corrupto o sin duración conocida debe quedar seguro');
+}
+
 console.log('Generator manual tools regression: OK');
