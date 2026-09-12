@@ -250,7 +250,7 @@ def _base_muted(state):
     return _is_true(state.get('muted',False))
 
 
-def normalize_track_solo(project):
+def normalize_track_solo(project, normalize_scalars=True):
     """Return a deep-copied project with canonical render state.
 
     Visual Solo affects tracks 0-3 only; audio Solo affects tracks 4-6 only,
@@ -258,19 +258,21 @@ def normalize_track_solo(project):
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
-    Numeric legacy clip tracks, project/clip render scalars and media IDs are
-    canonicalized in this copy so standalone render entrypoints match browser
-    preview/QA rules.
+    Numeric legacy clip tracks and media IDs are always canonicalized. Render
+    scalars are canonicalized by default, but validators can disable scalar
+    normalization so malformed persisted values remain visible and fail closed.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
-    _normalize_project_scalars(out)
+    if normalize_scalars:
+        _normalize_project_scalars(out)
     clips=out.get('clips')
     if isinstance(clips,list):
         for clip in clips:
             if isinstance(clip,dict):
                 if 'track' in clip:
                     clip['track']=_canonical_track(clip.get('track'))
-                _normalize_clip_scalars(clip)
+                if normalize_scalars:
+                    _normalize_clip_scalars(clip)
     current=out.get('trackState')
     current=current if isinstance(current,dict) else {}
     legacy=out.get('trackStates')
