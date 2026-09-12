@@ -13,10 +13,10 @@ let s=E.state(project,4);assert.equal(s.type,'fade');assert.equal(s.progress,0);
 s=E.state(project,4.25);assert.equal(s.progress,.5);assert.equal(E.transform(s,100,100).alpha,.5);
 assert.equal(E.state(project,4.5),null,'transition must end at its configured duration');
 s=E.state(project,8.2);assert.equal(s.type,'slide');
-let slide=E.transform(s,100,100);assert.ok(Math.abs(slide.x-50)<1e-8);assert.equal(slide.alpha,.5,'slide alpha must match MP4 fade-in');
+let slide=E.transform(s,100,100);assert.ok(Math.abs(slide.x-50)<1e-8);assert.ok(Math.abs(slide.alpha-.5)<1e-8,'slide alpha must match MP4 fade-in');
 s=E.state(project,12.25);assert.equal(s.type,'zoom');const z=E.transform(s,100,200);
 assert.ok(Math.abs(z.scale-1.0125)<1e-10,'zoom scale must match MP4 1.025 -> 1.0 settle');
-assert.equal(z.alpha,.5,'zoom alpha must match MP4 fade-in');
+assert.ok(Math.abs(z.alpha-.5)<1e-10,'zoom alpha must match MP4 fade-in');
 assert.ok(z.x<0&&z.y<0,'enlarged zoom must remain centered while cropped');
 
 // render_mp4.py intentionally skips visual transitions for clips that begin at t=0.
