@@ -1,0 +1,53 @@
+name: ProfitMente Studio Timeline Geometry QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/timeline-track-alias-guard.js'
+      - '.github/workflows/timeline-geometry-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeline-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check studio/timeline-track-alias-guard.js
+      - name: Test strict timeline geometry
+        run: |
+          node <<'NODE'
+          global.window=global;
+          global.document={};
+          global.ProfitMenteTimelineOperations=class {};
+          global.tracks={replaceChildren(){}};
+          global.names=['Video'];
+          global.project={duration:45,clips:[]};
+          global.addClip=()=>{};
+          global.startDrag=()=>{};
+          global.editClip=()=>{};
+          require('./studio/timeline-track-alias-guard.js');
+          const api=global.ProfitMenteSafeTimelineRender;
+          if(!api)throw new Error('safe timeline renderer API missing');
+          const assert=(condition,message)=>{if(!condition)throw new Error(message)};
+          assert(api.finiteScalar(12.5)===12.5,'finite number should pass');
+          assert(api.finiteScalar('1e1')===10,'legacy numeric string should pass');
+          for(const value of [true,false,[12],{value:12},'',NaN,Infinity]){
+            assert(api.finiteScalar(value)===null,'coerced/non-finite scalar must be rejected: '+String(value));
+          }
+          assert(api.canonicalTrack('0',7)===0,'numeric string track should remain compatible');
+          assert(api.canonicalTrack(true,7)===null,'boolean track must be rejected');
+          assert(api.canonicalTrack([1],7)===null,'array track must be rejected');
+          const clean=api.clipGeometry({start:'10',duration:'5'},45);
+          assert(clean.start===10&&clean.duration===5,'legacy string geometry should be preserved');
+          const corrupt=api.clipGeometry({start:true,duration:[12]},45);
+          assert(corrupt.start===0&&corrupt.duration===0.25,'corrupt geometry should fall back safely');
+          const bounded=api.clipGeometry({start:999,duration:999},45);
+          assert(bounded.start===44.75&&bounded.duration===0.25,'geometry must stay inside project duration');
+          console.log('Timeline geometry QA passed');
+          NODE
