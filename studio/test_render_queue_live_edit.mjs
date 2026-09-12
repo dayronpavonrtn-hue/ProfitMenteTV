@@ -48,10 +48,11 @@ assert.equal(failed.status,'pending');
 assert.equal(failed.error,null);
 assert.equal(queue.remove(p1.id),true,'a pending job must be removable while another render is active');
 assert.equal(queue.get(p1.id),null);
+assert.deepEqual(queue.pending().map(item=>item.project.name),['P2','Retry me','Added live'],'retry must preserve the failed job slot while making it pending again');
 
 releaseActive();
 const summary=await runPromise;
-assert.deepEqual(started,['Active','P2','Added live','Retry me'],'live edits must affect the remaining processing order without interrupting the active render');
+assert.deepEqual(started,['Active','P2','Retry me','Added live'],'live edits must affect the remaining processing order without interrupting the active render');
 assert.equal(summary.done,4);
 assert.equal(summary.pending,0);
 assert.equal(summary.error,0);
