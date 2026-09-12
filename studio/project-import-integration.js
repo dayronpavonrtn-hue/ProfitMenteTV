@@ -18,7 +18,32 @@
       delete normalized.libraryId;
       return normalized;
     };
-    window.ProfitMenteProjectLibraryImportGuard={enabled:true};
+    if(!Library.__profitmenteStoredProjectGuardInstalled){
+      const baseLoad=Library.prototype.load;
+      Library.prototype.load=function(id){
+        const stored=baseLoad.call(this,id);
+        if(!stored)return null;
+        const libraryId=stored.libraryId;
+        try{
+          const normalized=new ImportEngine(Library.blank()).normalize(stored);
+          if(libraryId!==undefined&&libraryId!==null)normalized.libraryId=libraryId;
+          return normalized;
+        }catch(err){
+          console.error('ProfitMente saved project validation failed',err);
+          return null;
+        }
+      };
+      Library.prototype.duplicate=function(id){
+        const source=this.load(id);
+        if(!source)return null;
+        const copy=structuredClone(source);
+        delete copy.libraryId;
+        copy.name=`${copy.name||'Sin título'} · copia`;
+        return this.save(copy);
+      };
+      Library.__profitmenteStoredProjectGuardInstalled=true;
+    }
+    window.ProfitMenteProjectLibraryImportGuard={enabled:true,storedProjectGuard:true};
     return true;
   }
   // project-library.js is loaded after this integration. Install the shared
