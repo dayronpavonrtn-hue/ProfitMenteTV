@@ -51,6 +51,14 @@ assert.equal(engine.upsert(project,clamped,99,{x:999,y:-999,scale:99,opacity:-1,
 const end=engine.stateAt(clamped,3);
 assert.equal(end.x,200);assert.equal(end.y,-200);assert.equal(end.scale,8);assert.equal(end.opacity,0);assert.equal(end.rotation,3600);
 
+const strictState=engine.state({x:[44],y:{valueOf:()=>33},scale:true,rotation:false,opacity:[.2]});
+assert.deepEqual(strictState,{x:0,y:0,scale:1,rotation:0,opacity:1},'arrays, objects and booleans must never coerce into keyframe numbers');
+assert.equal(engine.canonicalTrack([0]),null,'array track values must be rejected');
+assert.equal(engine.canonicalTrack({valueOf:()=>1}),null,'object track values must be rejected');
+assert.equal(engine.canonicalTrack('1'),1,'legacy numeric strings remain supported');
+const corruptFrames={id:'corrupt',track:0,start:0,duration:5,visualKeyframes:[{time:[1],x:90},{time:{valueOf:()=>2},x:80},{time:'3',x:'60'}]};
+assert.deepEqual(engine.normalize(corruptFrames),[{time:3,x:60,y:0,scale:1,rotation:0,opacity:1,easing:'linear'}],'corrupt keyframe times must be discarded while numeric strings remain compatible');
+
 const audioClip={id:'a1',track:5,start:0,duration:5,asset:'music'};
 assert.equal(engine.upsert(project,audioClip,0,{}).reason,'not-visual');
 const lockedClip={id:'locked',track:0,start:0,duration:5,asset:'x',locked:true};
