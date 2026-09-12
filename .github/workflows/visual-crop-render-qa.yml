@@ -1,0 +1,32 @@
+name: ProfitMente Studio Visual Crop Render QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/visual_crop_render.py'
+      - 'studio/visual_adjust_render.py'
+      - 'studio/render_mp4.py'
+      - 'studio/test_visual_crop_render.py'
+      - '.github/workflows/visual-crop-render-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/visual_crop_render.py'
+      - 'studio/visual_adjust_render.py'
+      - 'studio/render_mp4.py'
+      - 'studio/test_visual_crop_render.py'
+      - '.github/workflows/visual-crop-render-qa.yml'
+
+jobs:
+  visual-crop-render-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax
+        run: python -m py_compile studio/visual_crop_render.py studio/test_visual_crop_render.py
+      - name: Strict visual crop render regression
+        working-directory: studio
+        run: python test_visual_crop_render.py
