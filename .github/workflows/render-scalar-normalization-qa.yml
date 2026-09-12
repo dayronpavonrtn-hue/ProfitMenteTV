@@ -12,6 +12,7 @@ on:
       - 'studio/test_caption_absolute_render_timing.py'
       - 'studio/test_motion_text_render_zero.py'
       - 'studio/test_render_clip_boolean_flags.py'
+      - 'studio/test_transition_mode_normalization.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
   pull_request:
     paths:
@@ -23,6 +24,7 @@ on:
       - 'studio/test_caption_absolute_render_timing.py'
       - 'studio/test_motion_text_render_zero.py'
       - 'studio/test_render_clip_boolean_flags.py'
+      - 'studio/test_transition_mode_normalization.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
 
 jobs:
@@ -34,7 +36,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Python syntax
-        run: python -m py_compile studio/track_state_render.py studio/render_mp4.py studio/caption_render_timing.py studio/test_track_state_render_scalars.py studio/test_caption_absolute_render_timing.py studio/test_motion_text_render_zero.py studio/test_render_clip_boolean_flags.py
+        run: python -m py_compile studio/track_state_render.py studio/render_mp4.py studio/caption_render_timing.py studio/test_track_state_render_scalars.py studio/test_caption_absolute_render_timing.py studio/test_motion_text_render_zero.py studio/test_render_clip_boolean_flags.py studio/test_transition_mode_normalization.py
       - name: Render scalar regression
         working-directory: studio
         run: python test_track_state_render_scalars.py
@@ -47,3 +49,6 @@ jobs:
       - name: Strict render clip flag regression
         working-directory: studio
         run: python test_render_clip_boolean_flags.py
+      - name: Automatic transition render parity regression
+        working-directory: studio
+        run: python test_transition_mode_normalization.py
