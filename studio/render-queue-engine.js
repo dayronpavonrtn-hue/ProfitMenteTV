@@ -67,6 +67,15 @@ class ProfitMenteRenderQueueEngine{
     }));
     return {version:ProfitMenteRenderQueueEngine.STATE_VERSION,savedAt:this.now(),items};
   }
+  uniqueRestoreId(rawId,usedIds){
+    let base=String(rawId??'').trim();
+    if(!base)base=this.makeId();
+    if(!usedIds.has(base)){usedIds.add(base);return base}
+    let suffix=2,candidate=`${base}-${suffix}`;
+    while(usedIds.has(candidate)){suffix+=1;candidate=`${base}-${suffix}`}
+    usedIds.add(candidate);
+    return candidate;
+  }
   restoreState(state,{maxItems=ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS}={}){
     if(this.running)throw new Error('No se puede restaurar la cola durante un render activo');
     if(!state||typeof state!=='object'||Array.isArray(state))return 0;
@@ -74,13 +83,14 @@ class ProfitMenteRenderQueueEngine{
     const limit=Math.max(1,Math.min(200,Number(maxItems)||ProfitMenteRenderQueueEngine.MAX_PERSISTED_ITEMS));
     const allowed=new Set(['pending','running','error','cancelled']);
     const restored=[];
+    const usedIds=new Set();
     for(const raw of state.items.slice(-limit)){
       if(!raw||typeof raw!=='object'||Array.isArray(raw)||!raw.project||typeof raw.project!=='object'||Array.isArray(raw.project))continue;
       const originalStatus=String(raw.status||'pending');
       if(originalStatus==='done'||!allowed.has(originalStatus))continue;
       const interrupted=originalStatus==='running';
       restored.push({
-        id:String(raw.id||this.makeId()),
+        id:this.uniqueRestoreId(raw.id,usedIds),
         name:String(raw.name||raw.project?.name||'profitmente').trim()||'profitmente',
         format:String(raw.format||'mp4').toLowerCase(),
         status:interrupted?'error':originalStatus,
