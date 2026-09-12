@@ -1,6 +1,7 @@
 (()=>{
   const baseRender=renderAt;
   let captionRenderEpoch=0;
+  const strictFlag=value=>value===true;
   function canonicalTrack(value){
     if(value===null||value===undefined||typeof value==='boolean'||typeof value==='symbol'||typeof value==='object')return null;
     const raw=String(value).trim();if(!raw||!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw))return null;
@@ -13,12 +14,13 @@
     const merged={};
     for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
     for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
-    if(aliases.some(([,value])=>!!value.hidden))merged.hidden=true;
+    if(aliases.some(([,value])=>strictFlag(value.hidden)))merged.hidden=true;
+    else if('hidden' in merged&&!strictFlag(merged.hidden))merged.hidden=false;
     return merged;
   }
   function captionsHidden(){
     const current=trackStateValue(project?.trackState,3),legacy=trackStateValue(project?.trackStates,3);
-    return !!(current?.hidden||legacy?.hidden);
+    return strictFlag(current?.hidden)||strictFlag(legacy?.hidden);
   }
   function finiteNumber(value){
     if(typeof value==='boolean'||value===null||value===undefined)return null;
