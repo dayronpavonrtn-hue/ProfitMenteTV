@@ -157,6 +157,25 @@ def test_caption_word_timing_overlaps_or_out_of_order_entries_fail_closed():
     ]
 
 
+def test_caption_word_timing_must_stay_inside_clip_window():
+    negative=normalized(track=3,duration='2.0',wordTimings=[
+        {'word':'ANTES','start':'-0.1','end':'0.4'},
+    ])
+    beyond=normalized(track=3,duration='2.0',wordTimings=[
+        {'word':'DESPUES','start':'1.7','end':'2.1'},
+    ])
+    exact_boundary=normalized(track=3,duration='2.0',wordTimings=[
+        {'word':'UNO','start':'0','end':'1'},
+        {'word':'DOS','start':'1','end':'2'},
+    ])
+    assert negative['wordTimings']==[]
+    assert beyond['wordTimings']==[]
+    assert exact_boundary['wordTimings']==[
+        {'word':'UNO','start':0.0,'end':1.0},
+        {'word':'DOS','start':1.0,'end':2.0},
+    ]
+
+
 def test_audio_volume_numeric_strings_remain_legacy_compatible():
     c=normalized(track='5',volume='.35',sourceVolume='1.5')
     assert c['track']==5
