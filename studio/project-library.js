@@ -1,11 +1,31 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectLibrary=api.ProfitMenteProjectLibrary})(typeof globalThis!=='undefined'?globalThis:this,function(){
-function libraryIdKey(value){if(value===null||value===undefined||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
+function libraryIdKey(value){if((typeof value!=='string'&&typeof value!=='number')||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
 function sameLibraryId(a,b){const x=libraryIdKey(a),y=libraryIdKey(b);return x!==null&&x===y}
+function libraryTimestamp(value){return typeof value==='string'&&value.trim()&&Number.isFinite(Date.parse(value))?value:null}
 class ProfitMenteProjectLibrary{
-  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.backupKey=`${key}-last-good`;this.corruptKey=`${key}-corrupt-backup`;this.memory=[];this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=false;this.quarantinedCorrupt=false}
+  constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.backupKey=`${key}-last-good`;this.corruptKey=`${key}-corrupt-backup`;this.memory=[];this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=false;this.quarantinedCorrupt=false;this.repairedCorruptRows=false}
   _clone(items){return structuredClone(Array.isArray(items)?items:[])}
   _parse(raw){if(raw==null)return null;const value=JSON.parse(raw);return Array.isArray(value)?value:null}
-  _readBackup(){try{const items=this._parse(this.storage.getItem(this.backupKey));return Array.isArray(items)?items:null}catch{return null}}
+  _sanitize(items){
+    const clean=[],epoch='1970-01-01T00:00:00.000Z';let changed=false;
+    for(const row of Array.isArray(items)?items:[]){
+      if(!row||typeof row!=='object'||Array.isArray(row)){changed=true;continue}
+      const id=libraryIdKey(row.id),validProject=row.project&&typeof row.project==='object'&&!Array.isArray(row.project);
+      if(id===null||!validProject){changed=true;continue}
+      const copy=structuredClone(row);if(copy.id!==id){copy.id=id;changed=true}
+      if(!sameLibraryId(copy.project.libraryId,id)){copy.project.libraryId=id;changed=true}
+      const projectName=typeof copy.project.name==='string'&&copy.project.name.trim()?copy.project.name.trim().slice(0,160):null;
+      const rowName=typeof copy.name==='string'&&copy.name.trim()?copy.name.trim().slice(0,160):null;
+      const name=rowName||projectName||'Sin título';if(copy.name!==name){copy.name=name;changed=true}
+      const created=libraryTimestamp(copy.createdAt),updated=libraryTimestamp(copy.updatedAt);
+      const safeCreated=created||updated||epoch,safeUpdated=updated||created||safeCreated;
+      if(copy.createdAt!==safeCreated){copy.createdAt=safeCreated;changed=true}
+      if(copy.updatedAt!==safeUpdated){copy.updatedAt=safeUpdated;changed=true}
+      clean.push(copy);
+    }
+    return {items:clean,changed};
+  }
+  _readBackup(){try{const items=this._parse(this.storage.getItem(this.backupKey));if(!Array.isArray(items))return null;return this._sanitize(items).items}catch{return null}}
   _restoreBackup(){const items=this._readBackup();if(!items)return null;const raw=JSON.stringify(items);try{this.storage.setItem(this.key,raw)}catch{}this.memory=this._clone(items);this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=true;return this._clone(items)}
   _quarantine(raw){if(raw==null)return false;try{this.storage.setItem(this.corruptKey,String(raw));this.quarantinedCorrupt=true;return true}catch{return false}}
   _read(){
@@ -16,6 +36,8 @@ class ProfitMenteProjectLibrary{
     try{
       const items=this._parse(raw);
       if(!items)throw new Error('invalid project library structure');
+      const sanitized=this._sanitize(items);
+      if(sanitized.changed){this._quarantine(raw);this.repairedCorruptRows=true;this._write(sanitized.items);return this._clone(sanitized.items)}
       this.memory=this._clone(items);this.storageAvailable=true;this.recoveredFromBackup=false;
       return items;
     }catch{
@@ -33,7 +55,7 @@ class ProfitMenteProjectLibrary{
       return true;
     }catch{this.storageAvailable=false;this.memoryDirty=true;return false}
   }
-  recoveryState(){return {recoveredFromBackup:this.recoveredFromBackup,quarantinedCorrupt:this.quarantinedCorrupt,backupKey:this.backupKey,corruptKey:this.corruptKey}}
+  recoveryState(){return {recoveredFromBackup:this.recoveredFromBackup,repairedCorruptRows:this.repairedCorruptRows,quarantinedCorrupt:this.quarantinedCorrupt,backupKey:this.backupKey,corruptKey:this.corruptKey}}
   list(){return this._read().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''))}
   save(project){const items=this._read(),copy=structuredClone(project),id=copy.libraryId||crypto.randomUUID(),now=new Date().toISOString();copy.libraryId=id;let row=items.find(x=>sameLibraryId(x.id,id));if(row){row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy}else items.push({id,name:copy.name||'Sin título',createdAt:now,updatedAt:now,project:copy});this._write(items);return structuredClone(copy)}
   saveExisting(project){if(libraryIdKey(project?.libraryId)===null)return null;const items=this._read(),row=items.find(x=>sameLibraryId(x.id,project.libraryId));if(!row)return null;const copy=structuredClone(project),now=new Date().toISOString();row.name=copy.name||'Sin título';row.updatedAt=now;row.project=copy;this._write(items);return structuredClone(copy)}
@@ -158,5 +180,6 @@ if(typeof document!=='undefined')(()=>{
   const clearBtn=$('#clearBtn');if(clearBtn)clearBtn.onclick=()=>{if(confirm('¿Crear proyecto nuevo?'))void newProject()};
   render();
   if(lib.recoveredFromBackup){try{document.documentElement.dataset.projectLibraryRecovered='last-good'}catch{}status('Mis proyectos fueron recuperados desde el último respaldo válido');window.dispatchEvent(new CustomEvent('profitmente:project-library-recovered',{detail:lib.recoveryState()}))}
+  else if(lib.repairedCorruptRows){try{document.documentElement.dataset.projectLibraryRecovered='repaired'}catch{}status('Mis proyectos válidos fueron conservados y la biblioteca dañada fue reparada');window.dispatchEvent(new CustomEvent('profitmente:project-library-recovered',{detail:lib.recoveryState()}))}
   window.profitMenteProjectLibrary=lib;window.ProfitMenteNewProject={create:newProject,flushCurrentProject};window.ProfitMenteProjectTransfer={exportCurrent,importProjectFile};
 })();
