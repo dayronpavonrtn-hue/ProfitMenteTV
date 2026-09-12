@@ -139,6 +139,35 @@ def _normalize_text_scalars(clip):
             clip[key]=_bounded_scalar(clip.get(key),default,low,high)
 
 
+def _normalize_caption_word_timings(clip):
+    """Keep per-word caption timing safe for FFmpeg drawtext generation.
+
+    Word timing entries are optional and the renderer already supplies sensible
+    clip-relative defaults when ``start``/``end`` are absent.  Malformed imported
+    values must therefore become absent instead of reaching Python ``float(...)``
+    where booleans can silently become 0/1. Legacy finite numeric strings remain
+    supported. Non-dict entries are discarded because the renderer cannot consume
+    them meaningfully.
+    """
+    timings=clip.get('wordTimings')
+    if not isinstance(timings,list):
+        return
+    normalized=[]
+    for item in timings:
+        if not isinstance(item,dict):
+            continue
+        for key in ('start','end'):
+            if key not in item:
+                continue
+            value=_finite_scalar(item.get(key),None)
+            if value is None:
+                item.pop(key,None)
+            else:
+                item[key]=value
+        normalized.append(item)
+    clip['wordTimings']=normalized
+
+
 def _normalize_audio_scalars(clip):
     """Canonicalize volume values before the FFmpeg audio graph consumes them.
 
@@ -176,6 +205,7 @@ def _normalize_clip_scalars(clip):
             clip['transitionDuration']=max(0.05,min(2.0,value))
     _normalize_visual_scalars(clip)
     _normalize_text_scalars(clip)
+    _normalize_caption_word_timings(clip)
     _normalize_audio_scalars(clip)
 
 
