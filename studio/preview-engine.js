@@ -4,6 +4,7 @@
   const invalidate=()=>++renderEpoch;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,p)=>a+(b-a)*p;
+  const strictFlag=value=>value===true;
   const finiteNumber=value=>{
     if(typeof value==='number')return Number.isFinite(value)?value:null;
     if(typeof value!=='string')return null;
@@ -127,7 +128,7 @@
       const frameReady=await seekVideo(source,sourceTime);
       if(!frameReady||epoch!==renderEpoch)return false;
     }
-    const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size||epoch!==renderEpoch)return false;const tr=transformFor(c,safeTime),flipX=c.flipX?-1:1,flipY=c.flipY?-1:1;
+    const fit=['cover','contain'].includes(c.fitMode)?c.fitMode:'cover',size=fitted(source,fit);if(!size||epoch!==renderEpoch)return false;const tr=transformFor(c,safeTime),flipX=strictFlag(c.flipX)?-1:1,flipY=strictFlag(c.flipY)?-1:1;
     ctx.save();ctx.globalAlpha=tr.alpha;ctx.filter=window.ProfitMenteColorGrade?.cssFilter(c)||'none';ctx.translate(canvas.width/2+tr.x,canvas.height/2+tr.y);ctx.rotate(tr.rotation);ctx.scale(tr.scale*flipX, tr.scale*flipY);ctx.drawImage(source,-size.w/2,-size.h/2,size.w,size.h);ctx.restore();
     return true;
   }
@@ -171,5 +172,5 @@
     let painted=0;for(const c of active){if(await drawClip(c,safeTime,epoch))painted++;if(epoch!==renderEpoch)return}if(epoch!==renderEpoch)return;
     if(!painted)drawPreviewFallback(active.length>0);else{const placeholder=$('#placeholder');if(placeholder)placeholder.hidden=true}drawCaption(safeTime);
   };
-  window.ProfitMentePreviewEngine={invalidate,clearCache(){invalidate();for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,finiteNumber,clipWindow,isTrackHidden:trackHidden,transitionDuration,transformFor,activeCaptions,captionLayout,hasActiveWordTiming,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
+  window.ProfitMentePreviewEngine={invalidate,clearCache(){invalidate();for(const e of mediaCache.values())URL.revokeObjectURL(e.url);mediaCache.clear()},cacheSize(){return mediaCache.size},previewBlobFor,mediaIdKey,assetById,canonicalTrack,strictFlag,finiteNumber,clipWindow,isTrackHidden:trackHidden,transitionDuration,transformFor,activeCaptions,captionLayout,hasActiveWordTiming,drawPreviewFallback,get renderEpoch(){return renderEpoch}};
 })();
