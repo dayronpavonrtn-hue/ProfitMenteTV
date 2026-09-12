@@ -136,6 +136,27 @@ def test_caption_word_timing_incomplete_or_non_monotonic_entries_fail_closed():
     assert blank_word['wordTimings']==[]
 
 
+def test_caption_word_timing_overlaps_or_out_of_order_entries_fail_closed():
+    overlap=normalized(track=3,wordTimings=[
+        {'word':'UNO','start':'0.0','end':'1.0'},
+        {'word':'DOS','start':'0.8','end':'1.4'},
+    ])
+    out_of_order=normalized(track=3,wordTimings=[
+        {'word':'UNO','start':'2.0','end':'2.5'},
+        {'word':'DOS','start':'1.0','end':'1.5'},
+    ])
+    contiguous=normalized(track=3,wordTimings=[
+        {'word':'UNO','start':'0.0','end':'1.0'},
+        {'word':'DOS','start':'1.0','end':'1.5'},
+    ])
+    assert overlap['wordTimings']==[]
+    assert out_of_order['wordTimings']==[]
+    assert contiguous['wordTimings']==[
+        {'word':'UNO','start':0.0,'end':1.0},
+        {'word':'DOS','start':1.0,'end':1.5},
+    ]
+
+
 def test_audio_volume_numeric_strings_remain_legacy_compatible():
     c=normalized(track='5',volume='.35',sourceVolume='1.5')
     assert c['track']==5
