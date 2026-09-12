@@ -9,8 +9,8 @@
       this.maxScale=Math.max(this.minScale,Number(options.maxScale)||8);
     }
     finite(value,fallback=null){
-      if(typeof value==='boolean'||value===null||value===undefined)return fallback;
-      if(typeof value==='string'&&!value.trim())return fallback;
+      if(typeof value==='number')return Number.isFinite(value)?value:fallback;
+      if(typeof value!=='string'||!value.trim())return fallback;
       const n=Number(value);return Number.isFinite(n)?n:fallback;
     }
     canonicalTrack(value){const n=this.finite(value);return Number.isInteger(n)&&n>=0&&n<=6?n:null}
