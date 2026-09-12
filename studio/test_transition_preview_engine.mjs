@@ -15,6 +15,14 @@ assert.equal(E.state(project,4.5),null,'transition must end at its configured du
 s=E.state(project,8.2);assert.equal(s.type,'slide');assert.ok(Math.abs(E.transform(s,100,100).x-50)<1e-8);
 s=E.state(project,12.25);assert.equal(s.type,'zoom');const z=E.transform(s,100,200);assert.ok(z.scale>.88&&z.scale<1);assert.ok(z.alpha>.4&&z.alpha<1);
 
+// render_mp4.py intentionally skips visual transitions for clips that begin at t=0.
+// Preview must do the same or the first frame shown while editing will not match MP4.
+for(const type of ['fade','slide','zoom']){
+  const firstClip={clips:[{id:`first-${type}`,track:0,start:0,duration:4,transition:type,transitionDuration:1}]};
+  assert.equal(E.state(firstClip,0),null,`${type} must not animate the first clip at timeline zero`);
+  assert.equal(E.state(firstClip,.5),null,`${type} first-clip preview must match MP4 semantics`);
+}
+
 // The MP4 compositor stacks visual clips by track and then by start time. Preview
 // must choose the same top-most entering transition even when project JSON order is
 // different, otherwise scrubbing can animate a clip hidden underneath another one.
