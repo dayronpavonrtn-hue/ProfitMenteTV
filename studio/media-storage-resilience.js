@@ -32,6 +32,11 @@
     memory.delete(key);
     if(degraded)return true;
     try{
+      // The normal Studio path persists through ProfitMenteMediaStore. Delete
+      // through the same store so rollback/cleanup removes both its in-memory
+      // cache and IndexedDB entry atomically. Bypassing the store here used to
+      // leave a ghost asset in mediaStore.memory after a failed bundle import.
+      if(typeof mediaStore!=='undefined'&&mediaStore?.delete){await mediaStore.delete(key);return true}
       const d=await db();
       await new Promise((resolve,reject)=>{const tx=d.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)});
       return true;
