@@ -2,9 +2,12 @@
   'use strict';
 
   function canonicalMediaId(value){
-    if(typeof value==='string')return value.trim();
-    if(typeof value==='number'&&Number.isFinite(value)&&Number.isSafeInteger(value))return String(Object.is(value,-0)?0:value);
-    return '';
+    if(typeof value==='number')return Number.isSafeInteger(value)?String(Object.is(value,-0)?0:value):'';
+    if(typeof value!=='string')return '';
+    const raw=value.trim();
+    if(!raw)return '';
+    const numeric=Number(raw);
+    return Number.isFinite(numeric)&&Number.isSafeInteger(numeric)?String(Object.is(numeric,-0)?0:numeric):raw;
   }
 
   function validateRestoredBundle(restored){
@@ -17,7 +20,7 @@
     for(const asset of assets){
       const id=canonicalMediaId(asset&&asset.id);
       if(!id)throw new Error(`Medio restaurado sin identificador válido: ${asset&&asset.name||'sin nombre'}`);
-      if(ids.has(id))throw new Error(`Identificador de medio duplicado al restaurar paquete: ${id}`);
+      if(ids.has(id))throw new Error(`Identificador de medio duplicado o ambiguo al restaurar paquete: ${id}`);
       ids.add(id);
       asset.id=id;
     }
@@ -27,7 +30,7 @@
       for(const meta of project.assets){
         const id=canonicalMediaId(meta&&meta.id);
         if(!id)throw new Error(`Medio del manifiesto sin identificador válido: ${meta&&meta.name||'sin nombre'}`);
-        if(manifestIds.has(id))throw new Error(`Identificador de medio duplicado en manifiesto: ${id}`);
+        if(manifestIds.has(id))throw new Error(`Identificador de medio duplicado o ambiguo en manifiesto: ${id}`);
         if(!ids.has(id))throw new Error(`Medio del manifiesto no restaurado: ${id}`);
         manifestIds.add(id);
         meta.id=id;
