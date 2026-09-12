@@ -44,6 +44,48 @@ def _canonical_track(value):
     return int(parsed)
 
 
+def _finite_scalar(value, default):
+    """Return a finite JSON scalar number or a safe default.
+
+    Local FFmpeg code still contains a few direct ``float(...)`` conversions for
+    core clip timing. Sanitizing the render copy here keeps malformed imports,
+    booleans, arrays, objects, empty strings, NaN and infinities from either
+    crashing export or being coerced differently from the browser editor. Numeric
+    strings remain supported for legacy projects.
+    """
+    if isinstance(value,bool) or not isinstance(value,(int,float,str)):
+        return default
+    if isinstance(value,str):
+        value=value.strip()
+        if not value:
+            return default
+    try:
+        parsed=float(value)
+    except (TypeError,ValueError):
+        return default
+    return parsed if math.isfinite(parsed) else default
+
+
+def _normalize_clip_scalars(clip):
+    """Canonicalize the timing scalars every render path depends on."""
+    if not isinstance(clip,dict):
+        return
+    if 'start' in clip:
+        clip['start']=max(0.0,_finite_scalar(clip.get('start'),0.0))
+    if 'duration' in clip:
+        clip['duration']=max(0.05,_finite_scalar(clip.get('duration'),1.0))
+    if 'sourceOffset' in clip:
+        clip['sourceOffset']=max(0.0,_finite_scalar(clip.get('sourceOffset'),0.0))
+    if 'speed' in clip:
+        clip['speed']=max(0.25,min(4.0,_finite_scalar(clip.get('speed'),1.0)))
+    if 'transitionDuration' in clip:
+        value=_finite_scalar(clip.get('transitionDuration'),None)
+        if value is None:
+            clip.pop('transitionDuration',None)
+        else:
+            clip['transitionDuration']=max(0.05,min(2.0,value))
+
+
 def _state(states, track):
     """Read one semantic track even when persisted map keys use legacy numerics.
 
@@ -123,15 +165,17 @@ def normalize_track_solo(project):
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
-    Numeric legacy clip tracks and media IDs are canonicalized in this copy so
-    standalone render entrypoints match browser preview/QA identity rules.
+    Numeric legacy clip tracks, core timing scalars and media IDs are canonicalized
+    in this copy so standalone render entrypoints match browser preview/QA rules.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
     clips=out.get('clips')
     if isinstance(clips,list):
         for clip in clips:
-            if isinstance(clip,dict) and 'track' in clip:
-                clip['track']=_canonical_track(clip.get('track'))
+            if isinstance(clip,dict):
+                if 'track' in clip:
+                    clip['track']=_canonical_track(clip.get('track'))
+                _normalize_clip_scalars(clip)
     current=out.get('trackState')
     current=current if isinstance(current,dict) else {}
     legacy=out.get('trackStates')
