@@ -1,0 +1,27 @@
+name: ProfitMente Studio Preview Boolean Flags QA
+
+on:
+  push:
+    paths:
+      - 'studio/preview-engine.js'
+      - 'studio/test_preview_boolean_flags.mjs'
+      - '.github/workflows/preview-boolean-flags-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/preview-engine.js'
+      - 'studio/test_preview_boolean_flags.mjs'
+      - '.github/workflows/preview-boolean-flags-qa.yml'
+
+jobs:
+  preview-boolean-flags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: JavaScript syntax
+        run: node --check studio/preview-engine.js && node --check studio/test_preview_boolean_flags.mjs
+      - name: Strict preview flip regression
+        working-directory: studio
+        run: node test_preview_boolean_flags.mjs
