@@ -200,9 +200,9 @@ for c in [x for x in clips if int(x.get('track',-1))==2 and str(x.get('name','')
     text=esc_text(str(c.get('name',''))[:180]); style=c.get('textStyle','title'); anim=c.get('textAnimation','pop')
     if style not in ('title','label','callout'):style='title'
     if anim not in ('none','fade','pop','slide-up'):anim='pop'
-    size=max(16,min(84,float(c.get('fontSize',40) or 40)))*2
-    tx=max(-45,min(45,float(c.get('textX',0) or 0))); ty=max(-45,min(45,float(c.get('textY',-28) or -28)))
-    text_color=safe_hex(c.get('textColor'),'#FFE66D').replace('#','0x'); box_color=safe_hex(c.get('boxColor'),'#000000').replace('#','0x'); box_op=max(0,min(1,float(c.get('boxOpacity',.55) or 0)))
+    size=max(16,min(84,float(c.get('fontSize',40))))*2
+    tx=max(-45,min(45,float(c.get('textX',0)))); ty=max(-45,min(45,float(c.get('textY',-28))))
+    text_color=safe_hex(c.get('textColor'),'#FFE66D').replace('#','0x'); box_color=safe_hex(c.get('boxColor'),'#000000').replace('#','0x'); box_op=max(0,min(1,float(c.get('boxOpacity',.55))))
     enter=min(.28,max(.06,d*.25)); progress=f'min(max((t-{start})/{enter},0),1)'
     alpha='1'; font_expr=f'{size:.3f}'
     if anim in ('fade','pop','slide-up'):alpha=progress
