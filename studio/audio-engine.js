@@ -21,12 +21,14 @@ class ProfitMenteAudioEngine{
    this.stop();const scheduleId=this._scheduleSeq;this.init();this.syncTrackGains(project);this.monitor.gain.value=monitor?1:0;await this.ctx.resume();
    const audioClips=(project?.clips||[]).filter(c=>[4,5,6].includes(this.canonicalTrack(c.track))&&this.mediaAssigned(c.asset)&&Number(c.start||0)+Number(c.duration||0)>from);
    const videoClips=(project?.clips||[]).filter(c=>[0,1].includes(this.canonicalTrack(c.track))&&this.mediaAssigned(c.asset)&&!c.muted&&!this.visualTrackHidden(project,c.track)&&Number(c.start||0)+Number(c.duration||0)>from);
-   const decoded=new Map();
+   const decoded=new Map(),requested=new Map();
    for(const [clip,expectedType] of [...audioClips.map(c=>[c,'audio']),...videoClips.map(c=>[c,'video'])]){
-     if(scheduleId!==this._scheduleSeq)return false;
-     const a=this.findAsset(assets,clip.asset),key=this.canonicalMediaId(a?.id);if(!a||a.type!==expectedType||key===null||decoded.has(key))continue;
-     try{const buf=await this.buffer(a.blob);if(scheduleId!==this._scheduleSeq)return false;decoded.set(key,buf)}catch(e){console.warn(expectedType==='audio'?'Audio omitido':'Audio original de video omitido',a.name,e)}
+     const a=this.findAsset(assets,clip.asset),key=this.canonicalMediaId(a?.id);if(!a||a.type!==expectedType||key===null||requested.has(key))continue;
+     requested.set(key,{a,expectedType});
    }
+   await Promise.all([...requested.entries()].map(async([key,{a,expectedType}])=>{
+     try{const buf=await this.buffer(a.blob);if(scheduleId===this._scheduleSeq)decoded.set(key,buf)}catch(e){console.warn(expectedType==='audio'?'Audio omitido':'Audio original de video omitido',a.name,e)}
+   }));
    if(scheduleId!==this._scheduleSeq)return false;
    const now=this.ctx.currentTime+.05;
    for(const clip of audioClips){const a=this.findAsset(assets,clip.asset),buf=decoded.get(this.canonicalMediaId(a?.id));if(!a||a.type!=='audio'||!buf)continue;try{const src=this.ctx.createBufferSource(),gain=this.ctx.createGain(),duck=this.ctx.createGain();src.buffer=buf;src.connect(gain);gain.connect(duck);duck.connect(this.trackGains[this.canonicalTrack(clip.track)]||this.master);const speed=Math.max(.25,Math.min(4,Number(clip.speed)||1));src.playbackRate.value=speed;let volume=this.canonicalTrack(clip.track)===5?this.musicGain(project,clip):(clip.volume??1),clipStart=Number(clip.start)||0,clipDuration=Number(clip.duration)||0,start=Math.max(clipStart,from),timelineOffset=Math.max(0,from-clipStart),sourceOffset=Math.max(0,Number(clip.sourceOffset)||0)+timelineOffset*speed,timelineDur=Math.min(clipDuration-timelineOffset,(buf.duration-sourceOffset)/speed),sourceDur=timelineDur*speed,at=now+(start-from);if(timelineDur<=0||sourceDur<=0)continue;const clipDur=Math.max(.001,clipDuration||.001),localStart=timelineOffset,localEnd=Math.min(clipDur,localStart+timelineDur);this.scheduleEnvelope(clip,gain,volume,at,localStart,localEnd);this.scheduleDucking(project,clip,duck,at,localStart,localEnd);src.start(at,sourceOffset,sourceDur);this.nodes.push(src)}catch(e){console.warn('Audio omitido',a.name,e)}}
