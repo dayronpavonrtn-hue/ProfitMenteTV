@@ -17,18 +17,30 @@ class ProfitMenteIndexedDbMediaBackend{
   async deleteMany(ids){if(!ids.length)return;const db=await this.open();return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,'readwrite');const store=tx.objectStore(STORE);for(const id of ids)store.delete(id)}catch(error){db.close?.();reject(error);return}tx.oncomplete=()=>{db.close?.();resolve()};tx.onerror=()=>{db.close?.();reject(tx.error||new Error('No se pudieron eliminar los medios'))};tx.onabort=()=>{db.close?.();reject(tx.error||new Error('Eliminación de medios abortada'))}})}
 }
 class ProfitMenteMediaStore{
-  constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null}
+  constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null;this.revision=0}
   values(){return Array.from(this.memory.values())}
-  async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}try{const items=await this.backend.loadAll();this.memory.clear();const ambiguous=new Set();for(const asset of items||[]){const key=keyOf(asset?.id);if(!key||ambiguous.has(key))continue;if(this.memory.has(key)){this.memory.delete(key);ambiguous.add(key);continue}this.memory.set(key,asset)}this.storageAvailable=true;this.lastError=null;this.loaded=true;return this.values()}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
+  replaceFromBackend(items){this.memory.clear();const ambiguous=new Set();for(const asset of items||[]){const key=keyOf(asset?.id);if(!key||ambiguous.has(key))continue;if(this.memory.has(key)){this.memory.delete(key);ambiguous.add(key);continue}this.memory.set(key,asset)}return this.values()}
+  async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}const revision=this.revision;try{const items=await this.backend.loadAll();if(this.revision!==revision||this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();const values=this.replaceFromBackend(items);this.storageAvailable=true;this.lastError=null;this.loaded=true;return values}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
+  async refreshFromBackend(){
+    if(this.flushPromise)await this.flushPromise;
+    if(this.dirty.size||this.pendingDeletes.size){const flushed=await this.flush();if(!flushed)return this.values()}
+    if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}
+    const revision=this.revision;
+    try{
+      const items=await this.backend.loadAll();
+      if(this.revision!==revision||this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();
+      const values=this.replaceFromBackend(items);this.storageAvailable=true;this.lastError=null;this.loaded=true;return values;
+    }catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}
+  }
   async put(asset){await this.putMany([asset]);return asset}
   async putMany(assets){
     const list=Array.from(assets||[]);if(!list.length)return [];
     const prepared=[];const seen=new Set();
     for(const asset of list){const key=keyOf(asset?.id);if(!key)throw new Error('El medio necesita un id válido');if(seen.has(key))throw new Error(`El lote contiene un id de medio duplicado: ${key}`);seen.add(key);prepared.push([key,asset])}
-    for(const [key,asset] of prepared){this.memory.set(key,asset);this.pendingDeletes.delete(key);this.dirty.add(key)}
+    for(const [key,asset] of prepared){this.memory.set(key,asset);this.pendingDeletes.delete(key);this.dirty.add(key)}this.revision++;
     await this.flush();return prepared.map(([,asset])=>asset)
   }
-  async delete(id){const key=keyOf(id);if(!key)return false;const existed=this.memory.delete(key);this.dirty.delete(key);this.pendingDeletes.add(key);await this.flush();return existed}
+  async delete(id){const key=keyOf(id);if(!key)return false;const existed=this.memory.delete(key);this.dirty.delete(key);this.pendingDeletes.add(key);this.revision++;await this.flush();return existed}
   async flush(){
     if(this.flushPromise)return this.flushPromise;
     if(!this.dirty.size&&!this.pendingDeletes.size)return true;
