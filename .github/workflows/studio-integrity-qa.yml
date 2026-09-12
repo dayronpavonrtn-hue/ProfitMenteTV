@@ -33,6 +33,7 @@ jobs:
           node --check studio/caption-preview.js
           node --check studio/render-job-client.js
           node --check studio/render-job-integration.js
+          node --check studio/render-queue-storage-engine.js
           node --check studio/bundle-import-integration.js
           node --check studio/media-storage-resilience.js
           node --check studio/media-metadata-engine.js
@@ -102,6 +103,8 @@ jobs:
         run: |
           node studio/test_bundle_import_engine.mjs
           node studio/test_media_storage_resilience.mjs
+      - name: Render queue storage recovery regression
+        run: node studio/test_render_queue_storage.mjs
       - name: Critical Python syntax
         run: python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/caption_render_timing.py studio/studio_server.py studio/output_qc.py studio/validate_project.py studio/media_identity.py studio/test_strict_render_media_identity.py studio/test_caption_render_timing.py
       - name: Strict render media identity regression
