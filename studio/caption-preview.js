@@ -72,9 +72,14 @@
     if(measured<=safeWidth)return safeBase;
     return Math.max(minSize,safeBase*(safeWidth/measured));
   }
+  function wordPopScale(value){
+    const raw=finiteNumber(value),progress=Math.max(0,Math.min(1,raw===null?1:raw));
+    if(progress<=0||progress>=1)return 1;
+    return 1+0.16*Math.exp(-7*progress)*Math.sin(Math.PI*progress*2);
+  }
   function drawWord(word,t){
     const progress=Math.max(0,Math.min(1,(t-word.start)/Math.max(.01,word.duration||Number(word.end)-Number(word.start))));
-    const pop=1+0.16*Math.exp(-7*progress)*Math.sin(Math.PI*Math.min(1,progress*2));
+    const pop=wordPopScale(progress);
     ctx.save();
     ctx.textAlign='center';ctx.textBaseline='middle';
     const text=String(word.word).toUpperCase(),pad=24,maxTextWidth=canvas.width*.88-pad*2;
@@ -100,5 +105,5 @@
       if(word)drawWord(word,t);
     }
   };
-  window.ProfitMenteCaptionPreview={captionsHidden,canonicalTrack,finiteNumber,activeCaptionFallback,normalizeWordTimings,fitWordFont,drawWord,get renderEpoch(){return captionRenderEpoch}};
+  window.ProfitMenteCaptionPreview={captionsHidden,canonicalTrack,finiteNumber,activeCaptionFallback,normalizeWordTimings,fitWordFont,wordPopScale,drawWord,get renderEpoch(){return captionRenderEpoch}};
 })();
