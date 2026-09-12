@@ -49,12 +49,13 @@
     const merged={};
     for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
     for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
-    if(aliases.some(([,value])=>!!value.hidden))merged.hidden=true;
+    if(aliases.some(([,value])=>strictFlag(value.hidden)))merged.hidden=true;
+    else if('hidden' in merged&&!strictFlag(merged.hidden))merged.hidden=false;
     return merged;
   }
   function trackHidden(track){
     const current=trackStateValue(project?.trackState,track),legacy=trackStateValue(project?.trackStates,track);
-    return !!(current?.hidden||legacy?.hidden);
+    return strictFlag(current?.hidden)||strictFlag(legacy?.hidden);
   }
   function transitionDuration(c,duration){const fallback=Math.min(.28,Math.max(.08,duration*.12)),raw=finiteNumber(c?.transitionDuration);return clamp(raw===null?fallback:raw,.05,Math.min(2,Math.max(.05,duration)))}
   function previewBlobFor(a){return a?.type==='video'&&a.previewBlob instanceof Blob&&a.previewBlob.size?a.previewBlob:a?.blob}
