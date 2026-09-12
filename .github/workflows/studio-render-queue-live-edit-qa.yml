@@ -1,0 +1,33 @@
+name: ProfitMente Studio Render Queue Live Edit QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/render-queue-engine.js'
+      - 'studio/render-queue-integration.js'
+      - 'studio/test_render_queue_live_edit.mjs'
+      - '.github/workflows/studio-render-queue-live-edit-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-render-queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check studio/render-queue-engine.js
+          node --check studio/render-queue-integration.js
+          node --check studio/test_render_queue_live_edit.mjs
+      - name: Existing render queue regression
+        run: node studio/test_render_queue_engine.mjs
+      - name: Live render queue regression
+        run: node studio/test_render_queue_live_edit.mjs
