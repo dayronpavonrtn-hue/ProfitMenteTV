@@ -195,6 +195,19 @@ def _normalize_audio_scalars(clip):
         clip['sourceVolume']=_bounded_scalar(clip.get('sourceVolume'),1.0,0.0,2.0)
 
 
+def _normalize_clip_flags(clip):
+    """Fail closed on non-boolean clip flags consumed through Python truthiness.
+
+    Imported JSON strings such as ``"false"`` are truthy in Python. Without this
+    boundary, FFmpeg could mute an audio clip or flip a visual clip even though the
+    persisted value was not the real boolean ``true``. Canonicalize the render copy
+    so only explicit booleans can activate these destructive render switches.
+    """
+    for key in ('muted','flipX','flipY'):
+        if key in clip:
+            clip[key]=_is_true(clip.get(key))
+
+
 def _normalize_clip_scalars(clip):
     """Canonicalize the timing and visual scalars every render path depends on."""
     if not isinstance(clip,dict):
@@ -213,6 +226,7 @@ def _normalize_clip_scalars(clip):
             clip.pop('transitionDuration',None)
         else:
             clip['transitionDuration']=max(0.05,min(2.0,value))
+    _normalize_clip_flags(clip)
     _normalize_visual_scalars(clip)
     _normalize_text_scalars(clip)
     _normalize_caption_word_timings(clip)
