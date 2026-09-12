@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 """Local FFmpeg crop helper for ProfitMente Studio."""
 
+import math
+
 
 def _number(value, fallback=0.0):
+    """Accept only finite JSON scalar numbers/numeric strings.
+
+    Keep MP4 crop parsing aligned with Studio preview/QA semantics: booleans,
+    arrays, objects, empty strings, NaN and infinities must not become crop
+    percentages through Python coercion.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return fallback
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return fallback
     try:
-        n = float(value)
-        return n if n == n and abs(n) != float('inf') else fallback
+        number = float(value)
     except (TypeError, ValueError):
         return fallback
+    return number if math.isfinite(number) else fallback
 
 
 def normalize_visual_crop(clip):
