@@ -14,11 +14,13 @@ globalThis.project={
   trackState:{
     0:{hidden:true},1:{hidden:false},3:{hidden:false},
     '5.0':{hidden:true},'06':{hidden:true},
-    '7':{hidden:false},'7.0':{hidden:true}
+    '7':{hidden:false},'7.0':{hidden:true},
+    '8':{hidden:'false'},'9':{hidden:1}
   },
   trackStates:{
     1:{hidden:true},3:{hidden:false},4:{hidden:true},
-    '2.0':{hidden:true},'3.0':{hidden:true}
+    '2.0':{hidden:true},'3.0':{hidden:true},
+    '10':{hidden:'true'}
   },
   clips:[
     {id:'video-hidden',track:0,name:'Hidden video',start:0,duration:5,asset:'missing'},
@@ -46,7 +48,10 @@ assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(4),true,'legacy-only 
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(5),true,'current numeric alias 5.0 must hide semantic track 5');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(6),true,'zero-padded numeric alias 06 must hide semantic track 6');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(7),true,'hidden safety flag on a duplicate numeric alias must beat canonical visible state');
-assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(8),false,'track without hidden state must remain visible');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(8),false,'string false must not hide preview track');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(9),false,'numeric hidden flag must not hide preview track');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(10),false,'legacy string true must not hide preview track');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(11),false,'track without hidden state must remain visible');
 await globalThis.renderAt(0);
 assert.strictEqual(project.clips,originalClips,'preview must never replace project.clips while rendering');
 assert.equal(placeholder.hidden,false,'legacy-hidden visual tracks must not create a false active preview');
@@ -70,6 +75,12 @@ assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true,'current num
 project.trackState['3.00'].hidden=false;
 project.trackState[3].hidden=true;
 assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true,'current canonical caption hidden state must still suppress preview');
+project.trackState[3].hidden='false';
+assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),false,'caption string false must not hide preview');
+project.trackState[3].hidden='true';
+assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),false,'caption string true must not hide preview');
+project.trackState[3].hidden=1;
+assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),false,'caption numeric hidden flag must not hide preview');
 
 const controls=fs.readFileSync(controlsPath,'utf8');
 assert.ok(!controls.includes('project.clips=all.filter'),'track controls must not filter by replacing project.clips during async preview');
