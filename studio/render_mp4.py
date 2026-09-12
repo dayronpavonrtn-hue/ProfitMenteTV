@@ -64,6 +64,16 @@ def safe_hex(value,default):
     value=str(value or '')
     return value if len(value)==7 and value.startswith('#') and all(ch in '0123456789abcdefABCDEF' for ch in value[1:]) else default
 
+def finite_scalar(value):
+    """Match Studio numeric semantics: finite numbers and numeric strings only."""
+    if isinstance(value,bool) or not isinstance(value,(int,float,str)):return None
+    if isinstance(value,str):
+        value=value.strip()
+        if not value:return None
+    try:n=float(value)
+    except (TypeError,ValueError):return None
+    return n if math.isfinite(n) else None
+
 def clip_speed(clip):
     try:return max(.25,min(4.0,float(clip.get('speed',1) or 1)))
     except (TypeError,ValueError):return 1.0
@@ -90,10 +100,10 @@ def transition_duration(clip,d):
     return max(.05,min(min(2.0,d),raw))
 
 def clip_fades(clip,d):
-    try:fade_in=max(0,min(d,float(clip.get('fadeIn',.18) if clip.get('fadeIn') is not None else .18)))
-    except (TypeError,ValueError):fade_in=min(.18,d)
-    try:fade_out=max(0,min(d,float(clip.get('fadeOut',.25) if clip.get('fadeOut') is not None else .25)))
-    except (TypeError,ValueError):fade_out=min(.25,d)
+    raw_in=finite_scalar(clip.get('fadeIn')) if clip.get('fadeIn') is not None else .18
+    raw_out=finite_scalar(clip.get('fadeOut')) if clip.get('fadeOut') is not None else .25
+    fade_in=max(0,min(d,raw_in if raw_in is not None else .18))
+    fade_out=max(0,min(d,raw_out if raw_out is not None else .25))
     total=fade_in+fade_out
     if total>d and total>0:
         scale=d/total; fade_in*=scale; fade_out*=scale
