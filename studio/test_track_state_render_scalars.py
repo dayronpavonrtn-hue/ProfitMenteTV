@@ -119,18 +119,21 @@ def test_caption_word_timing_numeric_strings_remain_legacy_compatible():
     assert c['wordTimings']==[{'word':'DINERO','start':1.25,'end':1.75}]
 
 
-def test_caption_word_timing_invalid_scalars_are_removed_before_ffmpeg():
+def test_caption_word_timing_invalid_scalars_force_full_caption_fallback():
     c=normalized(track=3,wordTimings=[
         {'word':'A','start':True,'end':['1']},
-        {'word':'B','start':'Infinity','end':{'bad':1}},
-        {'word':'C','start':'2.0','end':'2.4'},
-        'bad-entry',
+        {'word':'B','start':'2.0','end':'2.4'},
     ])
-    assert c['wordTimings']==[
-        {'word':'A'},
-        {'word':'B'},
-        {'word':'C','start':2.0,'end':2.4},
-    ]
+    assert c['wordTimings']==[]
+
+
+def test_caption_word_timing_incomplete_or_non_monotonic_entries_fail_closed():
+    missing=normalized(track=3,wordTimings=[{'word':'A','start':'1.0'}])
+    reversed_time=normalized(track=3,wordTimings=[{'word':'A','start':'2.0','end':'1.0'}])
+    blank_word=normalized(track=3,wordTimings=[{'word':'   ','start':'1.0','end':'1.2'}])
+    assert missing['wordTimings']==[]
+    assert reversed_time['wordTimings']==[]
+    assert blank_word['wordTimings']==[]
 
 
 def test_audio_volume_numeric_strings_remain_legacy_compatible():
