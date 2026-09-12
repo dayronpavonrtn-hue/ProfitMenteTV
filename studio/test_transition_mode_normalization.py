@@ -18,10 +18,16 @@ def normalized(value, duration='0.4'):
 
 
 def test_supported_transition_modes_are_preserved():
-    for mode in ('none','fade','slide'):
+    for mode in ('cut','none','fade','slide','zoom'):
         _, clip=normalized(mode)
         assert clip['transition']==mode
         assert clip['transitionDuration']==0.4
+
+
+def test_automatic_editor_modes_keep_render_semantics():
+    for mode in ('cut','zoom'):
+        _, clip=normalized(mode)
+        assert clip['transition']==mode
 
 
 def test_unknown_string_fails_closed_to_none():
@@ -37,7 +43,7 @@ def test_non_string_transition_values_fail_closed_to_none():
 
 
 def test_empty_and_case_mismatched_values_do_not_create_accidental_fades():
-    for value in ('', ' ', 'Fade', 'SLIDE'):
+    for value in ('', ' ', 'Fade', 'SLIDE', 'ZOOM', 'CUT'):
         _, clip=normalized(value)
         assert clip['transition']=='none', repr(value)
 
