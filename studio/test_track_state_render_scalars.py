@@ -48,6 +48,54 @@ def test_core_ranges_are_clamped_before_render():
     assert c['transitionDuration']==2.0
 
 
+def test_visual_numeric_strings_remain_legacy_compatible():
+    c=normalized(brightness='25',contrast='-10',saturation='125',hue='45',scale='1.4',rotation='12',opacity='.7',positionX='15',positionY='-20')
+    assert c['brightness']==25.0
+    assert c['contrast']==-10.0
+    assert c['saturation']==125.0
+    assert c['hue']==45.0
+    assert c['scale']==1.4
+    assert c['rotation']==12.0
+    assert c['opacity']==0.7
+    assert c['positionX']==15.0
+    assert c['positionY']==-20.0
+
+
+def test_visual_booleans_collections_and_non_finite_values_use_safe_defaults():
+    c=normalized(brightness=True,contrast=['20'],saturation={'bad':1},hue='Infinity',scale=False,rotation=[],opacity='nan',positionX={},positionY=True)
+    assert c['brightness']==0.0
+    assert c['contrast']==0.0
+    assert c['saturation']==0.0
+    assert c['hue']==0.0
+    assert c['scale']==1.0
+    assert c['rotation']==0.0
+    assert c['opacity']==1.0
+    assert c['positionX']==0.0
+    assert c['positionY']==0.0
+
+
+def test_visual_ranges_are_clamped_before_ffmpeg():
+    c=normalized(brightness='999',contrast='-999',saturation='999',hue='999',scale='0',rotation='999',opacity='4',positionX='500',positionY='-500')
+    assert c['brightness']==100.0
+    assert c['contrast']==-90.0
+    assert c['saturation']==200.0
+    assert c['hue']==180.0
+    assert c['scale']==0.25
+    assert c['rotation']==180.0
+    assert c['opacity']==1.0
+    assert c['positionX']==100.0
+    assert c['positionY']==-100.0
+
+
+def test_keyframe_visual_scalars_are_canonicalized_without_mutating_source():
+    original={'start':{'scale':'1.25','rotation':True,'opacity':['.5'],'positionX':'20','positionY':'Infinity'},'end':{'scale':'2','rotation':'-45','opacity':'0.25','positionX':{},'positionY':'-35'}}
+    c=normalized(keyframes=original)
+    assert original['start']['scale']=='1.25'
+    assert original['start']['rotation'] is True
+    assert c['keyframes']['start']=={'scale':1.25,'rotation':0.0,'opacity':1.0,'positionX':20.0,'positionY':0.0}
+    assert c['keyframes']['end']=={'scale':2.0,'rotation':-45.0,'opacity':0.25,'positionX':0.0,'positionY':-35.0}
+
+
 def test_project_numeric_strings_remain_legacy_compatible():
     result=normalize_track_solo({'duration':'12.5','fps':'29.6','clips':[],'assets':[]})
     assert result['duration']==12.5
