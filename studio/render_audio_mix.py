@@ -6,6 +6,7 @@ music ducking that only applies while voice clips overlap. Uses only FFmpeg.
 """
 from __future__ import annotations
 import json, math, pathlib, re, shutil, subprocess, sys, tempfile
+from media_identity import asset_map, normalize_project_media_ids
 from render_quality import resolve_render_quality
 from track_state_render import normalize_track_solo
 
@@ -13,9 +14,13 @@ if len(sys.argv) != 5:
     raise SystemExit('Usage: render_audio_mix.py project.json assets_dir video_only.mp4 output.mp4')
 
 project_path=pathlib.Path(sys.argv[1]); assets_dir=pathlib.Path(sys.argv[2]); video_in=pathlib.Path(sys.argv[3]); out=pathlib.Path(sys.argv[4])
-project=normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8')))
+# This mixer is normally called through render_motion_text.py, which already
+# canonicalizes media IDs. Keep the direct entrypoint equally safe: legacy
+# numeric/string aliases such as 0, "00" and "+0.0" must resolve to the same
+# asset instead of disappearing from audio-only tests/tools or raising lookups.
+project=normalize_project_media_ids(normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8'))))
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
-clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[]) if isinstance(a,dict) and a.get('id')}
+clips=project.get('clips',[]); amap=asset_map(project)
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 VISUAL_AUDIO_TRACKS=(0,1)
 AUDIO_TRACKS=(4,5,6)
