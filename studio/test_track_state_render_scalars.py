@@ -87,6 +87,30 @@ def test_visual_ranges_are_clamped_before_ffmpeg():
     assert c['positionY']==-100.0
 
 
+def test_motion_text_numeric_strings_remain_legacy_compatible():
+    c=normalized(fontSize='52',textX='12.5',textY='-10',boxOpacity='.4')
+    assert c['fontSize']==52.0
+    assert c['textX']==12.5
+    assert c['textY']==-10.0
+    assert c['boxOpacity']==0.4
+
+
+def test_motion_text_invalid_values_use_safe_defaults():
+    c=normalized(fontSize=True,textX=['4'],textY={'bad':1},boxOpacity='Infinity')
+    assert c['fontSize']==40.0
+    assert c['textX']==0.0
+    assert c['textY']==-28.0
+    assert c['boxOpacity']==0.55
+
+
+def test_motion_text_ranges_are_clamped_before_ffmpeg():
+    c=normalized(fontSize='999',textX='999',textY='-999',boxOpacity='3')
+    assert c['fontSize']==84.0
+    assert c['textX']==45.0
+    assert c['textY']==-45.0
+    assert c['boxOpacity']==1.0
+
+
 def test_keyframe_visual_scalars_are_canonicalized_without_mutating_source():
     original={'start':{'scale':'1.25','rotation':True,'opacity':['.5'],'positionX':'20','positionY':'Infinity'},'end':{'scale':'2','rotation':'-45','opacity':'0.25','positionX':{},'positionY':'-35'}}
     c=normalized(keyframes=original)
