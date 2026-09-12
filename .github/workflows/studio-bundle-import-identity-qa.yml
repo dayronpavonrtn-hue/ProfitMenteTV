@@ -1,0 +1,29 @@
+name: ProfitMente Studio Bundle Import Identity QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/bundle-import-identity-guard.js'
+      - 'studio/test_bundle_import_identity_strict.js'
+      - '.github/workflows/studio-bundle-import-identity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-import-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check guard syntax
+        run: node --check studio/bundle-import-identity-guard.js
+      - name: Check regression syntax
+        run: node --check studio/test_bundle_import_identity_strict.js
+      - name: Run bundle identity regression
+        run: node studio/test_bundle_import_identity_strict.js
