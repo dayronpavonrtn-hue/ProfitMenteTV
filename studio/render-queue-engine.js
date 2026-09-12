@@ -117,7 +117,6 @@ class ProfitMenteRenderQueueEngine{
     this.items.splice(index,1);return true;
   }
   movePending(id,direction){
-    if(this.running)return false;
     const pending=this.pending();
     const pos=pending.findIndex(item=>item.id===id);
     if(pos<0)return false;
@@ -131,7 +130,6 @@ class ProfitMenteRenderQueueEngine{
     return true;
   }
   retry(id){
-    if(this.running)return false;
     const item=this.get(id);
     if(!item||!['error','cancelled'].includes(item.status))return false;
     item.status='pending';
@@ -143,7 +141,6 @@ class ProfitMenteRenderQueueEngine{
     return true;
   }
   retryFailed(){
-    if(this.running)return 0;
     let count=0;
     for(const item of this.items)if(item.status==='error'&&this.retry(item.id))count+=1;
     return count;
