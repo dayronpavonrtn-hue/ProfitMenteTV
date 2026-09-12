@@ -9,7 +9,11 @@
       this.maxSamplesPerSpan=Math.max(2,Math.min(48,Number(options.maxSamplesPerSpan)||24));
       this.minSpan=Math.max(.001,Number(options.minSpan)||.01);
     }
-    finite(value,fallback=0){const n=Number(value);return Number.isFinite(n)?n:fallback}
+    finite(value,fallback=0){
+      if(typeof value==='number')return Number.isFinite(value)?value:fallback;
+      if(typeof value!=='string'||!value.trim())return fallback;
+      const n=Number(value);return Number.isFinite(n)?n:fallback;
+    }
     legacyState(state){return {positionX:state.x,positionY:state.y,scale:state.scale,rotation:state.rotation,opacity:state.opacity}}
     clone(value){return typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value))}
     stateAt(clip,time){return this.engine.stateAt(clip,time)}
