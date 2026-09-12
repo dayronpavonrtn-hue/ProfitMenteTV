@@ -7,8 +7,11 @@
   }
   function track(v){const n=scalar(v);return Number.isInteger(n)&&n>=0&&n<=1?n:null}
   function normalizeDuration(clip){
-    const d=scalar(clip?.duration),raw=scalar(clip?.transitionDuration);
-    if(d===null||d<=0||raw===null||raw<=0)return null;
+    const d=scalar(clip?.duration);if(d===null||d<=0)return null;
+    const fallback=Math.min(.28,Math.max(.08,d*.12));
+    const rawValue=clip?.transitionDuration;
+    const parsed=rawValue===undefined||rawValue===null?fallback:scalar(rawValue);
+    const raw=parsed===null?fallback:parsed;
     return Math.max(.05,Math.min(2,d,raw));
   }
   function above(candidate,current){
