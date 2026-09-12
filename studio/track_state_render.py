@@ -142,12 +142,11 @@ def _normalize_text_scalars(clip):
 def _normalize_caption_word_timings(clip):
     """Keep per-word caption timing safe for FFmpeg drawtext generation.
 
-    Word timing entries are optional and the renderer already supplies sensible
-    clip-relative defaults when ``start``/``end`` are absent.  Malformed imported
-    values must therefore become absent instead of reaching Python ``float(...)``
-    where booleans can silently become 0/1. Legacy finite numeric strings remain
-    supported. Non-dict entries are discarded because the renderer cannot consume
-    them meaningfully.
+    Word timing animation is optional. If any persisted timing entry is malformed,
+    incomplete or non-monotonic, fail closed by clearing the timing list so the MP4
+    renderer falls back to the complete static/dynamic caption text. This avoids a
+    missing ``start``/``end`` being interpreted by renderer defaults as a short word
+    at the beginning of the clip. Legacy finite numeric strings remain supported.
     """
     timings=clip.get('wordTimings')
     if not isinstance(timings,list):
@@ -155,16 +154,22 @@ def _normalize_caption_word_timings(clip):
     normalized=[]
     for item in timings:
         if not isinstance(item,dict):
-            continue
-        for key in ('start','end'):
-            if key not in item:
-                continue
-            value=_finite_scalar(item.get(key),None)
-            if value is None:
-                item.pop(key,None)
-            else:
-                item[key]=value
-        normalized.append(item)
+            clip['wordTimings']=[]
+            return
+        start=_finite_scalar(item.get('start'),None)
+        end=_finite_scalar(item.get('end'),None)
+        if start is None or end is None or end<=start:
+            clip['wordTimings']=[]
+            return
+        word=str(item.get('word','')).strip()
+        if not word:
+            clip['wordTimings']=[]
+            return
+        copy_item=dict(item)
+        copy_item['word']=word
+        copy_item['start']=start
+        copy_item['end']=end
+        normalized.append(copy_item)
     clip['wordTimings']=normalized
 
 
