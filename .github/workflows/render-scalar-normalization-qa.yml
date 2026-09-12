@@ -7,7 +7,9 @@ on:
       - 'studio/track_state_render.py'
       - 'studio/media_identity.py'
       - 'studio/render_mp4.py'
+      - 'studio/caption_render_timing.py'
       - 'studio/test_track_state_render_scalars.py'
+      - 'studio/test_caption_absolute_render_timing.py'
       - 'studio/test_motion_text_render_zero.py'
       - 'studio/test_render_clip_boolean_flags.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
@@ -16,7 +18,9 @@ on:
       - 'studio/track_state_render.py'
       - 'studio/media_identity.py'
       - 'studio/render_mp4.py'
+      - 'studio/caption_render_timing.py'
       - 'studio/test_track_state_render_scalars.py'
+      - 'studio/test_caption_absolute_render_timing.py'
       - 'studio/test_motion_text_render_zero.py'
       - 'studio/test_render_clip_boolean_flags.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
@@ -30,10 +34,13 @@ jobs:
         with:
           python-version: '3.12'
       - name: Python syntax
-        run: python -m py_compile studio/track_state_render.py studio/render_mp4.py studio/test_track_state_render_scalars.py studio/test_motion_text_render_zero.py studio/test_render_clip_boolean_flags.py
+        run: python -m py_compile studio/track_state_render.py studio/render_mp4.py studio/caption_render_timing.py studio/test_track_state_render_scalars.py studio/test_caption_absolute_render_timing.py studio/test_motion_text_render_zero.py studio/test_render_clip_boolean_flags.py
       - name: Render scalar regression
         working-directory: studio
         run: python test_track_state_render_scalars.py
+      - name: Caption absolute/relative render timing regression
+        working-directory: studio
+        run: python test_caption_absolute_render_timing.py
       - name: Motion text zero-coordinate render regression
         working-directory: studio
         run: python test_motion_text_render_zero.py
