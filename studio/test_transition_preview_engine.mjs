@@ -19,6 +19,22 @@ assert.ok(Math.abs(z.scale-1.0125)<1e-10,'zoom scale must match MP4 1.025 -> 1.0
 assert.ok(Math.abs(z.alpha-.5)<1e-10,'zoom alpha must match MP4 fade-in');
 assert.ok(z.x<0&&z.y<0,'enlarged zoom must remain centered while cropped');
 
+// render_mp4.py derives a transition duration when older/automatic projects do not
+// persist transitionDuration. Preview must use the exact same fallback formula.
+const defaultDuration={clips:[{id:'default-duration',track:0,start:20,duration:4,transition:'fade'}]};
+s=E.state(defaultDuration,20.14);
+assert.equal(s.type,'fade');
+assert.ok(Math.abs(s.duration-.28)<1e-12,'4s clip must use MP4 fallback min(.28,max(.08,d*.12))');
+assert.ok(Math.abs(s.progress-.5)<1e-10,'default transition progress must match MP4');
+assert.equal(E.state(defaultDuration,20.28),null,'default transition must end at the MP4 fallback duration');
+const shortDefault={clips:[{id:'short-default',track:0,start:2,duration:.5,transition:'slide'}]};
+s=E.state(shortDefault,2.04);
+assert.ok(Math.abs(s.duration-.08)<1e-12,'short clips must use the MP4 minimum fallback duration');
+assert.ok(Math.abs(s.progress-.5)<1e-10);
+const invalidDuration={clips:[{id:'invalid-duration',track:0,start:3,duration:4,transition:'zoom',transitionDuration:'not-a-number'}]};
+s=E.state(invalidDuration,3.14);
+assert.ok(Math.abs(s.duration-.28)<1e-12,'invalid explicit duration must fall back like render_mp4.py');
+
 // render_mp4.py intentionally skips visual transitions for clips that begin at t=0.
 // Preview must do the same or the first frame shown while editing will not match MP4.
 for(const type of ['fade','slide','zoom']){
@@ -54,6 +70,6 @@ for(const bad of [true,[],{},'',NaN,Infinity]){
   const p={clips:[{track:0,start:bad,duration:4,transition:'fade',transitionDuration:.5}]};
   assert.equal(E.state(p,0),null,'invalid scalar start must be rejected');
 }
-assert.equal(E.state({clips:[{track:0,start:0,duration:4,transition:'fade',transitionDuration:true}]},0),null,'boolean transition duration must be rejected');
+assert.equal(E.state({clips:[{track:0,start:0,duration:4,transition:'fade',transitionDuration:true}]},0),null,'boolean transition duration must not animate a clip at timeline zero');
 assert.equal(E.state({clips:[{track:'0',start:'2',duration:'4',transition:'fade',transitionDuration:'0.5'}]},'2.25').progress,.5,'numeric legacy strings remain supported');
 console.log('transition preview regression: ok');
