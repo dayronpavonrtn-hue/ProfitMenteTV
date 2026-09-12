@@ -119,6 +119,26 @@ def _normalize_visual_scalars(clip):
             frame[key]=_bounded_scalar(frame.get(key),default,low,high)
 
 
+def _normalize_text_scalars(clip):
+    """Canonicalize numeric motion-text values before drawtext expressions.
+
+    In particular, zero is a valid centered text position.  The MP4 renderer used
+    legacy ``value or default`` coercion for these fields, which could turn a real
+    ``textY=0`` into ``-28`` and could allow booleans/collections to diverge from
+    browser preview semantics.  Normalize the render copy once so all consumers
+    receive finite, bounded numbers while retaining legacy numeric strings.
+    """
+    fields={
+        'fontSize':(40.0,16.0,84.0),
+        'textX':(0.0,-45.0,45.0),
+        'textY':(-28.0,-45.0,45.0),
+        'boxOpacity':(0.55,0.0,1.0),
+    }
+    for key,(default,low,high) in fields.items():
+        if key in clip:
+            clip[key]=_bounded_scalar(clip.get(key),default,low,high)
+
+
 def _normalize_clip_scalars(clip):
     """Canonicalize the timing and visual scalars every render path depends on."""
     if not isinstance(clip,dict):
@@ -138,6 +158,7 @@ def _normalize_clip_scalars(clip):
         else:
             clip['transitionDuration']=max(0.05,min(2.0,value))
     _normalize_visual_scalars(clip)
+    _normalize_text_scalars(clip)
 
 
 def _state(states, track):
