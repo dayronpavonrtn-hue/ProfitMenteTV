@@ -12,8 +12,12 @@ assert.equal(E.state(project,3.99),null,'cut must not animate');
 let s=E.state(project,4);assert.equal(s.type,'fade');assert.equal(s.progress,0);
 s=E.state(project,4.25);assert.equal(s.progress,.5);assert.equal(E.transform(s,100,100).alpha,.5);
 assert.equal(E.state(project,4.5),null,'transition must end at its configured duration');
-s=E.state(project,8.2);assert.equal(s.type,'slide');assert.ok(Math.abs(E.transform(s,100,100).x-50)<1e-8);
-s=E.state(project,12.25);assert.equal(s.type,'zoom');const z=E.transform(s,100,200);assert.ok(z.scale>.88&&z.scale<1);assert.ok(z.alpha>.4&&z.alpha<1);
+s=E.state(project,8.2);assert.equal(s.type,'slide');
+let slide=E.transform(s,100,100);assert.ok(Math.abs(slide.x-50)<1e-8);assert.equal(slide.alpha,.5,'slide alpha must match MP4 fade-in');
+s=E.state(project,12.25);assert.equal(s.type,'zoom');const z=E.transform(s,100,200);
+assert.ok(Math.abs(z.scale-1.0125)<1e-10,'zoom scale must match MP4 1.025 -> 1.0 settle');
+assert.equal(z.alpha,.5,'zoom alpha must match MP4 fade-in');
+assert.ok(z.x<0&&z.y<0,'enlarged zoom must remain centered while cropped');
 
 // render_mp4.py intentionally skips visual transitions for clips that begin at t=0.
 // Preview must do the same or the first frame shown while editing will not match MP4.
