@@ -15,7 +15,16 @@
       const n=Number(value);return Number.isFinite(n)?n:fallback;
     }
     legacyState(state){return {positionX:state.x,positionY:state.y,scale:state.scale,rotation:state.rotation,opacity:state.opacity}}
-    clone(value){return typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value))}
+    clone(value){
+      if(typeof structuredClone==='function'){
+        try{return structuredClone(value)}catch(_error){}
+      }
+      // Imported/recovered JSON should be data-only, but malformed in-memory
+      // payloads can still contain functions, accessors or other values that the
+      // platform structured clone algorithm rejects. JSON fallback strips those
+      // non-project values instead of aborting the whole MP4 preparation step.
+      return JSON.parse(JSON.stringify(value));
+    }
     stateAt(clip,time){return this.engine.stateAt(clip,time)}
     easingForSpan(clip,start){return this.engine.easingAt(clip,Math.min(this.engine.duration(clip),start+this.engine.tolerance*2))}
     splitSpan(start,end,easing){
