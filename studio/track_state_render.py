@@ -14,7 +14,7 @@ from media_identity import normalize_project_media_ids
 
 VISUAL_TRACKS=(0,1,2,3)
 AUDIO_TRACKS=(4,5,6)
-VALID_TRANSITIONS=('none','fade','slide')
+VALID_TRANSITIONS=('cut','none','fade','slide','zoom')
 
 
 def _is_true(value):
@@ -253,10 +253,9 @@ def _normalize_clip_flags(clip):
 def _normalize_clip_transition(clip):
     """Fail closed when an imported project carries an unknown transition mode.
 
-    FFmpeg's transition branch historically interpreted every value other than
-    ``none``/``slide`` as a fade. A typo, boolean, object or future unsupported
-    transition could therefore change the exported picture instead of degrading
-    safely. Keep only the three transition modes implemented by the local renderer.
+    The local FFmpeg compositor implements cut/none plus fade, slide and zoom.
+    Imported typos, booleans, objects or future unsupported transition names must
+    degrade safely to ``none`` instead of being interpreted as another effect.
     """
     if 'transition' not in clip:
         return
@@ -357,7 +356,7 @@ def _base_hidden(state):
 
 def _base_muted(state):
     if _is_true(state.get('_soloAudioActive')):
-        return _is_true(state.get('_soloMutedBase',False))
+        return _is_true(state.get('muted',False))
     return _is_true(state.get('muted',False))
 
 
