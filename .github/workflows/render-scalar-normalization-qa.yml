@@ -8,6 +8,7 @@ on:
       - 'studio/media_identity.py'
       - 'studio/render_mp4.py'
       - 'studio/test_track_state_render_scalars.py'
+      - 'studio/test_motion_text_render_zero.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'studio/media_identity.py'
       - 'studio/render_mp4.py'
       - 'studio/test_track_state_render_scalars.py'
+      - 'studio/test_motion_text_render_zero.py'
       - '.github/workflows/render-scalar-normalization-qa.yml'
 
 jobs:
@@ -26,7 +28,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Python syntax
-        run: python -m py_compile studio/track_state_render.py studio/test_track_state_render_scalars.py
+        run: python -m py_compile studio/track_state_render.py studio/render_mp4.py studio/test_track_state_render_scalars.py studio/test_motion_text_render_zero.py
       - name: Render scalar regression
         working-directory: studio
         run: python test_track_state_render_scalars.py
+      - name: Motion text zero-coordinate render regression
+        working-directory: studio
+        run: python test_motion_text_render_zero.py
