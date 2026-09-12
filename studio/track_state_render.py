@@ -139,6 +139,23 @@ def _normalize_text_scalars(clip):
             clip[key]=_bounded_scalar(clip.get(key),default,low,high)
 
 
+def _normalize_audio_scalars(clip):
+    """Canonicalize volume values before the FFmpeg audio graph consumes them.
+
+    The audio renderer still converts ``volume`` and ``sourceVolume`` directly with
+    ``float(...)``. Imported arrays/objects can therefore crash export, while JSON
+    booleans are silently accepted by Python as 0/1 and diverge from Studio's strict
+    numeric semantics. Defaults mirror render_mp4.py and depend on the canonical
+    track so old projects containing numeric strings remain compatible.
+    """
+    track=clip.get('track')
+    if 'volume' in clip:
+        default=0.22 if track==5 else 1.0
+        clip['volume']=_bounded_scalar(clip.get('volume'),default,0.0,4.0)
+    if 'sourceVolume' in clip:
+        clip['sourceVolume']=_bounded_scalar(clip.get('sourceVolume'),1.0,0.0,2.0)
+
+
 def _normalize_clip_scalars(clip):
     """Canonicalize the timing and visual scalars every render path depends on."""
     if not isinstance(clip,dict):
@@ -159,6 +176,7 @@ def _normalize_clip_scalars(clip):
             clip['transitionDuration']=max(0.05,min(2.0,value))
     _normalize_visual_scalars(clip)
     _normalize_text_scalars(clip)
+    _normalize_audio_scalars(clip)
 
 
 def _state(states, track):
