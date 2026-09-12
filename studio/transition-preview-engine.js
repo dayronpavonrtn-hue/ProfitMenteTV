@@ -24,7 +24,7 @@
       for(const clip of Array.isArray(project?.clips)?project.clips:[]){
         const clipOrder=order++;
         const tr=track(clip?.track),start=scalar(clip?.start),duration=scalar(clip?.duration),td=normalizeDuration(clip),type=String(clip?.transition||'cut').toLowerCase();
-        if(tr===null||start===null||duration===null||duration<=0||!TYPES.has(type)||td===null)continue;
+        if(tr===null||start===null||start<=0||duration===null||duration<=0||!TYPES.has(type)||td===null)continue;
         if(t<start||t>=start+duration||t>=start+td)continue;
         const progress=Math.max(0,Math.min(1,(t-start)/td));
         const candidate={type,progress,track:tr,start,duration:td,clipId:clip.id??null,order:clipOrder};
