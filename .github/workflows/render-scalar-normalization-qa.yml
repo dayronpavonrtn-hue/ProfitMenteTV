@@ -1,0 +1,32 @@
+name: ProfitMente Studio Render Scalar Normalization QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/track_state_render.py'
+      - 'studio/media_identity.py'
+      - 'studio/render_mp4.py'
+      - 'studio/test_track_state_render_scalars.py'
+      - '.github/workflows/render-scalar-normalization-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/track_state_render.py'
+      - 'studio/media_identity.py'
+      - 'studio/render_mp4.py'
+      - 'studio/test_track_state_render_scalars.py'
+      - '.github/workflows/render-scalar-normalization-qa.yml'
+
+jobs:
+  render-scalar-normalization-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax
+        run: python -m py_compile studio/track_state_render.py studio/test_track_state_render_scalars.py
+      - name: Render scalar regression
+        working-directory: studio
+        run: python test_track_state_render_scalars.py
