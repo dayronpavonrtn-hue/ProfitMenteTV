@@ -13,8 +13,14 @@ class ProfitMenteMediaReplaceEngine{
   static findClip(project,id){return (project?.clips||[]).find(c=>this.sameId(c?.id,id))||null}
   static findAsset(assets,id){return (Array.isArray(assets)?assets:[]).find(a=>this.sameId(a?.id,id))||null}
   static matchingClips(project,id){return (Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.sameId(c?.id,id))}
+  static strictFinite(value){
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string')return null;
+    const raw=value.trim();if(!raw||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
+    const n=Number(raw);return Number.isFinite(n)?n:null;
+  }
   static trackKind(track){
-    const t=Number(track);
+    const t=this.strictFinite(track);
     if(t===0||t===1)return 'visual';
     if(t===4||t===5||t===6)return 'audio';
     return 'other';
@@ -37,19 +43,15 @@ class ProfitMenteMediaReplaceEngine{
   static canReplace(clip,asset){return !!clip&&!!asset&&this.trackKind(clip.track)===this.assetKind(asset)&&this.assetKind(asset)!=='other'}
   static sourceWindow(clip,asset){
     if(asset?.type==='image')return {known:false,offset:0,maxDuration:Infinity};
-    const raw=Number(asset?.duration),known=Number.isFinite(raw)&&raw>0;
-    const native=known?raw:0,speed=Math.max(.01,Number(clip?.speed)||1);
-    let offset=Math.max(0,Number(clip?.sourceOffset)||0);
+    const raw=this.strictFinite(asset?.duration),known=raw!==null&&raw>0;
+    const native=known?raw:0;
+    const parsedSpeed=this.strictFinite(clip?.speed),speed=Math.max(.01,parsedSpeed!==null&&parsedSpeed>0?parsedSpeed:1);
+    const parsedOffset=this.strictFinite(clip?.sourceOffset);
+    let offset=Math.max(0,parsedOffset!==null?parsedOffset:0);
     if(known)offset=Math.min(offset,Math.max(0,native-.05));
     return {known,native,speed,offset,maxDuration:known?Math.max(0,(native-offset)/speed):Infinity};
   }
   static maxTimelineDuration(clip,asset){return this.sourceWindow(clip,asset).maxDuration}
-  static strictFinite(value){
-    if(typeof value==='number')return Number.isFinite(value)?value:null;
-    if(typeof value!=='string')return null;
-    const raw=value.trim();if(!raw||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw))return null;
-    const n=Number(raw);return Number.isFinite(n)?n:null;
-  }
   static replace(project,clipId,asset){
     const clip=this.findClip(project,clipId);
     if(!clip)return {ok:false,reason:'clip-missing'};
@@ -62,15 +64,18 @@ class ProfitMenteMediaReplaceEngine{
     clip.asset=asset.id;clip.name=asset.name||clip.name||'Clip';
     if(asset.type==='image')clip.sourceOffset=0;
     else clip.sourceOffset=window.offset;
-    const currentDuration=Number(clip.duration);
-    if(!Number.isFinite(currentDuration)||currentDuration<this.MIN_CLIP_DURATION){
+    const currentDuration=this.strictFinite(clip.duration);
+    if(currentDuration===null||currentDuration<this.MIN_CLIP_DURATION){
       clip.duration=window.known?Math.min(this.MIN_CLIP_DURATION,window.maxDuration):this.MIN_CLIP_DURATION;
     }else if(Number.isFinite(window.maxDuration)&&currentDuration>window.maxDuration){
       clip.duration=Math.max(this.MIN_CLIP_DURATION,window.maxDuration);
     }
-    if(Number(clip.fadeIn)>Number(clip.duration))clip.fadeIn=Number(clip.duration);
-    if(Number(clip.fadeOut)>Number(clip.duration))clip.fadeOut=Number(clip.duration);
-    return {ok:true,clip,before,trimmed:Number(clip.duration)<Number(before.duration)};
+    const finalDuration=this.strictFinite(clip.duration)??this.MIN_CLIP_DURATION;
+    const fadeIn=this.strictFinite(clip.fadeIn),fadeOut=this.strictFinite(clip.fadeOut);
+    if(fadeIn!==null&&fadeIn>finalDuration)clip.fadeIn=finalDuration;
+    if(fadeOut!==null&&fadeOut>finalDuration)clip.fadeOut=finalDuration;
+    const beforeDuration=this.strictFinite(before.duration);
+    return {ok:true,clip,before,trimmed:beforeDuration!==null&&finalDuration<beforeDuration};
   }
   static replaceFromRange(project,clipId,asset,inPoint,outPoint){
     const matches=this.matchingClips(project,clipId);
