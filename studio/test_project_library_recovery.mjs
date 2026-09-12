@@ -68,6 +68,31 @@ assert.equal(JSON.parse(mixedStorage.getItem(mixed.backupKey)).length,2,'the rep
 assert.doesNotThrow(()=>mixed.list(),'a repaired library can be listed repeatedly without crashing the Studio panel');
 assert.equal(mixed.recoveryState().repairedCorruptRows,true);
 
+const duplicateStorage=new Mem();
+const duplicateRaw=JSON.stringify([
+  {
+    id:7,name:'Versión anterior',createdAt:'2026-09-01T00:00:00.000Z',updatedAt:'2026-09-10T10:00:00.000Z',
+    project:{...validProject,name:'Versión anterior',libraryId:7}
+  },
+  {
+    id:'7',name:'Versión nueva',createdAt:'2026-09-05T00:00:00.000Z',updatedAt:'2026-09-12T10:00:00.000Z',
+    project:{...validProject,name:'Versión nueva',libraryId:'7'}
+  }
+]);
+duplicateStorage.setItem(mixedKey,duplicateRaw);
+const duplicateLibrary=new ProfitMenteProjectLibrary(duplicateStorage,mixedKey);
+const duplicateRows=duplicateLibrary.list();
+assert.equal(duplicateRows.length,1,'duplicate logical ids are collapsed into one project');
+assert.equal(duplicateRows[0].id,'7','legacy numeric and string ids share the same normalized identity');
+assert.equal(duplicateRows[0].project.name,'Versión nueva','the most recently updated duplicate wins');
+assert.equal(duplicateRows[0].createdAt,'2026-09-01T00:00:00.000Z','deduplication preserves the earliest creation timestamp');
+assert.equal(duplicateRows[0].updatedAt,'2026-09-12T10:00:00.000Z');
+assert.equal(duplicateLibrary.repairedCorruptRows,true);
+assert.equal(duplicateLibrary.quarantinedCorrupt,true);
+assert.equal(duplicateStorage.getItem(duplicateLibrary.corruptKey),duplicateRaw,'duplicate source data is quarantined before repair');
+assert.equal(JSON.parse(duplicateStorage.getItem(duplicateLibrary.key)).length,1,'the repaired primary slot no longer contains ambiguous duplicate ids');
+assert.equal(duplicateLibrary.load(7).name,'Versión nueva','load resolves the repaired identity deterministically');
+
 const partialBackupStorage=new Mem();
 partialBackupStorage.setItem(`${mixedKey}-last-good`,JSON.stringify([
   null,
@@ -104,4 +129,4 @@ assert.equal(denied.storageAvailable,true);
 assert.equal(denied.memoryDirty,false);
 assert.equal(JSON.parse(deniedStorage.getItem(denied.backupKey))[0].project.duration,120,'backup advances after storage recovers');
 
-console.log('Project library last-good recovery + partial corruption repair + failed-write safety OK');
+console.log('Project library last-good recovery + partial corruption repair + duplicate-id repair + failed-write safety OK');
