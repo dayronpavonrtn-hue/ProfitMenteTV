@@ -11,6 +11,7 @@ on:
       - 'studio/auto-finish-integration.js'
       - 'studio/feature-bootstrap.js'
       - 'studio/test_auto_transition_engine.mjs'
+      - 'studio/test_auto_transition_geometry_strict.mjs'
       - 'studio/test_transition_preview_engine.mjs'
       - 'studio/test_auto_finish_engine.mjs'
       - 'studio/test_auto_finish_wiring.mjs'
@@ -33,8 +34,11 @@ jobs:
           node --check studio/transition-preview-integration.js
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
+          node --check studio/test_auto_transition_geometry_strict.mjs
       - name: Auto transition regression
         run: node studio/test_auto_transition_engine.mjs
+      - name: Strict auto transition geometry regression
+        run: node studio/test_auto_transition_geometry_strict.mjs
       - name: Transition preview regression
         run: node studio/test_transition_preview_engine.mjs
       - name: Auto Finish regression
