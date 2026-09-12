@@ -152,6 +152,7 @@ def _normalize_caption_word_timings(clip):
     if not isinstance(timings,list):
         return
     normalized=[]
+    previous_end=None
     for item in timings:
         if not isinstance(item,dict):
             clip['wordTimings']=[]
@@ -159,6 +160,9 @@ def _normalize_caption_word_timings(clip):
         start=_finite_scalar(item.get('start'),None)
         end=_finite_scalar(item.get('end'),None)
         if start is None or end is None or end<=start:
+            clip['wordTimings']=[]
+            return
+        if previous_end is not None and start<previous_end:
             clip['wordTimings']=[]
             return
         word=str(item.get('word','')).strip()
@@ -170,6 +174,7 @@ def _normalize_caption_word_timings(clip):
         copy_item['start']=start
         copy_item['end']=end
         normalized.append(copy_item)
+        previous_end=end
     clip['wordTimings']=normalized
 
 
