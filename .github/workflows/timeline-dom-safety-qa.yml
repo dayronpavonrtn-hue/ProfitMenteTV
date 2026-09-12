@@ -1,0 +1,38 @@
+name: ProfitMente Studio Timeline DOM Safety QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/app.js'
+      - '.github/workflows/timeline-dom-safety-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeline-dom-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Studio JavaScript syntax
+        run: node --check studio/app.js
+      - name: Guard timeline labels against HTML interpretation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('studio/app.js').read_text(encoding='utf-8')
+          start = source.index('function drawTimeline()')
+          end = source.index('function startDrag', start)
+          draw = source[start:end]
+
+          assert "tracks.replaceChildren()" in draw, 'timeline root should be rebuilt without HTML strings'
+          assert "trackName.textContent=n" in draw, 'track label must use textContent'
+          assert "clip.textContent=c.name??''" in draw, 'clip name must use textContent'
+          assert "r.innerHTML=" not in draw, 'timeline must not inject project values with innerHTML'
+          assert "${c.name}" not in draw, 'clip names must not be interpolated into markup'
+          print('Timeline DOM safety QA passed')
+          PY
