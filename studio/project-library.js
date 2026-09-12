@@ -7,7 +7,7 @@ class ProfitMenteProjectLibrary{
   _clone(items){return structuredClone(Array.isArray(items)?items:[])}
   _parse(raw){if(raw==null)return null;const value=JSON.parse(raw);return Array.isArray(value)?value:null}
   _sanitize(items){
-    const clean=[],epoch='1970-01-01T00:00:00.000Z';let changed=false;
+    const clean=[],byId=new Map(),epoch='1970-01-01T00:00:00.000Z';let changed=false;
     for(const row of Array.isArray(items)?items:[]){
       if(!row||typeof row!=='object'||Array.isArray(row)){changed=true;continue}
       const id=libraryIdKey(row.id),validProject=row.project&&typeof row.project==='object'&&!Array.isArray(row.project);
@@ -21,7 +21,14 @@ class ProfitMenteProjectLibrary{
       const safeCreated=created||updated||epoch,safeUpdated=updated||created||safeCreated;
       if(copy.createdAt!==safeCreated){copy.createdAt=safeCreated;changed=true}
       if(copy.updatedAt!==safeUpdated){copy.updatedAt=safeUpdated;changed=true}
-      clean.push(copy);
+      const existingIndex=byId.get(id);
+      if(existingIndex!==undefined){
+        changed=true;const existing=clean[existingIndex],earliestCreated=copy.createdAt<existing.createdAt?copy.createdAt:existing.createdAt;
+        if(copy.updatedAt>existing.updatedAt){copy.createdAt=earliestCreated;clean[existingIndex]=copy}
+        else if(existing.createdAt!==earliestCreated)existing.createdAt=earliestCreated;
+        continue;
+      }
+      byId.set(id,clean.length);clean.push(copy);
     }
     return {items:clean,changed};
   }
