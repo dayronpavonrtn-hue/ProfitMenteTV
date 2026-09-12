@@ -69,4 +69,46 @@ assert.equal(engine.finiteNumber(Infinity), null);
 assert.equal(engine.finiteNumber(''), null);
 assert.equal(engine.finiteNumber(true), null);
 
-console.log('audio preview identity regression: PASS');
+function makeScheduleEngine(){
+  const e=new ProfitMenteAudioEngine(),starts=[];
+  e.init=()=>{};
+  e.syncTrackGains=()=>{};
+  e.monitor={gain:{value:1}};
+  e.master={};
+  e.trackGains={4:{},5:{},6:{}};
+  e.ctx={
+    currentTime:0,
+    resume:async()=>{},
+    createBufferSource(){return {buffer:null,playbackRate:{value:1},connect(){},start(...args){starts.push(args)},stop(){}}},
+    createGain(){return {gain:{value:1,cancelScheduledValues(){},setValueAtTime(){},linearRampToValueAtTime(){}},connect(){}}},
+  };
+  return {e,starts};
+}
+
+{
+  const {e,starts}=makeScheduleEngine();
+  e.buffer=async()=>{e.ctx.currentTime+=0.2;return {duration:10}};
+  const project={clips:[
+    {id:'a',track:4,asset:'one',start:0,duration:2,volume:1},
+    {id:'b',track:4,asset:'two',start:1,duration:2,volume:1},
+  ]};
+  const media=[{id:'one',type:'audio',name:'one.wav',blob:{}},{id:'two',type:'audio',name:'two.wav',blob:{}}];
+  assert.equal(await e.schedule(project,media,0,false),true);
+  assert.equal(starts.length,2);
+  assert.ok(starts[0][0]>=0.45,'el primer clip debe anclarse después de terminar todas las decodificaciones');
+  assert.ok(Math.abs((starts[1][0]-starts[0][0])-1)<1e-9,'los clips deben conservar su separación de timeline con un ancla común');
+}
+
+{
+  const {e,starts}=makeScheduleEngine();
+  let release;
+  e.buffer=()=>new Promise(resolve=>{release=resolve});
+  const pending=e.schedule({clips:[{track:4,asset:'slow',start:0,duration:1}]},[{id:'slow',type:'audio',name:'slow.wav',blob:{}}],0,false);
+  await Promise.resolve();
+  e.stop();
+  release({duration:10});
+  assert.equal(await pending,false,'una programación reemplazada durante decode debe abortarse');
+  assert.equal(starts.length,0,'una programación obsoleta no debe iniciar nodos de audio');
+}
+
+console.log('audio preview identity + decode-safe scheduling regression: PASS');
