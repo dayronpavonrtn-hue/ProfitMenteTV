@@ -111,6 +111,28 @@ def test_motion_text_ranges_are_clamped_before_ffmpeg():
     assert c['boxOpacity']==1.0
 
 
+def test_audio_volume_numeric_strings_remain_legacy_compatible():
+    c=normalized(track='5',volume='.35',sourceVolume='1.5')
+    assert c['track']==5
+    assert c['volume']==0.35
+    assert c['sourceVolume']==1.5
+
+
+def test_audio_volume_invalid_values_use_track_safe_defaults():
+    music=normalized(track=5,volume=True,sourceVolume=['1'])
+    voice=normalized(track=6,volume={'bad':1},sourceVolume='Infinity')
+    assert music['volume']==0.22
+    assert music['sourceVolume']==1.0
+    assert voice['volume']==1.0
+    assert voice['sourceVolume']==1.0
+
+
+def test_audio_volume_ranges_are_clamped_before_ffmpeg():
+    c=normalized(track=4,volume='99',sourceVolume='-2')
+    assert c['volume']==4.0
+    assert c['sourceVolume']==0.0
+
+
 def test_keyframe_visual_scalars_are_canonicalized_without_mutating_source():
     original={'start':{'scale':'1.25','rotation':True,'opacity':['.5'],'positionX':'20','positionY':'Infinity'},'end':{'scale':'2','rotation':'-45','opacity':'0.25','positionX':{},'positionY':'-35'}}
     c=normalized(keyframes=original)
