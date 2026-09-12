@@ -101,6 +101,25 @@ function makeScheduleEngine(){
 
 {
   const {e,starts}=makeScheduleEngine();
+  const releases=[]; let decodeStarts=0;
+  e.buffer=()=>new Promise(resolve=>{decodeStarts++;releases.push(resolve)});
+  const project={clips:[
+    {id:'a',track:4,asset:'one',start:0,duration:2,volume:1},
+    {id:'b',track:4,asset:'two',start:1,duration:2,volume:1},
+  ]};
+  const media=[{id:'one',type:'audio',name:'one.wav',blob:{}},{id:'two',type:'audio',name:'two.wav',blob:{}}];
+  const pending=e.schedule(project,media,0,false);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(decodeStarts,2,'las decodificaciones independientes deben comenzar en paralelo');
+  releases.forEach(resolve=>resolve({duration:10}));
+  assert.equal(await pending,true);
+  assert.equal(starts.length,2);
+  assert.ok(Math.abs((starts[1][0]-starts[0][0])-1)<1e-9,'el decode paralelo debe conservar el timing relativo');
+}
+
+{
+  const {e,starts}=makeScheduleEngine();
   let release;
   e.buffer=()=>new Promise(resolve=>{release=resolve});
   const pending=e.schedule({clips:[{track:4,asset:'slow',start:0,duration:1}]},[{id:'slow',type:'audio',name:'slow.wav',blob:{}}],0,false);
@@ -111,4 +130,4 @@ function makeScheduleEngine(){
   assert.equal(starts.length,0,'una programación obsoleta no debe iniciar nodos de audio');
 }
 
-console.log('audio preview identity + decode-safe scheduling regression: PASS');
+console.log('audio preview identity + parallel decode-safe scheduling regression: PASS');
