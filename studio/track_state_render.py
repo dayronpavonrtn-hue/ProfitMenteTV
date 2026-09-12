@@ -48,7 +48,7 @@ def _finite_scalar(value, default):
     """Return a finite JSON scalar number or a safe default.
 
     Local FFmpeg code still contains a few direct ``float(...)`` conversions for
-    core clip timing. Sanitizing the render copy here keeps malformed imports,
+    core render timing. Sanitizing the render copy here keeps malformed imports,
     booleans, arrays, objects, empty strings, NaN and infinities from either
     crashing export or being coerced differently from the browser editor. Numeric
     strings remain supported for legacy projects.
@@ -64,6 +64,18 @@ def _finite_scalar(value, default):
     except (TypeError,ValueError):
         return default
     return parsed if math.isfinite(parsed) else default
+
+
+def _normalize_project_scalars(project):
+    """Canonicalize project-level values consumed before FFmpeg is constructed."""
+    if not isinstance(project,dict):
+        return
+    if 'duration' in project:
+        project['duration']=max(0.25,_finite_scalar(project.get('duration'),45.0))
+    if 'fps' in project:
+        raw=_finite_scalar(project.get('fps'),30.0)
+        fps=int(round(raw))
+        project['fps']=fps if fps in (24,30,60) else 30
 
 
 def _normalize_clip_scalars(clip):
@@ -165,10 +177,12 @@ def normalize_track_solo(project):
     ``trackState`` or legacy ``trackStates`` is preserved, stale browser-only Solo
     bookkeeping is removed, and the legacy map is removed from the render copy so
     downstream validators/renderers consume one unambiguous source of truth.
-    Numeric legacy clip tracks, core timing scalars and media IDs are canonicalized
-    in this copy so standalone render entrypoints match browser preview/QA rules.
+    Numeric legacy clip tracks, project/clip render scalars and media IDs are
+    canonicalized in this copy so standalone render entrypoints match browser
+    preview/QA rules.
     """
     out=copy.deepcopy(project if isinstance(project,dict) else {})
+    _normalize_project_scalars(out)
     clips=out.get('clips')
     if isinstance(clips,list):
         for clip in clips:
