@@ -30,9 +30,20 @@ class ProfitMenteRenderQueueStorageEngine{
       request.onerror=()=>reject(request.error||new Error('No se pudo abrir IndexedDB'));
     });
   }
+  saveFallback(state){
+    if(this.hasBinary(state))return false;
+    try{this.localStorageRef?.setItem?.(this.key,JSON.stringify(state));return true}catch{return false}
+  }
+  loadFallback(){
+    try{
+      const raw=this.localStorageRef?.getItem?.(this.key);
+      return raw?JSON.parse(raw):null;
+    }catch{return null}
+  }
   async save(state){
     if(!state||typeof state!=='object')return false;
-    const db=await this.open();
+    let db=null;
+    try{db=await this.open()}catch{}
     if(db){
       try{
         await new Promise((resolve,reject)=>{
@@ -42,31 +53,33 @@ class ProfitMenteRenderQueueStorageEngine{
           tx.onerror=()=>reject(tx.error||new Error('No se pudo guardar la cola'));
           tx.onabort=()=>reject(tx.error||new Error('Guardado de cola cancelado'));
         });
+        try{this.localStorageRef?.removeItem?.(this.key)}catch{}
         return true;
-      }finally{db.close?.()}
+      }catch{}
+      finally{db.close?.()}
     }
-    if(this.hasBinary(state))return false;
-    try{this.localStorageRef?.setItem?.(this.key,JSON.stringify(state));return true}catch{return false}
+    return this.saveFallback(state);
   }
   async load(){
-    const db=await this.open();
+    let db=null;
+    try{db=await this.open()}catch{}
     if(db){
       try{
-        return await new Promise((resolve,reject)=>{
+        const state=await new Promise((resolve,reject)=>{
           const tx=db.transaction(this.storeName,'readonly');
           const request=tx.objectStore(this.storeName).get(this.key);
-          request.onsuccess=()=>resolve(request.result||null);
+          request.onsuccess=()=>resolve(request.result??null);
           request.onerror=()=>reject(request.error||new Error('No se pudo leer la cola'));
         });
-      }finally{db.close?.()}
+        if(state!=null)return state;
+      }catch{}
+      finally{db.close?.()}
     }
-    try{
-      const raw=this.localStorageRef?.getItem?.(this.key);
-      return raw?JSON.parse(raw):null;
-    }catch{return null}
+    return this.loadFallback();
   }
   async clear(){
-    const db=await this.open();
+    let db=null;
+    try{db=await this.open()}catch{}
     if(db){
       try{
         await new Promise((resolve,reject)=>{
@@ -76,7 +89,8 @@ class ProfitMenteRenderQueueStorageEngine{
           tx.onerror=()=>reject(tx.error||new Error('No se pudo limpiar la cola'));
           tx.onabort=()=>reject(tx.error||new Error('Limpieza de cola cancelada'));
         });
-      }finally{db.close?.()}
+      }catch{}
+      finally{db.close?.()}
     }
     try{this.localStorageRef?.removeItem?.(this.key)}catch{}
     return true;
