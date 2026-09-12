@@ -81,6 +81,22 @@ assert.equal(interruptedQueue.get('already-done'),null);
 assert.equal(interruptedQueue.retry('was-running'),true,'interrupted jobs must be manually retryable');
 assert.equal(interruptedQueue.get('was-running').status,'pending');
 
+const duplicateState={version:1,items:[
+  {id:'dup',name:'First',format:'mp4',status:'error',project:{name:'First',clips:[]},assets:[]},
+  {id:'dup-2',name:'Reserved suffix',format:'mp4',status:'cancelled',project:{name:'Reserved suffix',clips:[]},assets:[]},
+  {id:'dup',name:'Second duplicate',format:'mp4',status:'pending',project:{name:'Second duplicate',clips:[]},assets:[]},
+  {id:'',name:'Missing id',format:'mp4',status:'pending',project:{name:'Missing id',clips:[]},assets:[]}
+]};
+const duplicateQueue=new ProfitMenteRenderQueueEngine({snapshotEngine,now:()=>7000,idFactory:n=>`restored-${n}`});
+assert.equal(duplicateQueue.restoreState(duplicateState),4,'recoverable rows must be preserved even if saved ids collide');
+assert.deepEqual(duplicateQueue.items.map(item=>item.id),['dup','dup-2','dup-3','restored-1'],'restored queue ids must be unique and deterministic');
+assert.equal(new Set(duplicateQueue.items.map(item=>item.id)).size,4,'all restored queue ids must be unique');
+assert.equal(duplicateQueue.retry('dup'),true,'actions must target the first recovered job unambiguously');
+assert.equal(duplicateQueue.get('dup').name,'First');
+assert.equal(duplicateQueue.remove('dup-3'),true,'repaired duplicate ids must remain independently removable');
+assert.equal(duplicateQueue.get('dup-3'),null);
+assert.equal(duplicateQueue.get('dup-2').name,'Reserved suffix','existing ids must not be overwritten while repairing duplicates');
+
 assert.equal(queue.clearFinished(),2);
 assert.equal(queue.summary().total,0);
 
