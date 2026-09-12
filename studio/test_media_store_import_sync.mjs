@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {ProfitMenteMediaStore}=require('./media-store.js');
@@ -53,7 +54,32 @@ const syncSource=fs.readFileSync(new URL('./media-store-import-sync.js',import.m
 const bootstrap=fs.readFileSync(new URL('./feature-bootstrap.js',import.meta.url),'utf8');
 assert.match(syncSource,/profitmente:media-imported/,'import completion event must trigger media-store synchronization');
 assert.match(syncSource,/refreshFromBackend/,'sync integration must use the guarded refresh API');
+assert.match(syncSource,/assets=values/,'synchronizer must refresh the active Studio asset snapshot after the persistent cache changes');
+assert.match(syncSource,/drawLibrary/,'synchronizer must redraw the visible media library after adopting imported media');
 assert.match(bootstrap,/media-store-import-sync\.js/,'Studio feature bootstrap must load the media-store import synchronizer');
 assert.ok(bootstrap.indexOf('media-import-engine.js')<bootstrap.indexOf('media-store-import-sync.js'),'synchronizer must load after the importer that emits the completion event');
 
-console.log('Studio atomic media import -> active MediaStore synchronization + dirty-state protection OK');
+// Exercise the browser-style integration in one shared classic-script realm.
+// app.js owns `assets` as a global lexical binding, so the synchronizer must be
+// able to replace that snapshot and redraw the library without reloading Studio.
+const listeners=new Map();
+const viewRecords=[{id:'seed',name:'Inicial',type:'image'},{id:'fresh',name:'Nuevo',type:'video'}];
+const context=vm.createContext({
+  console,
+  storeForView:{async refreshFromBackend(){return viewRecords.slice()}},
+  document:{addEventListener(type,fn){listeners.set(type,fn)}}
+});
+vm.runInContext("let mediaStore=storeForView;let assets=[{id:'seed',name:'Inicial',type:'image'}];let drawCount=0;function drawLibrary(){drawCount++}globalThis.__mediaView=()=>({assets,drawCount});",context);
+vm.runInContext(syncSource,context);
+await context.ProfitMenteMediaStoreImportSync.sync();
+let view=context.__mediaView();
+assert.deepEqual(Array.from(view.assets,x=>x.id),['seed','fresh'],'explicit synchronization must replace the stale app.js asset snapshot');
+assert.equal(view.drawCount,1,'explicit synchronization must redraw the media library exactly once');
+assert.equal(typeof listeners.get('profitmente:media-imported'),'function','import event listener must be registered');
+await listeners.get('profitmente:media-imported')?.();
+await new Promise(resolve=>setImmediate(resolve));
+view=context.__mediaView();
+assert.deepEqual(Array.from(view.assets,x=>x.id),['seed','fresh'],'event-driven synchronization must keep imported media visible');
+assert.ok(view.drawCount>=2,'event-driven synchronization must redraw the visible library');
+
+console.log('Studio atomic media import -> MediaStore + active library synchronization + dirty-state protection OK');
