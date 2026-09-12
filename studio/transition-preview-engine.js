@@ -37,9 +37,13 @@
     static transform(state,width,height){
       const w=Math.max(1,scalar(width)||1),h=Math.max(1,scalar(height)||1),p=Math.max(0,Math.min(1,scalar(state?.progress)??1));
       if(state?.type==='fade')return {alpha:p,scale:1,x:0,y:0};
-      if(state?.type==='slide')return {alpha:1,scale:1,x:(1-p)*w,y:0};
+      // render_mp4.py applies the same alpha fade to slide while the overlay moves
+      // from one canvas width to its final position. Keep the editor preview exact.
+      if(state?.type==='slide')return {alpha:p,scale:1,x:(1-p)*w,y:0};
       if(state?.type==='zoom'){
-        const scale=.88+.12*p;return {alpha:.4+.6*p,scale,x:(w-w*scale)/2,y:(h-h*scale)/2};
+        // MP4 starts 2.5% enlarged and fades from transparent while settling to 1x.
+        // Center offsets are negative while scale > 1, matching the renderer crop.
+        const scale=1.025-.025*p;return {alpha:p,scale,x:(w-w*scale)/2,y:(h-h*scale)/2};
       }
       return {alpha:1,scale:1,x:0,y:0};
     }
