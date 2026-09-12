@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
+import fs from 'node:fs';
+import vm from 'node:vm';
 const require=createRequire(import.meta.url);
 const {ProfitMenteCaptionTimingEngine}=require('./caption-timing-engine.js');
 const engine=new ProfitMenteCaptionTimingEngine();
@@ -15,4 +17,22 @@ const project={duration:20,clips:[manual,{id:'old',track:3,name:'viejo',start:0,
 const result=engine.rebuildFromVoice(project);assert.equal(result.voices,1);assert.ok(result.created>=2);assert.ok(project.clips.some(c=>c.id==='manual'),'No debe borrar captions manuales');assert.ok(!project.clips.some(c=>c.id==='old'),'Debe reemplazar captions automáticos anteriores');
 assert.equal(engine.retimeCaption(manual),true);assert.equal(engine.validateCaption(manual).length,0);assert.equal(manual.animation,'word-by-word');
 const broken={track:3,name:'malo',start:5,duration:1,wordTimings:[{word:'malo',start:4,end:6}]};assert.ok(engine.validateCaption(broken).length>0,'Debe detectar word timings fuera del clip');
-console.log('caption timing engine OK', {blocks:caps.length, rebuilt:result.created});
+
+// Keep the visual word-pop behavior shown in Preview mathematically identical to
+// the FFmpeg expression used by the final MP4 renderer.
+const previewSource=fs.readFileSync(new URL('./caption-preview.js',import.meta.url),'utf8');
+const renderSource=fs.readFileSync(new URL('./render_mp4.py',import.meta.url),'utf8');
+const previewContext={renderAt:async()=>{},project:{clips:[]},ctx:{},canvas:{width:1080,height:1920},window:{},console};
+vm.createContext(previewContext);vm.runInContext(previewSource,previewContext,{filename:'caption-preview.js'});
+const popScale=previewContext.window.ProfitMenteCaptionPreview?.wordPopScale;
+assert.equal(typeof popScale,'function','Preview debe exponer la curva de pop para QA');
+const expectedPop=p=>p<=0||p>=1?1:1+0.16*Math.exp(-7*p)*Math.sin(Math.PI*p*2);
+for(const p of [0,.05,.15,.25,.49,.5,.65,.9,1])assert.ok(Math.abs(popScale(p)-expectedPop(p))<1e-12,`Preview/render pop diverge en ${p}`);
+assert.ok(popScale(.15)>1,'El pop debe expandirse al entrar');
+assert.ok(popScale(.65)<1,'El pop debe conservar el pequeño rebote del MP4');
+assert.equal(popScale(true),1,'No debe convertir booleanos en progreso');
+assert.equal(popScale({value:.2}),1,'No debe convertir objetos en progreso');
+assert.ok(Math.abs(popScale('0.25')-expectedPop(.25))<1e-12,'Debe conservar strings numéricos legacy');
+assert.match(renderSource,/1\+0\.16\*exp\(-7\*\{progress\}\)\*sin\(PI\*\{progress\}\*2\)/,'El renderer MP4 debe conservar la misma curva de pop');
+
+console.log('caption timing + preview/render parity OK', {blocks:caps.length, rebuilt:result.created});
