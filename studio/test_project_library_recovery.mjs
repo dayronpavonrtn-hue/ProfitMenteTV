@@ -37,6 +37,51 @@ assert.deepEqual(noUsableBackup.list(),[],'invalid primary plus invalid backup f
 assert.equal(noUsableBackup.storageAvailable,false);
 assert.equal(noUsableBackup.quarantinedCorrupt,true);
 
+const mixedStorage=new Mem();
+const mixedKey='profitmente-project-library';
+const validProject={name:'Conservable',duration:45,format:'9:16',mode:'Manual',clips:[]};
+const mixedRaw=JSON.stringify([
+  null,
+  {
+    id:'good',name:' Conservable ',createdAt:'2026-09-10T12:00:00.000Z',updatedAt:'2026-09-11T12:00:00.000Z',
+    project:{...validProject,libraryId:'wrong'}
+  },
+  {id:'bad-project',name:'Dañado',updatedAt:{oops:true},project:null},
+  {
+    id:'legacy-time',name:'Legacy',createdAt:'not-a-date',updatedAt:'2026-09-09T10:00:00.000Z',
+    project:{...validProject,name:'Legacy',libraryId:'legacy-time'}
+  }
+]);
+mixedStorage.setItem(mixedKey,mixedRaw);
+const mixed=new ProfitMenteProjectLibrary(mixedStorage,mixedKey);
+const mixedRows=mixed.list();
+assert.equal(mixedRows.length,2,'partially corrupt libraries retain their usable projects');
+assert.equal(mixedRows[0].id,'good');
+assert.equal(mixedRows[0].name,'Conservable','recoverable names are normalized without changing the project identity');
+assert.equal(mixedRows[0].project.libraryId,'good','row and project library ids are reconciled');
+assert.equal(mixedRows[1].createdAt,'2026-09-09T10:00:00.000Z','a valid updated timestamp repairs a broken created timestamp');
+assert.equal(mixed.repairedCorruptRows,true);
+assert.equal(mixed.quarantinedCorrupt,true);
+assert.equal(mixedStorage.getItem(mixed.corruptKey),mixedRaw,'the original mixed payload is quarantined before repair');
+assert.equal(JSON.parse(mixedStorage.getItem(mixed.key)).length,2,'the repaired primary slot contains only usable projects');
+assert.equal(JSON.parse(mixedStorage.getItem(mixed.backupKey)).length,2,'the repaired library becomes the new last-good snapshot');
+assert.doesNotThrow(()=>mixed.list(),'a repaired library can be listed repeatedly without crashing the Studio panel');
+assert.equal(mixed.recoveryState().repairedCorruptRows,true);
+
+const partialBackupStorage=new Mem();
+partialBackupStorage.setItem(`${mixedKey}-last-good`,JSON.stringify([
+  null,
+  {
+    id:'backup',name:'Backup',createdAt:'2026-09-01T00:00:00.000Z',updatedAt:'2026-09-01T01:00:00.000Z',
+    project:{...validProject,name:'Backup',libraryId:'backup'}
+  }
+]));
+const partialBackup=new ProfitMenteProjectLibrary(partialBackupStorage,mixedKey);
+const partialBackupRows=partialBackup.list();
+assert.equal(partialBackupRows.length,1,'backup recovery also ignores unusable rows instead of failing the whole snapshot');
+assert.equal(partialBackupRows[0].id,'backup');
+assert.equal(partialBackup.recoveredFromBackup,true);
+
 class WriteDenied extends Mem{
   constructor(){super();this.fail=false}
   setItem(k,v){if(this.fail&&k==='profitmente-project-library')throw new Error('quota exceeded');super.setItem(k,v)}
@@ -59,4 +104,4 @@ assert.equal(denied.storageAvailable,true);
 assert.equal(denied.memoryDirty,false);
 assert.equal(JSON.parse(deniedStorage.getItem(denied.backupKey))[0].project.duration,120,'backup advances after storage recovers');
 
-console.log('Project library last-good recovery + corruption quarantine + failed-write safety OK');
+console.log('Project library last-good recovery + partial corruption repair + failed-write safety OK');
