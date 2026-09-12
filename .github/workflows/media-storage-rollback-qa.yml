@@ -1,0 +1,29 @@
+name: ProfitMente Studio Media Storage Rollback QA
+
+on:
+  push:
+    paths:
+      - 'studio/media-storage-resilience.js'
+      - 'studio/test_media_storage_resilience_delete.js'
+      - '.github/workflows/media-storage-rollback-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/media-storage-resilience.js'
+      - 'studio/test_media_storage_resilience_delete.js'
+      - '.github/workflows/media-storage-rollback-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  media-storage-rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check storage resilience syntax
+        run: node --check studio/media-storage-resilience.js
+      - name: Verify rollback clears MediaStore and session cache
+        run: node studio/test_media_storage_resilience_delete.js
