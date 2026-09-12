@@ -23,5 +23,15 @@ const sampled=parts.find(p=>p.start>10&&p.start<12);assert(sampled);assert(sampl
 close(parts.at(-1).start+parts.at(-1).duration,14);close(parts.at(-1).sourceOffset+parts.at(-1).duration*2,10);
 const baked=baker.bakeProject({name:'x',clips:[clip,{id:'cap',track:3,start:0,duration:4,name:'hola'}]});
 assert(baked.renderCompatibility.visualKeyframesBaked);assert(baked.clips.some(c=>c.id==='cap'));assert.strictEqual(JSON.stringify(clip),original);
+const corrupt={...clip,id:'strict',start:[10],sourceOffset:{valueOf:()=>7},speed:[2]};
+const strictParts=baker.bakeClip({},corrupt);
+assert.strictEqual(strictParts[0].start,0,'array start must not coerce into render time');
+assert.strictEqual(strictParts[0].sourceOffset,0,'object sourceOffset must not coerce into media offset');
+close(strictParts.at(-1).sourceOffset+strictParts.at(-1).duration,4);
+const legacy={...clip,id:'legacy',start:'10',sourceOffset:'2',speed:'2'};
+const legacyParts=baker.bakeClip({},legacy);
+assert.strictEqual(legacyParts[0].start,10,'legacy numeric start strings remain supported');
+assert.strictEqual(legacyParts[0].sourceOffset,2,'legacy numeric sourceOffset strings remain supported');
+close(legacyParts.at(-1).sourceOffset+legacyParts.at(-1).duration*2,10);
 function close(a,b,eps=1e-8){assert(Math.abs(a-b)<=eps,`${a} != ${b}`)}
 console.log('visual keyframe render baker regression: ok');
