@@ -140,36 +140,38 @@ def _normalize_text_scalars(clip):
 
 
 def _normalize_caption_word_timings(clip):
-    """Keep per-word caption timing safe for FFmpeg drawtext generation.
+    """Keep per-word caption timing safe without changing its time coordinate.
 
-    Word timing animation is optional. If any persisted timing entry is malformed,
-    incomplete, non-monotonic or outside the caption clip window, fail closed by
-    clearing the timing list so the MP4 renderer falls back to the complete
-    static/dynamic caption text. This avoids drawing a word before the caption
-    starts or after it has already ended. Legacy finite numeric strings remain
-    supported.
+    Studio-native captions store absolute timeline seconds, while imported/legacy
+    projects may store clip-relative seconds. ``caption_render_timing.py`` accepts
+    both forms later and canonicalizes them for FFmpeg. This boundary therefore
+    validates one consistent coordinate system per caption but must not assume
+    every timing is relative to zero. Any malformed, overlapping or out-of-window
+    list fails closed to the full-caption fallback. Legacy finite numeric strings
+    remain supported.
     """
     timings=clip.get('wordTimings')
     if not isinstance(timings,list):
         return
+    clip_start=_finite_scalar(clip.get('start'),0.0)
     clip_duration=clip.get('duration')
     if isinstance(clip_duration,bool) or not isinstance(clip_duration,(int,float)) or not math.isfinite(clip_duration):
         clip_duration=None
+    clip_end=clip_start+clip_duration if clip_duration is not None else None
+    declared=clip.get('wordTimingMode')
+    declared=declared.strip().lower() if isinstance(declared,str) else ''
+    if declared not in ('relative','absolute'):
+        declared=''
+
     normalized=[]
-    previous_end=None
+    raw_ranges=[]
     for item in timings:
         if not isinstance(item,dict):
             clip['wordTimings']=[]
             return
         start=_finite_scalar(item.get('start'),None)
         end=_finite_scalar(item.get('end'),None)
-        if start is None or end is None or start<0 or end<=start:
-            clip['wordTimings']=[]
-            return
-        if clip_duration is not None and end>clip_duration:
-            clip['wordTimings']=[]
-            return
-        if previous_end is not None and start<previous_end:
+        if start is None or end is None or end<=start:
             clip['wordTimings']=[]
             return
         word=str(item.get('word','')).strip()
@@ -181,6 +183,38 @@ def _normalize_caption_word_timings(clip):
         copy_item['start']=start
         copy_item['end']=end
         normalized.append(copy_item)
+        raw_ranges.append((start,end))
+
+    if clip_duration is not None:
+        epsilon=1e-6
+        relative_ok=all(start>=-epsilon and end<=clip_duration+epsilon for start,end in raw_ranges)
+        absolute_ok=all(start>=clip_start-epsilon and end<=clip_end+epsilon for start,end in raw_ranges)
+        explicit_relative=declared=='relative' or any(item.get('relative') is True for item in timings)
+        if declared=='absolute':
+            coordinate='absolute'
+        elif explicit_relative:
+            coordinate='relative'
+        elif absolute_ok and not relative_ok:
+            coordinate='absolute'
+        elif relative_ok:
+            coordinate='relative'
+        elif absolute_ok:
+            coordinate='absolute'
+        else:
+            clip['wordTimings']=[]
+            return
+        if coordinate=='relative' and not relative_ok:
+            clip['wordTimings']=[]
+            return
+        if coordinate=='absolute' and not absolute_ok:
+            clip['wordTimings']=[]
+            return
+
+    previous_end=None
+    for start,end in raw_ranges:
+        if previous_end is not None and start<previous_end:
+            clip['wordTimings']=[]
+            return
         previous_end=end
     clip['wordTimings']=normalized
 
