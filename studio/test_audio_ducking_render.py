@@ -43,6 +43,26 @@ with tempfile.TemporaryDirectory(prefix='profitmente-duck-render-') as td:
     nd_before=rms_db(no_duck,.7); nd_during=rms_db(no_duck,2.7)
     assert abs(nd_before-nd_during)<1.0,(nd_before,nd_during)
 
+    # render_audio_mix.py is also a public local entrypoint. Legacy/imported media
+    # identities must resolve there exactly as they do through render_motion_text.py,
+    # including numeric id 0 and alternate numeric string spellings.
+    legacy={
+      'duration':'6',
+      'assets':[{'id':0,'name':'music.wav','type':'audio'},{'id':'01','name':'voice.wav','type':'audio'}],
+      'clips':[
+        {'id':'legacy-music','track':'5.0','asset':'+0.0','start':'0','duration':'6','volume':'.8','duckVolume':'.1','fadeIn':'0','fadeOut':'0'},
+        {'id':'legacy-voice','track':'06','asset':'1.0','start':'2','duration':'2','volume':'1','fadeIn':'0','fadeOut':'0'}
+      ]
+    }
+    project_path.write_text(json.dumps(legacy),encoding='utf-8'); legacy_out=td/'legacy-ids.mp4'
+    run([sys.executable,str(MIXER),str(project_path),str(assets),str(video),str(legacy_out)])
+    legacy_before=rms_db(legacy_out,.7); legacy_during=rms_db(legacy_out,2.7); legacy_after=rms_db(legacy_out,4.7)
+    assert abs(legacy_before-legacy_after)<1.0,(legacy_before,legacy_after)
+    assert legacy_before-legacy_during>14.0,(legacy_before,legacy_during,legacy_after)
+    legacy_probe=json.loads(run(['ffprobe','-v','error','-show_entries','stream=codec_type','-of','json',str(legacy_out)]).stdout)
+    legacy_kinds={s.get('codec_type') for s in legacy_probe.get('streams',[])}
+    assert {'video','audio'}<=legacy_kinds,legacy_kinds
+
     wiring=(ROOT/'render_motion_text.py').read_text(encoding='utf-8')
     assert "render_audio_mix.py" in wiring and "video-only.mp4" in wiring
-    print(f'audio ducking render regression: ok · before={before:.1f} dB · during={during:.1f} dB · after={after:.1f} dB')
+    print(f'audio ducking render regression: ok · before={before:.1f} dB · during={during:.1f} dB · after={after:.1f} dB · legacy={legacy_before:.1f}/{legacy_during:.1f}/{legacy_after:.1f} dB')
