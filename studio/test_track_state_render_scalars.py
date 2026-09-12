@@ -111,6 +111,28 @@ def test_motion_text_ranges_are_clamped_before_ffmpeg():
     assert c['boxOpacity']==1.0
 
 
+def test_caption_word_timing_numeric_strings_remain_legacy_compatible():
+    source=[{'word':'DINERO','start':'1.25','end':'1.75'}]
+    c=normalized(track=3,wordTimings=source)
+    assert source[0]['start']=='1.25'
+    assert source[0]['end']=='1.75'
+    assert c['wordTimings']==[{'word':'DINERO','start':1.25,'end':1.75}]
+
+
+def test_caption_word_timing_invalid_scalars_are_removed_before_ffmpeg():
+    c=normalized(track=3,wordTimings=[
+        {'word':'A','start':True,'end':['1']},
+        {'word':'B','start':'Infinity','end':{'bad':1}},
+        {'word':'C','start':'2.0','end':'2.4'},
+        'bad-entry',
+    ])
+    assert c['wordTimings']==[
+        {'word':'A'},
+        {'word':'B'},
+        {'word':'C','start':2.0,'end':2.4},
+    ]
+
+
 def test_audio_volume_numeric_strings_remain_legacy_compatible():
     c=normalized(track='5',volume='.35',sourceVolume='1.5')
     assert c['track']==5
