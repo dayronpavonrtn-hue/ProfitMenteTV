@@ -66,6 +66,10 @@ def _finite_scalar(value, default):
     return parsed if math.isfinite(parsed) else default
 
 
+def _bounded_scalar(value, default, low, high):
+    return max(low,min(high,_finite_scalar(value,default)))
+
+
 def _normalize_project_scalars(project):
     """Canonicalize project-level values consumed before FFmpeg is constructed."""
     if not isinstance(project,dict):
@@ -78,8 +82,45 @@ def _normalize_project_scalars(project):
         project['fps']=fps if fps in (24,30,60) else 30
 
 
+def _normalize_visual_scalars(clip):
+    """Keep browser preview and FFmpeg visual-number semantics identical.
+
+    render_mp4.py intentionally supports legacy numeric strings, but Python's
+    ``float`` also accepts booleans as 0/1. Normalize every scalar consumed by the
+    color/transform/keyframe render paths before they reach those helpers so a
+    malformed import cannot change the exported picture while preview/QA reject it.
+    """
+    fields={
+        'brightness':(0.0,-100.0,100.0),
+        'contrast':(0.0,-90.0,100.0),
+        'saturation':(0.0,-100.0,200.0),
+        'hue':(0.0,-180.0,180.0),
+        'scale':(1.0,0.25,3.0),
+        'rotation':(0.0,-180.0,180.0),
+        'opacity':(1.0,0.0,1.0),
+        'positionX':(0.0,-100.0,100.0),
+        'positionY':(0.0,-100.0,100.0),
+    }
+    for key,(default,low,high) in fields.items():
+        if key in clip:
+            clip[key]=_bounded_scalar(clip.get(key),default,low,high)
+
+    keyframes=clip.get('keyframes')
+    if not isinstance(keyframes,dict):
+        return
+    for side in ('start','end'):
+        frame=keyframes.get(side)
+        if not isinstance(frame,dict):
+            continue
+        for key in ('scale','rotation','opacity','positionX','positionY'):
+            if key not in frame:
+                continue
+            default,low,high=fields[key]
+            frame[key]=_bounded_scalar(frame.get(key),default,low,high)
+
+
 def _normalize_clip_scalars(clip):
-    """Canonicalize the timing scalars every render path depends on."""
+    """Canonicalize the timing and visual scalars every render path depends on."""
     if not isinstance(clip,dict):
         return
     if 'start' in clip:
@@ -96,6 +137,7 @@ def _normalize_clip_scalars(clip):
             clip.pop('transitionDuration',None)
         else:
             clip['transitionDuration']=max(0.05,min(2.0,value))
+    _normalize_visual_scalars(clip)
 
 
 def _state(states, track):
