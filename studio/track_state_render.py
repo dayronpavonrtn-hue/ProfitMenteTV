@@ -356,7 +356,7 @@ def _base_hidden(state):
 
 def _base_muted(state):
     if _is_true(state.get('_soloAudioActive')):
-        return _is_true(state.get('muted',False))
+        return _is_true(state.get('_soloMutedBase',False))
     return _is_true(state.get('muted',False))
 
 
