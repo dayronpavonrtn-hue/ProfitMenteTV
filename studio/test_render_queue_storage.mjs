@@ -22,4 +22,24 @@ assert.equal(storage.hasBinary(withBlob),true,'Blob/File media must be recognize
 assert.equal(await storage.save(withBlob),false,'binary media must never be silently JSON-stringified because that loses render bytes');
 assert.equal(memory.has('queue-test'),false,'failed binary fallback must not leave a corrupt recovery snapshot');
 
+const failingIndexedDB={open(){throw new Error('blocked')}};
+const degraded=new ProfitMenteRenderQueueStorageEngine({indexedDBFactory:failingIndexedDB,localStorageRef,key:'queue-degraded'});
+assert.equal(await degraded.save(plain),true,'plain queue state must fall back when IndexedDB cannot open');
+assert.deepEqual(await degraded.load(),plain,'fallback snapshot must remain readable while IndexedDB is unavailable');
+assert.equal(await degraded.save(withBlob),false,'binary state must still refuse lossy fallback when IndexedDB is unavailable');
+await degraded.clear();
+assert.equal(memory.has('queue-degraded'),false,'clear must remove fallback even when IndexedDB cannot open');
+
+memory.set('queue-stale',JSON.stringify(plain));
+const emptyDb={
+  objectStoreNames:{contains(){return true}},
+  transaction(){
+    return {objectStore(){return {get(){const request={};queueMicrotask(()=>{request.result=undefined;request.onsuccess?.()});return request}}}};
+  },
+  close(){}
+};
+const emptyIndexedDB={open(){const request={result:emptyDb};queueMicrotask(()=>request.onsuccess?.());return request}};
+const recoverFallback=new ProfitMenteRenderQueueStorageEngine({indexedDBFactory:emptyIndexedDB,localStorageRef,key:'queue-stale'});
+assert.deepEqual(await recoverFallback.load(),plain,'a temporarily written fallback must be read when IndexedDB later returns no queue state');
+
 console.log('render queue storage tests: ok');
