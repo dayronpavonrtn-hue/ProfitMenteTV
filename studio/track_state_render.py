@@ -143,14 +143,18 @@ def _normalize_caption_word_timings(clip):
     """Keep per-word caption timing safe for FFmpeg drawtext generation.
 
     Word timing animation is optional. If any persisted timing entry is malformed,
-    incomplete or non-monotonic, fail closed by clearing the timing list so the MP4
-    renderer falls back to the complete static/dynamic caption text. This avoids a
-    missing ``start``/``end`` being interpreted by renderer defaults as a short word
-    at the beginning of the clip. Legacy finite numeric strings remain supported.
+    incomplete, non-monotonic or outside the caption clip window, fail closed by
+    clearing the timing list so the MP4 renderer falls back to the complete
+    static/dynamic caption text. This avoids drawing a word before the caption
+    starts or after it has already ended. Legacy finite numeric strings remain
+    supported.
     """
     timings=clip.get('wordTimings')
     if not isinstance(timings,list):
         return
+    clip_duration=clip.get('duration')
+    if isinstance(clip_duration,bool) or not isinstance(clip_duration,(int,float)) or not math.isfinite(clip_duration):
+        clip_duration=None
     normalized=[]
     previous_end=None
     for item in timings:
@@ -159,7 +163,10 @@ def _normalize_caption_word_timings(clip):
             return
         start=_finite_scalar(item.get('start'),None)
         end=_finite_scalar(item.get('end'),None)
-        if start is None or end is None or end<=start:
+        if start is None or end is None or start<0 or end<=start:
+            clip['wordTimings']=[]
+            return
+        if clip_duration is not None and end>clip_duration:
             clip['wordTimings']=[]
             return
         if previous_end is not None and start<previous_end:
