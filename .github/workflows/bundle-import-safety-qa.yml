@@ -8,6 +8,7 @@ on:
       - 'studio/project-import-integration.js'
       - 'studio/test_bundle_import_engine.mjs'
       - 'studio/tests/bundle-import-presave-regression.js'
+      - 'studio/tests/bundle-import-media-reference-regression.js'
       - 'studio/tests/project-import-autosave-failure-regression.js'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/bundle-import-safety-qa.yml'
@@ -18,6 +19,7 @@ on:
       - 'studio/project-import-integration.js'
       - 'studio/test_bundle_import_engine.mjs'
       - 'studio/tests/bundle-import-presave-regression.js'
+      - 'studio/tests/bundle-import-media-reference-regression.js'
       - 'studio/tests/project-import-autosave-failure-regression.js'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/bundle-import-safety-qa.yml'
@@ -37,12 +39,15 @@ jobs:
           node --check studio/bundle-import-integration.js
           node --check studio/project-import-integration.js
           node --check studio/tests/bundle-import-presave-regression.js
+          node --check studio/tests/bundle-import-media-reference-regression.js
           node --check studio/tests/project-import-autosave-failure-regression.js
           node --check studio/feature-bootstrap.js
       - name: Bundle import safety regression
         run: node studio/test_bundle_import_engine.mjs
       - name: Bundle import active-project preservation regression
         run: node studio/tests/bundle-import-presave-regression.js
+      - name: Bundle import media-reference integrity regression
+        run: node studio/tests/bundle-import-media-reference-regression.js
       - name: Import autosave failure regression
         run: node studio/tests/project-import-autosave-failure-regression.js
       - name: Feature bootstrap regression
