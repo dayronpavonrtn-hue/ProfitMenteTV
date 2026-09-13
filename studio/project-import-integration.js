@@ -246,8 +246,26 @@
       return false;
     }
   }
+  async function rollbackJsonOpen(previousProject,previousPlayhead){
+    project=previousProject;
+    try{
+      if(typeof originalPersist==='function')originalPersist();
+      else if(typeof persist==='function')persist();
+    }catch(cleanupError){console.error('ProfitMente JSON rollback project persistence failed',cleanupError)}
+    try{if(typeof drawTimeline==='function')drawTimeline()}catch(cleanupError){console.error('ProfitMente JSON rollback timeline restore failed',cleanupError)}
+    try{if(typeof drawLibrary==='function')drawLibrary()}catch(cleanupError){console.error('ProfitMente JSON rollback library restore failed',cleanupError)}
+    try{if(typeof syncForm==='function')syncForm()}catch(cleanupError){console.error('ProfitMente JSON rollback form restore failed',cleanupError)}
+    const playhead=document.querySelector('#playhead');
+    if(playhead)playhead.value=Number.isFinite(previousPlayhead)?previousPlayhead:0;
+    try{if(typeof renderAt==='function')await renderAt(Number.isFinite(previousPlayhead)?previousPlayhead:0)}catch(cleanupError){console.error('ProfitMente JSON rollback preview restore failed',cleanupError)}
+    try{if(typeof historyEngine!=='undefined'&&historyEngine?.seed){historyEngine.seed(project);if(typeof updateHistoryButtons==='function')updateHistoryButtons()}}catch(cleanupError){console.error('ProfitMente JSON rollback history restore failed',cleanupError)}
+  }
+  window.ProfitMenteJsonProjectImportGuard={enabled:true,transactionalFallback:true,restoresPersistedProject:true};
   input.onchange=async e=>{
     const f=e.target.files?.[0];if(!f)return;
+    const previousProject=typeof project!=='undefined'?project:null;
+    const previousPlayhead=+document.querySelector('#playhead')?.value||0;
+    let fallbackApplied=false;
     try{
       if(f.size>10*1024*1024)throw new Error('Archivo de proyecto demasiado grande (máximo 10 MB)');
       const transfer=window.ProfitMenteProjectTransfer;
@@ -258,6 +276,7 @@
       const parsed=JSON.parse(await f.text());
       if(!flushCurrentProject())return;
       project=migrateImported(engine.normalize(parsed));
+      fallbackApplied=true;
       if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
       if(typeof drawTimeline==='function')drawTimeline();
       if(typeof drawLibrary==='function')drawLibrary();
@@ -268,7 +287,11 @@
       window.ProfitMenteProjectHistory?.reset?.();
       window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',imported:true}}));
       if(typeof setStatus==='function')setStatus('Proyecto JSON importado como copia nueva · proyecto anterior guardado · migrado y autoguardado seguro');
-    }catch(err){console.error(err);if(typeof setStatus==='function')setStatus('No se pudo importar el proyecto: '+(err?.message||'JSON inválido'))}
+    }catch(err){
+      console.error(err);
+      if(fallbackApplied&&previousProject)await rollbackJsonOpen(previousProject,previousPlayhead);
+      if(typeof setStatus==='function')setStatus('No se pudo importar el proyecto: '+(err?.message||'JSON inválido')+(fallbackApplied?' · proyecto anterior restaurado':''));
+    }
     finally{e.target.value=''}
   };
 })();
