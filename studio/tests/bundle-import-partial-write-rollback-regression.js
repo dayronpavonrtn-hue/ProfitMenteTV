@@ -61,10 +61,14 @@ const context={
   persist(){persisted.push(context.project.name)},
   originalPersist(){persisted.push(context.project.name)},
   drawLibrary(){},drawTimeline(){},syncForm(){},
-  async renderAt(value){renders.push(value);if(value===0)throw new Error('simulated preview failure after persistence')},
+  async renderAt(value){renders.push(value)},
   historyEngine:{seed(){}},updateHistoryButtons(){},
   mediaStore:{async delete(id){deleted.push(id);return true}},
-  async putAsset(asset){stored.push(asset.id);return asset},
+  async putAsset(asset){
+    stored.push(asset.id);
+    if(asset.id==='new-b')throw new Error('simulated storage rejection after partial media write');
+    return asset;
+  },
   setStatus(value){statuses.push(value)}
 };
 context.globalThis=context;
@@ -78,16 +82,17 @@ vm.runInContext(source,context,{filename:'project-import-integration.js'});
 (async()=>{
   assert.strictEqual(bundleInput.dataset.profitmenteSafeOpen,'1','safe package-open handler should install');
   await bundleInput.onchange({target:{files:[{name:'bundle.profitmente.tar'}],value:'bundle.profitmente.tar'}});
-  assert.deepStrictEqual(stored,['new-a','new-b'],'media writes should finish before the simulated post-persist failure');
-  assert.deepStrictEqual(deleted,['new-b','new-a'],'rollback must remove newly written package media in reverse order');
+  assert.deepStrictEqual(stored,['new-a','new-b'],'the rejected write must be treated as an attempted media mutation');
+  assert.deepStrictEqual(deleted,['new-b','new-a'],'rollback must clean the rejected partially written media and earlier writes in reverse order');
   assert.strictEqual(context.project,previousProject,'failed package open must restore the previous active project object');
   assert.strictEqual(context.assets,previousAssets,'failed package open must restore the previous media library object');
   assert.strictEqual(context.assets.length,1,'failed package open must not leave imported media in the active library');
   assert.strictEqual(context.assets[0].id,'existing','existing library media must remain untouched');
-  assert.deepStrictEqual(persisted,['Current','Imported bundle','Current'],'rollback must persist the previous project after an imported project was already saved');
-  assert(renders.includes(0),'package open should reach preview before the simulated failure');
+  assert.deepStrictEqual(persisted,['Current','Current'],'rollback must keep the previously persisted project when media storage rejects');
+  assert(!renders.includes(0),'a rejected media write must stop before imported-project preview');
   assert(renders.includes(6),'rollback should restore preview at the prior playhead');
   assert(statuses.some(text=>text.includes('proyecto y biblioteca anteriores conservados')),'failure status should report rollback preservation');
+  assert.strictEqual(context.window.ProfitMenteBundleProjectImportGuard.rollsBackRejectedMediaWrites,true,'guard capability should expose rejected-write rollback');
   assert.strictEqual(context.window.ProfitMenteBundleProjectImportGuard.restoresPersistedProject,true,'guard capability should expose persisted-project rollback');
-  console.log('bundle import persisted project rollback regression: ok');
+  console.log('bundle import rejected media write rollback regression: ok');
 })().catch(error=>{console.error(error);process.exitCode=1});
