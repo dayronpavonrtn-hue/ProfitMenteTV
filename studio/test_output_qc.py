@@ -56,6 +56,30 @@ assert not r['ok'], r
 assert any('Frame rate' in issue for issue in r['issues'])
 assert any('Codec de audio' in warning for warning in r['warnings'])
 
+# Persisted flags use strict JSON booleans. Legacy/imported strings or numbers
+# must not hide/mute content and let a broken final MP4 escape post-render QC.
+legacy_false_flags={
+    'format':'9:16','duration':10,
+    'trackStates':{'5':{'muted':'false'}},
+    'trackState':{'05':{'muted':0}},
+    'clips':[{'track':'5','duration':10,'muted':'false'}],
+}
+assert project_expects_audio(legacy_false_flags), legacy_false_flags
+missing_audio=analyze_probe(legacy_false_flags,probe(duration='10',audio_duration=None,acodec=''))
+assert not missing_audio['ok'], missing_audio
+assert any('no tiene pista de audio' in issue for issue in missing_audio['issues']), missing_audio
+
+source_audio_false_flags={
+    'format':'9:16','duration':8,
+    'assets':[{'id':'video-1','type':'video'}],
+    'trackState':{'0':{'hidden':'false'}},
+    'clips':[{'track':0,'asset':'video-1','duration':8,'muted':'false','sourceVolume':1}],
+}
+assert project_expects_audio(source_audio_false_flags), source_audio_false_flags
+
+clip_muted_true={'format':'9:16','duration':8,'clips':[{'track':6,'duration':8,'muted':True}]}
+assert not project_expects_audio(clip_muted_true), clip_muted_true
+
 sixty={'format':'16:9','duration':20,'fps':60,'trackState':{'5':{'muted':True}},'clips':[{'track':5,'duration':20}]}
 r=analyze_probe(sixty,probe(width=1920,height=1080,duration='20',acodec='aac',fps='60/1'))
 assert r['ok'], r
