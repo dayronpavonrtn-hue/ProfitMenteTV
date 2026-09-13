@@ -12,6 +12,19 @@
     if(window.ProfitMentePreviewFormat?.quality)return window.ProfitMentePreviewFormat.quality;
     try{return window.localStorage?.getItem?.('profitmente-preview-quality')||'full'}catch{return 'full'}
   }
+  function verifyProjectPersistence(target=project){
+    const guard=window.ProfitMenteStartupProjectGuard;
+    if(!guard?.serializeProject||!guard?.PRIMARY_KEY)return true;
+    const expected=guard.serializeProject(target).raw;
+    let actual;
+    try{actual=window.localStorage?.getItem?.(guard.PRIMARY_KEY)}catch(err){throw err}
+    if(actual!==expected)throw new Error('La escritura del proyecto no llegó al almacenamiento persistente');
+    if(window.ProfitMenteProjectAutosave?.unsaved){
+      const detail=window.ProfitMenteProjectAutosave.lastError?.message;
+      throw new Error(detail||'El proyecto todavía contiene cambios sin guardar');
+    }
+    return true;
+  }
   function projectFps(target=project){return ProfitMenteWebMRenderEngine.normalizeFps(target?.fps||30)}
   function applyQuality(quality){
     if(!window.ProfitMentePreviewFormatEngine)return;
@@ -88,7 +101,7 @@
   async function run(){
     if(engine.active)return;
     if(!window.MediaRecorder||typeof canvas.captureStream!=='function'){setStatus?.('Render WebM no soportado por este navegador');return}
-    try{await Promise.resolve(save?.())}catch(err){console.error(err);setStatus?.(`Render WebM cancelado: no se pudo confirmar el guardado del proyecto${err?.message?` · ${err.message}`:''}`);return}
+    try{await Promise.resolve(save?.());verifyProjectPersistence(project)}catch(err){console.error(err);setStatus?.(`Render WebM cancelado: no se pudo confirmar el guardado del proyecto${err?.message?` · ${err.message}`:''}`);return}
     if(typeof qa!=='undefined'){
       const report=qa.inspect(project,assets);if(report.issues?.length){setStatus?.('Render WebM bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
     }
@@ -128,5 +141,5 @@
   cancelBtn.onclick=()=>{
     if(!engine.cancel())return;cancelBtn.disabled=true;setStatus?.('Cancelando render WebM…');safeStopRecorder(resources?.recorder);stopTracks(resources?.mixedStream);stopTracks(resources?.videoStream);try{audio?.stop?.()}catch{}
   };
-  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,ensureQCEngine,setRenderLocked,get active(){return engine.active},get locked(){return renderLocked}};
+  window.ProfitMenteWebMRender={engine,run,cancel:()=>cancelBtn.click(),projectFps,applyExportDimensions,validateWebM,ensureQCEngine,verifyProjectPersistence,setRenderLocked,get active(){return engine.active},get locked(){return renderLocked}};
 })();
