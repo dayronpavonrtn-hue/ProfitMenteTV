@@ -82,13 +82,24 @@
   drawTimeline();
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   const VISUAL_TRACKS=[0,1,2,3],AUDIO_TRACKS=[4,5,6];
+  const strictFlag=value=>value===true;
   const groupFor=track=>VISUAL_TRACKS.includes(Number(track))?VISUAL_TRACKS:AUDIO_TRACKS.includes(Number(track))?AUDIO_TRACKS:null;
   class ProfitMenteTrackSoloEngine{
     static get VISUAL_TRACKS(){return VISUAL_TRACKS}
     static get AUDIO_TRACKS(){return AUDIO_TRACKS}
+    static normalizedState(raw){
+      const source=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+      const out={...source};
+      for(const key of ['locked','hidden','muted','solo'])out[key]=strictFlag(source[key]);
+      for(const key of ['_soloVisualActive','_soloHiddenBase','_soloAudioActive','_soloMutedBase']){
+        if(key in source)out[key]=strictFlag(source[key]);
+      }
+      return out;
+    }
     static ensure(trackState){
-      const out=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
-      for(let i=0;i<7;i++)out[i]=Object.assign({locked:false,hidden:false,muted:false,solo:false},out[i]||out[String(i)]||{});
+      const source=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
+      const out={};
+      for(let i=0;i<7;i++)out[i]=this.normalizedState(source[i]||source[String(i)]||{});
       return out;
     }
     static merge(current,legacy){
@@ -96,37 +107,41 @@
       const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
       const out={};
       for(let i=0;i<7;i++){
-        const c=cur[i]||cur[String(i)]||null,l=old[i]||old[String(i)]||null;
-        const merged=Object.assign({locked:false,hidden:false,muted:false,solo:false},l||{},c||{});
-        // A restrictive state from either schema must survive migration. This prevents
-        // old projects from silently unlocking/unmuting/unhiding a track on open.
-        for(const key of ['locked','hidden','muted','solo'])merged[key]=!!(c?.[key]||l?.[key]);
+        const c=this.normalizedState(cur[i]||cur[String(i)]||{}),l=this.normalizedState(old[i]||old[String(i)]||{});
+        const merged={...l,...c};
+        // A restrictive state from either schema must survive migration, but only an
+        // actual boolean true is restrictive. Strings such as "false" from imported
+        // or hand-edited JSON must never lock, hide, mute, or solo a track.
+        for(const key of ['locked','hidden','muted','solo'])merged[key]=strictFlag(c[key])||strictFlag(l[key]);
+        for(const key of ['_soloVisualActive','_soloHiddenBase','_soloAudioActive','_soloMutedBase']){
+          if(key in c||key in l)merged[key]=strictFlag(c[key])||strictFlag(l[key]);
+        }
         out[i]=merged;
       }
       return out;
     }
     static state(trackState,track){return this.ensure(trackState)[Number(track)]}
-    static baseHidden(s){return s?._soloVisualActive?!!s._soloHiddenBase:!!s?.hidden}
-    static baseMuted(s){return s?._soloAudioActive?!!s._soloMutedBase:!!s?.muted}
+    static baseHidden(s){return strictFlag(s?._soloVisualActive)?strictFlag(s?._soloHiddenBase):strictFlag(s?.hidden)}
+    static baseMuted(s){return strictFlag(s?._soloAudioActive)?strictFlag(s?._soloMutedBase):strictFlag(s?.muted)}
     static applyGroup(trackState,tracks){
-      const states=this.ensure(trackState),solo=tracks.filter(i=>!!states[i].solo),hasSolo=solo.length>0,isVisual=tracks===VISUAL_TRACKS;
+      const states=this.ensure(trackState),solo=tracks.filter(i=>strictFlag(states[i].solo)),hasSolo=solo.length>0,isVisual=tracks===VISUAL_TRACKS;
       for(const i of tracks){const s=states[i];
         if(isVisual){
-          if(hasSolo){if(!s._soloVisualActive)s._soloHiddenBase=!!s.hidden;s._soloVisualActive=true;s.hidden=!!s._soloHiddenBase||!s.solo}
-          else if(s._soloVisualActive){s.hidden=!!s._soloHiddenBase;delete s._soloHiddenBase;delete s._soloVisualActive}
+          if(hasSolo){if(!strictFlag(s._soloVisualActive))s._soloHiddenBase=strictFlag(s.hidden);s._soloVisualActive=true;s.hidden=strictFlag(s._soloHiddenBase)||!strictFlag(s.solo)}
+          else if(strictFlag(s._soloVisualActive)){s.hidden=strictFlag(s._soloHiddenBase);delete s._soloHiddenBase;delete s._soloVisualActive}
         }else{
-          if(hasSolo){if(!s._soloAudioActive)s._soloMutedBase=!!s.muted;s._soloAudioActive=true;s.muted=!!s._soloMutedBase||!s.solo}
-          else if(s._soloAudioActive){s.muted=!!s._soloMutedBase;delete s._soloMutedBase;delete s._soloAudioActive}
+          if(hasSolo){if(!strictFlag(s._soloAudioActive))s._soloMutedBase=strictFlag(s.muted);s._soloAudioActive=true;s.muted=strictFlag(s._soloMutedBase)||!strictFlag(s.solo)}
+          else if(strictFlag(s._soloAudioActive)){s.muted=strictFlag(s._soloMutedBase);delete s._soloMutedBase;delete s._soloAudioActive}
         }
       }
       return states;
     }
-    static apply(trackState){const states=this.ensure(trackState);this.applyGroup(states,VISUAL_TRACKS);this.applyGroup(states,AUDIO_TRACKS);return states}
-    static toggleSolo(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!groupFor(track))return false;s.solo=!s.solo;this.applyGroup(states,groupFor(track));return s.solo}
-    static toggleHidden(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!VISUAL_TRACKS.includes(Number(track)))return false;const next=!this.baseHidden(s);if(s._soloVisualActive)s._soloHiddenBase=next;else s.hidden=next;this.applyGroup(states,VISUAL_TRACKS);return next}
-    static toggleMuted(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!AUDIO_TRACKS.includes(Number(track)))return false;const next=!this.baseMuted(s);if(s._soloAudioActive)s._soloMutedBase=next;else s.muted=next;this.applyGroup(states,AUDIO_TRACKS);return next}
-    static isVisualHidden(trackState,track){const s=this.state(trackState,track);return VISUAL_TRACKS.includes(Number(track))?!!s.hidden:false}
-    static isAudioMuted(trackState,track){const s=this.state(trackState,track);return AUDIO_TRACKS.includes(Number(track))?!!s.muted:false}
+    static apply(trackState){const states=this.ensure(trackState);const visual=this.applyGroup(states,VISUAL_TRACKS);const audio=this.applyGroup(visual,AUDIO_TRACKS);for(let i=0;i<7;i++)trackState[i]=audio[i];return trackState}
+    static toggleSolo(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!groupFor(track))return false;s.solo=!strictFlag(s.solo);this.applyGroup(states,groupFor(track));for(let i=0;i<7;i++)trackState[i]=states[i];return s.solo}
+    static toggleHidden(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!VISUAL_TRACKS.includes(Number(track)))return false;const next=!this.baseHidden(s);if(strictFlag(s._soloVisualActive))s._soloHiddenBase=next;else s.hidden=next;this.applyGroup(states,VISUAL_TRACKS);for(let i=0;i<7;i++)trackState[i]=states[i];return next}
+    static toggleMuted(trackState,track){const states=this.ensure(trackState),s=this.state(states,track);if(!AUDIO_TRACKS.includes(Number(track)))return false;const next=!this.baseMuted(s);if(strictFlag(s._soloAudioActive))s._soloMutedBase=next;else s.muted=next;this.applyGroup(states,AUDIO_TRACKS);for(let i=0;i<7;i++)trackState[i]=states[i];return next}
+    static isVisualHidden(trackState,track){const s=this.state(trackState,track);return VISUAL_TRACKS.includes(Number(track))?strictFlag(s.hidden):false}
+    static isAudioMuted(trackState,track){const s=this.state(trackState,track);return AUDIO_TRACKS.includes(Number(track))?strictFlag(s.muted):false}
     static filterRenderableClips(clips,trackState){
       const states=this.apply(this.ensure(trackState));
       return (Array.isArray(clips)?clips:[]).filter(c=>!VISUAL_TRACKS.includes(Number(c?.track))||!this.isVisualHidden(states,Number(c.track)));
