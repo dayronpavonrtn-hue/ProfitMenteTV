@@ -7,17 +7,20 @@
     const text=value.trim();if(!text)return null;
     const n=Number(text);return Number.isFinite(n)?n:null;
   }
+  function stableTime(value){
+    return Number.isFinite(value)?Math.round(value*1e9)/1e9:value;
+  }
   function shiftWordTimings(clip,delta){
     if(!Array.isArray(clip?.wordTimings)||!delta)return 0;
     const currentStart=strictNumber(clip.start),clipDuration=strictNumber(clip.duration);
-    const previousStart=currentStart===null?null:currentStart-delta;
+    const previousStart=currentStart===null?null:stableTime(currentStart-delta);
     const declaredMode=typeof clip.wordTimingMode==='string'?clip.wordTimingMode.trim().toLowerCase():'';
     const mode=declaredMode==='relative'||declaredMode==='absolute'?declaredMode:'';
     let shifted=0;
     for(const word of clip.wordTimings){
       if(!word||typeof word!=='object')continue;
       const start=strictNumber(word.start),end=strictNumber(word.end),wordDuration=strictNumber(word.duration);
-      const effectiveEnd=end!==null?end:(start!==null&&wordDuration!==null&&wordDuration>0?start+wordDuration:null);
+      const effectiveEnd=end!==null?end:(start!==null&&wordDuration!==null&&wordDuration>0?stableTime(start+wordDuration):null);
       let relative=mode==='relative'||word.relative===true;
       if(mode==='absolute')relative=false;
       else if(!mode&&!relative&&previousStart!==null&&clipDuration!==null&&previousStart>1e-6&&start!==null&&effectiveEnd!==null){
@@ -25,15 +28,15 @@
       }
       if(relative)continue;
       let changed=false;
-      if(start!==null){word.start=Math.max(0,start+delta);changed=true}
-      if(end!==null){word.end=Math.max(0,end+delta);changed=true}
+      if(start!==null){word.start=stableTime(Math.max(0,start+delta));changed=true}
+      if(end!==null){word.end=stableTime(Math.max(0,end+delta));changed=true}
       if(changed)shifted++;
     }
     return shifted;
   }
   function shiftProjectPoint(value,at,delta){
     const n=strictNumber(value);if(n===null)return value;
-    return n>=at-.001?n+delta:n;
+    return n>=at-.001?stableTime(n+delta):n;
   }
   function installInsertTimeSync(){
     const Ops=root.ProfitMenteTimelineOperations;
@@ -64,7 +67,7 @@
       if(Array.isArray(project?.markers))for(const marker of project.markers){
         if(!marker||typeof marker!=='object')continue;
         const before=strictNumber(marker.time);if(before===null||before<t-.001)continue;
-        marker.time=before+result.gap;markersShifted++;
+        marker.time=stableTime(before+result.gap);markersShifted++;
       }
       if(project?.workRange&&typeof project.workRange==='object'){
         project.workRange={...project.workRange,
@@ -89,7 +92,7 @@
       for(const clip of Array.isArray(project?.clips)?project.clips:[]){
         const previous=before.get(clip)?.start,current=strictNumber(clip?.start);
         if(previous===null||previous===undefined||current===null)continue;
-        const delta=current-previous;if(Math.abs(delta)<.000001)continue;
+        const delta=stableTime(current-previous);if(Math.abs(delta)<.000001)continue;
         clipsShifted++;wordsShifted+=shiftWordTimings(clip,delta);
       }
       return {clipsShifted,wordsShifted};
