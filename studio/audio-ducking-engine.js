@@ -8,6 +8,7 @@ class ProfitMenteAudioDuckingEngine{
     }
     return fallback;
   }
+  static strictFlag(value){return value===true}
   static canonicalTrack(track){
     const value=this.finiteNumber(track,null);
     return value!==null&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
@@ -28,28 +29,34 @@ class ProfitMenteAudioDuckingEngine{
     const canonical=this.canonicalTrack(track);if(canonical===null)return {};
     const states=[];
     for(const [key,value] of Object.entries(map)){
-      if(this.canonicalTrack(key)===canonical&&value&&typeof value==='object')states.push(value);
+      if(this.canonicalTrack(key)===canonical&&value&&typeof value==='object'&&!Array.isArray(value))states.push(value);
     }
     const merged=Object.assign({},...states);
-    for(const key of ['muted','solo'])if(states.some(state=>!!state?.[key]))merged[key]=true;
+    for(const key of ['muted','solo']){
+      if(states.some(state=>this.strictFlag(state?.[key])))merged[key]=true;
+      else if(key in merged&&!this.strictFlag(merged[key]))merged[key]=false;
+    }
     return merged;
   }
   static trackState(project,track){
     const current=this.stateFrom(project?.trackState,track),legacy=this.stateFrom(project?.trackStates,track),merged={...legacy,...current};
-    for(const key of ['muted','solo'])if(legacy?.[key]||current?.[key])merged[key]=true;
+    for(const key of ['muted','solo']){
+      if(this.strictFlag(legacy?.[key])||this.strictFlag(current?.[key]))merged[key]=true;
+      else if(key in merged&&!this.strictFlag(merged[key]))merged[key]=false;
+    }
     return merged;
   }
-  static audioSoloSet(project){return new Set(this.AUDIO_TRACKS.filter(track=>!!this.trackState(project,track).solo))}
+  static audioSoloSet(project){return new Set(this.AUDIO_TRACKS.filter(track=>this.strictFlag(this.trackState(project,track).solo)))}
   static trackActive(project,track){
     const canonical=this.canonicalTrack(track);if(canonical===null)return false;
-    const state=this.trackState(project,canonical);if(state.muted)return false;
+    const state=this.trackState(project,canonical);if(this.strictFlag(state.muted))return false;
     const solos=this.audioSoloSet(project);return !solos.size||solos.has(canonical);
   }
   static enabled(clip){return clip?.ducking!==false}
   static intervals(project,music){
     if(!music||this.canonicalTrack(music.track)!==5||!this.hasAsset(music.asset)||!this.enabled(music)||!this.trackActive(project,5)||!this.trackActive(project,6))return [];
     const ms=this.finiteNumber(music.start,0),md=Math.max(0,this.finiteNumber(music.duration,0)),me=ms+md;
-    const raw=(project?.clips||[]).filter(v=>this.canonicalTrack(v.track)===6&&this.hasAsset(v.asset)&&!v.muted).map(v=>{
+    const raw=(project?.clips||[]).filter(v=>this.canonicalTrack(v.track)===6&&this.hasAsset(v.asset)&&!this.strictFlag(v.muted)).map(v=>{
       const vs=this.finiteNumber(v.start,0),vd=Math.max(0,this.finiteNumber(v.duration,0)),s=Math.max(ms,vs),e=Math.min(me,vs+vd);
       return e>s?{start:s-ms,end:e-ms}:null;
     }).filter(Boolean).sort((a,b)=>a.start-b.start||a.end-b.end);
