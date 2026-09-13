@@ -56,6 +56,7 @@ jobs:
           node --check studio/ripple-gap-integration.js
           node --check studio/visual-keyframe-engine.js
           node --check studio/visual-keyframe-render-baker.js
+          node --check studio/generator-integration.js
           node --check studio/generator-manual-tools.js
           node --check studio/startup-project-guard.js
       - name: Studio wiring and media integrity
@@ -88,6 +89,8 @@ jobs:
         run: node studio/test_visual_keyframe_render_baker.js
       - name: Generator auxiliary coverage regression
         run: node studio/test_generator_aux_coverage.js
+      - name: Generator transition render parity regression
+        run: node studio/test_generator_transition_parity.js
       - name: QA strict identity regression
         run: node studio/test_qa_identity_strictness.js
       - name: QA strict numeric scalar regression
