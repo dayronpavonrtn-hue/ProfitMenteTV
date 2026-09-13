@@ -46,11 +46,34 @@
     window.ProfitMenteProjectLibraryImportGuard={enabled:true,storedProjectGuard:true};
     return true;
   }
-  // project-library.js is loaded after this integration. Install the shared
-  // validator once all parser scripts have finished so both Importar JSON and
-  // Mis proyectos accept exactly the same canonical project model.
-  if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',installLibraryImportGuard,{once:true});
-  else installLibraryImportGuard();
+  function installBundleImportGuard(){
+    const Bundle=window.ProfitMenteBundleEngine,ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(!Bundle||!ImportEngine||Bundle.__profitmenteProjectImportGuardInstalled)return !!Bundle?.__profitmenteProjectImportGuardInstalled;
+    const baseParse=Bundle.prototype.parse;
+    if(typeof baseParse!=='function')return false;
+    Bundle.prototype.parse=async function(blob){
+      const restored=await baseParse.call(this,blob);
+      if(!restored||!restored.project)throw new Error('El paquete no contiene un proyecto restaurable');
+      const defaults=window.ProfitMenteProjectLibrary?.blank?.()||{};
+      const normalized=new ImportEngine(defaults).normalize(restored.project);
+      delete normalized.libraryId;
+      restored.project=migrateImported(normalized);
+      return restored;
+    };
+    Bundle.__profitmenteProjectImportGuardInstalled=true;
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true};
+    return true;
+  }
+  function installImportGuards(){
+    installLibraryImportGuard();
+    installBundleImportGuard();
+  }
+  // project-library.js and bundle-engine.js are loaded independently from this
+  // integration. Install the shared validator once all parser scripts have
+  // finished so JSON imports, saved projects and full packages converge on the
+  // same canonical project model before they touch timeline/preview/render.
+  if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',installImportGuards,{once:true});
+  else installImportGuards();
   function flushCurrentProject(){
     const guarded=window.ProfitMenteNewProject?.flushCurrentProject;
     if(typeof guarded==='function')return guarded()!==false;
