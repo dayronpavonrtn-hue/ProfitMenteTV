@@ -50,6 +50,7 @@ jobs:
           node --check studio/test_qa_strict_boolean_flags.js
           node --check studio/test_media_library_card_wiring.mjs
           node --check studio/tests/preview-render-race-regression.js
+          node --check studio/tests/project-json-import-rollback-regression.js
           node --check studio/recovery-integration.js
           node --check studio/export-preflight.js
           node --check studio/timeline-word-timing-sync.js
@@ -68,6 +69,8 @@ jobs:
           node studio/test_media_library_card_wiring.mjs
       - name: Preview async render race regression
         run: node studio/tests/preview-render-race-regression.js
+      - name: JSON project import rollback regression
+        run: node studio/tests/project-json-import-rollback-regression.js
       - name: Resilient media store regression
         run: |
           node studio/test_media_store.mjs
