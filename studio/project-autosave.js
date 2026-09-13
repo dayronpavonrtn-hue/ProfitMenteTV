@@ -42,13 +42,26 @@ if(typeof document!=='undefined')(()=>{
     try{document.documentElement.dataset.projectSaveError='true'}catch{}
     if(typeof setStatus==='function')setStatus('⚠ Cambios del proyecto sin guardar · Studio seguirá reintentando');
   }
+  function verifyPersistedProject(){
+    const guard=window.ProfitMenteStartupProjectGuard;
+    if(!guard?.serializeProject||!guard?.PRIMARY_KEY)return true;
+    const expected=guard.serializeProject(project).raw;
+    let actual;
+    try{actual=localStorage.getItem(guard.PRIMARY_KEY)}catch(err){throw err}
+    if(actual!==expected)throw new Error('La escritura del proyecto no llegó al almacenamiento persistente');
+    return true;
+  }
+  function persistAndVerify(){
+    if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
+    verifyPersistedProject();
+  }
   function flush(reason='autoguardado'){
     cancel();if(flushing)return false;
     const next=engine.merge(project,read()),nextFingerprint=JSON.stringify(engine.fields(next));
     if(last===nextFingerprint&&!unsaved)return false;
     const previous=engine.fields(project);Object.assign(project,next);flushing=true;
     try{
-      if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
+      persistAndVerify();
       last=nextFingerprint;retryCount=0;markSaved();
       const layoutChanged=previous.duration!==next.duration||previous.format!==next.format;
       if(layoutChanged&&typeof drawTimeline==='function')drawTimeline();
@@ -74,7 +87,7 @@ if(typeof document!=='undefined')(()=>{
     queueMicrotask(()=>{
       if(project?.libraryId!==undefined&&project?.libraryId!==null)return;
       try{
-        if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
+        persistAndVerify();
         last=engine.fingerprint(project);retryCount=0;markSaved();
         window.dispatchEvent(new CustomEvent('profitmente:project-detached',{detail:{deletedLibraryId:deleteId,name:project?.name||'Sin título'}}));
       }catch(err){console.error('ProfitMente deleted-project draft persistence failed',err);markUnsaved(err)}
