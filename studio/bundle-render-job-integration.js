@@ -149,7 +149,8 @@
     emitProgress('uploading',{message:uploadMessage});
     const r=await client.fetchWithTimeout('/api/render',{method:'POST',headers:{'Content-Type':'application/x-tar'},body:blob},client.resultTimeoutMs);
     if(!r.ok)throw new Error(await this.errorFrom(r));
-    const qaMessage=r.headers.get('X-ProfitMente-Post-Render-QC')==='passed'?'QA post-render superado · preparando descarga…':'MP4 terminado. Preparando descarga…';
+    if(r.headers.get('X-ProfitMente-Post-Render-QC')!=='passed')throw new Error('El servidor terminó el MP4 sin confirmar el control post-render.');
+    const qaMessage='QA post-render superado · preparando descarga…';
     onStatus(qaMessage);
     emitProgress('qa',{progress:98,message:qaMessage});
     const mp4=await client.validateResultBlob(await r.blob());
