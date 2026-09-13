@@ -90,7 +90,9 @@
       const captions=captionTrackActive?clips.filter(c=>canonicalTrack(c?.track)===3&&usableCaption(c)):[];
       const broll=brollTrackActive?clips.filter(c=>canonicalTrack(c?.track)===1&&usableBroll(c,assetKeys)):[];
       const beats=(project?.markers||[]).filter(m=>/^Beat\b/i.test(String(m?.label||'')));
-      const autoTransitions=generated.filter(c=>c.autoTransition).length;
+      // Match Studio's persisted-flag contract: imported strings such as
+      // autoTransition:"false" are not completed automatic transitions.
+      const autoTransitions=generated.filter(c=>c?.autoTransition===true).length;
       const visualAssets=assetKeys.size;
       const captionTrackLocked=trackState(project,3).locked;
       const brollTrackLocked=trackState(project,1).locked;
