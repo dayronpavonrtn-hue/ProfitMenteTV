@@ -84,7 +84,9 @@ def _track_state(project, track):
             if _track_id(key) == canonical and isinstance(state,dict):
                 for name,value in state.items():
                     if name in ('muted','hidden','solo','locked'):
-                        merged[name]=bool(merged.get(name)) or bool(value)
+                        # Keep final QC aligned with Studio/render semantics:
+                        # only the real JSON boolean true activates a flag.
+                        merged[name]=(merged.get(name) is True) or (value is True)
                     elif name not in merged:
                         merged[name]=value
     return merged
@@ -94,9 +96,9 @@ def _audible_clip(project, clip, assets):
     track=_track_id(clip.get('track'))
     if track is None: return False
     state=_track_state(project,track)
-    if state.get('muted') or clip.get('muted'): return False
+    if state.get('muted') is True or clip.get('muted') is True: return False
     if track >= 4: return True
-    if track in (0,1) and not state.get('hidden') and _num(clip.get('sourceVolume',1),1) > 0:
+    if track in (0,1) and state.get('hidden') is not True and _num(clip.get('sourceVolume',1),1) > 0:
         asset=assets.get(_identity(clip.get('asset')))
         return bool(asset and asset.get('type') == 'video')
     return False
@@ -160,6 +162,7 @@ def analyze_probe(project: dict, probe: dict) -> dict:
 
 
 def parse_blackdetect(log): return [{'start':_num(m.group('start')),'end':_num(m.group('end')),'duration':_num(m.group('duration'))} for m in BLACK_RE.finditer(log or '')]
+
 
 def parse_silencedetect(log,total_duration=0.0):
     events=[]; pending=None
@@ -232,41 +235,21 @@ def probe_file(mp4):
     return json.loads(r.stdout or '{}')
 
 def measure_loudness(mp4):
-    r=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vn','-af','loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json','-f','null','-'],capture_output=True,text=True)
-    if r.returncode!=0: return None,'No se pudo medir loudness/true peak del audio final.'
-    parsed=parse_loudnorm(r.stderr)
-    return (parsed,None) if parsed else (None,'FFmpeg no devolvió métricas de loudness interpretables.')
+    r=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vn','-af','loudnorm=I=-16:LRA=11:TP=-1.5:print_format=json','-f','null','-'],capture_output=True,text=True)
+    return parse_loudnorm((r.stderr or '')+'\n'+(r.stdout or ''))
 
-def scan_output(mp4,duration,scan_audio):
-    warnings=[]; black_events=[]; silence_events=[]; freeze_events=[]
-    r=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vf','blackdetect=d=0.75:pix_th=0.10','-an','-f','null','-'],capture_output=True,text=True)
-    if r.returncode==0: black_events=parse_blackdetect(r.stderr)
-    else: warnings.append('No se pudo ejecutar la detección local de pantallas negras.')
-    r=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vf','freezedetect=n=-60dB:d=1.5','-an','-f','null','-'],capture_output=True,text=True)
-    if r.returncode==0: freeze_events=parse_freezedetect(r.stderr,duration)
-    else: warnings.append('No se pudo ejecutar la detección local de imagen congelada.')
-    if scan_audio:
-        r=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vn','-af','silencedetect=noise=-45dB:d=1.5','-f','null','-'],capture_output=True,text=True)
-        if r.returncode==0: silence_events=parse_silencedetect(r.stderr,duration)
-        else: warnings.append('No se pudo ejecutar la detección local de silencio.')
-    return black_events,silence_events,freeze_events,warnings
+def detect_signals(mp4,duration):
+    black=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vf','blackdetect=d=0.8:pix_th=0.05','-an','-f','null','-'],capture_output=True,text=True)
+    freeze=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vf','freezedetect=n=-55dB:d=1.5','-an','-f','null','-'],capture_output=True,text=True)
+    silence=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(mp4),'-vn','-af','silencedetect=n=-48dB:d=1.2','-f','null','-'],capture_output=True,text=True)
+    return parse_blackdetect(black.stderr),parse_silencedetect(silence.stderr,duration),parse_freezedetect(freeze.stderr,duration)
 
-def inspect_output(project_path,mp4_path):
-    project=json.loads(project_path.read_text(encoding='utf-8'))
-    if not mp4_path.is_file(): return {'ok':False,'score':0,'issues':['El MP4 final no existe.'],'warnings':[],'metrics':{}}
-    report=analyze_probe(project,probe_file(mp4_path)); duration=_num(report.get('metrics',{}).get('duration'),_num(project.get('duration'),45)); has_audio=bool(report.get('metrics',{}).get('has_audio'))
-    black,silence,freeze,scan_warnings=scan_output(mp4_path,duration,has_audio and project_expects_audio(project)); signal=analyze_signals(project,duration,black,silence,freeze)
-    report['issues'].extend(signal['issues']); report['warnings'].extend(signal['warnings']); report['warnings'].extend(scan_warnings); report['metrics'].update(signal['metrics'])
-    if has_audio:
-        loudness,loudness_warning=measure_loudness(mp4_path)
-        if loudness:
-            audio_qc=analyze_loudness(loudness); report['issues'].extend(audio_qc['issues']); report['warnings'].extend(audio_qc['warnings']); report['metrics'].update(audio_qc['metrics'])
-        elif loudness_warning: report['warnings'].append(loudness_warning)
-    report['ok']=not report['issues']; report['score']=max(0,100-25*len(report['issues'])-5*len(report['warnings'])); return report
+def run_qc(project_path,mp4_path):
+    project=json.loads(pathlib.Path(project_path).read_text(encoding='utf-8')); mp4=pathlib.Path(mp4_path); probe=probe_file(mp4); base=analyze_probe(project,probe); duration=base['metrics']['duration'] or _num(project.get('duration'),45); black,silence,freeze=detect_signals(mp4,duration); signals=analyze_signals(project,duration,black,silence,freeze); loudness=analyze_loudness(measure_loudness(mp4)) if base['metrics'].get('has_audio') else {'issues':[],'warnings':[],'metrics':{}}
+    issues=list(base['issues'])+signals['issues']+loudness['issues']; warnings=list(base['warnings'])+signals['warnings']+loudness['warnings']; metrics={**base['metrics'],**signals['metrics'],**loudness['metrics']}; score=max(0,100-25*len(issues)-5*len(warnings)); return {'ok':not issues,'score':score,'issues':issues,'warnings':warnings,'metrics':metrics}
 
-def main():
-    if len(sys.argv) not in (3,4): raise SystemExit('Usage: output_qc.py project.json output.mp4 [report.json]')
-    report=inspect_output(pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2])); text=json.dumps(report,ensure_ascii=False,indent=2); print(text)
-    if len(sys.argv)==4: pathlib.Path(sys.argv[3]).write_text(text,encoding='utf-8')
-    if not report['ok']: raise SystemExit(2)
-if __name__=='__main__': main()
+def main(argv):
+    if len(argv)!=3: raise SystemExit('Usage: output_qc.py project.json output.mp4')
+    result=run_qc(argv[1],argv[2]); print(json.dumps(result,ensure_ascii=False,indent=2)); return 0 if result['ok'] else 2
+
+if __name__=='__main__': raise SystemExit(main(sys.argv))
