@@ -10,6 +10,43 @@
     if(typeof MigrationEngine==='function')return new MigrationEngine().migrate(next).project;
     return next;
   }
+  function canonicalMediaId(value){
+    if(typeof value==='number')return Number.isFinite(value)?String(Object.is(value,-0)?0:value):'';
+    if(typeof value==='string')return value.trim();
+    return '';
+  }
+  function validateRestoredBundle(restored){
+    const project=restored?.project;
+    if(!project||typeof project!=='object')throw new Error('El paquete no contiene un proyecto restaurable');
+    const manifestAssets=Array.isArray(project.assets)?project.assets:[];
+    const restoredAssets=Array.isArray(restored.assets)?restored.assets:[];
+    const manifestIds=new Set(),restoredIds=new Set();
+    for(const meta of manifestAssets){
+      const id=canonicalMediaId(meta?.id);
+      if(!id)throw new Error('Paquete con medio sin identificador válido');
+      if(manifestIds.has(id))throw new Error(`Paquete con identificador de medio duplicado: ${id}`);
+      manifestIds.add(id);
+    }
+    for(const asset of restoredAssets){
+      const id=canonicalMediaId(asset?.id);
+      if(!id)throw new Error('Paquete con medio restaurado sin identificador válido');
+      if(restoredIds.has(id))throw new Error(`Paquete con medio restaurado duplicado: ${id}`);
+      if(!manifestIds.has(id))throw new Error(`Medio restaurado no declarado por el proyecto: ${id}`);
+      if(!asset?.blob||typeof asset.blob.arrayBuffer!=='function')throw new Error(`Archivo de medio no disponible en paquete: ${id}`);
+      restoredIds.add(id);
+    }
+    for(const id of manifestIds){
+      if(!restoredIds.has(id))throw new Error(`Medio declarado pero no restaurado por el paquete: ${id}`);
+    }
+    for(const clip of project.clips||[]){
+      if(!clip||clip.asset===undefined||clip.asset===null)continue;
+      const id=canonicalMediaId(clip.asset);
+      if(!id)throw new Error(`Clip con identificador de medio inválido: ${clip.id||'sin id'}`);
+      if(!manifestIds.has(id))throw new Error(`Clip referencia un medio no incluido en el paquete: ${id}`);
+      clip.asset=id;
+    }
+    return restored;
+  }
   function installLibraryImportGuard(){
     const Library=window.ProfitMenteProjectLibrary,ImportEngine=window.ProfitMenteProjectImportEngine;
     if(!Library||!ImportEngine)return false;
@@ -62,10 +99,10 @@
       const normalized=new ImportEngine(defaults).normalize(restored.project);
       delete normalized.libraryId;
       restored.project=migrateImported(normalized);
-      return restored;
+      return validateRestoredBundle(restored);
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true};
     return true;
   }
   function installImportGuards(){
