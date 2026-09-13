@@ -7,7 +7,13 @@ class ProfitMenteWebMRenderEngine{
     const n=Number(value);return Number.isFinite(n)?n:fallback;
   }
   static normalizeDuration(value){const n=this.finiteNumber(value,0);return n>0?n:0}
-  static normalizeFps(value){const n=Math.round(this.finiteNumber(value,30));return Math.max(1,Math.min(60,n))}
+  static get supportedFps(){return [24,30,60]}
+  static normalizeFps(value,fallback=30){
+    const n=Math.round(this.finiteNumber(value,NaN));
+    if(this.supportedFps.includes(n))return n;
+    const safe=Math.round(this.finiteNumber(fallback,30));
+    return this.supportedFps.includes(safe)?safe:30;
+  }
   static framePlan(duration,fps=30){
     duration=this.normalizeDuration(duration);fps=this.normalizeFps(fps);
     const totalFrames=Math.max(1,Math.ceil(duration*fps));
@@ -85,7 +91,7 @@ class ProfitMenteWebMRenderEngine{
   assert(session){
     if(!session||session!==this._session||session.done)throw new DOMException('La sesión de render ya no está activa','AbortError');
     if(session.cancelled)throw new DOMException('Render WebM cancelado','AbortError');
-    return true;
+    return true
   }
   finish(session){if(session&&session===this._session){session.done=true;return true}return false}
   reset(){if(this._session)this._session.done=true;this._session=null}
