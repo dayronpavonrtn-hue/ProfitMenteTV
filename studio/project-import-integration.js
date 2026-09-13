@@ -25,6 +25,7 @@
       const id=canonicalMediaId(meta?.id);
       if(!id)throw new Error('Paquete con medio sin identificador válido');
       if(manifestIds.has(id))throw new Error(`Paquete con identificador de medio duplicado: ${id}`);
+      meta.id=id;
       manifestIds.add(id);
     }
     for(const asset of restoredAssets){
@@ -33,6 +34,7 @@
       if(restoredIds.has(id))throw new Error(`Paquete con medio restaurado duplicado: ${id}`);
       if(!manifestIds.has(id))throw new Error(`Medio restaurado no declarado por el proyecto: ${id}`);
       if(!asset?.blob||typeof asset.blob.arrayBuffer!=='function')throw new Error(`Archivo de medio no disponible en paquete: ${id}`);
+      asset.id=id;
       restoredIds.add(id);
     }
     for(const id of manifestIds){
