@@ -1,6 +1,6 @@
 (()=>{
-  if(typeof document==='undefined'||window.ProfitMenteAudioQC||!window.ProfitMenteAudioQCEngine)return;
-  const Engine=window.ProfitMenteAudioQCEngine,Wave=window.ProfitMenteAudioWaveformEngine;
+  if(typeof document==='undefined'||window.ProfitMenteAudioQC||!window.ProfitMenteAudioQCEngine||!window.ProfitMenteAudioEngine)return;
+  const Engine=window.ProfitMenteAudioQCEngine,Wave=window.ProfitMenteAudioWaveformEngine,playbackState=Object.create(window.ProfitMenteAudioEngine.prototype);
   const style=document.createElement('style');style.id='profitmenteAudioQCStyle';style.textContent=`.clip[data-audio-qc="clipping"]{box-shadow:inset 0 0 0 2px #ff4d5a}.clip[data-audio-qc="hot"]{box-shadow:inset 0 0 0 2px #ffb84d}.audioQcPanel{margin-top:8px}.audioQcPanel button{width:100%;margin-top:4px}.audioQcResult{font-size:12px;line-height:1.35;margin-top:6px}`;document.head.appendChild(style);
   const panel=document.createElement('div');panel.className='audioQcPanel';panel.innerHTML='<button id="audioQcBtn" type="button">🔊 Revisar picos de audio</button><button id="audioQcHeadroomBtn" type="button" title="Reduce automáticamente los niveles editables para dejar la mezcla a -1 dBFS">🛡 Corregir headroom (-1 dB)</button><div id="audioQcResult" class="audioQcResult" hidden></div>';
   (document.querySelector('.props')||document.querySelector('aside'))?.appendChild(panel);
@@ -8,7 +8,7 @@
   function canonicalId(value){return Wave?.canonicalMediaId?.(value)??(value==null?null:String(value))}
   function sameId(a,b){const x=canonicalId(a),y=canonicalId(b);return x!==null&&y!==null&&x===y}
   function assetFor(id){return (typeof assets!=='undefined'?assets:[]).find(a=>sameId(a?.id,id))||null}
-  function eligible(clip){const track=Engine.canonicalTrack(clip?.track);return [0,1,4,5,6].includes(track)&&clip?.asset!==null&&clip?.asset!==undefined&&(track>3||!clip?.muted)}
+  function eligible(clip){return typeof project!=='undefined'&&playbackState.clipAudible(project,clip)}
   function clearMarks(){document.querySelectorAll('.clip[data-audio-qc]').forEach(el=>{delete el.dataset.audioQc;el.removeAttribute('data-audio-qc-db')});lastAnalysis=null;updateHeadroomButton()}
   function mark(clip,inspection){const el=[...document.querySelectorAll('.clip[data-id]')].find(node=>sameId(node.dataset.id,clip?.id));if(!el)return;el.dataset.audioQc=inspection.status;if(Number.isFinite(inspection.dbfs))el.dataset.audioQcDb=inspection.dbfs.toFixed(1)}
   function updateHeadroomButton(){
