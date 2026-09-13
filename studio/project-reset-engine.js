@@ -5,7 +5,9 @@ class ProfitMenteProjectResetEngine{
     const duration=Math.max(1,Number(options.duration)||45);
     const format=['9:16','16:9','1:1'].includes(options.format)?options.format:'9:16';
     const mode=options.mode==='Automático'?'Automático':'Manual';
-    return {version:this.version,name:String(options.name||'Nuevo video'),mode,duration,format,clips:[]};
+    const requestedFps=Math.round(Number(options.fps));
+    const fps=[24,30,60].includes(requestedFps)?requestedFps:30;
+    return {version:this.version,name:String(options.name||'Nuevo video'),mode,duration,format,fps,clips:[]};
   }
   snapshot(recovery,project,reason='antes de proyecto nuevo'){
     if(!recovery||typeof recovery.capture!=='function'||!project)return null;
