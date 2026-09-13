@@ -29,6 +29,17 @@ let r=P.narrationCoverage(qa(),project([{track:'+06.0',start:0,duration:20,asset
 assert.equal(r.metrics.narrationCoverage,100,'legacy narration aliases must count toward export coverage');
 assert.equal(r.warnings.length,0);
 
+r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:20,asset:'voice',muted:'false'}]));
+assert.equal(r.metrics.narrationCoverage,100,'legacy string false must not mute narration in preflight');
+assert.equal(r.warnings.length,0,'legacy string false must remain aligned with preview/render strict mute semantics');
+
+r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:20,asset:'voice',muted:false}]));
+assert.equal(r.metrics.narrationCoverage,100,'boolean false must keep narration active');
+
+r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:20,asset:'voice',muted:true}]));
+assert.equal(r.metrics.narrationCoverage,0,'only strict boolean true may mute narration');
+assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
+
 r=P.narrationCoverage(qa(),project([{track:'0x6',start:0,duration:20,asset:'fake'}]));
 assert.equal(r.metrics.narrationCoverage,0,'hex track aliases must not masquerade as narration clips');
 assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
