@@ -28,6 +28,7 @@
     return states.some(state=>state?.locked===true);
   };
   const clipLocked=clip=>clip?.locked===true;
+  const autoTransitionEnabled=clip=>clip?.autoTransition===true;
   class ProfitMenteAutoTransitionEngine{
     static generated(project){return (project?.clips||[]).filter(c=>canonicalTrack(c?.track)===0&&String(c.sceneText||'').trim()).sort((a,b)=>(geometry(a)?.start??Infinity)-(geometry(b)?.start??Infinity)||String(a.id||'').localeCompare(String(b.id||'')))}
     static preferred(clip,index){
@@ -45,12 +46,12 @@
       const lockedTrack=trackLocked(project,0);
       for(let i=0;i<clips.length;i++){if(lockedTrack||clipLocked(clips[i]))locked++;if(!geometry(clips[i]))invalidGeometry++}
       for(let i=1;i<clips.length;i++){
-        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev);
-        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol)eligible++;else if(c.autoTransition&&c.transition!=='cut')stale++}
-        else if(c.autoTransition&&c.transition!=='cut')stale++;
-        if(c.transition&&!c.autoTransition)manual++;
+        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
+        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol)eligible++;else if(automatic&&c.transition!=='cut')stale++}
+        else if(automatic&&c.transition!=='cut')stale++;
+        if(c.transition&&!automatic)manual++;
         const transitionDuration=finiteNumber(c.transitionDuration);
-        if(c.autoTransition&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!cg||transitionDuration>Math.min(2,cg.duration)+.0001))invalid++;
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!cg||transitionDuration>Math.min(2,cg.duration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
@@ -58,29 +59,30 @@
       const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let changed=0,preserved=0,skipped=0,cleared=0,locked=0,invalidGeometry=0;
       if(!clips.length)return {changed,preserved,skipped,cleared,locked,invalidGeometry,generated:0};
       if(trackLocked(project,0))return {changed,preserved,skipped,cleared,locked:clips.length,invalidGeometry:clips.filter(c=>!geometry(c)).length,generated:clips.length};
-      const first=clips[0],firstGeometry=geometry(first);
+      const first=clips[0],firstGeometry=geometry(first),firstAutomatic=autoTransitionEnabled(first);
       if(!firstGeometry){invalidGeometry++;skipped++}
       else if(clipLocked(first))locked++;
-      else if(force||first.autoTransition||!first.transition){if(first.transition!=='cut'||first.transitionDuration!=null||!first.autoTransition){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
+      else if(force||firstAutomatic||!first.transition){if(first.transition!=='cut'||first.transitionDuration!=null||!firstAutomatic){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
       for(let i=1;i<clips.length;i++){
-        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev);
+        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
         if(!cg||!pg){
           if(!cg)invalidGeometry++;
-          if(c.autoTransition&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
+          if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
         if(clipLocked(c)){locked++;continue}
         const gap=cg.start-(pg.start+pg.duration);
         if(Math.abs(gap)>tol){
-          if(c.autoTransition&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
+          if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
-        if(c.transition&&!c.autoTransition&&!force){preserved++;continue}
-        const type=this.preferred(c,i),duration=this.durationFor(project,c),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&c.autoTransition===true;
+        if(c.transition&&!automatic&&!force){preserved++;continue}
+        const type=this.preferred(c,i),duration=this.durationFor(project,c),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&automatic;
         c.transition=type;c.transitionDuration=duration;c.autoTransition=true;if(!same)changed++;
       }
       return {changed,preserved,skipped,cleared,locked,invalidGeometry,generated:clips.length};
     }
   }
+  ProfitMenteAutoTransitionEngine.autoTransitionEnabled=autoTransitionEnabled;
   return {ProfitMenteAutoTransitionEngine};
 });
