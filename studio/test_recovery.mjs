@@ -66,10 +66,18 @@ const dedupedRows=JSON.parse(dupStorage.getItem('profitmente-recovery-v1'));
 assert.equal(dedupedRows.length,2,'repair persists only unique snapshot identities');
 assert.equal(dedupedRows.filter(x=>x.id==='same-id').length,1);
 
+// If durable storage is externally corrupted during the session, recovery keeps
+// the last-known-good in-memory checkpoint instead of discarding the user's only
+// usable restore point. The next capture must repair persistence while preserving it.
 storage.setItem('profitmente-recovery-v1','{"broken json"');
-assert.deepEqual(r.list(),[],'invalid JSON degrades to an empty recovery history instead of crashing');
+const cachedAfterCorruption=r.list();
+assert.equal(cachedAfterCorruption.length,1,'invalid JSON falls back to the last-known-good recovery history');
+assert.equal(cachedAfterCorruption[0].id,valid.id,'the cached valid checkpoint remains restorable after storage corruption');
+assert.equal(r.storageAvailable,false,'corrupt durable storage is surfaced as unavailable until a successful rewrite');
 const afterCorruption=r.capture({name:'Recovered after corruption',duration:12,clips:[]},'autoguardado','2026-08-28T00:05:00Z');
-assert(afterCorruption,'capture recreates the recovery store after corrupted JSON');
-assert.equal(r.list().length,1);assert.equal(r.latest().project.name,'Recovered after corruption');
+assert(afterCorruption,'capture repairs the recovery store after corrupted JSON');
+assert.equal(r.storageAvailable,true,'a successful capture restores durable recovery storage');
+assert.equal(r.list().length,2,'repair preserves the cached checkpoint and adds the new capture');assert.equal(r.latest().project.name,'Recovered after corruption');
+const healedRows=JSON.parse(storage.getItem('profitmente-recovery-v1'));assert.equal(healedRows.length,2,'the repaired durable store contains both usable checkpoints');
 
 r.clear();assert.equal(r.list().length,0);console.log('Recovery engine OK');
