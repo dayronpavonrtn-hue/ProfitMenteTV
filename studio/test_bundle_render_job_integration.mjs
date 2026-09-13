@@ -53,4 +53,21 @@ assert.ok(legacySize>0);
 assert.ok(calls.some(x=>x[0]==='fetch'&&x[1]==='/api/render'&&x[2]===50),'legacy render must also use the bounded result timeout');
 assert.ok(calls.some(x=>x[0]==='validate'),'legacy MP4 must pass result integrity validation');
 
+const unverified=new FakeBundle();
+unverified._renderJobClient=new FakeClient();
+unverified._renderJobClient.fetchWithTimeout=async()=>({
+  ok:true,
+  headers:{get:()=>null},
+  blob:async()=>new Blob([new Uint8Array([0,0,0,20,102,116,121,112,...new Array(20).fill(0)])],{type:'video/mp4'}),
+});
+const beforeUnverified=calls.length;
+await assert.rejects(
+  ()=>unverified.renderLegacy({name:'legacy-unverified'},new Blob(['bundle']),()=>{}),
+  /sin confirmar el control post-render/,
+  'legacy render must reject an MP4 when the server does not prove post-render QC',
+);
+const unverifiedCalls=calls.slice(beforeUnverified);
+assert.equal(unverifiedCalls.some(x=>x[0]==='validate'),false,'unverified legacy MP4 must not reach blob validation');
+assert.equal(unverifiedCalls.some(x=>x[0]==='download'),false,'unverified legacy MP4 must never be downloaded as final output');
+
 console.log('bundle render job integration regression: ok');
