@@ -16,16 +16,16 @@ class ProfitMenteQAEngine{
           if(!value||typeof value!=='object')continue;
           const numeric=trackKey(key);
           if(numeric===target){
-            merged.hidden=merged.hidden||!!value.hidden;
-            merged.muted=merged.muted||!!value.muted;
-            merged.locked=merged.locked||!!value.locked;
-            merged.solo=merged.solo||!!value.solo;
+            merged.hidden=merged.hidden||value.hidden===true;
+            merged.muted=merged.muted||value.muted===true;
+            merged.locked=merged.locked||value.locked===true;
+            merged.solo=merged.solo||value.solo===true;
           }
         }
         return merged;
       };
       const modern=read(project.trackState),legacy=read(project.trackStates);
-      return {hidden:!!(modern.hidden||legacy.hidden),muted:!!(modern.muted||legacy.muted),locked:!!(modern.locked||legacy.locked),solo:!!(modern.solo||legacy.solo)};
+      return {hidden:modern.hidden===true||legacy.hidden===true,muted:modern.muted===true||legacy.muted===true,locked:modern.locked===true||legacy.locked===true,solo:modern.solo===true||legacy.solo===true};
     };
     const soloSet=tracks=>{const set=new Set(tracks.filter(track=>state(track).solo));return set.size?set:null};
     const visualSolo=soloSet(VISUAL_TRACKS),audioSolo=soloSet(AUDIO_TRACKS);
@@ -61,7 +61,7 @@ class ProfitMenteQAEngine{
     const visuals=(project.clips||[]).filter(c=>[0,1].includes(trackKey(c?.track))&&mediaIdKey(c?.asset)!==null&&activeTrack(c?.track));if(!visuals.length) warnings.push('No hay video o imagen visible asignado a las pistas visuales.');
     const colorGraded=visuals.filter(c=>['brightness','contrast','saturation','hue'].some(k=>Math.abs(Number(c[k])||0)>.001));
     const motion=(project.clips||[]).filter(c=>trackKey(c?.track)===2&&c.name&&activeTrack(c?.track));
-    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(trackKey(c?.track))&&mediaIdKey(c?.asset)!==null&&!c.muted&&activeTrack(c?.track));if(!audio.length) warnings.push('No hay voz, música ni SFX activos.');
+    const audio=(project.clips||[]).filter(c=>[4,5,6].includes(trackKey(c?.track))&&mediaIdKey(c?.asset)!==null&&c.muted!==true&&activeTrack(c?.track));if(!audio.length) warnings.push('No hay voz, música ni SFX activos.');
     const captions=(project.clips||[]).filter(c=>trackKey(c?.track)===3&&c.name&&activeTrack(c?.track));if(!captions.length) warnings.push('No hay subtítulos/captions visibles.');
     const disabledTracks=[];for(let i=0;i<=6;i++)if(!activeTrack(i))disabledTracks.push(i);if(disabledTracks.length) warnings.push(`Pistas desactivadas para exportación: ${disabledTracks.join(', ')}`);
     const usedVisualIds=new Set(visuals.map(c=>mediaIdKey(c?.asset)).filter(id=>id!==null));for(const a of assets.filter(x=>usedVisualIds.has(mediaIdKey(x?.id))&&['video','image'].includes(x.type))){if(a.width&&a.height){const shortSide=Math.min(a.width,a.height),longSide=Math.max(a.width,a.height);if(shortSide<720||longSide<1280) warnings.push(`Resolución baja para render profesional: ${a.name} (${a.width}×${a.height})`);const portrait=a.height>a.width,landscape=a.width>a.height,usesCover=visuals.some(c=>mediaIdKey(c?.asset)===mediaIdKey(a?.id)&&(c.fitMode||'cover')==='cover');if(usesCover&&project.format==='9:16'&&landscape&&a.width/a.height>1.5) warnings.push(`Medio horizontal requerirá recorte fuerte en 9:16: ${a.name}`);if(usesCover&&project.format==='16:9'&&portrait&&a.height/a.width>1.5) warnings.push(`Medio vertical requerirá recorte fuerte en 16:9: ${a.name}`)}}
@@ -71,4 +71,4 @@ class ProfitMenteQAEngine{
   }
   coverage(clips,duration){const ranges=clips.map(c=>[Math.max(0,c.start),Math.min(duration,c.start+c.duration)]).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);if(!ranges.length)return 0;let total=0,[s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{total+=e-s;s=a;e=b}}return total+e-s}
 }
-if(typeof window!=='undefined')window.ProfitMenteQAEngine=ProfitMenteQAEngine;if(typeof module!=='undefined')module.exports={ProfitMenteQAEngine};
+if(typeof window!=='undefined')window.ProfitMenteQAEngine=ProfitMenteQAEngine;if(typeof module!=='undefined'&&module.exports)module.exports={ProfitMenteQAEngine};
