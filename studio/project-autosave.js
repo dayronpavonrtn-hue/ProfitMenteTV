@@ -72,6 +72,7 @@ if(typeof document!=='undefined')(()=>{
       console.error('ProfitMente property autosave failed',err);markUnsaved(err);
       window.dispatchEvent(new CustomEvent('profitmente:project-autosave-error',{detail:{reason,error:err?.message||String(err),retry:retryCount}}));
       if(reason!=='cierre'&&retryCount<3){retryCount+=1;timer=setTimeout(()=>flush('reintento'),1500*retryCount)}
+      if(reason==='cambio de proyecto')throw err;
       return false;
     }
     finally{flushing=false}
