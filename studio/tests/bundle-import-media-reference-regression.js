@@ -11,7 +11,12 @@ class MockImportEngine{
 }
 
 class MockBundleEngine{
-  async parse(){return structuredClone(nextRestored)}
+  async parse(){
+    return {
+      project:structuredClone(nextRestored.project),
+      assets:(nextRestored.assets||[]).map(asset=>({...asset}))
+    };
+  }
 }
 
 class MockProjectLibrary{
@@ -70,6 +75,8 @@ async function rejectWith(engine,value,pattern){
     [{id:'clip-numeric',asset:7,start:0,duration:1,track:1,type:'audio'}]
   );
   valid=await engine.parse({});
+  assert.strictEqual(valid.project.assets[0].id,'7','numeric manifest media IDs should canonicalize to strings');
+  assert.strictEqual(valid.assets[0].id,'7','restored media IDs should use the same canonical identity');
   assert.strictEqual(valid.project.clips[0].asset,'7','numeric legacy media IDs should canonicalize to strings');
 
   await rejectWith(engine,restored(
