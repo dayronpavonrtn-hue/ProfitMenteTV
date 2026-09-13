@@ -97,9 +97,8 @@
       return out;
     }
     static ensure(trackState){
-      const source=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
-      const out={};
-      for(let i=0;i<7;i++)out[i]=this.normalizedState(source[i]||source[String(i)]||{});
+      const out=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
+      for(let i=0;i<7;i++)out[i]=this.normalizedState(out[i]||out[String(i)]||{});
       return out;
     }
     static merge(current,legacy){
