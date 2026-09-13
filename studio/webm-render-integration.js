@@ -8,7 +8,10 @@
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   function stopTracks(stream){for(const track of stream?.getTracks?.()||[]){try{track.stop()}catch{}}}
   function safeStopRecorder(recorder){try{if(recorder&&recorder.state!=='inactive')recorder.stop()}catch{}}
-  function currentQuality(){return window.ProfitMentePreviewFormat?.quality||localStorage.getItem('profitmente-preview-quality')||'full'}
+  function currentQuality(){
+    if(window.ProfitMentePreviewFormat?.quality)return window.ProfitMentePreviewFormat.quality;
+    try{return window.localStorage?.getItem?.('profitmente-preview-quality')||'full'}catch{return 'full'}
+  }
   function projectFps(target=project){return ProfitMenteWebMRenderEngine.normalizeFps(target?.fps||30)}
   function applyQuality(quality){
     if(!window.ProfitMentePreviewFormatEngine)return;
@@ -85,7 +88,7 @@
   async function run(){
     if(engine.active)return;
     if(!window.MediaRecorder||typeof canvas.captureStream!=='function'){setStatus?.('Render WebM no soportado por este navegador');return}
-    save?.();
+    try{await Promise.resolve(save?.())}catch(err){console.error(err);setStatus?.(`Render WebM cancelado: no se pudo confirmar el guardado del proyecto${err?.message?` · ${err.message}`:''}`);return}
     if(typeof qa!=='undefined'){
       const report=qa.inspect(project,assets);if(report.issues?.length){setStatus?.('Render WebM bloqueado: corrige primero los errores de QA');document.querySelector('#qaBtn')?.click();return}
     }
