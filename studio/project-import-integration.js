@@ -179,7 +179,7 @@
       return restored;
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true,rollsBackPartialMediaWrites:true,restoresPersistedProject:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true,rollsBackPartialMediaWrites:true,rollsBackRejectedMediaWrites:true,restoresPersistedProject:true};
     return true;
   }
   function installBundleOpenHandler(){
@@ -194,7 +194,7 @@
         if(typeof setStatus==='function')setStatus('Abriendo paquete completo…');
         if(typeof bundler==='undefined'||typeof bundler?.parse!=='function')throw new Error('Motor de paquetes no disponible');
         const restored=await bundler.parse(file);
-        for(const asset of restored.assets||[]){await putAsset(asset);const id=canonicalMediaId(asset?.id);if(id)writtenIds.push(id)}
+        for(const asset of restored.assets||[]){const id=canonicalMediaId(asset?.id);if(id&&!writtenIds.includes(id))writtenIds.push(id);await putAsset(asset)}
         assets=mergeRestoredAssets(previousAssets,restored.assets||[]);
         project={...restored.project,clips:Array.isArray(restored.project.clips)?restored.project.clips:[]};
         if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
