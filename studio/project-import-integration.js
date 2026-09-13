@@ -69,6 +69,24 @@
     }
     return merged;
   }
+  async function rollbackBundleOpen(previousProject,previousAssets,writtenIds){
+    const priorById=new Map();
+    for(const asset of previousAssets||[]){const id=canonicalMediaId(asset?.id);if(id&&!priorById.has(id))priorById.set(id,asset)}
+    for(const id of Array.from(writtenIds||[]).reverse()){
+      try{
+        const prior=priorById.get(id);
+        if(prior)await putAsset(prior);
+        else if(typeof mediaStore!=='undefined'&&mediaStore?.delete)await mediaStore.delete(id);
+      }catch(cleanupError){console.error('ProfitMente bundle rollback media cleanup failed',cleanupError)}
+    }
+    project=previousProject;
+    assets=previousAssets;
+    if(typeof drawLibrary==='function')drawLibrary();
+    if(typeof drawTimeline==='function')drawTimeline();
+    if(typeof syncForm==='function')syncForm();
+    if(typeof historyEngine!=='undefined'&&historyEngine?.seed){historyEngine.seed(project);if(typeof updateHistoryButtons==='function')updateHistoryButtons()}
+    try{if(typeof renderAt==='function')await renderAt(+document.querySelector('#playhead')?.value||0)}catch(cleanupError){console.error('ProfitMente bundle rollback preview restore failed',cleanupError)}
+  }
   function validateRestoredBundle(restored){
     const project=restored?.project;
     if(!project||typeof project!=='object')throw new Error('El paquete no contiene un proyecto restaurable');
@@ -157,7 +175,7 @@
       return restored;
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true,rollsBackPartialMediaWrites:true};
     return true;
   }
   function installBundleOpenHandler(){
@@ -165,12 +183,15 @@
     if(!bundleInput||bundleInput.dataset?.profitmenteSafeOpen==='1')return !!bundleInput;
     bundleInput.onchange=async e=>{
       const file=e.target.files?.[0];if(!file)return;
+      const previousProject=project;
+      const previousAssets=assets;
+      const writtenIds=[];
       try{
         if(typeof setStatus==='function')setStatus('Abriendo paquete completo…');
         if(typeof bundler==='undefined'||typeof bundler?.parse!=='function')throw new Error('Motor de paquetes no disponible');
         const restored=await bundler.parse(file);
-        for(const asset of restored.assets||[])await putAsset(asset);
-        assets=mergeRestoredAssets(assets,restored.assets||[]);
+        for(const asset of restored.assets||[]){await putAsset(asset);const id=canonicalMediaId(asset?.id);if(id)writtenIds.push(id)}
+        assets=mergeRestoredAssets(previousAssets,restored.assets||[]);
         project={...restored.project,clips:Array.isArray(restored.project.clips)?restored.project.clips:[]};
         if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
         if(typeof drawLibrary==='function')drawLibrary();
@@ -181,7 +202,12 @@
         if(typeof historyEngine!=='undefined'&&historyEngine?.seed){historyEngine.seed(project);if(typeof updateHistoryButtons==='function')updateHistoryButtons()}
         const report=typeof qa!=='undefined'&&qa?.inspect?qa.inspect(project,assets):null;
         if(typeof setStatus==='function')setStatus(`Paquete restaurado · ${(restored.assets||[]).length} medios importados · ${assets.length} medios en biblioteca${report?` · QA ${report.score}/100`:''}`);
-      }catch(err){console.error(err);if(typeof setStatus==='function')setStatus('No se pudo abrir el paquete: '+(err?.message||err))}
+      }catch(err){
+        console.error(err);
+        if(writtenIds.length)await rollbackBundleOpen(previousProject,previousAssets,writtenIds);
+        else{project=previousProject;assets=previousAssets}
+        if(typeof setStatus==='function')setStatus('No se pudo abrir el paquete: '+(err?.message||err)+' · proyecto y biblioteca anteriores conservados');
+      }
       finally{e.target.value=''}
     };
     if(bundleInput.dataset)bundleInput.dataset.profitmenteSafeOpen='1';
