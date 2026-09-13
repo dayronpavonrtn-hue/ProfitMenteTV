@@ -19,6 +19,12 @@
     return aStart<bStart+bDuration-epsilon&&bStart<aStart+aDuration-epsilon;
   };
   const sameTrack=(a,b)=>String(a?.track??'')===String(b?.track??'');
+  const supportedTransitions=new Set(['none','fade','slide']);
+  const normalizeGeneratedTransition=value=>{
+    if(typeof value!=='string')return 'none';
+    const normalized=value.trim().toLowerCase();
+    return supportedTransitions.has(normalized)?normalized:'none';
+  };
   const applyGeneratedProject=(target,result,duration)=>{
     const previous=Array.isArray(target?.clips)?target.clips:[];
     const preserved=previous.filter(clip=>engine.clipLocked(target,clip));
@@ -34,6 +40,9 @@
         return false;
       }
       return true;
+    }).map(clip=>{
+      if(engine.canonicalTrack?.(clip?.track)!=='0')return clip;
+      return {...clip,transition:normalizeGeneratedTransition(clip?.transition)};
     });
     const requested=Math.max(10,Number(duration)||45);
     const protectedEnd=preserved.reduce((max,clip)=>Math.max(max,(Number(clip?.start)||0)+Math.max(0,Number(clip?.duration)||0)),0);
