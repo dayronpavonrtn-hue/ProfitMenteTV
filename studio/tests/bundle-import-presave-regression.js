@@ -18,6 +18,12 @@ class MockBundleEngine{
   }
 }
 
+class MockProjectLibrary{
+  static blank(){return {version:'1.8',mode:'Manual',fps:30}}
+  load(){return null}
+  save(value){return value}
+}
+
 const input={accept:'',onchange:null};
 global.document={
   readyState:'complete',
@@ -26,7 +32,7 @@ global.document={
 global.window=global;
 global.ProfitMenteProjectImportEngine=MockImportEngine;
 global.ProfitMenteBundleEngine=MockBundleEngine;
-global.ProfitMenteProjectLibrary={blank:()=>({version:'1.8',mode:'Manual',fps:30})};
+global.ProfitMenteProjectLibrary=MockProjectLibrary;
 global.ProfitMenteNewProject={
   flushCurrentProject(){flushCalls++;return allowFlush}
 };
