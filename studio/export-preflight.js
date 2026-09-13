@@ -58,7 +58,7 @@
       const isNarration=c=>this.canonicalTrack(c?.track)===6;
       const clipDuration=c=>Math.max(0,this.finiteNumber(c?.duration,0));
       const clipStart=c=>Math.max(0,this.finiteNumber(c?.start,0));
-      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&c?.asset&&!c?.muted&&clipDuration(c)>0);
+      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&c?.asset&&c?.muted!==true&&clipDuration(c)>0);
       const ranges=voice.map(c=>{const start=clipStart(c);return [start,Math.min(duration,start+clipDuration(c))]}).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
       let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
       const ratio=Math.max(0,Math.min(1,seconds/duration)),percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
