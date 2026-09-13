@@ -42,15 +42,24 @@
     }
     static install(BundleCtor=root.ProfitMenteBundleEngine){
       const proto=BundleCtor?.prototype;
-      if(!proto||typeof proto.renderLocal!=='function'||proto.__renderMediaPrunerInstalled)return false;
-      const original=proto.renderLocal;
-      proto.renderLocal=async function(project,assets,onStatus=()=>{}){
+      if(!proto||typeof proto.build!=='function'||proto.__renderMediaPrunerInstalled)return false;
+      const originalBuild=proto.build;
+      proto.build=async function(project,assets){
         const all=Array.isArray(assets)?assets:[];
         const selected=ProfitMenteRenderMediaPruner.select(project,all);
-        if(selected.length<all.length)onStatus(`Optimizando render · ${selected.length} de ${all.length} medios necesarios`);
-        return original.call(this,project,selected,onStatus);
+        return originalBuild.call(this,project,selected);
       };
+      if(typeof proto.renderLocal==='function'){
+        const originalRenderLocal=proto.renderLocal;
+        proto.renderLocal=async function(project,assets,onStatus=()=>{}){
+          const all=Array.isArray(assets)?assets:[];
+          const selected=ProfitMenteRenderMediaPruner.select(project,all);
+          if(selected.length<all.length)onStatus(`Optimizando render · ${selected.length} de ${all.length} medios necesarios`);
+          return originalRenderLocal.call(this,project,selected,onStatus);
+        };
+      }
       proto.__renderMediaPrunerInstalled=true;
+      proto.__renderMediaBuildPrunerInstalled=true;
       return true;
     }
   }
