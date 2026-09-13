@@ -15,6 +15,60 @@
     if(typeof value==='string')return value.trim();
     return '';
   }
+  function mediaLooksEquivalent(left,right){
+    if(!left||!right)return false;
+    const strong=['sourceContentHash','sourceFingerprint'];
+    for(const key of strong){
+      const a=left[key],b=right[key];
+      if(a&&b)return String(a)===String(b);
+    }
+    const sizeA=Number(left.size??left.blob?.size),sizeB=Number(right.size??right.blob?.size);
+    return String(left.name||'')===String(right.name||'')&&String(left.type||'')===String(right.type||'')&&String(left.mime||'')===String(right.mime||'')&&Number.isFinite(sizeA)&&Number.isFinite(sizeB)&&sizeA===sizeB;
+  }
+  let bundleMediaSequence=0;
+  function freshBundleMediaId(taken){
+    let id='';
+    do{
+      id=globalThis.crypto?.randomUUID?.()||`bundle-media-${Date.now()}-${++bundleMediaSequence}`;
+    }while(taken.has(id));
+    taken.add(id);return id;
+  }
+  function protectBundleMediaIdentity(restored,currentAssets=typeof assets!=='undefined'?assets:[]){
+    const project=restored?.project;
+    const incoming=Array.isArray(restored?.assets)?restored.assets:[];
+    if(!project||!incoming.length)return restored;
+    const existing=new Map();
+    const taken=new Set();
+    for(const asset of currentAssets||[]){
+      const id=canonicalMediaId(asset?.id);if(!id)continue;
+      if(!existing.has(id))existing.set(id,asset);taken.add(id);
+    }
+    for(const asset of incoming){const id=canonicalMediaId(asset?.id);if(id)taken.add(id)}
+    const remap=new Map();
+    for(const asset of incoming){
+      const id=canonicalMediaId(asset?.id);if(!id)continue;
+      const prior=existing.get(id);
+      if(!prior||mediaLooksEquivalent(prior,asset))continue;
+      const next=freshBundleMediaId(taken);remap.set(id,next);asset.id=next;
+    }
+    if(!remap.size)return restored;
+    for(const meta of project.assets||[]){const id=canonicalMediaId(meta?.id);if(remap.has(id))meta.id=remap.get(id)}
+    for(const clip of project.clips||[]){const id=canonicalMediaId(clip?.asset);if(remap.has(id))clip.asset=remap.get(id)}
+    return restored;
+  }
+  function mergeRestoredAssets(currentAssets=[],restoredAssets=[]){
+    const merged=[];const positions=new Map();
+    for(const asset of currentAssets||[]){
+      const id=canonicalMediaId(asset?.id);if(!id||positions.has(id))continue;
+      positions.set(id,merged.length);merged.push(asset);
+    }
+    for(const asset of restoredAssets||[]){
+      const id=canonicalMediaId(asset?.id);if(!id)continue;
+      if(positions.has(id))merged[positions.get(id)]=asset;
+      else{positions.set(id,merged.length);merged.push(asset)}
+    }
+    return merged;
+  }
   function validateRestoredBundle(restored){
     const project=restored?.project;
     if(!project||typeof project!=='object')throw new Error('El paquete no contiene un proyecto restaurable');
@@ -91,9 +145,6 @@
     const baseParse=Bundle.prototype.parse;
     if(typeof baseParse!=='function')return false;
     Bundle.prototype.parse=async function(blob){
-      // Opening a full package replaces the active project just like JSON
-      // import. Flush it first so unsaved edits cannot disappear if the package
-      // is valid, invalid, or media restoration later fails part-way through.
       if(!flushCurrentProject())throw new Error('No se pudo guardar el proyecto actual; apertura del paquete cancelada');
       const restored=await baseParse.call(this,blob);
       if(!restored||!restored.project)throw new Error('El paquete no contiene un proyecto restaurable');
@@ -101,20 +152,46 @@
       const normalized=new ImportEngine(defaults).normalize(restored.project);
       delete normalized.libraryId;
       restored.project=migrateImported(normalized);
-      return validateRestoredBundle(restored);
+      validateRestoredBundle(restored);
+      protectBundleMediaIdentity(restored);
+      return restored;
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true};
+    return true;
+  }
+  function installBundleOpenHandler(){
+    const bundleInput=document.querySelector('#bundleInput');
+    if(!bundleInput||bundleInput.dataset?.profitmenteSafeOpen==='1')return !!bundleInput;
+    bundleInput.onchange=async e=>{
+      const file=e.target.files?.[0];if(!file)return;
+      try{
+        if(typeof setStatus==='function')setStatus('Abriendo paquete completo…');
+        if(typeof bundler==='undefined'||typeof bundler?.parse!=='function')throw new Error('Motor de paquetes no disponible');
+        const restored=await bundler.parse(file);
+        for(const asset of restored.assets||[])await putAsset(asset);
+        assets=mergeRestoredAssets(assets,restored.assets||[]);
+        project={...restored.project,clips:Array.isArray(restored.project.clips)?restored.project.clips:[]};
+        if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
+        if(typeof drawLibrary==='function')drawLibrary();
+        if(typeof drawTimeline==='function')drawTimeline();
+        if(typeof syncForm==='function')syncForm();
+        const playhead=document.querySelector('#playhead');if(playhead)playhead.value=0;
+        if(typeof renderAt==='function')await renderAt(0);
+        if(typeof historyEngine!=='undefined'&&historyEngine?.seed){historyEngine.seed(project);if(typeof updateHistoryButtons==='function')updateHistoryButtons()}
+        const report=typeof qa!=='undefined'&&qa?.inspect?qa.inspect(project,assets):null;
+        if(typeof setStatus==='function')setStatus(`Paquete restaurado · ${(restored.assets||[]).length} medios importados · ${assets.length} medios en biblioteca${report?` · QA ${report.score}/100`:''}`);
+      }catch(err){console.error(err);if(typeof setStatus==='function')setStatus('No se pudo abrir el paquete: '+(err?.message||err))}
+      finally{e.target.value=''}
+    };
+    if(bundleInput.dataset)bundleInput.dataset.profitmenteSafeOpen='1';
     return true;
   }
   function installImportGuards(){
     installLibraryImportGuard();
     installBundleImportGuard();
+    installBundleOpenHandler();
   }
-  // project-library.js and bundle-engine.js are loaded independently from this
-  // integration. Install the shared validator once all parser scripts have
-  // finished so JSON imports, saved projects and full packages converge on the
-  // same canonical project model before they touch timeline/preview/render.
   if(document.readyState==='loading')window.addEventListener('DOMContentLoaded',installImportGuards,{once:true});
   else installImportGuards();
   function flushCurrentProject(){
@@ -123,9 +200,6 @@
     try{
       const autosave=window.ProfitMenteProjectAutosave;
       const result=autosave?.flush?.('importación JSON/paquete');
-      // autosave.flush() also returns false for a harmless no-op, so use its
-      // explicit unsaved flag to distinguish "nothing changed" from a failed
-      // persistent write. Never let the weaker fallback persist mask that error.
       if(result===false&&autosave?.unsaved===true){
         if(typeof setStatus==='function')setStatus('No se pudo guardar el proyecto actual; importación cancelada');
         return false;
@@ -146,19 +220,12 @@
     const f=e.target.files?.[0];if(!f)return;
     try{
       if(f.size>10*1024*1024)throw new Error('Archivo de proyecto demasiado grande (máximo 10 MB)');
-      // Keep the primary Importar proyecto JSON action on the same guarded,
-      // persistent path as Mis proyectos. ProjectTransfer flushes the current
-      // edit, validates the JSON, saves the imported copy in the project
-      // library, and dispatches project-opened. Its library importer is also
-      // migration-wrapped once advanced features are ready.
       const transfer=window.ProfitMenteProjectTransfer;
       if(typeof transfer?.importProjectFile==='function'){
         await transfer.importProjectFile(f);
         return;
       }
       const parsed=JSON.parse(await f.text());
-      // Fallback for partial/module-load failures: never replace the active
-      // timeline until the current project has been flushed safely.
       if(!flushCurrentProject())return;
       project=migrateImported(engine.normalize(parsed));
       if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
