@@ -28,6 +28,7 @@ jobs:
           node --check studio/media-store.js
           node --check studio/project-library.js
           node --check studio/project-import-engine.js
+          node --check studio/project-import-integration.js
           node --check studio/project-portability.js
           node --check studio/preview-engine.js
           node --check studio/caption-preview.js
@@ -99,6 +100,7 @@ jobs:
         run: |
           node studio/project-transfer-regression.test.js
           node studio/test_project_import_bounds.mjs
+          node studio/test_bundle_project_import_guard.js
       - name: Recovery restore integrity regression
         run: node studio/test_recovery_restore_persistence.mjs
       - name: Atomic bundle restore regression
