@@ -13,6 +13,7 @@ class ProfitMenteAudioEngine{
  setTrackGain(track,value){this.init();track=this.canonicalTrack(track);if(track===null||!this.trackGains[track])return null;const n=this.finiteNumber(value),gain=Math.max(0,Math.min(2,n===null?1:n));this.trackGains[track].gain.value=gain;return gain}
  visualTrackHidden(project,track){const canonical=this.canonicalTrack(track);if(canonical===null)return false;const s=this.trackStateValue(project,canonical),solo=[0,1,2,3].some(t=>this.strictFlag(this.trackStateValue(project,t).solo));return this.strictFlag(s.hidden)||(solo&&!this.strictFlag(s.solo))}
  audioTrackMuted(project,track){const canonical=this.canonicalTrack(track);if(canonical===null)return false;const s=this.trackStateValue(project,canonical),solo=[4,5,6].some(t=>this.strictFlag(this.trackStateValue(project,t).solo));return this.strictFlag(s.muted)||(solo&&!this.strictFlag(s.solo))}
+ clipAudible(project,clip){const track=this.canonicalTrack(clip?.track);if(![0,1,4,5,6].includes(track)||!this.mediaAssigned(clip?.asset)||this.strictFlag(clip?.muted))return false;return track<=1?!this.visualTrackHidden(project,track):!this.audioTrackMuted(project,track)}
  async buffer(blob){this.init();return await this.ctx.decodeAudioData(await blob.arrayBuffer())}
  musicGain(project,clip){return this.ducking?this.ducking.baseVolume(clip):(clip.volume??.22)}
  envelope(clip){if(this.envelopes)return this.envelopes.forClip(clip);const d=Math.max(.001,Number(clip.duration)||.001);let fadeIn=Math.max(0,Math.min(d,Number(clip.fadeIn??.18)||0)),fadeOut=Math.max(0,Math.min(d,Number(clip.fadeOut??.25)||0));if(fadeIn+fadeOut>d){const k=d/(fadeIn+fadeOut);fadeIn*=k;fadeOut*=k}return {fadeIn,fadeOut}}
@@ -21,8 +22,8 @@ class ProfitMenteAudioEngine{
  scheduleDucking(project,clip,node,at,localStart,localEnd){node.gain.cancelScheduledValues(at);if(this.canonicalTrack(clip.track)!==5||!this.ducking){node.gain.setValueAtTime(1,at);return}node.gain.setValueAtTime(this.ducking.multiplierAt(project,clip,localStart),at);for(const event of this.ducking.events(project,clip,localStart,localEnd))node.gain.setValueAtTime(event.value,at+(event.time-localStart))}
  async schedule(project,assets,from=0,monitor=true){
    this.stop();const scheduleId=this._scheduleSeq;this.init();this.syncTrackGains(project);this.monitor.gain.value=monitor?1:0;await this.ctx.resume();
-   const audioClips=(project?.clips||[]).filter(c=>[4,5,6].includes(this.canonicalTrack(c.track))&&this.mediaAssigned(c.asset)&&!this.strictFlag(c.muted)&&!this.audioTrackMuted(project,c.track)&&Number(c.start||0)+Number(c.duration||0)>from);
-   const videoClips=(project?.clips||[]).filter(c=>[0,1].includes(this.canonicalTrack(c.track))&&this.mediaAssigned(c.asset)&&!this.strictFlag(c.muted)&&!this.visualTrackHidden(project,c.track)&&Number(c.start||0)+Number(c.duration||0)>from);
+   const audioClips=(project?.clips||[]).filter(c=>[4,5,6].includes(this.canonicalTrack(c.track))&&this.clipAudible(project,c)&&Number(c.start||0)+Number(c.duration||0)>from);
+   const videoClips=(project?.clips||[]).filter(c=>[0,1].includes(this.canonicalTrack(c.track))&&this.clipAudible(project,c)&&Number(c.start||0)+Number(c.duration||0)>from);
    const decoded=new Map(),requested=new Map();
    for(const [clip,expectedType] of [...audioClips.map(c=>[c,'audio']),...videoClips.map(c=>[c,'video'])]){
      const a=this.findAsset(assets,clip.asset),key=this.canonicalMediaId(a?.id);if(!a||a.type!==expectedType||key===null||requested.has(key))continue;
