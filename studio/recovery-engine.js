@@ -1,6 +1,6 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteRecoveryEngine=api.ProfitMenteRecoveryEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteRecoveryEngine{
-  constructor(storage,{key='profitmente-recovery-v1',limit=20}={}){this.storage=storage;this.key=key;this.limit=Math.max(3,Math.min(100,limit|0||20))}
+  constructor(storage,{key='profitmente-recovery-v1',limit=20}={}){this.storage=storage;this.key=key;this.limit=Math.max(3,Math.min(100,limit|0||20));this.memoryRows=[];this.memoryDirty=false;this.storageAvailable=!!storage;this.lastStorageError=null}
   _isProject(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
   _fingerprint(project){const copy=structuredClone(project||{});delete copy.updatedAt;delete copy.recoveryMeta;return JSON.stringify(copy)}
   _draftId(project){const id=project?.recoveryMeta?.draftId;return typeof id==='string'&&id.trim()?id.trim():null}
@@ -23,8 +23,7 @@ class ProfitMenteRecoveryEngine{
     if(!fingerprint){try{fingerprint=this._fingerprint(project)}catch{return null}}
     return {id,createdAt,reason,name,libraryId,group,fingerprint,project};
   }
-  _decode(){
-    let parsed;try{parsed=JSON.parse(this.storage.getItem(this.key)||'[]')}catch{return {rows:[],invalid:1}}
+  _decodeRows(parsed){
     if(!Array.isArray(parsed))return {rows:[],invalid:1};
     const rows=[],seenIds=new Set();let invalid=0;
     for(const row of parsed){
@@ -36,8 +35,22 @@ class ProfitMenteRecoveryEngine{
     }
     return {rows,invalid};
   }
+  _decode(){
+    // Once a durable write fails, the in-memory copy is newer than localStorage.
+    // Keep using it for the rest of the session until a later write succeeds.
+    if(this.memoryDirty)return this._decodeRows(this.memoryRows);
+    if(!this.storage||typeof this.storage.getItem!=='function'){
+      this.storageAvailable=false;return this._decodeRows(this.memoryRows)
+    }
+    try{
+      const decoded=this._decodeRows(JSON.parse(this.storage.getItem(this.key)||'[]'));
+      this.memoryRows=structuredClone(decoded.rows);this.storageAvailable=true;this.lastStorageError=null;return decoded
+    }catch(error){
+      this.storageAvailable=false;this.lastStorageError=error;return this._decodeRows(this.memoryRows)
+    }
+  }
   _read(){return this._decode().rows}
-  _write(rows){
+  _selectRows(rows){
     // The recovery budget is shared by every Studio project. A hot project can
     // generate many snapshots in seconds, so a plain rows.slice(0, limit) can
     // evict every recovery point belonging to other projects. Reserve up to two
@@ -52,7 +65,21 @@ class ProfitMenteRecoveryEngine{
       selected.add(row.id);perGroup.set(group,count+1);
     }
     for(const row of valid){if(selected.size>=this.limit)break;if(!selected.has(row.id))selected.add(row.id)}
-    this.storage.setItem(this.key,JSON.stringify(valid.filter(row=>selected.has(row.id)).slice(0,this.limit)))
+    return valid.filter(row=>selected.has(row.id)).slice(0,this.limit)
+  }
+  _write(rows){
+    const kept=this._selectRows(rows);this.memoryRows=structuredClone(kept);
+    if(!this.storage||typeof this.storage.setItem!=='function'){
+      this.storageAvailable=false;this.memoryDirty=true;return kept
+    }
+    try{
+      this.storage.setItem(this.key,JSON.stringify(kept));this.storageAvailable=true;this.memoryDirty=false;this.lastStorageError=null
+    }catch(error){
+      // Recovery is a safety net and must never make normal editing fail. Keep
+      // the newest checkpoints in memory and retry durable storage next capture.
+      this.storageAvailable=false;this.memoryDirty=true;this.lastStorageError=error
+    }
+    return kept
   }
   _prepareDraftIdentity(project,rows,fingerprint){
     if(project?.libraryId)return {group:this._group(project),changed:false};
@@ -81,7 +108,7 @@ class ProfitMenteRecoveryEngine{
     if(!this._isProject(project))return null;
     const {rows,invalid}=this._decode();let fingerprint;try{fingerprint=this._fingerprint(project)}catch{return null}
     const prepared=this._prepareDraftIdentity(project,rows,fingerprint),group=prepared.group,latest=rows.find(x=>x.group===group);
-    if(latest?.fingerprint===fingerprint){if(invalid||prepared.changed)this._write(rows);return structuredClone(latest)}
+    if(latest?.fingerprint===fingerprint){if(invalid||prepared.changed||this.memoryDirty)this._write(rows);return structuredClone(latest)}
     const snapshot={id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`),createdAt:now,reason,name:project.name||'Sin título',libraryId:project.libraryId||null,group,fingerprint,project:structuredClone(project)};
     rows.unshift(snapshot);this._write(rows);return structuredClone(snapshot)
   }
@@ -98,7 +125,12 @@ class ProfitMenteRecoveryEngine{
   latest(project=null){return this.list(project)[0]||null}
   restore(id){const row=this._read().find(x=>x.id===id);return row?structuredClone(row.project):null}
   remove(id){const rows=this._read(),next=rows.filter(x=>x.id!==id);this._write(next);return next.length!==rows.length}
-  clear(){this.storage.removeItem(this.key)}
+  clear(){
+    this.memoryRows=[];
+    if(!this.storage||typeof this.storage.removeItem!=='function'){this.storageAvailable=false;this.memoryDirty=true;return}
+    try{this.storage.removeItem(this.key);this.storageAvailable=true;this.memoryDirty=false;this.lastStorageError=null}
+    catch(error){this.storageAvailable=false;this.memoryDirty=true;this.lastStorageError=error}
+  }
   pruneBefore(iso){const next=this._read().filter(x=>(x.createdAt||'')>=iso);this._write(next);return next.length}
 }
 return {ProfitMenteRecoveryEngine};
