@@ -87,6 +87,28 @@
   class ProfitMenteTrackSoloEngine{
     static get VISUAL_TRACKS(){return VISUAL_TRACKS}
     static get AUDIO_TRACKS(){return AUDIO_TRACKS}
+    static canonicalTrack(value){
+      if(typeof value==='boolean'||value===null||value===undefined)return null;
+      if(typeof value==='number')return Number.isFinite(value)&&Number.isInteger(value)&&value>=0&&value<=6?value:null;
+      if(typeof value==='string'){
+        const raw=value.trim();if(!raw)return null;
+        const numeric=Number(raw);
+        return Number.isFinite(numeric)&&Number.isInteger(numeric)&&numeric>=0&&numeric<=6?numeric:null;
+      }
+      return null;
+    }
+    static rawState(stateMap,track){
+      const target=this.canonicalTrack(track),merged={};
+      if(target===null||!stateMap||typeof stateMap!=='object'||Array.isArray(stateMap))return merged;
+      // Match track_state_render.py: aliases for one canonical track are merged in
+      // object insertion order, so a later alias (for example "0.0") can override
+      // an earlier "0" entry before strict booleans are normalized.
+      for(const [key,value] of Object.entries(stateMap)){
+        if(this.canonicalTrack(key)!==target||!value||typeof value!=='object'||Array.isArray(value))continue;
+        Object.assign(merged,value);
+      }
+      return merged;
+    }
     static normalizedState(raw){
       const source=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
       const out={...source};
@@ -97,8 +119,8 @@
       return out;
     }
     static ensure(trackState){
-      const out=trackState&&typeof trackState==='object'&&!Array.isArray(trackState)?trackState:{};
-      for(let i=0;i<7;i++)out[i]=this.normalizedState(out[i]||out[String(i)]||{});
+      const out={};
+      for(let i=0;i<7;i++)out[i]=this.normalizedState(this.rawState(trackState,i));
       return out;
     }
     static merge(current,legacy){
@@ -106,20 +128,15 @@
       const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
       const out={};
       for(let i=0;i<7;i++){
-        const c=this.normalizedState(cur[i]||cur[String(i)]||{}),l=this.normalizedState(old[i]||old[String(i)]||{});
-        const merged={...l,...c};
-        // A restrictive state from either schema must survive migration, but only an
-        // actual boolean true is restrictive. Strings such as "false" from imported
-        // or hand-edited JSON must never lock, hide, mute, or solo a track.
-        for(const key of ['locked','hidden','muted','solo'])merged[key]=strictFlag(c[key])||strictFlag(l[key]);
-        for(const key of ['_soloVisualActive','_soloHiddenBase','_soloAudioActive','_soloMutedBase']){
-          if(key in c||key in l)merged[key]=strictFlag(c[key])||strictFlag(l[key]);
-        }
-        out[i]=merged;
+        // Match the renderer exactly: legacy schema is applied first, current schema
+        // second, then the final value is interpreted strictly. This preserves valid
+        // explicit false overrides and prevents strings/numbers from becoming true.
+        const merged={...this.rawState(old,i),...this.rawState(cur,i)};
+        out[i]=this.normalizedState(merged);
       }
       return out;
     }
-    static state(trackState,track){return this.ensure(trackState)[Number(track)]}
+    static state(trackState,track){const target=this.canonicalTrack(track);return target===null?{}:this.ensure(trackState)[target]}
     static baseHidden(s){return strictFlag(s?._soloVisualActive)?strictFlag(s?._soloHiddenBase):strictFlag(s?.hidden)}
     static baseMuted(s){return strictFlag(s?._soloAudioActive)?strictFlag(s?._soloMutedBase):strictFlag(s?.muted)}
     static applyGroup(trackState,tracks){
