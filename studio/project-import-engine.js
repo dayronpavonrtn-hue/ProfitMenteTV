@@ -32,6 +32,11 @@ class ProfitMenteProjectImportEngine{
       }
       return `s:${value}`;
     };
+    const canonicalClipId=(raw,index)=>{
+      if(typeof raw==='string'&&raw.trim())return raw.trim();
+      if(typeof raw==='number'&&Number.isFinite(raw))return String(Object.is(raw,-0)?0:raw);
+      return `imported-clip-${index+1}`;
+    };
     const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
     const canonicalEasing=value=>{
       const easing=typeof value==='string'?value.trim().toLowerCase():'';
@@ -117,7 +122,7 @@ class ProfitMenteProjectImportEngine{
       normalizeOptionalNumber(copy,'fadeOut',0,clipDuration,'Fade de salida');
       normalizeVisualAdjustments(copy);
       normalizeVisualKeyframes(copy,clipDuration);
-      let id=typeof copy.id==='string'&&copy.id.trim()?copy.id.trim():`imported-clip-${index+1}`;
+      const id=canonicalClipId(copy.id,index);
       const idIdentity=identityKey(id);
       if(idIdentity===null)throw new Error('ID de clip inválido');
       if(ids.has(idIdentity))throw new Error('ID de clip duplicado o ambiguo');
