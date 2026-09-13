@@ -10,9 +10,14 @@ assert.equal(Engine.normalizeQuality('unknown'),'high','calidad inválida debe c
 assert.equal(Engine.normalizeDuration(true),0,'booleanos no deben convertirse en duración');
 assert.equal(Engine.normalizeDuration({valueOf(){return 2}}),0,'objetos coercibles no deben convertirse en duración');
 assert.equal(Engine.normalizeDuration('2.5'),2.5,'cadenas numéricas válidas deben conservar compatibilidad');
+assert.deepEqual(Engine.supportedFps,[24,30,60],'WebM debe usar el mismo conjunto de FPS que el motor de proyecto');
 assert.equal(Engine.normalizeFps(true),30,'booleanos no deben convertirse en FPS');
 assert.equal(Engine.normalizeFps({valueOf(){return 24}}),30,'objetos coercibles no deben convertirse en FPS');
 assert.equal(Engine.normalizeFps('24'),24,'cadenas numéricas válidas deben conservar compatibilidad');
+assert.equal(Engine.normalizeFps(60),60,'60 FPS debe conservarse');
+assert.equal(Engine.normalizeFps(25),30,'FPS importados fuera del conjunto del proyecto deben caer al fallback canónico');
+assert.equal(Engine.normalizeFps(59,24),24,'un FPS no soportado debe respetar un fallback canónico explícito');
+assert.equal(Engine.normalizeFps(25,25),30,'un fallback también inválido debe terminar en 30 FPS seguros');
 const guardedDims=Engine.recorderOptions({mimeType:'video/webm',quality:'high',width:true,height:{valueOf(){return 1}},fps:true});
 assert.equal(guardedDims.videoBitsPerSecond,10000000,'dimensiones/FPS corruptos deben caer a 1080x1920@30');
 const high1080=Engine.recorderOptions({mimeType:'video/webm',quality:'high',width:1080,height:1920,fps:30});
@@ -29,6 +34,10 @@ const guardedPlan=Engine.framePlan(true,true);
 assert.equal(guardedPlan.duration,0,'framePlan debe rechazar duración booleana');
 assert.equal(guardedPlan.fps,30,'framePlan debe rechazar FPS booleano');
 assert.equal(guardedPlan.timeAt({valueOf(){return 5}}),0,'índices coercibles no deben mover el frame plan');
+const importedFpsPlan=Engine.framePlan(2,25);
+assert.equal(importedFpsPlan.fps,30,'framePlan debe normalizar FPS no soportado antes de calcular frames');
+assert.equal(importedFpsPlan.totalFrames,60,'la normalización debe mantener duración y conteo sincronizados');
+assert.equal(importedFpsPlan.timeAt(30),1,'los timestamps deben usar los FPS ya normalizados');
 
 const project={name:'Proyecto A',duration:2,format:'9:16',renderQuality:'high',clips:[{id:'c1',track:0,start:0,duration:2,asset:'a1'}]};
 const assets=[{id:'a1',name:'video.mp4',type:'video',mime:'video/mp4',duration:2,width:1080,height:1920,mediaReadable:true,metadataVersion:2,sourceFingerprint:'video.mp4|1200|video/mp4|10',sourceContentHash:'hash-a',sourceLegacyContentHash:'legacy-a',sourceHashVersion:'sample-v2',blob:{size:1200,type:'video/mp4',lastModified:10}}];
@@ -76,4 +85,4 @@ assert.match(integration,/download\(blob,renderName\)/,'la descarga debe conserv
 assert.match(integration,/WEBM_STATE_CHANGED/,'la UI debe distinguir cambios de proyecto de una cancelación normal');
 assert.match(integration,/project===renderProject\?previousTime/,'cleanup no debe imponer el playhead anterior sobre otro proyecto');
 
-console.log('WebM render state + quality + final resolution + numeric guard QA: OK');
+console.log('WebM render state + quality + final resolution + canonical FPS + numeric guard QA: OK');
