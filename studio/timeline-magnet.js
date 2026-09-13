@@ -6,10 +6,10 @@
   const sameId=(a,b)=>a!==null&&a!==undefined&&b!==null&&b!==undefined&&String(a)!==''&&String(a)===String(b);
   const assetFor=clip=>(assets||[]).find(a=>sameId(a.id,clip?.asset));
   function trackLocked(track){
-    const lockedIn=states=>{const state=states?.[track]??states?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked)};
+    const lockedIn=states=>{const state=states?.[track]??states?.[String(track)]??{};return !!(state&&typeof state==='object'&&state.locked===true)};
     return lockedIn(project?.trackState)||lockedIn(project?.trackStates);
   }
-  function clipLocked(clip){return !!clip&&(!!clip.locked||trackLocked(clip.track))}
+  function clipLocked(clip){return !!clip&&(clip.locked===true||trackLocked(clip.track))}
   function restoreMoveSnapshot(originals,originalDuration){
     const snapshots=Array.isArray(originals)?originals:[],byId=new Map(snapshots.map(x=>[String(x.id),x]));let restored=0;
     for(const clip of project?.clips||[]){const original=byId.get(String(clip.id));if(!original)continue;if(Math.abs((Number(clip.start)||0)-(Number(original.start)||0))>.0001||Number(clip.track)!==Number(original.track))restored++;clip.start=Number(original.start)||0;clip.track=Number(original.track)||0;}
@@ -89,7 +89,7 @@
     }
     clearTargets();const lane=laneAt(e.clientX,e.clientY),desiredTrack=lane?+lane.dataset.track:active.originalTrack;
     if(active.groupEngine&&active.originals.length>1){
-      const ignored=active.originals.map(x=>x.id),plan=active.groupEngine.movePlan({duration:active.timelineDuration,originals:active.originals,anchorId:active.clip.id,desiredStart:active.originalStart+seconds,boundaries:boundaries(ignored),snapSeconds:SNAP_SECONDS,desiredTrack,canTrack:(original,next)=>{const c=project.clips.find(x=>String(x.id)===String(original.id));return !!c&&!c.locked&&compatible(c,next)&&!trackLocked(next)}});
+      const ignored=active.originals.map(x=>x.id),plan=active.groupEngine.movePlan({duration:active.timelineDuration,originals:active.originals,anchorId:active.clip.id,desiredStart:active.originalStart+seconds,boundaries:boundaries(ignored),snapSeconds:SNAP_SECONDS,desiredTrack,canTrack:(original,next)=>{const c=project.clips.find(x=>String(x.id)===String(original.id));return !!c&&c.locked!==true&&compatible(c,next)&&!trackLocked(next)}});
       active.groupEngine.apply(project,plan);const anchorMove=plan?.moves?.find(x=>String(x.id)===String(active.clip.id));if(anchorMove)active.el.style.left=`${anchorMove.start/project.duration*100}%`;
       if(lane&&plan?.trackChanged)lane.classList.add('dropTarget');
       if(typeof setStatus==='function'&&plan)setStatus(`${plan.snapped?'🧲 ':''}Grupo · ${active.originals.length} clips · ${active.clip.start.toFixed(2)}s${plan.trackChanged?' · pistas desplazadas':''}`);return;
