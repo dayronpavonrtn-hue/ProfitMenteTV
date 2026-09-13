@@ -8,12 +8,13 @@ const vm=require('vm');
 const source=fs.readFileSync(path.join(__dirname,'project-import-integration.js'),'utf8');
 let normalizeCalls=0;
 let migrationCalls=0;
+const mediaBlob=new Blob(['bundle-media'],{type:'video/mp4'});
 
 class FakeBundleEngine{
   async parse(){
     return {
-      project:{libraryId:'legacy-project',name:'Bundle test',duration:'12.5',clips:[{id:'c1',start:'2',duration:'3'}]},
-      assets:[{id:'asset-1',name:'clip.mp4'}]
+      project:{libraryId:'legacy-project',name:'Bundle test',duration:'12.5',assets:[{id:'asset-1',name:'clip.mp4',type:'video',mime:'video/mp4'}],clips:[{id:'c1',start:'2',duration:'3',asset:'asset-1'}]},
+      assets:[{id:'asset-1',name:'clip.mp4',type:'video',mime:'video/mp4',blob:mediaBlob}]
     };
   }
 }
@@ -63,9 +64,12 @@ vm.runInContext(source,context,{filename:'project-import-integration.js'});
   assert.strictEqual(restored.project.duration,12.5,'bundle duration should pass through project normalization');
   assert.strictEqual(restored.project.clips[0].start,2,'clip start should pass through project normalization');
   assert.strictEqual(restored.project.clips[0].duration,3,'clip duration should pass through project normalization');
+  assert.strictEqual(restored.project.clips[0].asset,'asset-1','clip media identity should survive canonical bundle validation');
   assert.strictEqual(restored.project.libraryId,undefined,'restored package must not retain a saved-library identity');
   assert.strictEqual(restored.project.migrated,true,'normalized package should pass through project migration');
-  assert.deepStrictEqual(restored.assets,[{id:'asset-1',name:'clip.mp4'}],'bundle media restoration must remain intact');
+  assert.strictEqual(restored.assets.length,1,'bundle media restoration must remain intact');
+  assert.strictEqual(restored.assets[0].id,'asset-1','restored media id should remain canonical');
+  assert.strictEqual(restored.assets[0].blob,mediaBlob,'restored media blob must remain intact');
   assert.strictEqual(normalizeCalls,1,'bundle parse should normalize exactly once');
   assert.strictEqual(migrationCalls,1,'bundle parse should migrate exactly once');
 
