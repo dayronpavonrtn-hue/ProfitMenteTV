@@ -2,6 +2,7 @@
 function libraryIdKey(value){if((typeof value!=='string'&&typeof value!=='number')||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
 function sameLibraryId(a,b){const x=libraryIdKey(a),y=libraryIdKey(b);return x!==null&&x===y}
 function libraryTimestamp(value){return typeof value==='string'&&value.trim()&&Number.isFinite(Date.parse(value))?value:null}
+function strictFiniteNumber(value,fallback=null){if(typeof value==='number')return Number.isFinite(value)?value:fallback;if(typeof value==='string'&&value.trim()!==''){const parsed=Number(value);return Number.isFinite(parsed)?parsed:fallback}return fallback}
 class ProfitMenteProjectLibrary{
   constructor(storage,key='profitmente-project-library'){this.storage=storage;this.key=key;this.backupKey=`${key}-last-good`;this.corruptKey=`${key}-corrupt-backup`;this.memory=[];this.storageAvailable=true;this.memoryDirty=false;this.recoveredFromBackup=false;this.quarantinedCorrupt=false;this.repairedCorruptRows=false}
   _clone(items){return structuredClone(Array.isArray(items)?items:[])}
@@ -84,10 +85,10 @@ class ProfitMenteProjectLibrary{
     if(clips.length)return true;
     if((project.name||blank.name)!==blank.name)return true;
     if((project.mode||blank.mode)!==blank.mode)return true;
-    if(Number(project.duration??blank.duration)!==blank.duration)return true;
+    if(strictFiniteNumber(project.duration??blank.duration,null)!==blank.duration)return true;
     if((project.format||blank.format)!==blank.format)return true;
     const fpsValue=project.fps??project.frameRate??blank.fps;
-    if(Number(fpsValue)!==blank.fps)return true;
+    if(strictFiniteNumber(fpsValue,null)!==blank.fps)return true;
     if(Array.isArray(project.markers)&&project.markers.length)return true;
     if(this.hasMeaningfulTrackState(project.trackState)||this.hasMeaningfulTrackState(project.trackStates))return true;
     if(project.renderRange||project.safeAreaPlatform||project.socialPlatform)return true;
@@ -100,10 +101,15 @@ class ProfitMenteProjectLibrary{
     if(!source||typeof source!=='object'||Array.isArray(source))throw new Error('Contenido de proyecto inválido');
     const copy=structuredClone(source);
     if(typeof copy.name!=='string'||!copy.name.trim())copy.name='Proyecto importado';else copy.name=copy.name.trim().slice(0,160);
-    const duration=Number(copy.duration);if(!Number.isFinite(duration)||duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');copy.duration=duration;
+    const duration=strictFiniteNumber(copy.duration,null);if(duration===null||duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');copy.duration=duration;
     if(!['9:16','16:9','1:1'].includes(copy.format))throw new Error('Formato de proyecto no compatible');
     if(!Array.isArray(copy.clips))throw new Error('Timeline de proyecto inválida');
-    for(const clip of copy.clips){if(!clip||typeof clip!=='object'||Array.isArray(clip))throw new Error('Clip de proyecto inválido');const start=Number(clip.start??0),clipDuration=Number(clip.duration??0);if(!Number.isFinite(start)||start<0||!Number.isFinite(clipDuration)||clipDuration<0)throw new Error('Tiempo de clip inválido')}
+    for(const clip of copy.clips){
+      if(!clip||typeof clip!=='object'||Array.isArray(clip))throw new Error('Clip de proyecto inválido');
+      const start=strictFiniteNumber(clip.start??0,null),clipDuration=strictFiniteNumber(clip.duration??0,null);
+      if(start===null||start<0||clipDuration===null||clipDuration<0)throw new Error('Tiempo de clip inválido');
+      clip.start=start;clip.duration=clipDuration;
+    }
     delete copy.libraryId;
     return copy;
   }
