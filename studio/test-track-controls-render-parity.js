@@ -1,5 +1,6 @@
 const assert=require('assert');
 const {ProfitMenteTrackSoloEngine:Engine}=require('./track-controls.js');
+const Guard=require('./qa-legacy-track-state-guard.js');
 
 function testAliasPrecedence(){
   const states=Engine.merge({
@@ -69,5 +70,21 @@ function testRenderableFilter(){
   assert.strictEqual(Engine.isAudioMuted(states,'04'),true);
 }
 
-for(const test of [testAliasPrecedence,testCurrentOverridesLegacy,testLegacyFieldsSurviveWhenCurrentOmitsThem,testStrictFlags,testSoloAndToggleBehavior,testRenderableFilter])test();
+function testQAGuardUsesSameMergeRules(){
+  const normalized=Guard.normalize({
+    trackStates:{'0':{hidden:true},'0.0':{hidden:false},'06':{muted:true}},
+    trackState:{'00':{locked:true},'6.0':{muted:false}}
+  });
+  assert.strictEqual(normalized.trackState['0'].hidden,false,'QA guard must honor later legacy alias override');
+  assert.strictEqual(normalized.trackState['0'].locked,true,'QA guard must retain current schema fields');
+  assert.strictEqual(normalized.trackState['6'].muted,false,'QA guard current schema must override legacy state');
+  assert.deepStrictEqual(normalized.trackStates,{},'raw legacy state must not be re-read by QA');
+
+  const malformed=Guard.normalize({trackState:{'':{hidden:true},'true':{hidden:true},'2':{hidden:'true',solo:1}}});
+  assert.strictEqual(malformed.trackState['0'].hidden,false,'empty key must not alias track zero');
+  assert.strictEqual(malformed.trackState['2'].hidden,false,'QA must use strict booleans');
+  assert.strictEqual(malformed.trackState['2'].solo,false,'numeric solo must not activate');
+}
+
+for(const test of [testAliasPrecedence,testCurrentOverridesLegacy,testLegacyFieldsSurviveWhenCurrentOmitsThem,testStrictFlags,testSoloAndToggleBehavior,testRenderableFilter,testQAGuardUsesSameMergeRules])test();
 console.log('ProfitMente track controls/render parity regression: SUCCESS');
