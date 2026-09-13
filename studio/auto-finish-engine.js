@@ -78,7 +78,10 @@
       const clips=Array.isArray(project?.clips)?project.clips:[];
       const safeAssets=Array.isArray(assets)?assets:[];
       const visualClips=clips.filter(c=>{const track=canonicalTrack(c?.track);return track!=null&&VISUAL_TRACKS.includes(track)&&hasMediaId(c?.asset)&&isTrackActive(project,track,'visual')});
-      const activeAudio=track=>clips.filter(c=>canonicalTrack(c?.track)===track&&hasMediaId(c?.asset)&&!c.muted&&isTrackActive(project,track,'audio'));
+      // Persisted flags use strict boolean semantics across Studio: only real true
+      // silences a clip. Imported legacy values such as muted:"false" must remain
+      // audible so Auto Finish sees the same voice/music/SFX as preview and render.
+      const activeAudio=track=>clips.filter(c=>canonicalTrack(c?.track)===track&&hasMediaId(c?.asset)&&c?.muted!==true&&isTrackActive(project,track,'audio'));
       const generated=visualClips.filter(c=>sceneText(c));
       const scenes=clips.filter(c=>canonicalTrack(c?.track)===0&&isTrackActive(project,0,'visual')&&sceneText(c)&&finiteNonNegative(c?.duration)>.1);
       const captionTrackActive=isTrackActive(project,3,'visual');
