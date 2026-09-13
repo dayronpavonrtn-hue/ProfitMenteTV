@@ -5,7 +5,8 @@ const src = fs.readFileSync('studio/app.js', 'utf8');
 const start = src.indexOf('async function renderAt(t)');
 const end = src.indexOf("\n$('#playhead').oninput", start);
 assert(start >= 0 && end > start, 'renderAt source not found');
-const renderAt = eval(`${src.slice(start, end)}\nrenderAt`);
+const renderSource = src.slice(start, end).replace('async function renderAt(t)', 'async function renderAtUnderTest(t)');
+const renderAt = eval(`${renderSource}\nrenderAtUnderTest`);
 
 let previewRenderVersion = 0;
 const canvas = { width: 1080, height: 1920 };
