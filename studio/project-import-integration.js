@@ -52,6 +52,10 @@
     const baseParse=Bundle.prototype.parse;
     if(typeof baseParse!=='function')return false;
     Bundle.prototype.parse=async function(blob){
+      // Opening a full package replaces the active project just like JSON
+      // import. Flush it first so unsaved edits cannot disappear if the package
+      // is valid, invalid, or media restoration later fails part-way through.
+      if(!flushCurrentProject())throw new Error('No se pudo guardar el proyecto actual; apertura del paquete cancelada');
       const restored=await baseParse.call(this,blob);
       if(!restored||!restored.project)throw new Error('El paquete no contiene un proyecto restaurable');
       const defaults=window.ProfitMenteProjectLibrary?.blank?.()||{};
@@ -61,7 +65,7 @@
       return restored;
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true};
     return true;
   }
   function installImportGuards(){
@@ -78,7 +82,7 @@
     const guarded=window.ProfitMenteNewProject?.flushCurrentProject;
     if(typeof guarded==='function')return guarded()!==false;
     try{
-      window.ProfitMenteProjectAutosave?.flush?.('importación JSON');
+      window.ProfitMenteProjectAutosave?.flush?.('importación JSON/paquete');
       if(typeof persist==='function')persist();
       return true;
     }catch(err){
