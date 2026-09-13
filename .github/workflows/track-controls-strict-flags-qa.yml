@@ -1,0 +1,31 @@
+name: ProfitMente Studio Track Controls Strict Flags QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/track-controls.js'
+      - 'studio/test_track_controls_strict_flags.mjs'
+      - '.github/workflows/track-controls-strict-flags-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/track-controls.js'
+      - 'studio/test_track_controls_strict_flags.mjs'
+      - '.github/workflows/track-controls-strict-flags-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  strict-track-flags:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check studio/track-controls.js
+      - name: Strict track flag regression
+        run: node studio/test_track_controls_strict_flags.mjs
