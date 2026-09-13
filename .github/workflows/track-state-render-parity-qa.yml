@@ -1,0 +1,44 @@
+name: ProfitMente Studio Track State Render Parity QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/track-controls.js'
+      - 'studio/qa-legacy-track-state-guard.js'
+      - 'studio/track_state_render.py'
+      - 'studio/test-track-controls-render-parity.js'
+      - '.github/workflows/track-state-render-parity-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  track-state-render-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify browser track state and QA migration parity
+        run: |
+          node --check studio/track-controls.js
+          node --check studio/qa-legacy-track-state-guard.js
+          node --check studio/test-track-controls-render-parity.js
+          node studio/test-track-controls-render-parity.js
+
+      - name: Verify renderer track-state helper syntax
+        run: python -m py_compile studio/track_state_render.py
+
+      - name: Verify zero-cost implementation
+        run: |
+          ! grep -Eiq 'stripe|openai|anthropic|runway|replicate|elevenlabs|api[_-]?key|billing' studio/track-controls.js studio/qa-legacy-track-state-guard.js studio/test-track-controls-render-parity.js
