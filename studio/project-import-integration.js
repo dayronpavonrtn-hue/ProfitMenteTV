@@ -82,8 +82,20 @@
     const guarded=window.ProfitMenteNewProject?.flushCurrentProject;
     if(typeof guarded==='function')return guarded()!==false;
     try{
-      window.ProfitMenteProjectAutosave?.flush?.('importación JSON/paquete');
+      const autosave=window.ProfitMenteProjectAutosave;
+      const result=autosave?.flush?.('importación JSON/paquete');
+      // autosave.flush() also returns false for a harmless no-op, so use its
+      // explicit unsaved flag to distinguish "nothing changed" from a failed
+      // persistent write. Never let the weaker fallback persist mask that error.
+      if(result===false&&autosave?.unsaved===true){
+        if(typeof setStatus==='function')setStatus('No se pudo guardar el proyecto actual; importación cancelada');
+        return false;
+      }
       if(typeof persist==='function')persist();
+      if(autosave?.unsaved===true){
+        if(typeof setStatus==='function')setStatus('No se pudo guardar el proyecto actual; importación cancelada');
+        return false;
+      }
       return true;
     }catch(err){
       console.error('ProfitMente project import pre-save failed',err);
