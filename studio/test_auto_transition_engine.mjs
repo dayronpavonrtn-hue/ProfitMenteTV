@@ -94,4 +94,28 @@ for(const [mapName,key] of [['trackState','00'],['trackStates','+0.0']]){
   assert.equal(Engine.inspect(aliasLock).locked,2);
 }
 
+const importedFalse={fps:30,clips:[
+  {id:'a',track:0,sceneText:'a',start:0,duration:2},
+  {id:'manual',track:0,name:'PROBLEMA',sceneText:'b',start:2,duration:2,transition:'fade',transitionDuration:.2,autoTransition:'false'},
+  {id:'gap',track:0,name:'CTA',sceneText:'c',start:5,duration:2,transition:'zoom',transitionDuration:.25,autoTransition:'false'}
+]};
+const importedInspection=Engine.inspect(importedFalse);
+assert.equal(importedInspection.manual,2,'string false must keep imported transitions classified as manual');
+assert.equal(importedInspection.stale,0,'string false must not classify a manual transition across a gap as stale automatic state');
+assert.equal(importedInspection.invalid,0,'string false must not enter automatic transition validation');
+const importedBefore=structuredClone(importedFalse.clips);
+const importedResult=Engine.apply(importedFalse);
+assert.equal(importedFalse.clips[1].transition,'fade','manual transition with autoTransition:"false" must be preserved');
+assert.equal(importedFalse.clips[1].transitionDuration,.2,'manual transition duration must remain untouched');
+assert.equal(importedFalse.clips[1].autoTransition,'false','manual persisted flag must not be rewritten without force');
+assert.equal(importedFalse.clips[2].transition,'zoom','manual gapped transition with string false must not be cleared');
+assert.equal(importedFalse.clips[2].transitionDuration,.25,'manual gapped transition duration must remain untouched');
+assert.equal(importedFalse.clips[2].autoTransition,'false');
+assert.equal(importedResult.preserved,1,'eligible imported manual transition must be preserved');
+assert.equal(importedResult.cleared,0,'manual transitions must never be cleared as stale automatic transitions');
+assert.deepEqual(importedFalse.clips.slice(1),importedBefore.slice(1),'non-forced automation must leave imported manual transitions byte-for-byte unchanged');
+assert.equal(Engine.autoTransitionEnabled({autoTransition:true}),true);
+assert.equal(Engine.autoTransitionEnabled({autoTransition:'true'}),false);
+assert.equal(Engine.autoTransitionEnabled({autoTransition:'false'}),false);
+
 console.log('auto-transition-engine regression: ok');
