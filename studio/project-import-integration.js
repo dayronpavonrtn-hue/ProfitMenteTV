@@ -81,6 +81,10 @@
     }
     project=previousProject;
     assets=previousAssets;
+    try{
+      if(typeof originalPersist==='function')originalPersist();
+      else if(typeof persist==='function')persist();
+    }catch(cleanupError){console.error('ProfitMente bundle rollback project persistence failed',cleanupError)}
     if(typeof drawLibrary==='function')drawLibrary();
     if(typeof drawTimeline==='function')drawTimeline();
     if(typeof syncForm==='function')syncForm();
@@ -175,7 +179,7 @@
       return restored;
     };
     Bundle.__profitmenteProjectImportGuardInstalled=true;
-    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true,rollsBackPartialMediaWrites:true};
+    window.ProfitMenteBundleProjectImportGuard={enabled:true,normalized:true,migrated:true,preservesActiveProject:true,validatesMediaReferences:true,preservesMediaLibrary:true,rollsBackPartialMediaWrites:true,restoresPersistedProject:true};
     return true;
   }
   function installBundleOpenHandler(){
