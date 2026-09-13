@@ -31,6 +31,7 @@ if(typeof document!=='undefined')(()=>{
   const engine=window.ProfitMenteProjectAutosaveEngine,$=s=>document.querySelector(s),name=$('#projectName'),duration=$('#duration'),format=$('#format'),modeInput=$('#mode');
   if(!name||!duration||!format||!modeInput)return;
   let timer=null,flushing=false,last=engine.fingerprint(project),retryCount=0,unsaved=false,lastError=null;
+  const basePersist=typeof persist==='function'?persist:null;
   function read(){return {name:name.value,duration:duration.value,format:format.value,mode:modeInput.value}}
   function cancel(){if(timer){clearTimeout(timer);timer=null}}
   function markSaved(){
@@ -41,6 +42,24 @@ if(typeof document!=='undefined')(()=>{
     unsaved=true;lastError=err||lastError;
     try{document.documentElement.dataset.projectSaveError='true'}catch{}
     if(typeof setStatus==='function')setStatus('⚠ Cambios del proyecto sin guardar · Studio seguirá reintentando');
+  }
+  function verifyPersistedLibraryProject(){
+    const lib=window.profitMenteProjectLibrary,id=engine.identity(project?.libraryId);
+    if(!lib||id===null)return true;
+    if(lib.storageAvailable===false)throw new Error('La copia de Mis proyectos no llegó al almacenamiento persistente');
+    let raw;
+    try{raw=localStorage.getItem(lib.key)}catch(err){throw err}
+    let rows;
+    try{rows=raw==null?null:JSON.parse(raw)}catch{rows=null}
+    if(!Array.isArray(rows))throw new Error('La biblioteca persistente de proyectos no está disponible');
+    const row=rows.find(item=>item&&engine.sameIdentity(item.id,id));
+    if(!row||!row.project)throw new Error('El proyecto activo no existe en la biblioteca persistente');
+    if(JSON.stringify(row.project)!==JSON.stringify(project))throw new Error('La copia de Mis proyectos quedó desactualizada');
+    return true;
+  }
+  if(basePersist&&!window.__profitMenteLibraryDurabilityPersistGuard){
+    persist=function(){basePersist();verifyPersistedLibraryProject()};
+    window.__profitMenteLibraryDurabilityPersistGuard=true;
   }
   function verifyPersistedProject(){
     const guard=window.ProfitMenteStartupProjectGuard;
