@@ -32,14 +32,14 @@ class ProfitMenteGeneratorAutoFill {
     if(target==null)return false;
     const maps=[project?.trackState,project?.trackStates];
     return maps.some(map=>Object.entries(map||{}).some(([key,state])=>{
-      if(!state||typeof state!=='object'||!state.locked)return false;
+      if(!state||typeof state!=='object'||state.locked!==true)return false;
       return this.canonicalTrack(key)===target;
     }));
   }
   locked(project,clip){
     const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;
     if(guard?.isLocked)return guard.isLocked(project,clip);
-    return !!clip?.locked||this.trackLocked(project,clip?.track);
+    return clip?.locked===true||this.trackLocked(project,clip?.track);
   }
   mediaKey(value){
     if(value==null||typeof value==='boolean'||(typeof value!=='string'&&typeof value!=='number'))return null;
