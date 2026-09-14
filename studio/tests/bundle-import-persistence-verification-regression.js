@@ -101,6 +101,21 @@ assert.strictEqual(localStorage.getItem('profitmente-project-v2'),global.ProfitM
     'the strongest available content hash must take precedence over a matching sampled signature'
   );
 
+  const canonicalAsset={id:'03',metadataBlobSignature:'canonical-sample',metadataBlobSize:16,metadataBlobType:'audio/mpeg'};
+  mediaStore.backend.loadAll=async()=>[{...canonicalAsset,id:3}];
+  assert.strictEqual(
+    await api.verifyPersistedAssets([canonicalAsset]),
+    true,
+    'numeric-equivalent ids must verify with the same canonical semantics used by the bundle import engine'
+  );
+
+  mediaStore.backend.loadAll=async()=>[{...canonicalAsset,id:'3'}];
+  await assert.rejects(
+    ()=>api.verifyPersistedAssets([canonicalAsset,{...canonicalAsset,id:3}]),
+    /id no es válido/i,
+    'numeric-equivalent duplicate expected ids must be rejected instead of being verified twice'
+  );
+
   mediaStore.backend.loadAll=async()=>[];
   await assert.rejects(
     ()=>api.verifyPersistedAssets([{id:'media-missing'}]),
