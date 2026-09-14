@@ -45,18 +45,30 @@
     return true;
   }
 
+  function validateManifestAssetName(value){
+    const name=String(value??'').trim();
+    if(!name||name==='.'||name==='..'||name.includes('/')||name.includes('\\')||/[\u0000-\u001f\u007f]/.test(name)){
+      throw new Error('Nombre de medio inválido en paquete');
+    }
+    return name;
+  }
+
   function validateManifestIntegrity(engine,project){
     if(!project||typeof project!=='object'||Array.isArray(project))throw new Error('Proyecto inválido en paquete');
     if(!Array.isArray(project.assets))throw new Error('Proyecto sin biblioteca de medios válida');
     if(!Array.isArray(project.clips))throw new Error('Proyecto sin clips válidos');
 
     const mediaIds=new Set();
+    const mediaNames=new Set();
     for(const meta of project.assets){
       if(!meta||typeof meta!=='object'||Array.isArray(meta))throw new Error('Entrada de medio inválida en paquete');
       const id=engine.canonicalMediaId(meta.id);
       if(!id)throw new Error('Medio sin identificador válido en paquete');
       if(mediaIds.has(id))throw new Error(`Identificador de medio duplicado en paquete: ${id}`);
+      const name=validateManifestAssetName(meta.name);
+      if(mediaNames.has(name))throw new Error(`Nombre de medio duplicado en paquete: ${name}`);
       mediaIds.add(id);
+      mediaNames.add(name);
     }
 
     for(const clip of project.clips){
@@ -68,14 +80,38 @@
     return true;
   }
 
+  function validateRestoredMediaIntegrity(engine,project,assets){
+    if(!Array.isArray(assets))throw new Error('Biblioteca restaurada inválida');
+    if(assets.length!==project.assets.length)throw new Error('Cantidad de medios restaurados no coincide con el manifiesto');
+    const restoredById=new Map();
+    for(const asset of assets){
+      const id=engine.canonicalMediaId(asset?.id);
+      if(!id||restoredById.has(id))throw new Error('Biblioteca restaurada contiene identificadores de medio inválidos');
+      if(!asset?.blob||typeof asset.blob.size!=='number')throw new Error(`Contenido de medio no disponible en paquete: ${id}`);
+      restoredById.set(id,asset);
+    }
+    for(const meta of project.assets){
+      const id=engine.canonicalMediaId(meta.id);
+      const asset=restoredById.get(id);
+      if(!asset)throw new Error(`Medio del manifiesto no fue restaurado: ${id}`);
+      if(meta.size!==undefined&&meta.size!==null&&meta.size!==''){
+        const declared=Number(meta.size);
+        if(!Number.isSafeInteger(declared)||declared<0)throw new Error(`Tamaño de medio inválido en paquete: ${id}`);
+        if(declared!==asset.blob.size)throw new Error(`Tamaño de medio no coincide con el contenido del paquete: ${id}`);
+      }
+    }
+    return true;
+  }
+
   const originalParse=Bundle.prototype.parse;
   Bundle.prototype.parse=async function(blob){
     await validateTarFraming(this,blob);
     const restored=await originalParse.call(this,blob);
     validateManifestIntegrity(this,restored?.project);
+    validateRestoredMediaIntegrity(this,restored.project,restored.assets);
     return restored;
   };
   Bundle.prototype.__profitmenteTarSafetyGuard=true;
 
-  g.ProfitMenteBundleTarSafetyGuard={validateTarFraming,validateManifestIntegrity,readTarSize,isZeroBlock};
+  g.ProfitMenteBundleTarSafetyGuard={validateTarFraming,validateManifestIntegrity,validateRestoredMediaIntegrity,validateManifestAssetName,readTarSize,isZeroBlock};
 })(globalThis);
