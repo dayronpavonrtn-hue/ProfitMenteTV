@@ -32,6 +32,8 @@ let releaseRender;
 const renderGate=new Promise(resolve=>{releaseRender=resolve});
 let releaseDownload;
 const downloadGate=new Promise(resolve=>{releaseDownload=resolve});
+let releaseSave;
+const saveGate=new Promise(resolve=>{releaseSave=resolve});
 class FakeBundle{
   async renderLocal(project,assets){
     await renderGate;
@@ -40,6 +42,10 @@ class FakeBundle{
   async download(project,assets){
     await downloadGate;
     return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration};
+  }
+  async save(project,assets,options={}){
+    await saveGate;
+    return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration,handle:options.handle};
   }
 }
 assert.equal(Snapshot.install(FakeBundle),true,'install should patch a renderer once');
@@ -61,6 +67,16 @@ exportAssets[0].name='portable-after.mp4';
 exportAssets[0].meta.duration=3;
 releaseDownload();
 assert.deepEqual(await pendingDownload,{duration:8,name:'portable-before.mp4',metaDuration:15},'edits made after bundle export starts must not alter the portable package snapshot');
+
+const saveHandle={name:'portable.pmstudio'};
+const saveProject={clips:[{id:'clip-save',asset:'media-save',duration:11}]};
+const saveAssets=[{id:'media-save',name:'save-before.mp4',meta:{duration:21}}];
+const pendingSave=new FakeBundle().save(saveProject,saveAssets,{handle:saveHandle});
+saveProject.clips[0].duration=110;
+saveAssets[0].name='save-after.mp4';
+saveAssets[0].meta.duration=4;
+releaseSave();
+assert.deepEqual(await pendingSave,{duration:11,name:'save-before.mp4',metaDuration:21,handle:saveHandle},'edits made after file-system bundle save starts must not alter the saved package snapshot');
 
 const cycle={name:'cycle'};cycle.self=cycle;
 const clonedCycle=Snapshot.clone(cycle);
