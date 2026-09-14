@@ -124,11 +124,11 @@
       const out={};
       for(let i=0;i<7;i++){
         const legacyState=this.rawState(old,i),currentState=this.rawState(cur,i),merged={...legacyState,...currentState};
-        // During migration both trackState (current) and trackStates (legacy) can coexist.
-        // A stale permissive false must never silently unlock, reveal or unmute content
-        // that the legacy representation still protects. Preserve the restrictive true
-        // until both representations have been canonicalized to the same state.
-        for(const key of ['locked','hidden','muted'])merged[key]=strictFlag(legacyState[key])||strictFlag(currentState[key]);
+        // Imported/recovered projects may contain both schemas. Preserve any real
+        // boolean safety/solo state until the two maps are canonicalized. This is
+        // the same fail-closed rule used by the non-browser render helper, so the
+        // timeline preview and exported MP4 cannot disagree on hidden/muted/Solo.
+        for(const key of ['locked','hidden','muted','solo'])merged[key]=strictFlag(legacyState[key])||strictFlag(currentState[key]);
         out[i]=this.normalizedState(merged);
       }
       return out;
