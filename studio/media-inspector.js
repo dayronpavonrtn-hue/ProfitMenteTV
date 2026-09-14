@@ -1,6 +1,6 @@
 class ProfitMenteMediaInspector{
   constructor(options={}){
-    this.version=3;
+    this.version=4;
     const timeout=Number(options.timeoutMs);
     this.timeoutMs=Number.isFinite(timeout)&&timeout>0?Math.min(timeout,60000):12000;
   }
@@ -8,15 +8,33 @@ class ProfitMenteMediaInspector{
     const blob=asset?.blob,size=Number(blob?.size??asset?.size??0),type=String(blob?.type||asset?.mime||''),modified=Number(blob?.lastModified??asset?.lastModified??0);
     return {size:Number.isFinite(size)&&size>=0?size:0,type,modified:Number.isFinite(modified)&&modified>=0?modified:0};
   }
-  metadataCurrent(asset){
+  async blobSignature(blob){
+    if(!blob||typeof blob.slice!=='function')return '';
+    try{
+      const size=Number(blob.size)||0,chunk=16384;
+      const ranges=size<=chunk*3?[[0,size]]:[[0,chunk],[Math.max(0,Math.floor(size/2)-Math.floor(chunk/2)),Math.min(size,Math.floor(size/2)+Math.ceil(chunk/2))],[Math.max(0,size-chunk),size]];
+      let h1=2166136261>>>0,h2=2246822519>>>0;
+      const feed=value=>{h1=Math.imul(h1^(value&255),16777619)>>>0;h2=Math.imul(h2^((value+97)&255),3266489917)>>>0};
+      for(const [start,end] of ranges){
+        const part=blob.slice(start,end),buffer=await part.arrayBuffer(),bytes=new Uint8Array(buffer);
+        for(let i=0;i<bytes.length;i++)feed(bytes[i]);
+        feed(start);feed(start>>>8);feed(end);feed(end>>>8);
+      }
+      for(let shift=0;shift<32;shift+=8)feed(size>>>shift);
+      return `${h1.toString(16).padStart(8,'0')}${h2.toString(16).padStart(8,'0')}`;
+    }catch{return ''}
+  }
+  metadataCurrent(asset,signature){
     if(asset?.metadataVersion!==this.version||typeof asset?.mediaReadable!=='boolean')return false;
-    const stamp=this.blobStamp(asset);
-    return Number(asset?.metadataBlobSize)===stamp.size&&String(asset?.metadataBlobType||'')===stamp.type&&Number(asset?.metadataBlobLastModified||0)===stamp.modified;
+    const stamp=this.blobStamp(asset),stampCurrent=Number(asset?.metadataBlobSize)===stamp.size&&String(asset?.metadataBlobType||'')===stamp.type&&Number(asset?.metadataBlobLastModified||0)===stamp.modified;
+    if(!stampCurrent||!asset?.metadataBlobSignature)return false;
+    return signature===undefined?true:String(asset.metadataBlobSignature)===String(signature||'');
   }
   async inspect(asset){
     if(!asset?.blob) return asset;
-    if(this.metadataCurrent(asset)) return asset;
-    const stamp=this.blobStamp(asset),base={...asset,size:asset.blob.size||0,metadataVersion:this.version,metadataBlobSize:stamp.size,metadataBlobType:stamp.type,metadataBlobLastModified:stamp.modified};
+    const signature=await this.blobSignature(asset.blob);
+    if(this.metadataCurrent(asset,signature)) return asset;
+    const stamp=this.blobStamp(asset),base={...asset,size:asset.blob.size||0,metadataVersion:this.version,metadataBlobSize:stamp.size,metadataBlobType:stamp.type,metadataBlobLastModified:stamp.modified,metadataBlobSignature:signature};
     try{
       let meta={};
       if(asset.type==='image') meta=await this.inspectImage(asset.blob);
@@ -91,7 +109,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIn
   function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   async function upgradeExisting(){
     let changed=0,unreadable=0;
-    for(let i=0;i<assets.length;i++)if(assets[i]?.blob&&!inspector.metadataCurrent(assets[i])){const next=await inspector.inspect(assets[i]);assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}
+    for(let i=0;i<assets.length;i++)if(assets[i]?.blob){const current=assets[i],next=await inspector.inspect(current);if(next!==current){assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}}
     if(changed){drawLibrary();setStatus(unreadable?`${changed} medios analizados · ${unreadable} no se pueden decodificar`:`${changed} medios analizados · duración, resolución y miniaturas listas`)}
   }
   function loadCleanupGuard(){
