@@ -62,9 +62,11 @@
     return importer.assertStorageCapacity?importer.assertStorageCapacity(persistAssets,estimate):{ok:true,checked:false};
   }
   function mediaKey(value){
-    if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?String(value):null;
+    if(typeof value==='number')return Number.isSafeInteger(value)?String(Object.is(value,-0)?0:value):null;
     if(typeof value!=='string')return null;
-    const text=value.trim();return text||null;
+    const text=value.trim();if(!text)return null;
+    const numeric=Number(text);
+    return Number.isFinite(numeric)&&Number.isSafeInteger(numeric)?String(Object.is(numeric,-0)?0:numeric):text;
   }
   function identityText(value){return typeof value==='string'&&value.trim()?value.trim():null}
   function mediaIdentity(asset){
