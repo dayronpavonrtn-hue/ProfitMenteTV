@@ -61,6 +61,32 @@
     const estimate=await storageEstimate();if(!estimate)return {ok:true,checked:false,required:importer.requiredPersistBytes?.(persistAssets)||0};
     return importer.assertStorageCapacity?importer.assertStorageCapacity(persistAssets,estimate):{ok:true,checked:false};
   }
+  function mediaKey(value){
+    if(typeof value==='number')return Number.isSafeInteger(value)&&value>=0?String(value):null;
+    if(typeof value!=='string')return null;
+    const text=value.trim();return text||null;
+  }
+  async function verifyPersistedAssets(expected=[]){
+    const list=Array.from(expected||[]);if(!list.length)return true;
+    const expectedKeys=new Set(list.map(asset=>mediaKey(asset?.id)).filter(Boolean));
+    if(expectedKeys.size!==list.length)throw new Error('No se pudo verificar un medio restaurado porque su id no es válido');
+    let stored=null;
+    try{
+      if(typeof mediaStore!=='undefined'&&mediaStore){
+        const flushed=typeof mediaStore.flush==='function'?await mediaStore.flush():mediaStore.storageAvailable!==false;
+        if(flushed===false||mediaStore.storageAvailable===false)throw mediaStore.lastError||new Error('IndexedDB no confirmó el guardado de medios');
+        if(mediaStore.backend?.loadAll)stored=await mediaStore.backend.loadAll();
+      }
+      if(stored===null&&typeof db==='function'&&typeof STORE!=='undefined'){
+        const d=await db();stored=await new Promise((resolve,reject)=>{let req;try{req=d.transaction(STORE,'readonly').objectStore(STORE).getAll()}catch(error){d.close?.();reject(error);return}req.onsuccess=()=>{d.close?.();resolve(Array.isArray(req.result)?req.result:[])};req.onerror=()=>{d.close?.();reject(req.error||new Error('No se pudieron verificar los medios restaurados'))}});
+      }
+    }catch(err){throw new Error('Los medios del paquete no quedaron confirmados en el almacenamiento persistente',{cause:err})}
+    if(!Array.isArray(stored))throw new Error('No hay un mecanismo disponible para verificar los medios restaurados');
+    const storedKeys=new Set(stored.map(asset=>mediaKey(asset?.id)).filter(Boolean));
+    const missing=[...expectedKeys].filter(key=>!storedKeys.has(key));
+    if(missing.length)throw new Error(`Los medios del paquete no quedaron confirmados en el almacenamiento persistente (${missing.length} faltante${missing.length===1?'':'s'})`);
+    return true;
+  }
   async function removePersistedAsset(id){
     const resilient=window.ProfitMenteMediaStorageResilience;
     if(resilient?.resilientDelete)return resilient.resilientDelete(id);
@@ -86,6 +112,7 @@
       const storage=await assertImportStorageCapacity(prepared.assetsToPersist);
       if(storage?.checked&&storage.required)status(`Espacio local verificado · restaurando ${(storage.required/1048576).toFixed(1)} MB de medios…`);
       for(const asset of prepared.assetsToPersist){if(typeof putAsset!=='function')throw new Error('El almacén local de medios no está disponible');persistedIds.push(asset.id);await putAsset(asset)}
+      await verifyPersistedAssets(prepared.assetsToPersist);
       const library=window.profitMenteProjectLibrary,nextProject=library?.save?library.save(prepared.project):prepared.project;
       createdLibraryId=nextProject?.libraryId||null;
       project=nextProject;assets=prepared.assets;activated=true;
@@ -104,5 +131,5 @@
     }
   }
   button.onclick=()=>input.click();input.onchange=e=>{const file=e.target.files?.[0];e.target.value='';void importBundleFile(file)};
-  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets,assertImportStorageCapacity,persistActivatedProject};
+  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets,assertImportStorageCapacity,persistActivatedProject,verifyPersistedAssets};
 })();
