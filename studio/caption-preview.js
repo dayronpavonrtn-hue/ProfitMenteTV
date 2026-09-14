@@ -9,14 +9,12 @@
   }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
-    const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
-    if(!aliases.length)return null;
-    const merged={};
-    for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
-    for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
-    if(aliases.some(([,value])=>strictFlag(value.hidden)))merged.hidden=true;
-    else if('hidden' in merged&&!strictFlag(merged.hidden))merged.hidden=false;
-    return merged;
+    const merged={};let found=false;
+    for(const [key,value] of Object.entries(map)){
+      if(canonicalTrack(key)!==track||!value||typeof value!=='object')continue;
+      Object.assign(merged,value);found=true;
+    }
+    return found?merged:null;
   }
   function captionsHidden(){
     const current=trackStateValue(project?.trackState,3),legacy=trackStateValue(project?.trackStates,3);
@@ -95,9 +93,6 @@
   renderAt=async function(t){
     const epoch=++captionRenderEpoch;
     await baseRender(t);
-    // baseRender can wait for image decode/video seek. A newer playhead request may
-    // already have painted the correct frame while this older request is still
-    // pending. Never let an obsolete word overlay land on top of that newer frame.
     if(epoch!==captionRenderEpoch)return;
     if(captionsHidden())return;
     const active=window.ProfitMentePreviewEngine?.activeCaptions?.(t)||activeCaptionFallback(t);
