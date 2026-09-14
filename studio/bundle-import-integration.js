@@ -37,6 +37,19 @@
     const ph=document.querySelector('#playhead');if(ph)ph.value=0;
     if(typeof renderAt==='function')await renderAt(0);
   }
+  function persistActivatedProject(){
+    if(typeof persist==='function')persist();
+    else if(typeof originalPersist==='function')originalPersist();
+    else throw new Error('No hay un mecanismo disponible para guardar el proyecto restaurado');
+    const guard=window.ProfitMenteStartupProjectGuard;
+    if(guard?.serializeProject&&guard?.PRIMARY_KEY){
+      const expected=guard.serializeProject(project).raw;
+      let actual;
+      try{actual=localStorage.getItem(guard.PRIMARY_KEY)}catch(err){throw new Error('No se pudo verificar el proyecto restaurado en el almacenamiento local',{cause:err})}
+      if(actual!==expected)throw new Error('El proyecto restaurado no quedó confirmado en el almacenamiento persistente');
+    }
+    return true;
+  }
   async function storageEstimate(){
     try{if(typeof navigator!=='undefined'&&navigator.storage?.estimate)return await navigator.storage.estimate()}catch(err){console.warn('ProfitMente storage estimate unavailable',err)}
     return null;
@@ -74,7 +87,7 @@
       const library=window.profitMenteProjectLibrary,nextProject=library?.save?library.save(prepared.project):prepared.project;
       createdLibraryId=nextProject?.libraryId||null;
       project=nextProject;assets=prepared.assets;activated=true;
-      if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist();
+      persistActivatedProject();
       document.querySelector('#libraryRefreshBtn')?.click();await syncStudio();resetHistory();
       window.dispatchEvent(new CustomEvent('profitmente:project-opened',{detail:{libraryId:project.libraryId||null,name:project.name||'Sin título',bundleImported:true}}));
       const q=typeof qa!=='undefined'&&qa?.inspect?qa.inspect(project,assets):null,s=prepared.stats;
@@ -83,11 +96,11 @@
       console.error('ProfitMente safe bundle import failed',err);
       const library=window.profitMenteProjectLibrary;
       if(createdLibraryId&&library?.remove){try{library.remove(createdLibraryId)}catch(removeErr){console.error('ProfitMente bundle project rollback failed',removeErr)}}
-      if(activated){if(previousProject)project=previousProject;if(previousAssets)assets=previousAssets;try{if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}catch(restoreErr){console.error('ProfitMente bundle state rollback failed',restoreErr)}try{await syncStudio();resetHistory()}catch(syncErr){console.error('ProfitMente bundle UI rollback failed',syncErr)}}
+      if(activated){if(previousProject)project=previousProject;if(previousAssets)assets=previousAssets;try{persistActivatedProject()}catch(restoreErr){console.error('ProfitMente bundle state rollback failed',restoreErr)}try{await syncStudio();resetHistory()}catch(syncErr){console.error('ProfitMente bundle UI rollback failed',syncErr)}}
       const rolledBack=await rollbackPersistedAssets(persistedIds);
       status('No se pudo abrir el paquete: '+(err?.message||'archivo inválido')+(rolledBack?` · ${rolledBack} medio(s) revertidos`:''));return false
     }
   }
   button.onclick=()=>input.click();input.onchange=e=>{const file=e.target.files?.[0];e.target.value='';void importBundleFile(file)};
-  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets,assertImportStorageCapacity};
+  window.ProfitMenteBundleImport={importBundleFile,importer,rollbackPersistedAssets,assertImportStorageCapacity,persistActivatedProject};
 })();
