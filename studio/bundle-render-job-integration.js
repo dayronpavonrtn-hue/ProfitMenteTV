@@ -12,6 +12,16 @@
     document.dispatchEvent(new CustomEvent('profitmente:render-progress',{detail:{...detail,stage}}));
   }
 
+  function transportAssetName(engine,asset,index){
+    const marker=`pm${index.toString(36).padStart(6,'0').slice(-6)}__`;
+    const safe=engine.sanitize(asset?.name||'asset')||'asset';
+    return marker+safe.slice(-(84-marker.length));
+  }
+
+  function stripTransportMarker(name){
+    return String(name||'').replace(/^pm[0-9a-z]{6}__/i,'');
+  }
+
   async function assertUniqueTarEntries(engine,blob){
     const bytes=new Uint8Array(await blob.arrayBuffer()),seen=new Set();
     let offset=0;
@@ -20,6 +30,7 @@
       if(header.every(x=>x===0))break;
       const name=engine.readString(header,0,100),sizeRaw=engine.readString(header,124,12),size=parseInt(sizeRaw||'0',8);
       if(!name||!Number.isFinite(size)||size<0)throw new Error('Paquete TAR inválido');
+      if(name.length>100)throw new Error(`Entrada TAR demasiado larga: ${name}`);
       if(seen.has(name))throw new Error(`Entrada TAR duplicada: ${name}`);
       seen.add(name);
       offset+=512;
@@ -58,10 +69,29 @@
     return restored;
   }
 
+  const originalBuild=Bundle.prototype.build;
+  Bundle.prototype.build=async function(project,assets){
+    if(!Array.isArray(assets))return originalBuild.call(this,project,assets);
+    const transportAssets=assets.map((asset,index)=>asset&&typeof asset==='object'?{...asset,name:transportAssetName(this,asset,index)}:asset);
+    const blob=await originalBuild.call(this,project,transportAssets);
+    await assertUniqueTarEntries(this,blob);
+    return blob;
+  };
+
   const originalParse=Bundle.prototype.parse;
   Bundle.prototype.parse=async function(blob){
     await assertUniqueTarEntries(this,blob);
-    return validateImportedBundle(this,await originalParse.call(this,blob));
+    const restored=validateImportedBundle(this,await originalParse.call(this,blob));
+    const namesById=new Map();
+    for(const asset of restored.assets){
+      asset.name=stripTransportMarker(asset.name);
+      namesById.set(this.canonicalMediaId(asset.id),asset.name);
+    }
+    for(const asset of restored.project.assets||[]){
+      const id=this.canonicalMediaId(asset?.id);
+      if(namesById.has(id))asset.name=namesById.get(id);
+    }
+    return restored;
   };
 
   Bundle.prototype.health=async function(){
@@ -172,5 +202,5 @@
     }
   };
 
-  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,validateImportedBundle,emitProgress};
+  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,validateImportedBundle,emitProgress,transportAssetName,stripTransportMarker};
 })(globalThis);
