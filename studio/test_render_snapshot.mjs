@@ -28,11 +28,17 @@ assert.equal(captured.assets[0].name,'clip.mp4');
 assert.equal(captured.assets[0].meta.duration,10);
 await assert.rejects(async()=>Snapshot.capture(null,assets),/Proyecto inválido/);
 
-let release;
-const gate=new Promise(resolve=>{release=resolve});
+let releaseRender;
+const renderGate=new Promise(resolve=>{releaseRender=resolve});
+let releaseDownload;
+const downloadGate=new Promise(resolve=>{releaseDownload=resolve});
 class FakeBundle{
   async renderLocal(project,assets){
-    await gate;
+    await renderGate;
+    return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration};
+  }
+  async download(project,assets){
+    await downloadGate;
     return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration};
   }
 }
@@ -44,8 +50,17 @@ const pending=new FakeBundle().renderLocal(liveProject,liveAssets);
 liveProject.clips[0].duration=60;
 liveAssets[0].name='after.mp4';
 liveAssets[0].meta.duration=2;
-release();
+releaseRender();
 assert.deepEqual(await pending,{duration:6,name:'before.mp4',metaDuration:12},'edits made after render starts must not alter the in-flight render');
+
+const exportProject={clips:[{id:'clip-export',asset:'media-export',duration:8}]};
+const exportAssets=[{id:'media-export',name:'portable-before.mp4',meta:{duration:15}}];
+const pendingDownload=new FakeBundle().download(exportProject,exportAssets);
+exportProject.clips[0].duration=80;
+exportAssets[0].name='portable-after.mp4';
+exportAssets[0].meta.duration=3;
+releaseDownload();
+assert.deepEqual(await pendingDownload,{duration:8,name:'portable-before.mp4',metaDuration:15},'edits made after bundle export starts must not alter the portable package snapshot');
 
 const cycle={name:'cycle'};cycle.self=cycle;
 const clonedCycle=Snapshot.clone(cycle);
