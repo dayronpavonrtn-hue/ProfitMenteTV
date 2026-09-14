@@ -31,6 +31,7 @@ global.document={
   querySelector(selector){return selector==='#projectInput'?input:null}
 };
 global.window=global;
+global.assets=[];
 global.ProfitMenteProjectImportEngine=MockImportEngine;
 global.ProfitMenteBundleEngine=MockBundleEngine;
 global.ProfitMenteProjectLibrary=MockProjectLibrary;
@@ -105,7 +106,29 @@ async function rejectWith(engine,value,pattern){
     [{id:'media-1',name:'video.mp4',type:'video',blob:{}}],[]
   ),/Archivo de medio no disponible/i);
 
-  assert.strictEqual(flushCalls,7,'every package open attempt should preserve the active project first');
+  global.assets=[{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'aaaaaaaaaaaaaaaa',metadataBlobSize:4,metadataBlobType:'video/mp4'}];
+  nextRestored=restored(
+    [{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'bbbbbbbbbbbbbbbb',metadataBlobSize:4,metadataBlobType:'video/mp4'}],
+    [{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'bbbbbbbbbbbbbbbb',metadataBlobSize:4,metadataBlobType:'video/mp4',blob:mediaBlob()}],
+    [{id:'clip-collision',asset:'shared',start:0,duration:2,track:0,type:'video'}]
+  );
+  valid=await engine.parse({});
+  const remappedId=valid.assets[0].id;
+  assert.notStrictEqual(remappedId,'shared','different content signatures must not reuse a colliding local media id');
+  assert.strictEqual(valid.project.assets[0].id,remappedId,'manifest media id should follow the collision remap');
+  assert.strictEqual(valid.project.clips[0].asset,remappedId,'timeline clips should follow the collision remap');
+
+  global.assets=[{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'cccccccccccccccc',metadataBlobSize:4,metadataBlobType:'video/mp4'}];
+  nextRestored=restored(
+    [{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'cccccccccccccccc',metadataBlobSize:4,metadataBlobType:'video/mp4'}],
+    [{id:'shared',name:'same.mp4',type:'video',mime:'video/mp4',size:4,metadataBlobSignature:'cccccccccccccccc',metadataBlobSize:4,metadataBlobType:'video/mp4',blob:mediaBlob()}],
+    [{id:'clip-reuse',asset:'shared',start:0,duration:2,track:0,type:'video'}]
+  );
+  valid=await engine.parse({});
+  assert.strictEqual(valid.assets[0].id,'shared','matching content signatures should safely reuse the local media id');
+  assert.strictEqual(valid.project.clips[0].asset,'shared','safe reuse should preserve timeline references');
+
+  assert.strictEqual(flushCalls,9,'every package open attempt should preserve the active project first');
   console.log('bundle import media-reference integrity regression: OK');
 })().catch(err=>{
   console.error(err);
