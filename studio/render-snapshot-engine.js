@@ -52,7 +52,8 @@
         const originalSave=proto.save;
         proto.save=async function(project,assets,options={}){
           const snapshot=ProfitMenteRenderSnapshotEngine.capture(project,assets);
-          return originalSave.call(this,snapshot.project,snapshot.assets,options);
+          const optionSnapshot=ProfitMenteRenderSnapshotEngine.clone(options);
+          return originalSave.call(this,snapshot.project,snapshot.assets,optionSnapshot);
         };
       }
       proto.__renderSnapshotInstalled=true;
