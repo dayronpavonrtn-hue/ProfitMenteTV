@@ -26,4 +26,18 @@ assert.equal(restored.assets.find(a=>a.id==='missing1').name,'missing.mov');
 assert.equal(restored.assets.find(a=>a.id==='missing1').size,7654321);
 assert.throws(()=>Portability.normalize({duration:0,clips:[]},{}),/Duración/);
 assert.throws(()=>Portability.normalize([],{}),/inválido/);
-console.log('Project portability QA OK · missing-media metadata retained');
+
+const persistenceProject={name:'Persisted',duration:9,clips:[]};
+const persistenceGuard={PRIMARY_KEY:'profitmente-project',serializeProject:value=>({raw:JSON.stringify(value)})};
+const persisted=new Map([[persistenceGuard.PRIMARY_KEY,JSON.stringify(persistenceProject)]]);
+const storage={getItem:key=>persisted.get(key)??null,setItem:(key,value)=>persisted.set(key,value)};
+assert.equal(Portability.verifyPersistence(persistenceProject,{guard:persistenceGuard,autosave:{unsaved:false},storage}),true);
+persisted.set(persistenceGuard.PRIMARY_KEY,JSON.stringify({...persistenceProject,name:'stale'}));
+assert.throws(()=>Portability.verifyPersistence(persistenceProject,{guard:persistenceGuard,autosave:{unsaved:false},storage}),/almacenamiento persistente/);
+persisted.set(persistenceGuard.PRIMARY_KEY,JSON.stringify(persistenceProject));
+assert.throws(()=>Portability.verifyPersistence(persistenceProject,{guard:persistenceGuard,autosave:{unsaved:true,lastError:new Error('quota llena')},storage}),/quota llena/);
+let saveFinished=false;
+await Portability.saveAndVerify(persistenceProject,async()=>{await Promise.resolve();storage.setItem(persistenceGuard.PRIMARY_KEY,JSON.stringify(persistenceProject));saveFinished=true},{guard:persistenceGuard,autosave:{unsaved:false},storage});
+assert.equal(saveFinished,true,'portable export must await save completion before persistence verification');
+
+console.log('Project portability QA OK · missing-media metadata retained · persisted exports guarded');
