@@ -99,19 +99,26 @@ assert.equal(legacyLockResult.before,0,'legacy-locked primary scenes are not pen
 assert.equal(legacyLockedTracks.clips[0].asset,null);
 assert.equal(legacyLockedTracks.clips[1].asset,null);
 
-const importedFalseLocks={mode:'Automático',trackState:{0:{locked:'false'}},trackStates:{5:{locked:0},6:{locked:'true'}},clips:[
-  {id:'imported-scene',track:0,asset:null,locked:'false'},
+const importedFalseVisual={mode:'Automático',trackState:{0:{locked:'false'}},clips:[
+  {id:'imported-scene',track:0,asset:null,locked:'false'}
+]};
+assert.equal(helper.trackLocked(importedFalseVisual,0),false,'string false track lock must not block generator autofill');
+assert.equal(helper.locked(importedFalseVisual,importedFalseVisual.clips[0]),false,'string false clip lock must remain editable');
+const importedFalseVisualResult=helper.fill(importedFalseVisual,visuals,visuals);
+assert.equal(importedFalseVisualResult.changed,true,'imported non-boolean visual locks must not suppress automation');
+assert.equal(importedFalseVisualResult.before,1,'visual placeholder with locked:"false" must count as pending work');
+assert.equal(importedFalseVisual.clips[0].asset,'new-video','generator must fill a scene carrying locked:"false"');
+
+const importedFalseAudio={mode:'Automático',trackState:{5:{locked:0}},trackStates:{6:{locked:'true'}},clips:[
+  {id:'existing-scene',track:0,asset:'visual-1'},
   {id:'imported-voice',track:6,asset:null,locked:'false'}
 ]};
-assert.equal(helper.trackLocked(importedFalseLocks,0),false,'string false track lock must not block generator autofill');
-assert.equal(helper.trackLocked(importedFalseLocks,5),false,'numeric zero track lock must not block generator autofill');
-assert.equal(helper.trackLocked(importedFalseLocks,6),false,'string true is imported data, not an authoritative boolean lock');
-assert.equal(helper.locked(importedFalseLocks,importedFalseLocks.clips[0]),false,'string false clip lock must remain editable');
-const importedFalseResult=helper.fill(importedFalseLocks,[...visuals,...voice],[...visuals,...voice]);
-assert.equal(importedFalseResult.changed,true,'imported non-boolean lock flags must not suppress automation');
-assert.equal(importedFalseResult.before,1,'visual placeholder with locked:"false" must count as pending work');
-assert.equal(importedFalseLocks.clips[0].asset,'new-video','generator must fill a scene carrying locked:"false"');
-assert.equal(importedFalseLocks.clips[1].asset,'voice-final','generator must attach narration when track/clip locks are non-boolean');
+assert.equal(helper.trackLocked(importedFalseAudio,5),false,'numeric zero track lock must not block generator autofill');
+assert.equal(helper.trackLocked(importedFalseAudio,6),false,'string true is imported data, not an authoritative boolean lock');
+const importedFalseAudioResult=helper.fill(importedFalseAudio,voice,voice);
+assert.equal(importedFalseAudioResult.changed,true,'imported non-boolean audio locks must not suppress automation');
+assert.equal(importedFalseAudioResult.narration,1);
+assert.equal(importedFalseAudio.clips[1].asset,'voice-final','generator must attach narration when track/clip locks are non-boolean');
 
 const zeroAlreadyAssigned={mode:'Automático',clips:[
   {id:'zero-scene',track:0,asset:0},
