@@ -44,14 +44,12 @@
   }
   function trackStateValue(map,track){
     if(!map||typeof map!=='object')return null;
-    const aliases=Object.entries(map).filter(([key,value])=>canonicalTrack(key)===track&&value&&typeof value==='object');
-    if(!aliases.length)return null;
-    const merged={};
-    for(const [key,value] of aliases)if(key!==String(track))Object.assign(merged,value);
-    for(const [key,value] of aliases)if(key===String(track))Object.assign(merged,value);
-    if(aliases.some(([,value])=>strictFlag(value.hidden)))merged.hidden=true;
-    else if('hidden' in merged&&!strictFlag(merged.hidden))merged.hidden=false;
-    return merged;
+    const merged={};let found=false;
+    for(const [key,value] of Object.entries(map)){
+      if(canonicalTrack(key)!==track||!value||typeof value!=='object')continue;
+      Object.assign(merged,value);found=true;
+    }
+    return found?merged:null;
   }
   function trackHidden(track){
     const current=trackStateValue(project?.trackState,track),legacy=trackStateValue(project?.trackStates,track);
