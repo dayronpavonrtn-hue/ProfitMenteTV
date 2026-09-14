@@ -33,21 +33,31 @@
 
   async function assertUniqueTarEntries(engine,blob){
     const bytes=new Uint8Array(await blob.arrayBuffer()),seen=new Set();
-    let offset=0;
+    let offset=0,terminated=false;
     while(offset+512<=bytes.length){
       const header=bytes.slice(offset,offset+512);
-      if(header.every(x=>x===0))break;
+      if(header.every(x=>x===0)){
+        if(offset+1024>bytes.length)throw new Error('Paquete TAR truncado: falta terminador completo');
+        const secondTerminator=bytes.slice(offset+512,offset+1024);
+        if(!secondTerminator.every(x=>x===0))throw new Error('Paquete TAR con terminador inválido');
+        for(let i=offset+1024;i<bytes.length;i++)if(bytes[i]!==0)throw new Error('Paquete TAR contiene datos después del terminador');
+        terminated=true;
+        break;
+      }
       const name=engine.readString(header,0,100);
       assertTarHeaderChecksum(engine,header,name||'entrada');
       const sizeRaw=engine.readString(header,124,12),size=parseInt(sizeRaw||'0',8);
-      if(!name||!Number.isFinite(size)||size<0)throw new Error('Paquete TAR inválido');
+      if(!name||!Number.isSafeInteger(size)||size<0)throw new Error('Paquete TAR inválido');
       if(name.length>100)throw new Error(`Entrada TAR demasiado larga: ${name}`);
       if(seen.has(name))throw new Error(`Entrada TAR duplicada: ${name}`);
       seen.add(name);
       offset+=512;
-      if(offset+size>bytes.length)throw new Error('Paquete TAR truncado');
-      offset+=Math.ceil(size/512)*512;
+      const paddedSize=Math.ceil(size/512)*512;
+      if(offset+paddedSize>bytes.length)throw new Error('Paquete TAR truncado');
+      offset+=paddedSize;
     }
+    if(!terminated)throw new Error('Paquete TAR sin terminador válido');
+    return true;
   }
 
   function validateImportedBundle(engine,restored){
