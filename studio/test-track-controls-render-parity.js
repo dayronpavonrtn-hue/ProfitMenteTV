@@ -9,18 +9,19 @@ function testAliasPrecedence(){
     '04':{muted:true},
     '4.0':{muted:'true'}
   },{});
-  assert.strictEqual(states[0].hidden,false,'later canonical alias must override earlier visual state');
+  assert.strictEqual(states[0].hidden,false,'later canonical alias must override earlier visual state inside one schema');
   assert.strictEqual(states[4].muted,false,'string true must not become a strict mute');
 }
 
-function testCurrentOverridesLegacy(){
+function testRestrictiveFlagsSurviveSchemaConflict(){
   const states=Engine.merge(
-    {'00':{hidden:false,locked:'true'},'6.0':{muted:false}},
-    {'0.0':{hidden:true,locked:true},'06':{muted:true}}
+    {'00':{hidden:false,locked:'true',solo:false},'6.0':{muted:false}},
+    {'0.0':{hidden:true,locked:true,solo:true},'06':{muted:true}}
   );
-  assert.strictEqual(states[0].hidden,false,'current hidden=false must override legacy true');
-  assert.strictEqual(states[0].locked,false,'non-boolean current lock must normalize to false');
-  assert.strictEqual(states[6].muted,false,'current muted=false must override legacy true');
+  assert.strictEqual(states[0].hidden,true,'legacy hidden=true must survive a conflicting permissive current value');
+  assert.strictEqual(states[0].locked,true,'legacy locked=true must survive malformed/permissive current state');
+  assert.strictEqual(states[0].solo,true,'legacy Solo must survive until schemas are canonicalized');
+  assert.strictEqual(states[6].muted,true,'legacy muted=true must survive a conflicting permissive current value');
 }
 
 function testLegacyFieldsSurviveWhenCurrentOmitsThem(){
@@ -72,12 +73,14 @@ function testRenderableFilter(){
 
 function testQAGuardUsesSameMergeRules(){
   const normalized=Guard.normalize({
-    trackStates:{'0':{hidden:true},'0.0':{hidden:false},'06':{muted:true}},
-    trackState:{'00':{locked:true},'6.0':{muted:false}}
+    trackStates:{'0':{hidden:true},'0.0':{hidden:false},'06':{muted:true,solo:true}},
+    trackState:{'00':{locked:true},'6.0':{muted:false,solo:false}}
   });
-  assert.strictEqual(normalized.trackState['0'].hidden,false,'QA guard must honor later legacy alias override');
+  assert.strictEqual(normalized.trackState['0'].hidden,false,'later alias inside legacy schema remains authoritative before cross-schema merge');
   assert.strictEqual(normalized.trackState['0'].locked,true,'QA guard must retain current schema fields');
-  assert.strictEqual(normalized.trackState['6'].muted,false,'QA guard current schema must override legacy state');
+  assert.strictEqual(normalized.trackState['6'].muted,false,'Solo track itself remains audible after effective Solo is applied');
+  assert.strictEqual(normalized.trackState['6'].solo,true,'QA guard must preserve real legacy Solo across schema conflict');
+  assert.strictEqual(normalized.trackState['4'].muted,true,'legacy audio Solo must mute other audio tracks exactly like preview/render');
   assert.deepStrictEqual(normalized.trackStates,{},'raw legacy state must not be re-read by QA');
 
   const malformed=Guard.normalize({trackState:{'':{hidden:true},'true':{hidden:true},'2':{hidden:'true',solo:1}}});
@@ -86,5 +89,5 @@ function testQAGuardUsesSameMergeRules(){
   assert.strictEqual(malformed.trackState['2'].solo,false,'numeric solo must not activate');
 }
 
-for(const test of [testAliasPrecedence,testCurrentOverridesLegacy,testLegacyFieldsSurviveWhenCurrentOmitsThem,testStrictFlags,testSoloAndToggleBehavior,testRenderableFilter,testQAGuardUsesSameMergeRules])test();
+for(const test of [testAliasPrecedence,testRestrictiveFlagsSurviveSchemaConflict,testLegacyFieldsSurviveWhenCurrentOmitsThem,testStrictFlags,testSoloAndToggleBehavior,testRenderableFilter,testQAGuardUsesSameMergeRules])test();
 console.log('ProfitMente track controls/render parity regression: SUCCESS');
