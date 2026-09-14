@@ -9,15 +9,15 @@
       if(!Number.isFinite(n)||!Number.isInteger(n)||n<0||n>6)return null;
       return String(Object.is(n,-0)?0:n);
     }
-    static clipLocked(clip){return !!clip?.locked}
+    static clipLocked(clip){return clip?.locked===true}
     static trackLocked(project,clip){
       const canonical=this.canonicalTrack(clip?.track);
       if(canonical===null)return false;
       const maps=[project?.trackState,project?.trackStates];
       return maps.some(map=>{
-        if(!map||typeof map!=='object')return false;
+        if(!map||typeof map!=='object'||Array.isArray(map))return false;
         return Object.entries(map).some(([key,state])=>
-          this.canonicalTrack(key)===canonical&&!!(state&&typeof state==='object'&&state.locked)
+          this.canonicalTrack(key)===canonical&&state&&typeof state==='object'&&!Array.isArray(state)&&state.locked===true
         );
       });
     }
