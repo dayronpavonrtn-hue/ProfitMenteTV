@@ -126,3 +126,13 @@
   script.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la validación numérica estricta del QA');
   document.body.appendChild(script);
 })();
+
+(()=>{
+  if(typeof document==='undefined'||window.ProfitMenteBundleTarSafetyGuard)return;
+  if([...document.scripts].some(s=>s.src?.endsWith('/bundle-tar-safety-guard.js')||s.src?.endsWith('bundle-tar-safety-guard.js')))return;
+  const script=document.createElement('script');
+  script.src='bundle-tar-safety-guard.js';
+  script.async=false;
+  script.onerror=()=>console.error('ProfitMente Studio: no se pudo cargar la validación estructural TAR');
+  document.body.appendChild(script);
+})();
