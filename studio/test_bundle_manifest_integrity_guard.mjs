@@ -28,7 +28,7 @@ function makeBundle(project,media={}){
 const valid=makeBundle({
   name:'manifest integrity',
   clips:[{id:'clip-1',track:0,start:0,duration:1,asset:'media-1'}],
-  assets:[{id:'media-1',name:'a.bin',type:'video',mime:'video/mp4'}]
+  assets:[{id:'media-1',name:'a.bin',type:'video',mime:'video/mp4',size:1}]
 },{'a.bin':'A'});
 await assert.doesNotReject(()=>engine.parse(valid),'valid manifest must remain importable');
 
@@ -44,6 +44,31 @@ await assert.rejects(
   ()=>engine.parse(duplicateIds),
   /identificador de medio duplicado/i,
   'canonical duplicate media ids must be rejected before a project becomes active'
+);
+
+const duplicateNames=makeBundle({
+  name:'duplicate media names',
+  clips:[],
+  assets:[
+    {id:'media-a',name:'same.bin',type:'video',mime:'video/mp4'},
+    {id:'media-b',name:'same.bin',type:'video',mime:'video/mp4'}
+  ]
+},{'same.bin':'A'});
+await assert.rejects(
+  ()=>engine.parse(duplicateNames),
+  /nombre de medio duplicado/i,
+  'two manifest entries must never resolve to the same bundled payload'
+);
+
+const unsafeName=makeBundle({
+  name:'unsafe media name',
+  clips:[],
+  assets:[{id:'media-unsafe',name:'../a.bin',type:'video',mime:'video/mp4'}]
+},{'../a.bin':'A'});
+await assert.rejects(
+  ()=>engine.parse(unsafeName),
+  /nombre de medio inválido/i,
+  'manifest media names must stay inside the flat assets namespace'
 );
 
 const missingReference=makeBundle({
@@ -66,6 +91,28 @@ await assert.rejects(
   ()=>engine.parse(invalidMediaId),
   /medio sin identificador válido/i,
   'manifest assets must have a canonical non-empty media id'
+);
+
+const wrongPayloadSize=makeBundle({
+  name:'payload size mismatch',
+  clips:[],
+  assets:[{id:'media-size',name:'size.bin',type:'video',mime:'video/mp4',size:999}]
+},{'size.bin':'ABC'});
+await assert.rejects(
+  ()=>engine.parse(wrongPayloadSize),
+  /tamaño de medio no coincide/i,
+  'declared media size must match the actual bundled payload bytes'
+);
+
+const invalidDeclaredSize=makeBundle({
+  name:'invalid payload size',
+  clips:[],
+  assets:[{id:'media-size-invalid',name:'size.bin',type:'video',mime:'video/mp4',size:1.5}]
+},{'size.bin':'A'});
+await assert.rejects(
+  ()=>engine.parse(invalidDeclaredSize),
+  /tamaño de medio inválido/i,
+  'declared media sizes must be safe non-negative integers'
 );
 
 console.log('Bundle manifest integrity guard regression passed');
