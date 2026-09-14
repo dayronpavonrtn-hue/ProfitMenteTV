@@ -1,13 +1,22 @@
 class ProfitMenteMediaInspector{
   constructor(options={}){
-    this.version=2;
+    this.version=3;
     const timeout=Number(options.timeoutMs);
     this.timeoutMs=Number.isFinite(timeout)&&timeout>0?Math.min(timeout,60000):12000;
   }
+  blobStamp(asset){
+    const blob=asset?.blob,size=Number(blob?.size??asset?.size??0),type=String(blob?.type||asset?.mime||''),modified=Number(blob?.lastModified??asset?.lastModified??0);
+    return {size:Number.isFinite(size)&&size>=0?size:0,type,modified:Number.isFinite(modified)&&modified>=0?modified:0};
+  }
+  metadataCurrent(asset){
+    if(asset?.metadataVersion!==this.version||typeof asset?.mediaReadable!=='boolean')return false;
+    const stamp=this.blobStamp(asset);
+    return Number(asset?.metadataBlobSize)===stamp.size&&String(asset?.metadataBlobType||'')===stamp.type&&Number(asset?.metadataBlobLastModified||0)===stamp.modified;
+  }
   async inspect(asset){
     if(!asset?.blob) return asset;
-    if(asset.metadataVersion===this.version) return asset;
-    const base={...asset,size:asset.blob.size||0,metadataVersion:this.version};
+    if(this.metadataCurrent(asset)) return asset;
+    const stamp=this.blobStamp(asset),base={...asset,size:asset.blob.size||0,metadataVersion:this.version,metadataBlobSize:stamp.size,metadataBlobType:stamp.type,metadataBlobLastModified:stamp.modified};
     try{
       let meta={};
       if(asset.type==='image') meta=await this.inspectImage(asset.blob);
@@ -82,7 +91,7 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaIn
   function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   async function upgradeExisting(){
     let changed=0,unreadable=0;
-    for(let i=0;i<assets.length;i++)if(assets[i]?.blob&&assets[i].metadataVersion!==inspector.version){const next=await inspector.inspect(assets[i]);assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}
+    for(let i=0;i<assets.length;i++)if(assets[i]?.blob&&!inspector.metadataCurrent(assets[i])){const next=await inspector.inspect(assets[i]);assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}
     if(changed){drawLibrary();setStatus(unreadable?`${changed} medios analizados · ${unreadable} no se pueden decodificar`:`${changed} medios analizados · duración, resolución y miniaturas listas`)}
   }
   function loadCleanupGuard(){
