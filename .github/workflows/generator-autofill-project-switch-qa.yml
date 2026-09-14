@@ -1,0 +1,27 @@
+name: ProfitMente Studio Generator Autofill Project Switch QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/generator-autofill.js'
+      - 'studio/test_generator_autofill_project_switch.mjs'
+      - '.github/workflows/generator-autofill-project-switch-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generator-autofill-project-switch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check generator autofill syntax
+        run: node --check studio/generator-autofill.js
+      - name: Verify project-switch isolation and normal autofill
+        run: node studio/test_generator_autofill_project_switch.mjs
