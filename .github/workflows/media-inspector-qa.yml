@@ -1,0 +1,38 @@
+name: ProfitMente Studio Media Inspector QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/media-inspector.js'
+      - 'studio/relink-engine.js'
+      - 'studio/media-store.js'
+      - 'studio/tests/media-inspector-stale-metadata-regression.js'
+      - '.github/workflows/media-inspector-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/media-inspector.js'
+      - 'studio/relink-engine.js'
+      - 'studio/media-store.js'
+      - 'studio/tests/media-inspector-stale-metadata-regression.js'
+      - '.github/workflows/media-inspector-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  media-inspector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate media inspector syntax
+        run: node --check studio/media-inspector.js
+      - name: Validate relink engine syntax
+        run: node --check studio/relink-engine.js
+      - name: Run stale metadata regression
+        run: node studio/tests/media-inspector-stale-metadata-regression.js
