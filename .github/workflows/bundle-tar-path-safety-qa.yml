@@ -7,6 +7,7 @@ on:
       - 'studio/bundle-render-job-integration.js'
       - 'studio/test_bundle_tar_path_safety.mjs'
       - 'studio/test_bundle_core_tar_path_safety.mjs'
+      - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
   pull_request:
     paths:
@@ -14,6 +15,7 @@ on:
       - 'studio/bundle-render-job-integration.js'
       - 'studio/test_bundle_tar_path_safety.mjs'
       - 'studio/test_bundle_core_tar_path_safety.mjs'
+      - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
 
 permissions:
@@ -34,5 +36,7 @@ jobs:
           node --check studio/bundle-render-job-integration.js
       - name: Standalone bundle core TAR path safety regression
         run: node studio/test_bundle_core_tar_path_safety.mjs
+      - name: Duplicate TAR entry rejection regression
+        run: node studio/test_bundle_tar_duplicate_entry_rejection.mjs
       - name: Browser integration TAR path safety regression
         run: node studio/test_bundle_tar_path_safety.mjs
