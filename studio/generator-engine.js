@@ -30,9 +30,9 @@ class ProfitMenteGeneratorEngine{
     const target=this.canonicalTrack(track);
     if(target==null)return false;
     const maps=[project?.trackState,project?.trackStates];
-    return maps.some(map=>Object.entries(map||{}).some(([key,state])=>state&&typeof state==='object'&&state.locked&&this.canonicalTrack(key)===target));
+    return maps.some(map=>Object.entries(map||{}).some(([key,state])=>state&&typeof state==='object'&&state.locked===true&&this.canonicalTrack(key)===target));
   }
-  clipLocked(project,clip){const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;return guard?.isLocked?guard.isLocked(project,clip):!!clip?.locked||this.trackLocked(project,clip?.track)}
+  clipLocked(project,clip){const guard=typeof globalThis!=='undefined'?globalThis.ProfitMenteEditLockGuard:null;return guard?.isLocked?guard.isLocked(project,clip):clip?.locked===true||this.trackLocked(project,clip?.track)}
   captionWords(text,start,duration){const raw=String(text||'').trim().split(/\s+/).filter(Boolean);if(!raw.length)return[];const weights=raw.map(w=>Math.max(1,w.replace(/[^\p{L}\p{N}]/gu,'').length*.32)),sum=weights.reduce((a,b)=>a+b,0);let cursor=start;return raw.map((word,i)=>{const d=duration*weights[i]/sum,seg={word,start:cursor,duration:d,end:cursor+d,index:i};cursor+=d;return seg})}
   generate(topic,duration=45){
     const clean=(topic||'idea de inversión con IA').trim(),seed=this.hash(clean),slice=Math.max(2,duration/5);
