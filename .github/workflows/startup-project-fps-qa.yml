@@ -1,0 +1,32 @@
+name: ProfitMente Studio Startup Project FPS QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/tests/startup-project-fps-regression.js'
+      - '.github/workflows/startup-project-fps-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/tests/startup-project-fps-regression.js'
+      - '.github/workflows/startup-project-fps-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  startup-project-fps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate startup project guard syntax
+        run: node --check studio/startup-project-guard.js
+      - name: Run startup frame rate regression
+        run: node studio/tests/startup-project-fps-regression.js
