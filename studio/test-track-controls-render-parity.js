@@ -78,7 +78,7 @@ function testQAGuardUsesSameMergeRules(){
   });
   assert.strictEqual(normalized.trackState['0'].hidden,false,'later alias inside legacy schema remains authoritative before cross-schema merge');
   assert.strictEqual(normalized.trackState['0'].locked,true,'QA guard must retain current schema fields');
-  assert.strictEqual(normalized.trackState['6'].muted,false,'Solo track itself remains audible after effective Solo is applied');
+  assert.strictEqual(normalized.trackState['6'].muted,true,'manual mute must survive even when the same track is Solo');
   assert.strictEqual(normalized.trackState['6'].solo,true,'QA guard must preserve real legacy Solo across schema conflict');
   assert.strictEqual(normalized.trackState['4'].muted,true,'legacy audio Solo must mute other audio tracks exactly like preview/render');
   assert.deepStrictEqual(normalized.trackStates,{},'raw legacy state must not be re-read by QA');
