@@ -15,7 +15,8 @@ globalThis.project={
     0:{hidden:true},1:{hidden:false},3:{hidden:false},
     '5.0':{hidden:true},'06':{hidden:true},
     '7':{hidden:false},'7.0':{hidden:true},
-    '8':{hidden:'false'},'9':{hidden:1}
+    '8':{hidden:'false'},'9':{hidden:1},
+    '12':{hidden:true},'12.0':{hidden:false}
   },
   trackStates:{
     1:{hidden:true},3:{hidden:false},4:{hidden:true},
@@ -47,11 +48,12 @@ assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(2),true,'legacy numer
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(4),true,'legacy-only hidden track must be recognized');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(5),true,'current numeric alias 5.0 must hide semantic track 5');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(6),true,'zero-padded numeric alias 06 must hide semantic track 6');
-assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(7),true,'hidden safety flag on a duplicate numeric alias must beat canonical visible state');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(7),true,'later numeric alias must win when it sets hidden true');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(8),false,'string false must not hide preview track');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(9),false,'numeric hidden flag must not hide preview track');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(10),false,'legacy string true must not hide preview track');
 assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(11),false,'track without hidden state must remain visible');
+assert.equal(window.ProfitMentePreviewEngine.isTrackHidden(12),false,'later numeric alias must be able to clear an earlier hidden flag just like timeline and render');
 await globalThis.renderAt(0);
 assert.strictEqual(project.clips,originalClips,'preview must never replace project.clips while rendering');
 assert.equal(placeholder.hidden,false,'legacy-hidden visual tracks must not create a false active preview');
@@ -74,7 +76,9 @@ project.trackState['3.00']={hidden:true};
 assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true,'current numeric caption alias must suppress preview');
 project.trackState['3.00'].hidden=false;
 project.trackState[3].hidden=true;
-assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true,'current canonical caption hidden state must still suppress preview');
+assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),false,'later caption alias must clear an earlier canonical hidden flag using timeline/render precedence');
+delete project.trackState['3.00'];
+assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),true,'current canonical caption hidden state must still suppress preview without a later alias override');
 project.trackState[3].hidden='false';
 assert.equal(window.ProfitMenteCaptionPreview.captionsHidden(),false,'caption string false must not hide preview');
 project.trackState[3].hidden='true';
