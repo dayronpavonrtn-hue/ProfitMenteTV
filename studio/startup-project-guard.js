@@ -5,9 +5,10 @@
   const LAST_GOOD_KEY='profitmente-project-last-good';
   const FORMATS=new Set(['9:16','16:9','1:1']);
   const MODES=new Set(['Automático','Manual']);
+  const FRAME_RATES=new Set([24,30,60]);
 
   function defaultProject(){
-    return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',clips:[]};
+    return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,clips:[]};
   }
 
   function numberValue(value){
@@ -22,7 +23,7 @@
   function normalizeProject(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
     if(value.clips!=null&&!Array.isArray(value.clips))return null;
-    const duration=numberValue(value.duration);
+    const duration=numberValue(value.duration),fps=numberValue(value.fps);
     return {
       ...value,
       version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',
@@ -30,6 +31,7 @@
       mode:MODES.has(value.mode)?value.mode:'Automático',
       duration:duration!==null&&duration>0?Math.max(1,duration):45,
       format:FORMATS.has(value.format)?value.format:'9:16',
+      fps:FRAME_RATES.has(fps)?fps:30,
       clips:Array.isArray(value.clips)?value.clips:[]
     };
   }
