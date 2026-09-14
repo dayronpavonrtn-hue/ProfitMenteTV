@@ -66,6 +66,16 @@
     if(typeof value!=='string')return null;
     const text=value.trim();return text||null;
   }
+  function identityText(value){return typeof value==='string'&&value.trim()?value.trim():null}
+  function mediaIdentity(asset){
+    if(!asset||typeof asset!=='object')return null;
+    const contentHash=identityText(asset.sourceContentHash);if(contentHash)return `hash:${contentHash}`;
+    const fingerprint=identityText(asset.sourceFingerprint);if(fingerprint)return `fingerprint:${fingerprint}`;
+    const signature=identityText(asset.metadataBlobSignature);if(!signature)return null;
+    const size=Number(asset.metadataBlobSize),safeSize=Number.isFinite(size)&&size>=0?size:'';
+    const type=identityText(asset.metadataBlobType)||identityText(asset.blob?.type)||'';
+    return `sample:${signature}|${safeSize}|${type}`;
+  }
   async function verifyPersistedAssets(expected=[]){
     const list=Array.from(expected||[]);if(!list.length)return true;
     const expectedKeys=new Set(list.map(asset=>mediaKey(asset?.id)).filter(Boolean));
@@ -82,9 +92,12 @@
       }
     }catch(err){throw new Error('Los medios del paquete no quedaron confirmados en el almacenamiento persistente',{cause:err})}
     if(!Array.isArray(stored))throw new Error('No hay un mecanismo disponible para verificar los medios restaurados');
-    const storedKeys=new Set(stored.map(asset=>mediaKey(asset?.id)).filter(Boolean));
-    const missing=[...expectedKeys].filter(key=>!storedKeys.has(key));
+    const storedByKey=new Map();for(const asset of stored){const key=mediaKey(asset?.id);if(key!==null&&!storedByKey.has(key))storedByKey.set(key,asset)}
+    const missing=[...expectedKeys].filter(key=>!storedByKey.has(key));
     if(missing.length)throw new Error(`Los medios del paquete no quedaron confirmados en el almacenamiento persistente (${missing.length} faltante${missing.length===1?'':'s'})`);
+    const mismatched=[];
+    for(const asset of list){const key=mediaKey(asset?.id),expectedIdentity=mediaIdentity(asset);if(!expectedIdentity)continue;const actualIdentity=mediaIdentity(storedByKey.get(key));if(actualIdentity!==expectedIdentity)mismatched.push(key)}
+    if(mismatched.length)throw new Error(`Los medios del paquete no coinciden con el contenido persistido (${mismatched.length} identidad${mismatched.length===1?'':'es'} incorrecta${mismatched.length===1?'':'s'})`);
     return true;
   }
   async function removePersistedAsset(id){
