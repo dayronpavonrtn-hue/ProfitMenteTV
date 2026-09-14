@@ -6,13 +6,13 @@ const {ProfitMenteQAEngine}=require('./qa-engine.js');
 const ProfitMenteMediaRelinkEngine=require('./media-relink-engine.js');
 
 const inspector=new ProfitMenteMediaInspector();
-assert.equal(inspector.version,2);
+assert.equal(inspector.version,4);
 assert.equal(inspector.timeoutMs,12000);
 inspector.inspectVideo=async()=>{throw new Error('Video inválido o códec no compatible')};
 const bad=await inspector.inspect({id:'bad',name:'bad.mov',type:'video',blob:new Blob(['not-video']),metadataVersion:1});
 assert.equal(bad.mediaReadable,false);
 assert.match(bad.mediaError,/códec no compatible/);
-assert.equal(bad.metadataVersion,2);
+assert.equal(bad.metadataVersion,4);
 assert.match(inspector.label(bad),/no legible/);
 
 const goodInspector=new ProfitMenteMediaInspector();
@@ -77,10 +77,10 @@ assert(report.issues.some(x=>x.includes('Medio no decodificable')));
 const hiddenReport=qa.inspect({...project,trackState:{0:{hidden:true}}},[bad]);
 assert(!hiddenReport.issues.some(x=>x.includes('Medio no decodificable')),'Una pista visual oculta no debe bloquear el render');
 
-const relinkAsset={id:'bad',name:'bad.mov',type:'video',mediaReadable:false,mediaError:'error',metadataVersion:2,duration:8,width:1920,height:1080,thumbnail:'data:x'};
+const relinkAsset={id:'bad',name:'bad.mov',type:'video',mediaReadable:false,mediaError:'error',metadataVersion:4,duration:8,width:1920,height:1080,thumbnail:'data:x'};
 const replacement=new Blob(['replacement'],{type:'video/mp4'});Object.defineProperty(replacement,'name',{value:'bad.mov'});
 const relink=ProfitMenteMediaRelinkEngine.apply(relinkAsset,replacement);
 assert.equal(relink.ok,true);
 for(const key of ['mediaReadable','mediaError','metadataVersion','duration','width','height','thumbnail'])assert.equal(relinkAsset[key],undefined,`${key} debe invalidarse al reenlazar`);
 
-console.log('media readability QA regression ok');
+console.log('media readability QA regression ok · metadata v4');
