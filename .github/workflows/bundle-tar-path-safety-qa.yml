@@ -13,6 +13,7 @@ on:
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
       - 'studio/test_bundle_tar_framing_rejection.mjs'
       - 'studio/test_bundle_tar_core_framing_guard.mjs'
+      - 'studio/test_bundle_manifest_integrity_guard.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
   pull_request:
     paths:
@@ -26,6 +27,7 @@ on:
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
       - 'studio/test_bundle_tar_framing_rejection.mjs'
       - 'studio/test_bundle_tar_core_framing_guard.mjs'
+      - 'studio/test_bundle_manifest_integrity_guard.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
 
 permissions:
@@ -56,5 +58,7 @@ jobs:
         run: node studio/test_bundle_tar_framing_rejection.mjs
       - name: Bundle core TAR framing guard regression
         run: node studio/test_bundle_tar_core_framing_guard.mjs
+      - name: Bundle manifest media integrity regression
+        run: node studio/test_bundle_manifest_integrity_guard.mjs
       - name: Browser integration TAR path safety regression
         run: node studio/test_bundle_tar_path_safety.mjs
