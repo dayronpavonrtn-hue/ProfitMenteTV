@@ -15,15 +15,16 @@
     if(typeof value==='string')return value.trim();
     return '';
   }
+  function mediaIdentity(asset={}){
+    const text=value=>typeof value==='string'?value.trim():'';
+    const finite=value=>{if(typeof value!=='number'&&typeof value!=='string')return 0;if(typeof value==='string'&&!value.trim())return 0;const n=Number(value);return Number.isFinite(n)&&n>=0?n:0};
+    const hash=text(asset.sourceContentHash);if(hash)return `hash:${hash}`;
+    const fingerprint=text(asset.sourceFingerprint);if(fingerprint)return `fingerprint:${fingerprint}`;
+    const signature=text(asset.metadataBlobSignature);if(signature)return `signature:${signature}|${finite(asset.metadataBlobSize||asset.size)}|${text(asset.metadataBlobType||asset.mime)}`;
+    return `meta:${text(asset.name)}|${finite(asset.size)}|${text(asset.mime)}|${finite(asset.sourceLastModified)}`;
+  }
   function mediaLooksEquivalent(left,right){
-    if(!left||!right)return false;
-    const strong=['sourceContentHash','sourceFingerprint'];
-    for(const key of strong){
-      const a=left[key],b=right[key];
-      if(a&&b)return String(a)===String(b);
-    }
-    const sizeA=Number(left.size??left.blob?.size),sizeB=Number(right.size??right.blob?.size);
-    return String(left.name||'')===String(right.name||'')&&String(left.type||'')===String(right.type||'')&&String(left.mime||'')===String(right.mime||'')&&Number.isFinite(sizeA)&&Number.isFinite(sizeB)&&sizeA===sizeB;
+    return !!left&&!!right&&mediaIdentity(left)===mediaIdentity(right);
   }
   let bundleMediaSequence=0;
   function freshBundleMediaId(taken){
