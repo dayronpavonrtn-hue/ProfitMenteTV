@@ -48,6 +48,13 @@
           return originalDownload.call(this,snapshot.project,snapshot.assets);
         };
       }
+      if(typeof proto.save==='function'){
+        const originalSave=proto.save;
+        proto.save=async function(project,assets,options={}){
+          const snapshot=ProfitMenteRenderSnapshotEngine.capture(project,assets);
+          return originalSave.call(this,snapshot.project,snapshot.assets,options);
+        };
+      }
       proto.__renderSnapshotInstalled=true;
       return true;
     }
