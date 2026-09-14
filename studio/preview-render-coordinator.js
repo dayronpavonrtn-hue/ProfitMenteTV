@@ -10,7 +10,12 @@
     });
     window.__profitmentePreviewRenderOriginal=original;
     window.__profitmentePreviewRenderCoordinator=coordinator;
-    window.renderAt=(time)=>coordinator.request(time);
+    window.renderAt=api.createSafePreviewRequest(coordinator,{
+      onTimeout:(error)=>{
+        console.warn('Preview frame timed out; continuing with the newest requested frame',error);
+        try{window.setStatus?.('Preview recuperado de un fotograma atascado')}catch{}
+      }
+    });
   }
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   function finitePreviewTime(value){
@@ -122,5 +127,19 @@
     function snapshot(){return {...stats,active,hasPending:!!pending,sequence,activeSequence:activeJob?.sequence??null,timeoutMs};}
     return {request,snapshot};
   }
-  return {createCoordinator,finitePreviewTime,finiteTimeout,previewTimeoutError};
+
+  function createSafePreviewRequest(coordinator,options={}){
+    if(!coordinator||typeof coordinator.request!=='function')throw new TypeError('coordinator.request must be a function');
+    const onTimeout=typeof options?.onTimeout==='function'?options.onTimeout:null;
+    return async function safePreviewRequest(time){
+      try{return await coordinator.request(time)}
+      catch(error){
+        if(error?.code!=='PREVIEW_RENDER_TIMEOUT')throw error;
+        try{onTimeout?.(error)}catch{}
+        return {status:'timed-out',time:error.time,timeoutMs:error.timeoutMs,error};
+      }
+    };
+  }
+
+  return {createCoordinator,createSafePreviewRequest,finitePreviewTime,finiteTimeout,previewTimeoutError};
 });
