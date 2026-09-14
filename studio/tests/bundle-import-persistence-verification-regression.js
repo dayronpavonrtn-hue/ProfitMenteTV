@@ -82,6 +82,25 @@ assert.strictEqual(localStorage.getItem('profitmente-project-v2'),global.ProfitM
   };
   assert.strictEqual(await api.verifyPersistedAssets([{id:'media-ok'}]),true,'persisted bundle media should pass verification');
 
+  const identityAsset={id:'media-identity',metadataBlobSignature:'sample-v2',metadataBlobSize:64,metadataBlobType:'video/mp4'};
+  mediaStore.backend.loadAll=async()=>[{...identityAsset}];
+  assert.strictEqual(await api.verifyPersistedAssets([identityAsset]),true,'persisted media with matching content identity should pass verification');
+
+  mediaStore.backend.loadAll=async()=>[{...identityAsset,metadataBlobSignature:'stale-sample'}];
+  await assert.rejects(
+    ()=>api.verifyPersistedAssets([identityAsset]),
+    /no coinciden con el contenido persistido/i,
+    'an old blob under the expected id must not satisfy bundle media persistence verification'
+  );
+
+  const hashAsset={id:'media-hash',sourceContentHash:'sha256:new-content',metadataBlobSignature:'same-sample',metadataBlobSize:64,metadataBlobType:'video/mp4'};
+  mediaStore.backend.loadAll=async()=>[{...hashAsset,sourceContentHash:'sha256:old-content'}];
+  await assert.rejects(
+    ()=>api.verifyPersistedAssets([hashAsset]),
+    /no coinciden con el contenido persistido/i,
+    'the strongest available content hash must take precedence over a matching sampled signature'
+  );
+
   mediaStore.backend.loadAll=async()=>[];
   await assert.rejects(
     ()=>api.verifyPersistedAssets([{id:'media-missing'}]),
