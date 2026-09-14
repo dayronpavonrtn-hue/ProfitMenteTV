@@ -36,7 +36,11 @@
       const current=project?.trackState&&typeof project.trackState==='object'&&!Array.isArray(project.trackState)?project.trackState:{};
       const legacy=project?.trackStates&&typeof project.trackStates==='object'&&!Array.isArray(project.trackStates)?project.trackStates:{};
       const merged={};
-      for(let track=0;track<7;track++)merged[String(track)]=this.normalizeState({...this.rawState(legacy,track),...this.rawState(current,track)});
+      for(let track=0;track<7;track++){
+        const old=this.rawState(legacy,track),fresh=this.rawState(current,track),state={...old,...fresh};
+        for(const flag of ['hidden','muted','locked','solo'])state[flag]=old[flag]===true||fresh[flag]===true;
+        merged[String(track)]=this.normalizeState(state);
+      }
       return merged;
     }
     static baseHidden(state){return state?._soloVisualActive===true?state?._soloHiddenBase===true:state?.hidden===true}
