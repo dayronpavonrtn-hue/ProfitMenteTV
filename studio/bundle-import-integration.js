@@ -70,7 +70,7 @@
       const prepared=importer.prepare(normalized,restored.assets,Array.isArray(previousAssets)?previousAssets:[]);
       const storage=await assertImportStorageCapacity(prepared.assetsToPersist);
       if(storage?.checked&&storage.required)status(`Espacio local verificado · restaurando ${(storage.required/1048576).toFixed(1)} MB de medios…`);
-      for(const asset of prepared.assetsToPersist){if(typeof putAsset!=='function')throw new Error('El almacén local de medios no está disponible');await putAsset(asset);persistedIds.push(asset.id)}
+      for(const asset of prepared.assetsToPersist){if(typeof putAsset!=='function')throw new Error('El almacén local de medios no está disponible');persistedIds.push(asset.id);await putAsset(asset)}
       const library=window.profitMenteProjectLibrary,nextProject=library?.save?library.save(prepared.project):prepared.project;
       createdLibraryId=nextProject?.libraryId||null;
       project=nextProject;assets=prepared.assets;activated=true;
