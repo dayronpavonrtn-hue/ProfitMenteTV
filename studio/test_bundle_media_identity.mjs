@@ -4,6 +4,7 @@ import {createRequire} from 'node:module';
 globalThis.window={addEventListener(){}};
 const require=createRequire(import.meta.url);
 const {ProfitMenteBundleEngine}=require('./bundle-engine.js');
+const {ProfitMenteBundleImportEngine}=require('./bundle-import-engine.js');
 
 const bundler=new ProfitMenteBundleEngine();
 const bytes=new TextEncoder().encode('same-media-payload-for-profitmente');
@@ -17,6 +18,11 @@ const asset={
   duration:4.2,
   width:1080,
   height:1920,
+  metadataVersion:4,
+  metadataBlobSize:bytes.length,
+  metadataBlobType:'video/mp4',
+  metadataBlobLastModified:1770000000000,
+  metadataBlobSignature:'1a2b3c4d5e6f7788',
   sourceFingerprint:'original-video.mp4|34|video/mp4|1770000000000',
   sourceContentHash:'d1b67bdce55d102701952d93a5c8b7e69b7800e9b53d8319d5a0dfba357eb027',
   sourceLegacyContentHash:'70f5bc0cbf5f28b86a75758f07ff4b85c9692110346037af8b93af71746f96c7',
@@ -39,6 +45,10 @@ assert.equal(restored.assets[0].sourceHashVersion,asset.sourceHashVersion);
 assert.equal(restored.assets[0].sourceRelativePath,asset.sourceRelativePath);
 assert.equal(restored.assets[0].sourceLastModified,asset.sourceLastModified);
 assert.equal(restored.assets[0].importOrigin,asset.importOrigin);
+assert.equal(restored.assets[0].metadataBlobSize,asset.metadataBlobSize);
+assert.equal(restored.assets[0].metadataBlobType,asset.metadataBlobType);
+assert.equal(restored.assets[0].metadataBlobLastModified,asset.metadataBlobLastModified);
+assert.equal(restored.assets[0].metadataBlobSignature,asset.metadataBlobSignature);
 assert.equal(restored.project.assets[0].sourceContentHash,asset.sourceContentHash);
 assert.equal(restored.project.assets[0].sourceLegacyContentHash,asset.sourceLegacyContentHash);
 assert.equal(restored.project.assets[0].sourceHashVersion,asset.sourceHashVersion);
@@ -46,6 +56,7 @@ assert.equal(restored.project.assets[0].sourceRelativePath,asset.sourceRelativeP
 assert.equal(restored.project.assets[0].sourceFingerprint,asset.sourceFingerprint);
 assert.equal(restored.project.assets[0].sourceLastModified,asset.sourceLastModified);
 assert.equal(restored.project.assets[0].importOrigin,asset.importOrigin);
+assert.equal(restored.project.assets[0].metadataBlobSignature,asset.metadataBlobSignature);
 assert.deepEqual(new Uint8Array(await restored.assets[0].blob.arrayBuffer()),bytes);
 
 const legacyBytes=new TextEncoder().encode('legacy-numeric-media-id');
@@ -106,5 +117,22 @@ const zeroBlob=await bundler.build({name:'Zero media ID',clips:[{id:'zero-clip',
 const zeroRestored=await bundler.parse(zeroBlob);
 assert.equal(zeroRestored.assets[0].id,'0','negative zero media ID must canonicalize to 0');
 assert.equal(zeroRestored.project.clips[0].asset,'0','zero clip reference must match canonical media ID');
+
+const importer=new ProfitMenteBundleImportEngine({idFactory:()=> 'remapped-content-id'});
+const collisionProject={name:'Signature collision',clips:[{id:'c1',track:0,asset:'media-1'}],assets:[{id:'media-1'}]};
+const localCollision={id:'media-1',name:'same.mp4',mime:'video/mp4',size:32,sourceLastModified:1770000000000,metadataBlobSize:32,metadataBlobType:'video/mp4',metadataBlobSignature:'aaaaaaaaaaaaaaaa'};
+const incomingCollision={id:'media-1',name:'same.mp4',mime:'video/mp4',size:32,sourceLastModified:1770000000000,metadataBlobSize:32,metadataBlobType:'video/mp4',metadataBlobSignature:'bbbbbbbbbbbbbbbb',blob:new Blob([new Uint8Array(32)],{type:'video/mp4'})};
+const collisionPrepared=importer.prepare(collisionProject,[incomingCollision],[localCollision]);
+assert.equal(collisionPrepared.stats.reused,0,'same metadata with different content signatures must not be reused');
+assert.equal(collisionPrepared.stats.remapped,1,'content-signature collision must isolate the imported media');
+assert.equal(collisionPrepared.assetsToPersist.length,1,'different signed content must be persisted');
+assert.equal(collisionPrepared.project.clips[0].asset,'remapped-content-id','timeline must point to the isolated imported media');
+
+const exactIncoming={...incomingCollision,metadataBlobSignature:localCollision.metadataBlobSignature};
+const exactPrepared=importer.prepare(collisionProject,[exactIncoming],[localCollision]);
+assert.equal(exactPrepared.stats.reused,1,'matching inspector signatures may safely reuse existing media');
+assert.equal(exactPrepared.stats.remapped,0);
+assert.equal(exactPrepared.assetsToPersist.length,0);
+assert.equal(exactPrepared.project.clips[0].asset,'media-1');
 
 console.log('Bundle media identity roundtrip QA OK');
