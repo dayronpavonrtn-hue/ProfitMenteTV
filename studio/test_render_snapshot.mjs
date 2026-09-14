@@ -45,7 +45,7 @@ class FakeBundle{
   }
   async save(project,assets,options={}){
     await saveGate;
-    return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration,handle:options.handle};
+    return {duration:project.clips[0].duration,name:assets[0].name,metaDuration:assets[0].meta.duration,handle:options.handle,fileName:options.fileName,quality:options.export?.quality};
   }
 }
 assert.equal(Snapshot.install(FakeBundle),true,'install should patch a renderer once');
@@ -71,12 +71,15 @@ assert.deepEqual(await pendingDownload,{duration:8,name:'portable-before.mp4',me
 const saveHandle={name:'portable.pmstudio'};
 const saveProject={clips:[{id:'clip-save',asset:'media-save',duration:11}]};
 const saveAssets=[{id:'media-save',name:'save-before.mp4',meta:{duration:21}}];
-const pendingSave=new FakeBundle().save(saveProject,saveAssets,{handle:saveHandle});
+const saveOptions={handle:saveHandle,fileName:'profitmente-before.pmstudio',export:{quality:0.9}};
+const pendingSave=new FakeBundle().save(saveProject,saveAssets,saveOptions);
 saveProject.clips[0].duration=110;
 saveAssets[0].name='save-after.mp4';
 saveAssets[0].meta.duration=4;
+saveOptions.fileName='profitmente-after.pmstudio';
+saveOptions.export.quality=0.2;
 releaseSave();
-assert.deepEqual(await pendingSave,{duration:11,name:'save-before.mp4',metaDuration:21,handle:saveHandle},'edits made after file-system bundle save starts must not alter the saved package snapshot');
+assert.deepEqual(await pendingSave,{duration:11,name:'save-before.mp4',metaDuration:21,handle:saveHandle,fileName:'profitmente-before.pmstudio',quality:0.9},'edits made after file-system bundle save starts must not alter the saved package or its options snapshot');
 
 const cycle={name:'cycle'};cycle.self=cycle;
 const clonedCycle=Snapshot.clone(cycle);
