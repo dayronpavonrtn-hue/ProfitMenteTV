@@ -42,12 +42,14 @@
     else if(typeof originalPersist==='function')originalPersist();
     else throw new Error('No hay un mecanismo disponible para guardar el proyecto restaurado');
     const guard=window.ProfitMenteStartupProjectGuard;
-    if(guard?.serializeProject&&guard?.PRIMARY_KEY){
-      const expected=guard.serializeProject(project).raw;
-      let actual;
-      try{actual=localStorage.getItem(guard.PRIMARY_KEY)}catch(err){throw new Error('No se pudo verificar el proyecto restaurado en el almacenamiento local',{cause:err})}
-      if(actual!==expected)throw new Error('El proyecto restaurado no quedó confirmado en el almacenamiento persistente');
-    }
+    const serialized=guard?.serializeProject&&guard?.PRIMARY_KEY?{key:guard.PRIMARY_KEY,raw:guard.serializeProject(project).raw}:{key:'profitmente-project',raw:JSON.stringify(project)};
+    let actual;
+    try{
+      const storage=globalThis.localStorage;
+      if(!storage?.getItem)throw new Error('localStorage no disponible');
+      actual=storage.getItem(serialized.key);
+    }catch(err){throw new Error('No se pudo verificar el proyecto restaurado en el almacenamiento local',{cause:err})}
+    if(actual!==serialized.raw)throw new Error('El proyecto restaurado no quedó confirmado en el almacenamiento persistente');
     return true;
   }
   async function storageEstimate(){
