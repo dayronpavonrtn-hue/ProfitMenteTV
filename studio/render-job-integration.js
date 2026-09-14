@@ -67,6 +67,20 @@
     if(freshness?.status==='unknown')return ' · resultado recuperado de una sesión anterior';
     return ' · versión actual ✓';
   }
+  function verifyProjectPersistence(target=project){
+    const guard=window.ProfitMenteStartupProjectGuard;
+    if(guard?.serializeProject&&guard?.PRIMARY_KEY){
+      const expected=guard.serializeProject(target).raw;
+      let actual;
+      try{actual=window.localStorage?.getItem?.(guard.PRIMARY_KEY)}catch(err){throw err}
+      if(actual!==expected)throw new Error('La escritura del proyecto no llegó al almacenamiento persistente');
+    }
+    if(window.ProfitMenteProjectAutosave?.unsaved){
+      const detail=window.ProfitMenteProjectAutosave.lastError?.message;
+      throw new Error(detail||'El proyecto todavía contiene cambios sin guardar');
+    }
+    return true;
+  }
   async function renderPreflight(renderProject=projectForRender(),renderAssets=snapshotAssetsForRender()){
     if(typeof window.ProfitMenteExportPreflightRun==='function'){
       const preflight=await window.ProfitMenteExportPreflightRun({project:renderProject,assets:renderAssets});
@@ -127,7 +141,14 @@
     }finally{renderBtn.disabled=false;cancelBtn.hidden=true;client.reset()}
   }
   renderBtn.onclick=async()=>{
-    save();
+    try{
+      if(typeof save==='function')await Promise.resolve(save());
+      verifyProjectPersistence(project);
+    }catch(err){
+      console.error(err);
+      setStatus(`Render MP4 cancelado: no se pudo confirmar el guardado del proyecto${err?.message?` · ${err.message}`:''}`);
+      return;
+    }
     const renderProject=projectForRender(),renderAssets=snapshotAssetsForRender(),renderContext=captureRenderContext(renderProject,renderAssets);
     let gate;
     try{gate=await renderPreflight(renderProject,renderAssets)}catch(err){console.error(err);setStatus('No se pudo completar el Preflight de exportación: '+(err?.message||err));return}
@@ -147,5 +168,5 @@
   cancelBtn.onclick=async()=>{cancelBtn.disabled=true;try{setStatus('Cancelando render local…');await client.cancel();clearSession()}catch(err){console.warn(err)}finally{cancelBtn.disabled=false}};
   setTimeout(()=>{resumeSavedJob()},0);
   window.profitMenteRenderJobClient=client;
-  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,canonicalMediaId,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock,strictFinite};
+  window.ProfitMenteAsyncRenderValidation={validatePostRender,resumeSavedJob,readSession,clearSession,statusText,renderFailure,resultRetryStatus,shouldPreserveSession,captureRenderContext,normalizeRenderContext,renderFingerprint,canonicalMediaId,mediaIdentity,snapshotAssetsForRender,evaluateRenderFreshness,freshnessLabel,renderPreflight,reportPreflightBlock,strictFinite,verifyProjectPersistence};
 })();
