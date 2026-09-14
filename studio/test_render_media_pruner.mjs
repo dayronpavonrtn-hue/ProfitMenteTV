@@ -20,15 +20,19 @@ await assert.rejects(async()=>Pruner.select({clips:[{id:'legacy',asset:3}]},[c,{
 assert.deepEqual(Pruner.select({clips:[{id:'zero',asset:-0}]},[{id:'0',name:'zero.mp4'}]).map(x=>x.name),['zero.mp4'],'numeric zero aliases must resolve canonically');
 
 class FakeBundle{
+  async build(project,assets){this.built=assets;return assets.length}
   async renderLocal(project,assets,onStatus){this.received=assets;onStatus('original');return assets.length}
 }
 assert.equal(Pruner.install(FakeBundle),true,'install should patch an eligible bundle engine once');
 assert.equal(Pruner.install(FakeBundle),false,'install must be idempotent');
 const fake=new FakeBundle(),statuses=[];
+const buildCount=await fake.build(project,[a,b,c]);
+assert.equal(buildCount,2,'bundle build should include only referenced media');
+assert.deepEqual(fake.built,[a,c]);
 const count=await fake.renderLocal(project,[a,b,c],x=>statuses.push(x));
 assert.equal(count,2);
 assert.deepEqual(fake.received,[a,c]);
 assert.match(statuses[0],/2 de 3 medios necesarios/);
 assert.equal(statuses.at(-1),'original');
 
-console.log('Render media pruner QA OK');
+console.log('Render media pruner QA OK · build + renderLocal contract');
