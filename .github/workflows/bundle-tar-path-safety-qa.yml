@@ -1,0 +1,32 @@
+name: ProfitMente Studio Bundle TAR Path Safety QA
+
+on:
+  push:
+    paths:
+      - 'studio/bundle-engine.js'
+      - 'studio/bundle-render-job-integration.js'
+      - 'studio/test_bundle_tar_path_safety.mjs'
+      - '.github/workflows/bundle-tar-path-safety-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/bundle-engine.js'
+      - 'studio/bundle-render-job-integration.js'
+      - 'studio/test_bundle_tar_path_safety.mjs'
+      - '.github/workflows/bundle-tar-path-safety-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle-tar-path-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: node --check studio/bundle-render-job-integration.js
+      - name: Bundle TAR path safety regression
+        run: node studio/test_bundle_tar_path_safety.mjs
