@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const ProfitMenteGeneratorAutoFill=require('./generator-autofill.js');
 
-const trackLocked=(project,track)=>!!(project?.trackState?.[track]?.locked??project?.trackState?.[String(track)]?.locked);
+const trackLocked=(project,track)=>[
+  project?.trackState?.[track],project?.trackState?.[String(track)],
+  project?.trackStates?.[track],project?.trackStates?.[String(track)]
+].some(state=>state?.locked===true);
 const fakeEngine={
-  assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset&&!c.locked&&!trackLocked(project,c.track))){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset&&!c.locked&&!trackLocked(project,c.track)).length}},
-  assignNarration(project,assets){if(trackLocked(project,6))return 0;const voice=assets.find(a=>a.type==='audio'&&/voice|voz|narr/i.test(a.name||''));if(!voice)return 0;let count=0;for(const clip of project.clips.filter(c=>Number(c.track)===6&&!c.asset&&!c.locked)){clip.asset=voice.id;count++}return count},
+  assignAssets(project,assets){let primary=0;for(const clip of project.clips.filter(c=>c.track===0&&!c.asset&&c.locked!==true&&!trackLocked(project,c.track))){const visual=assets.find(a=>a.type==='video'||a.type==='image');if(!visual)continue;clip.asset=visual.id;primary++}return {primary,broll:0,skipped:project.clips.filter(c=>c.track===0&&!c.asset&&c.locked!==true&&!trackLocked(project,c.track)).length}},
+  assignNarration(project,assets){if(trackLocked(project,6))return 0;const voice=assets.find(a=>a.type==='audio'&&/voice|voz|narr/i.test(a.name||''));if(!voice)return 0;let count=0;for(const clip of project.clips.filter(c=>Number(c.track)===6&&!c.asset&&c.locked!==true)){clip.asset=voice.id;count++}return count},
   assignSoundtrack(){return 0},
   assignTransitionSfx(){return 0}
 };
@@ -95,6 +98,20 @@ assert.equal(legacyLockResult.changed,false,'legacy track aliases in trackStates
 assert.equal(legacyLockResult.before,0,'legacy-locked primary scenes are not pending automatic work');
 assert.equal(legacyLockedTracks.clips[0].asset,null);
 assert.equal(legacyLockedTracks.clips[1].asset,null);
+
+const importedFalseLocks={mode:'Automático',trackState:{0:{locked:'false'}},trackStates:{5:{locked:0},6:{locked:'true'}},clips:[
+  {id:'imported-scene',track:0,asset:null,locked:'false'},
+  {id:'imported-voice',track:6,asset:null,locked:'false'}
+]};
+assert.equal(helper.trackLocked(importedFalseLocks,0),false,'string false track lock must not block generator autofill');
+assert.equal(helper.trackLocked(importedFalseLocks,5),false,'numeric zero track lock must not block generator autofill');
+assert.equal(helper.trackLocked(importedFalseLocks,6),false,'string true is imported data, not an authoritative boolean lock');
+assert.equal(helper.locked(importedFalseLocks,importedFalseLocks.clips[0]),false,'string false clip lock must remain editable');
+const importedFalseResult=helper.fill(importedFalseLocks,[...visuals,...voice],[...visuals,...voice]);
+assert.equal(importedFalseResult.changed,true,'imported non-boolean lock flags must not suppress automation');
+assert.equal(importedFalseResult.before,1,'visual placeholder with locked:"false" must count as pending work');
+assert.equal(importedFalseLocks.clips[0].asset,'new-video','generator must fill a scene carrying locked:"false"');
+assert.equal(importedFalseLocks.clips[1].asset,'voice-final','generator must attach narration when track/clip locks are non-boolean');
 
 const zeroAlreadyAssigned={mode:'Automático',clips:[
   {id:'zero-scene',track:0,asset:0},
