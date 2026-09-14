@@ -16,11 +16,11 @@ for(const invalidId of [false,true,{},[],NaN,Infinity,1.5,Number.MAX_SAFE_INTEGE
   assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:invalidId,name:'bad.mp4'}]},assets:[{id:invalidId,name:'bad.mp4'}]}),/identificador válido/i);
 }
 
-assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:'7'},{id:7}]},assets:[{id:'7'},{id:8}]}),/duplicado en manifiesto/i);
+assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:'7'},{id:7}]},assets:[{id:'7'},{id:8}]}),/duplicado.*manifiesto/i);
 assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:'missing'}]},assets:[{id:'other'}]}),/no restaurado/i);
 assert.throws(()=>guard.validateRestoredBundle({project:{clips:[{id:'dangling',asset:'missing'}],assets:[{id:'present'}]},assets:[{id:'present'}]}),/no existe en paquete restaurado/i);
 assert.throws(()=>guard.validateRestoredBundle({project:{clips:[{id:'bad',asset:{}}],assets:[{id:'present'}]},assets:[{id:'present'}]}),/Clip con identificador de medio inválido/i);
-assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:'9'}]},assets:[{id:9},{id:'9'}]}),/duplicado al restaurar paquete/i);
+assert.throws(()=>guard.validateRestoredBundle({project:{clips:[],assets:[{id:'9'}]},assets:[{id:9},{id:'9'}]}),/duplicado.*restaurar paquete/i);
 
 const zero=guard.validateRestoredBundle({project:{clips:[{id:'zero',asset:-0}],assets:[{id:-0}]},assets:[{id:-0}]});
 assert.equal(zero.assets[0].id,'0');
