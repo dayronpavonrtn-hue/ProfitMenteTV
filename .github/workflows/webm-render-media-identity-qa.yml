@@ -1,0 +1,28 @@
+name: ProfitMente Studio WebM Media Identity QA
+
+on:
+  push:
+    paths:
+      - 'studio/webm-render-engine.js'
+      - 'studio/tests/webm-render-media-identity-regression.js'
+      - '.github/workflows/webm-render-media-identity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/webm-render-engine.js'
+      - 'studio/tests/webm-render-media-identity-regression.js'
+      - '.github/workflows/webm-render-media-identity-qa.yml'
+
+jobs:
+  webm-media-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check WebM render engine syntax
+        run: node --check studio/webm-render-engine.js
+      - name: Check regression syntax
+        run: node --check studio/tests/webm-render-media-identity-regression.js
+      - name: Verify render snapshot detects media replacement
+        run: node studio/tests/webm-render-media-identity-regression.js
