@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'studio/bundle-engine.js'
+      - 'studio/bundle-import-engine.js'
       - 'studio/bundle-import-identity-guard.js'
       - 'studio/bundle-import-integration.js'
       - 'studio/media-import-engine.js'
@@ -27,6 +28,8 @@ jobs:
           python-version: '3.12'
       - name: Syntax check bundle engine
         run: node --check studio/bundle-engine.js
+      - name: Syntax check bundle import engine
+        run: node --check studio/bundle-import-engine.js
       - name: Syntax check bundle import identity guard
         run: node --check studio/bundle-import-identity-guard.js
       - name: Syntax check bundle import integration
