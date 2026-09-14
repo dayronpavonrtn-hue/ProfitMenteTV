@@ -1,0 +1,34 @@
+name: ProfitMente Studio MP4 Persistence Safety
+
+on:
+  push:
+    paths:
+      - 'studio/render-job-integration.js'
+      - 'studio/project-autosave.js'
+      - 'studio/startup-project-guard.js'
+      - 'studio/tests/mp4-persistence-safety-regression.mjs'
+      - '.github/workflows/profitmente-mp4-persistence-safety.yml'
+  pull_request:
+    paths:
+      - 'studio/render-job-integration.js'
+      - 'studio/project-autosave.js'
+      - 'studio/startup-project-guard.js'
+      - 'studio/tests/mp4-persistence-safety-regression.mjs'
+      - '.github/workflows/profitmente-mp4-persistence-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mp4-persistence-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check render integration syntax
+        run: node --check studio/render-job-integration.js
+      - name: Verify MP4 persistence gate
+        run: node studio/tests/mp4-persistence-safety-regression.mjs
