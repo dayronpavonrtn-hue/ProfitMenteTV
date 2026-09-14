@@ -131,14 +131,22 @@ if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteGenerat
   let importSequence=0;
   document.addEventListener('profitmente:media-imported',async e=>{
     const sequence=++importSequence,ids=e.detail?.assetIds||[];
-    let imported=helper.assetsFromIds(assets,ids);
+    // Bind every asynchronous autofill attempt to the exact project and media
+    // library that received the import. Opening another project while metadata
+    // is being read must never let a stale continuation edit or save that project.
+    const targetProject=project,targetAssets=assets;
+    let imported=helper.assetsFromIds(targetAssets,ids);
     if(!imported.length)return;
     imported=await helper.prepareImported(imported);
-    // Re-resolve after metadata persistence so we use the canonical asset objects.
-    imported=helper.assetsFromIds(assets,ids);
-    if(sequence!==importSequence||!imported.length)return;
-    const result=helper.fill(project,assets,imported);
-    if(!result.changed)return;
+    if(sequence!==importSequence||project!==targetProject||assets!==targetAssets)return;
+    // Re-resolve after metadata persistence so we use the canonical asset objects
+    // from the original library, never similarly named/identified media in a new one.
+    imported=helper.assetsFromIds(targetAssets,ids);
+    if(!imported.length)return;
+    const result=helper.fill(targetProject,targetAssets,imported);
+    // A project switch can also happen from synchronous hooks invoked by custom
+    // assignment engines. Do not persist or report stale results in that case.
+    if(project!==targetProject||assets!==targetAssets||!result.changed)return;
     save?.();
     const parts=[];
     if(result.primary||result.broll)parts.push(`${result.primary} escena(s) completada(s) y ${result.broll} B-roll añadido(s).`);
