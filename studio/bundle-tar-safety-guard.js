@@ -45,12 +45,37 @@
     return true;
   }
 
+  function validateManifestIntegrity(engine,project){
+    if(!project||typeof project!=='object'||Array.isArray(project))throw new Error('Proyecto inválido en paquete');
+    if(!Array.isArray(project.assets))throw new Error('Proyecto sin biblioteca de medios válida');
+    if(!Array.isArray(project.clips))throw new Error('Proyecto sin clips válidos');
+
+    const mediaIds=new Set();
+    for(const meta of project.assets){
+      if(!meta||typeof meta!=='object'||Array.isArray(meta))throw new Error('Entrada de medio inválida en paquete');
+      const id=engine.canonicalMediaId(meta.id);
+      if(!id)throw new Error('Medio sin identificador válido en paquete');
+      if(mediaIds.has(id))throw new Error(`Identificador de medio duplicado en paquete: ${id}`);
+      mediaIds.add(id);
+    }
+
+    for(const clip of project.clips){
+      if(!clip||clip.asset===null||clip.asset===undefined)continue;
+      const id=engine.canonicalMediaId(clip.asset);
+      if(!id)throw new Error(`Clip con identificador de medio inválido: ${clip.id||'sin id'}`);
+      if(!mediaIds.has(id))throw new Error(`Clip referencia un medio inexistente en paquete: ${id}`);
+    }
+    return true;
+  }
+
   const originalParse=Bundle.prototype.parse;
   Bundle.prototype.parse=async function(blob){
     await validateTarFraming(this,blob);
-    return originalParse.call(this,blob);
+    const restored=await originalParse.call(this,blob);
+    validateManifestIntegrity(this,restored?.project);
+    return restored;
   };
   Bundle.prototype.__profitmenteTarSafetyGuard=true;
 
-  g.ProfitMenteBundleTarSafetyGuard={validateTarFraming,readTarSize,isZeroBlock};
+  g.ProfitMenteBundleTarSafetyGuard={validateTarFraming,validateManifestIntegrity,readTarSize,isZeroBlock};
 })(globalThis);
