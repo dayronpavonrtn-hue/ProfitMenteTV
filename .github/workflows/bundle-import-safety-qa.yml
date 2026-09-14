@@ -12,6 +12,7 @@ on:
       - 'studio/tests/bundle-import-media-reference-regression.js'
       - 'studio/tests/bundle-import-partial-write-rollback-regression.js'
       - 'studio/tests/bundle-import-rejected-media-write-rollback-regression.js'
+      - 'studio/tests/bundle-import-persistence-verification-regression.js'
       - 'studio/tests/project-import-autosave-failure-regression.js'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/bundle-import-safety-qa.yml'
@@ -26,6 +27,7 @@ on:
       - 'studio/tests/bundle-import-media-reference-regression.js'
       - 'studio/tests/bundle-import-partial-write-rollback-regression.js'
       - 'studio/tests/bundle-import-rejected-media-write-rollback-regression.js'
+      - 'studio/tests/bundle-import-persistence-verification-regression.js'
       - 'studio/tests/project-import-autosave-failure-regression.js'
       - 'studio/feature-bootstrap.js'
       - '.github/workflows/bundle-import-safety-qa.yml'
@@ -49,6 +51,7 @@ jobs:
           node --check studio/tests/bundle-import-media-reference-regression.js
           node --check studio/tests/bundle-import-partial-write-rollback-regression.js
           node --check studio/tests/bundle-import-rejected-media-write-rollback-regression.js
+          node --check studio/tests/bundle-import-persistence-verification-regression.js
           node --check studio/tests/project-import-autosave-failure-regression.js
           node --check studio/feature-bootstrap.js
       - name: Bundle import safety regression
@@ -63,6 +66,8 @@ jobs:
         run: node studio/tests/bundle-import-partial-write-rollback-regression.js
       - name: Bundle import rejected-media-write rollback regression
         run: node studio/tests/bundle-import-rejected-media-write-rollback-regression.js
+      - name: Bundle import persistence verification regression
+        run: node studio/tests/bundle-import-persistence-verification-regression.js
       - name: Import autosave failure regression
         run: node studio/tests/project-import-autosave-failure-regression.js
       - name: Feature bootstrap regression
