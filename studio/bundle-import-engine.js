@@ -17,6 +17,7 @@ class ProfitMenteBundleImportEngine{
   identity(asset={}){
     const hash=this.primitiveText(asset.sourceContentHash);if(hash)return `hash:${hash}`;
     const fingerprint=this.primitiveText(asset.sourceFingerprint);if(fingerprint)return `fingerprint:${fingerprint}`;
+    const signature=this.primitiveText(asset.metadataBlobSignature);if(signature)return `signature:${signature}|${this.finiteNonNegative(asset.metadataBlobSize||asset.size)}|${this.primitiveText(asset.metadataBlobType||asset.mime)}`;
     return `meta:${this.primitiveText(asset.name)}|${this.finiteNonNegative(asset.size)}|${this.primitiveText(asset.mime)}|${this.finiteNonNegative(asset.sourceLastModified)}`;
   }
   cloneAsset(asset={}){const copy={...asset};if(asset.blob)copy.blob=asset.blob;return copy}
