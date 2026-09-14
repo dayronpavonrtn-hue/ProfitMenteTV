@@ -10,9 +10,9 @@ class ProfitMenteProjectPortability{
   static assetMeta(asset={}){
     if(this.idKey(asset?.id)===null)return null;
     const out={id:asset.id};
-    for(const key of ['name','type','mime']){const value=typeof asset[key]==='string'?asset[key].trim():'';if(value)out[key]=value}
-    for(const key of ['size','duration','width','height','metadataVersion','sourceLastModified']){const value=Number(asset[key]);if(Number.isFinite(value)&&value>=0)out[key]=value}
-    for(const key of ['sourceFingerprint','sourceContentHash','sourceLegacyContentHash','sourceHashVersion','sourceRelativePath','importOrigin']){const value=typeof asset[key]==='string'?asset[key].trim():'';if(value)out[key]=value}
+    for(const key of ['name','type','mime','metadataBlobType']){const value=typeof asset[key]==='string'?asset[key].trim():'';if(value)out[key]=value}
+    for(const key of ['size','duration','width','height','metadataVersion','sourceLastModified','metadataBlobSize','metadataBlobLastModified']){const value=Number(asset[key]);if(Number.isFinite(value)&&value>=0)out[key]=value}
+    for(const key of ['sourceFingerprint','sourceContentHash','sourceLegacyContentHash','sourceHashVersion','sourceRelativePath','importOrigin','metadataBlobSignature']){const value=typeof asset[key]==='string'?asset[key].trim():'';if(value)out[key]=value}
     return out;
   }
   static referenced(project={}){
