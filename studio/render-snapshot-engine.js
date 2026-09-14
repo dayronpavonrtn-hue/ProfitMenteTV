@@ -36,11 +36,18 @@
     static install(BundleCtor=root.ProfitMenteBundleEngine){
       const proto=BundleCtor?.prototype;
       if(!proto||typeof proto.renderLocal!=='function'||proto.__renderSnapshotInstalled)return false;
-      const original=proto.renderLocal;
+      const originalRender=proto.renderLocal;
       proto.renderLocal=async function(project,assets,onStatus=()=>{}){
         const snapshot=ProfitMenteRenderSnapshotEngine.capture(project,assets);
-        return original.call(this,snapshot.project,snapshot.assets,onStatus);
+        return originalRender.call(this,snapshot.project,snapshot.assets,onStatus);
       };
+      if(typeof proto.download==='function'){
+        const originalDownload=proto.download;
+        proto.download=async function(project,assets){
+          const snapshot=ProfitMenteRenderSnapshotEngine.capture(project,assets);
+          return originalDownload.call(this,snapshot.project,snapshot.assets);
+        };
+      }
       proto.__renderSnapshotInstalled=true;
       return true;
     }
