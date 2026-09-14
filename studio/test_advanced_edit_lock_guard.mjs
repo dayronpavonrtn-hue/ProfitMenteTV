@@ -11,6 +11,12 @@ assert.equal(ProfitMenteEditLockGuard.isLocked(base,{track:1}),true,'string-keye
 assert.equal(ProfitMenteEditLockGuard.isLocked(base,{track:0}),false,'editable clip must remain editable');
 assert.equal(ProfitMenteEditLockGuard.anyLocked(base,[{track:0},{track:0,locked:true}]),true);
 
+const importedFalseFlags={trackState:{0:{locked:'false'}},trackStates:{1:{locked:0}}};
+assert.equal(ProfitMenteEditLockGuard.isLocked(importedFalseFlags,{track:0,locked:'false'}),false,'string false clip/track flags must not lock imported edits');
+assert.equal(ProfitMenteEditLockGuard.isLocked(importedFalseFlags,{track:1,locked:1}),false,'numeric lock flags must not be promoted to booleans');
+assert.equal(ProfitMenteEditLockGuard.isLocked({trackState:{2:{locked:'true'}}},{track:2}),false,'string true must not become a privileged lock flag');
+assert.equal(ProfitMenteEditLockGuard.isLocked({trackState:{2:{locked:true}}},{track:2}),true,'only boolean true may lock a track');
+
 const legacy={trackStates:{'2':{locked:true}}};
 assert.equal(ProfitMenteEditLockGuard.isLocked(legacy,{track:2}),true,'legacy trackStates lock must be honored');
 const mixed={trackState:{3:{locked:false}},trackStates:{'3':{locked:true}}};
@@ -55,6 +61,16 @@ const moved=ProfitMenteFrameNudgeEngine.apply(project,'a',1);
 assert.equal(moved.ok,true);
 assert.equal(moved.changed,2);
 assert.ok(project.clips[0].start>before[0]&&project.clips[1].start>before[1]);
+
+const strictImportedProject={fps:30,duration:10,trackState:{0:{locked:'false'}},clips:[
+  {id:'strict-a',track:0,start:1,duration:2,groupId:'strict-g'},
+  {id:'strict-b',track:0,start:4,duration:2,groupId:'strict-g',locked:'false'}
+]};
+const strictBefore=strictImportedProject.clips.map(c=>c.start);
+const strictMoved=ProfitMenteFrameNudgeEngine.apply(strictImportedProject,'strict-a',1);
+assert.equal(strictMoved.ok,true,'imported string false locks must remain editable in advanced tools');
+assert.equal(strictMoved.changed,2,'the whole unlocked imported group should move');
+assert.ok(strictImportedProject.clips.every((clip,index)=>clip.start>strictBefore[index]),'strict false flags must not freeze group members');
 
 const legacyProject={fps:30,duration:10,trackState:{0:{locked:false}},trackStates:{0:{locked:true}},clips:[
   {id:'legacy-a',track:0,start:1,duration:2},
