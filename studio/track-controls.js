@@ -122,7 +122,15 @@
       const cur=current&&typeof current==='object'&&!Array.isArray(current)?current:{};
       const old=legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{};
       const out={};
-      for(let i=0;i<7;i++)out[i]=this.normalizedState({...this.rawState(old,i),...this.rawState(cur,i)});
+      for(let i=0;i<7;i++){
+        const legacyState=this.rawState(old,i),currentState=this.rawState(cur,i),merged={...legacyState,...currentState};
+        // During migration both trackState (current) and trackStates (legacy) can coexist.
+        // A stale permissive false must never silently unlock, reveal or unmute content
+        // that the legacy representation still protects. Preserve the restrictive true
+        // until both representations have been canonicalized to the same state.
+        for(const key of ['locked','hidden','muted'])merged[key]=strictFlag(legacyState[key])||strictFlag(currentState[key]);
+        out[i]=this.normalizedState(merged);
+      }
       return out;
     }
     static state(trackState,track){const target=this.canonicalTrack(track);return target===null?{}:this.normalizedState(this.rawState(trackState,target))}
