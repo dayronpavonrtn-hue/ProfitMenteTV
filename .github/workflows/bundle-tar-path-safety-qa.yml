@@ -9,6 +9,7 @@ on:
       - 'studio/test_bundle_core_tar_path_safety.mjs'
       - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
+      - 'studio/test_bundle_tar_framing_rejection.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - 'studio/test_bundle_core_tar_path_safety.mjs'
       - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
+      - 'studio/test_bundle_tar_framing_rejection.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
 
 permissions:
@@ -42,5 +44,7 @@ jobs:
         run: node studio/test_bundle_tar_duplicate_entry_rejection.mjs
       - name: TAR header checksum rejection regression
         run: node studio/test_bundle_tar_checksum_rejection.mjs
+      - name: TAR framing rejection regression
+        run: node studio/test_bundle_tar_framing_rejection.mjs
       - name: Browser integration TAR path safety regression
         run: node studio/test_bundle_tar_path_safety.mjs
