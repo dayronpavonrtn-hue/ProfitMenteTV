@@ -5,21 +5,27 @@ on:
     paths:
       - 'studio/bundle-engine.js'
       - 'studio/bundle-render-job-integration.js'
+      - 'studio/bundle-tar-safety-guard.js'
+      - 'studio/automation-checkpoint.js'
       - 'studio/test_bundle_tar_path_safety.mjs'
       - 'studio/test_bundle_core_tar_path_safety.mjs'
       - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
       - 'studio/test_bundle_tar_framing_rejection.mjs'
+      - 'studio/test_bundle_tar_core_framing_guard.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
   pull_request:
     paths:
       - 'studio/bundle-engine.js'
       - 'studio/bundle-render-job-integration.js'
+      - 'studio/bundle-tar-safety-guard.js'
+      - 'studio/automation-checkpoint.js'
       - 'studio/test_bundle_tar_path_safety.mjs'
       - 'studio/test_bundle_core_tar_path_safety.mjs'
       - 'studio/test_bundle_tar_duplicate_entry_rejection.mjs'
       - 'studio/test_bundle_tar_checksum_rejection.mjs'
       - 'studio/test_bundle_tar_framing_rejection.mjs'
+      - 'studio/test_bundle_tar_core_framing_guard.mjs'
       - '.github/workflows/bundle-tar-path-safety-qa.yml'
 
 permissions:
@@ -38,6 +44,8 @@ jobs:
         run: |
           node --check studio/bundle-engine.js
           node --check studio/bundle-render-job-integration.js
+          node --check studio/bundle-tar-safety-guard.js
+          node --check studio/automation-checkpoint.js
       - name: Standalone bundle core TAR path safety regression
         run: node studio/test_bundle_core_tar_path_safety.mjs
       - name: Duplicate TAR entry rejection regression
@@ -46,5 +54,7 @@ jobs:
         run: node studio/test_bundle_tar_checksum_rejection.mjs
       - name: TAR framing rejection regression
         run: node studio/test_bundle_tar_framing_rejection.mjs
+      - name: Bundle core TAR framing guard regression
+        run: node studio/test_bundle_tar_core_framing_guard.mjs
       - name: Browser integration TAR path safety regression
         run: node studio/test_bundle_tar_path_safety.mjs
