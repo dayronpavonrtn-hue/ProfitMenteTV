@@ -22,13 +22,24 @@
     return String(name||'').replace(/^pm[0-9a-z]{6}__/i,'');
   }
 
+  function assertTarHeaderChecksum(engine,header,name='entrada'){
+    const checksumRaw=engine.readString(header,148,8),stored=parseInt(checksumRaw||'',8);
+    if(!Number.isFinite(stored))throw new Error(`Checksum TAR inválido: ${name}`);
+    let computed=0;
+    for(let i=0;i<header.length;i++)computed+=(i>=148&&i<156)?32:header[i];
+    if(computed!==stored)throw new Error(`Checksum TAR inválido: ${name}`);
+    return true;
+  }
+
   async function assertUniqueTarEntries(engine,blob){
     const bytes=new Uint8Array(await blob.arrayBuffer()),seen=new Set();
     let offset=0;
     while(offset+512<=bytes.length){
       const header=bytes.slice(offset,offset+512);
       if(header.every(x=>x===0))break;
-      const name=engine.readString(header,0,100),sizeRaw=engine.readString(header,124,12),size=parseInt(sizeRaw||'0',8);
+      const name=engine.readString(header,0,100);
+      assertTarHeaderChecksum(engine,header,name||'entrada');
+      const sizeRaw=engine.readString(header,124,12),size=parseInt(sizeRaw||'0',8);
       if(!name||!Number.isFinite(size)||size<0)throw new Error('Paquete TAR inválido');
       if(name.length>100)throw new Error(`Entrada TAR demasiado larga: ${name}`);
       if(seen.has(name))throw new Error(`Entrada TAR duplicada: ${name}`);
@@ -202,5 +213,5 @@
     }
   };
 
-  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,validateImportedBundle,emitProgress,transportAssetName,stripTransportMarker};
+  g.ProfitMenteBundleRenderJobIntegration={clientFor,assertUniqueTarEntries,assertTarHeaderChecksum,validateImportedBundle,emitProgress,transportAssetName,stripTransportMarker};
 })(globalThis);
