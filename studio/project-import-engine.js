@@ -53,6 +53,7 @@ class ProfitMenteProjectImportEngine{
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
     const fpsExplicit=p.fps!==undefined||p.frameRate!==undefined;
+    if((p.fps!==undefined&&p.fps===null)||(p.frameRate!==undefined&&p.frameRate===null))throw new Error('FPS de proyecto inválido');
     const fpsSource=p.fps??p.frameRate??this.defaults.fps??30;
     const fpsNumber=parseFiniteNumber(fpsSource,'FPS de proyecto');
     if(!SUPPORTED_FPS.includes(fpsNumber)){
@@ -60,6 +61,7 @@ class ProfitMenteProjectImportEngine{
       out.fps=30;
     }else out.fps=fpsNumber;
     delete out.frameRate;
+    if(p.renderQuality!==undefined&&p.renderQuality===null)throw new Error('Calidad de render inválida');
     const qualitySource=p.renderQuality??this.defaults.renderQuality??'high';
     if(typeof qualitySource!=='string'||!SUPPORTED_QUALITIES.includes(qualitySource.trim().toLowerCase()))throw new Error('Calidad de render no compatible');
     out.renderQuality=qualitySource.trim().toLowerCase();
@@ -89,24 +91,12 @@ class ProfitMenteProjectImportEngine{
         if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Keyframe visual inválido');
         const time=parseFiniteNumber(raw.time,'Tiempo de keyframe');
         if(time<0||time>clipDuration)throw new Error('Tiempo de keyframe fuera del clip');
-        const frame={
-          time:+time.toFixed(6),
-          x:clamp(raw.x===undefined?0:parseFiniteNumber(raw.x,'Posición X de keyframe'),-200,200),
-          y:clamp(raw.y===undefined?0:parseFiniteNumber(raw.y,'Posición Y de keyframe'),-200,200),
-          scale:clamp(raw.scale===undefined?1:parseFiniteNumber(raw.scale,'Escala de keyframe'),.1,8),
-          rotation:clamp(raw.rotation===undefined?0:parseFiniteNumber(raw.rotation,'Rotación de keyframe'),-3600,3600),
-          opacity:clamp(raw.opacity===undefined?1:parseFiniteNumber(raw.opacity,'Opacidad de keyframe'),0,1),
-          easing:canonicalEasing(raw.easing)
-        };
+        const frame={time:+time.toFixed(6),x:clamp(raw.x===undefined?0:parseFiniteNumber(raw.x,'Posición X de keyframe'),-200,200),y:clamp(raw.y===undefined?0:parseFiniteNumber(raw.y,'Posición Y de keyframe'),-200,200),scale:clamp(raw.scale===undefined?1:parseFiniteNumber(raw.scale,'Escala de keyframe'),.1,8),rotation:clamp(raw.rotation===undefined?0:parseFiniteNumber(raw.rotation,'Rotación de keyframe'),-3600,3600),opacity:clamp(raw.opacity===undefined?1:parseFiniteNumber(raw.opacity,'Opacidad de keyframe'),0,1),easing:canonicalEasing(raw.easing)};
         frames.push(frame);
       }
       frames.sort((a,b)=>a.time-b.time);
       const deduped=[];
-      for(const frame of frames){
-        const last=deduped[deduped.length-1];
-        if(last&&Math.abs(last.time-frame.time)<=.001)deduped[deduped.length-1]={...frame,time:last.time};
-        else deduped.push(frame);
-      }
+      for(const frame of frames){const last=deduped[deduped.length-1];if(last&&Math.abs(last.time-frame.time)<=.001)deduped[deduped.length-1]={...frame,time:last.time};else deduped.push(frame)}
       copy.visualKeyframes=deduped;
     };
     out.clips=p.clips.map((c,index)=>{
@@ -116,30 +106,11 @@ class ProfitMenteProjectImportEngine{
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
       if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)throw new Error('Tiempo de clip fuera de rango');
       if(end>out.duration+1e-9)throw new Error('Clip excede la duración del proyecto');
-      const copy=structuredClone(c);
-      copy.track=track;copy.start=start;copy.duration=clipDuration;
-      normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');
-      normalizeOptionalNumber(copy,'sourceOffset',0,Infinity,'Punto de entrada del medio');
-      normalizeOptionalNumber(copy,'volume',0,2,'Volumen de clip');
-      normalizeOptionalNumber(copy,'sourceVolume',0,2,'Volumen de audio original');
-      normalizeOptionalNumber(copy,'positionX',-100,100,'Posición X');
-      normalizeOptionalNumber(copy,'positionY',-100,100,'Posición Y');
-      normalizeOptionalNumber(copy,'scale',.25,3,'Escala');
-      normalizeOptionalNumber(copy,'rotation',-180,180,'Rotación');
-      normalizeOptionalNumber(copy,'opacity',0,1,'Opacidad');
-      normalizeOptionalNumber(copy,'fadeIn',0,clipDuration,'Fade de entrada');
-      normalizeOptionalNumber(copy,'fadeOut',0,clipDuration,'Fade de salida');
-      normalizeVisualAdjustments(copy);
-      normalizeVisualKeyframes(copy,clipDuration);
-      const id=canonicalClipId(copy.id,index);
-      const idIdentity=identityKey(id);
-      if(idIdentity===null)throw new Error('ID de clip inválido');
-      if(ids.has(idIdentity))throw new Error('ID de clip duplicado o ambiguo');
-      ids.add(idIdentity);copy.id=id;
-      return copy;
+      const copy=structuredClone(c);copy.track=track;copy.start=start;copy.duration=clipDuration;
+      normalizeOptionalNumber(copy,'speed',.25,4,'Velocidad de clip');normalizeOptionalNumber(copy,'sourceOffset',0,Infinity,'Punto de entrada del medio');normalizeOptionalNumber(copy,'volume',0,2,'Volumen de clip');normalizeOptionalNumber(copy,'sourceVolume',0,2,'Volumen de audio original');normalizeOptionalNumber(copy,'positionX',-100,100,'Posición X');normalizeOptionalNumber(copy,'positionY',-100,100,'Posición Y');normalizeOptionalNumber(copy,'scale',.25,3,'Escala');normalizeOptionalNumber(copy,'rotation',-180,180,'Rotación');normalizeOptionalNumber(copy,'opacity',0,1,'Opacidad');normalizeOptionalNumber(copy,'fadeIn',0,clipDuration,'Fade de entrada');normalizeOptionalNumber(copy,'fadeOut',0,clipDuration,'Fade de salida');normalizeVisualAdjustments(copy);normalizeVisualKeyframes(copy,clipDuration);
+      const id=canonicalClipId(copy.id,index),idIdentity=identityKey(id);if(idIdentity===null)throw new Error('ID de clip inválido');if(ids.has(idIdentity))throw new Error('ID de clip duplicado o ambiguo');ids.add(idIdentity);copy.id=id;return copy;
     });
-    delete out.libraryId;
-    return out;
+    delete out.libraryId;return out;
   }
 }
 return {ProfitMenteProjectImportEngine};
