@@ -10,10 +10,11 @@ assert.strictEqual(normalize({}).fps,30,'legacy projects without fps must retain
 assert.strictEqual(normalize({}).renderQuality,'high','legacy projects without quality must retain the renderer default');
 for(const fps of [24,30,60])assert.strictEqual(normalize({fps}).fps,fps);
 for(const fps of ['24','30','60'])assert.strictEqual(normalize({fps}).fps,Number(fps));
-for(const fps of [25,29.97,120,0,true,'','oops'])rejects({fps},/FPS/);
+for(const fps of [25,29.97,120,0,true,'','oops',null])rejects({fps},/FPS/);
+rejects({frameRate:null},/FPS/);
 for(const renderQuality of ['draft','standard','high'])assert.strictEqual(normalize({renderQuality}).renderQuality,renderQuality);
 assert.strictEqual(normalize({renderQuality:' HIGH '}).renderQuality,'high');
-for(const renderQuality of ['ultra','',1])rejects({renderQuality},/Calidad/);
+for(const renderQuality of ['ultra','',1,null])rejects({renderQuality},/Calidad/);
 assert.strictEqual(normalize({duration:21600}).duration,21600);
 rejects({duration:21600.001},/máximo 6 horas/);
 rejects({duration:86400},/máximo 6 horas/);
