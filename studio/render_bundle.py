@@ -72,6 +72,8 @@ try:
         data=json.loads(project.read_text(encoding='utf-8'))
         data=normalize_project_media_ids(normalize_track_solo(data))
         project.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
+        write_progress(15,'Verificando presupuesto local de render')
+        subprocess.run([sys.executable,str(root/'render_budget_preflight.py'),str(project)],check=True)
         write_progress(16,'Verificando identidad de clips')
         subprocess.run([sys.executable,str(root/'clip_identity_preflight.py'),str(project)],check=True)
         write_progress(18,'Validando estructura del proyecto')
