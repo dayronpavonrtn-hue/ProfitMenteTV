@@ -39,6 +39,25 @@ class ProjectStructureMediaIdentityTests(unittest.TestCase):
                 issues = inspect(self.project([value]))
                 self.assertTrue(any('id inválido' in issue for issue in issues), issues)
 
+    def test_clip_reference_uses_same_canonical_identity(self):
+        project = self.project([1])
+        project['clips'] = [{'id': 'clip-1', 'asset': '01'}]
+        self.assertEqual([], inspect(project))
+
+    def test_missing_clip_media_fails_before_render(self):
+        project = self.project(['media-present'])
+        project['clips'] = [{'id': 'clip-1', 'asset': 'media-missing'}]
+        issues = inspect(project)
+        self.assertTrue(any('no existe en assets' in issue for issue in issues), issues)
+
+    def test_invalid_clip_media_reference_fails_before_normalization(self):
+        project = self.project(['media-present'])
+        for value in (True, False, 1.5, {}, []):
+            with self.subTest(value=value):
+                project['clips'] = [{'id': 'clip-1', 'asset': value}]
+                issues = inspect(project)
+                self.assertTrue(any('referencia de medio inválida' in issue for issue in issues), issues)
+
 
 if __name__ == '__main__':
     unittest.main()
