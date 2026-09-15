@@ -12,30 +12,23 @@ assert.strictEqual(guard.normalizeProject({...base,clips:['bad']}),null,'scalar 
 assert.strictEqual(guard.normalizeProject({...base,clips:[[]]}),null,'array clips must not reach the editor');
 assert.strictEqual(guard.normalizeProject({...base,clips:[{}]}),null,'clips without valid timeline scalars must not reach the editor');
 assert.ok(guard.normalizeProject({...base,clips:[clip]}),'valid saved clips must recover');
-for(const [field,value] of [['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.1],['fadeIn',11],['fadeOut',-1]]){
-  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:value}]}),null,`${field} outside renderer bounds must be rejected`);
-}
-for(const field of ['muted','disabled','flipX','flipY']){
-  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:'false'}]}),null,`${field} must be a real boolean`);
-  assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`);
-}
+for(const [field,value] of [['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.1],['fadeIn',11],['fadeOut',-1]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:value}]}),null,`${field} outside renderer bounds must be rejected`);
+for(const field of ['muted','disabled','flipX','flipY']){assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:'false'}]}),null,`${field} must be a real boolean`);assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`)}
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,volume:1.5,sourceVolume:.8,positionX:25,positionY:-25,scale:2,rotation:90,opacity:.5,fadeIn:2,fadeOut:3,muted:false,disabled:false,flipX:true,flipY:false}]}),'valid render controls must recover');
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments:{brightness:120,contrast:90,saturation:110,grayscale:25},visualKeyframes:[{time:0,x:0,y:0,scale:1,rotation:0,opacity:1,easing:'linear'},{time:10,x:100,y:-100,scale:2,rotation:180,opacity:.5,easing:'ease-in-out'}]}]}),'valid visual adjustments and keyframes must recover');
-for(const visualAdjustments of [[],{brightness:301},{contrast:-1},{saturation:'bad'},{grayscale:101}]){
-  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments}]}),null,'invalid visual adjustments must not reach preview/render');
-}
-for(const visualKeyframes of [[null],[{time:-1}],[{time:11}],[{time:1,scale:0}],[{time:1,opacity:2}],[{time:1,easing:'spring'}]]){
-  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes}]}),null,'invalid visual keyframes must not reach preview/render');
-}
+for(const visualAdjustments of [[],{brightness:301},{contrast:-1},{saturation:'bad'},{grayscale:101}])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments}]}),null,'invalid visual adjustments must not reach preview/render');
+for(const visualKeyframes of [[null],[{time:-1}],[{time:11}],[{time:1,scale:0}],[{time:1,opacity:2}],[{time:1,easing:'spring'}]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes}]}),null,'invalid visual keyframes must not reach preview/render');
+const motion={id:'motion-1',track:2,start:0,duration:4,name:'Oferta',textStyle:'callout',textAnimation:'slide-up',textX:12,textY:-20,fontSize:48,textColor:'#FFE66D',boxColor:'#000000',boxOpacity:.55};
+assert.ok(guard.normalizeProject({...base,clips:[motion]}),'valid motion text state must recover');
+for(const bad of [{textStyle:'banner'},{textAnimation:'bounce'},{textX:46},{textY:-46},{fontSize:85},{boxOpacity:1.1},{textColor:'yellow'},{boxColor:'#000'},{name:'x'.repeat(181)}])assert.strictEqual(guard.normalizeProject({...base,clips:[{...motion,...bad}]}),null,'invalid motion text state must not reach preview/render');
 const tooManyKeyframes=Array.from({length:guard.MAX_VISUAL_KEYFRAMES+1},(_,i)=>({time:(i%10)}));
 assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes:tooManyKeyframes}]}),null,'startup recovery must enforce the visual keyframe budget');
 const oversized=Array.from({length:guard.MAX_PROJECT_CLIPS+1},()=>clip);
 assert.strictEqual(guard.normalizeProject({...base,clips:oversized}),null,'startup recovery must reject timelines beyond the import/render project budget');
-const store=new Map();
-store.set(guard.PRIMARY_KEY,JSON.stringify({...base,clips:[{...clip,opacity:'not-a-number'}]}));
+const store=new Map();store.set(guard.PRIMARY_KEY,JSON.stringify({...base,clips:[{...clip,opacity:'not-a-number'}]}));
 const storage={getItem:key=>store.has(key)?store.get(key):null,setItem:(key,value)=>store.set(key,value),removeItem:key=>store.delete(key)};
 const result=guard.guard(storage);
 assert.strictEqual(result.quarantined,true,'malformed startup projects must be quarantined');
 assert.ok(store.has(guard.BACKUP_KEY),'malformed startup projects must be preserved for recovery');
 assert.strictEqual(store.has(guard.PRIMARY_KEY),false,'malformed primary project must not remain active');
-console.log('startup project structure, render controls and visual state: ok');
+console.log('startup project structure, render controls, visual state and motion text: ok');
