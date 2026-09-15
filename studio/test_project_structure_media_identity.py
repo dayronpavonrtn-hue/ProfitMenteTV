@@ -27,8 +27,8 @@ class ProjectStructureMediaIdentityTests(unittest.TestCase):
             with self.subTest(ids=ids):
                 self.assert_ambiguous(ids)
 
-    def test_fractional_numeric_strings_canonicalize(self):
-        self.assert_ambiguous(['1.50', 1.5])
+    def test_fractional_string_spellings_canonicalize(self):
+        self.assert_ambiguous(['1.50', '1.5'])
 
     def test_distinct_text_ids_remain_distinct(self):
         self.assertEqual([], inspect(self.project(['media-01', 'media-1'])))
