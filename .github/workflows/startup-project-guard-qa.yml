@@ -1,0 +1,29 @@
+name: Studio startup project recovery QA
+
+on:
+  push:
+    paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/test_startup_project_structure.js'
+      - '.github/workflows/startup-project-guard-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/startup-project-guard.js'
+      - 'studio/test_startup_project_structure.js'
+      - '.github/workflows/startup-project-guard-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  startup-project-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate persisted project recovery boundary
+        run: node studio/test_startup_project_structure.js
