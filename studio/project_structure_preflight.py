@@ -15,12 +15,6 @@ def _identity(value):
 
 
 def _safe_asset_name(value):
-    """Return a portable basename or None.
-
-    Bundles intentionally keep media directly under assets/. A persisted asset name
-    must therefore never be able to escape that directory or alias another entry on
-    case-insensitive filesystems (Windows is a primary Studio target).
-    """
     if not isinstance(value, str):
         return None
     name = value.strip()
@@ -31,11 +25,36 @@ def _safe_asset_name(value):
     return name
 
 
+def _validate_state_flags(project, issues):
+    """Keep persisted editor flags unambiguous across JS and Python.
+
+    Only real JSON booleans are accepted. In Python bool('false') is True, so
+    accepting string flags could hide/mute content during MP4 render even though
+    Studio preview treats the imported value as invalid/non-boolean.
+    """
+    flags = ('hidden', 'muted', 'solo', 'locked')
+    for field in ('trackState', 'trackStates'):
+        states = project.get(field)
+        if states is None:
+            continue
+        if not isinstance(states, dict):
+            issues.append(f'{field} debe ser un objeto.')
+            continue
+        for track, state in states.items():
+            if not isinstance(state, dict):
+                issues.append(f'{field}[{track}] debe ser un objeto.')
+                continue
+            for flag in flags:
+                if flag in state and not isinstance(state[flag], bool):
+                    issues.append(f'{field}[{track}].{flag} debe ser booleano JSON.')
+
+
 def inspect(project):
     issues = []
     if not isinstance(project, dict):
         return ['El proyecto debe ser un objeto JSON.']
 
+    _validate_state_flags(project, issues)
     clips = project.get('clips', [])
     assets = project.get('assets', [])
     if not isinstance(clips, list):
@@ -50,6 +69,9 @@ def inspect(project):
         if not isinstance(clip, dict):
             issues.append(f'Clip {index}: estructura inválida; se esperaba un objeto.')
             continue
+        for flag in ('muted', 'disabled', 'flipX', 'flipY'):
+            if flag in clip and not isinstance(clip[flag], bool):
+                issues.append(f'Clip {index}: {flag} debe ser booleano JSON.')
         if 'id' in clip:
             cid = _identity(clip.get('id'))
             if cid is None:
