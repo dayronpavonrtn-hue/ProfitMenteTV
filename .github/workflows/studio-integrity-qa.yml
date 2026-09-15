@@ -64,6 +64,7 @@ jobs:
           node --check studio/generator-integration.js
           node --check studio/generator-manual-tools.js
           node --check studio/startup-project-guard.js
+          node --check studio/test_startup_project_structure.js
       - name: Studio wiring and media integrity
         run: |
           node studio/test_studio_integrity.mjs
@@ -79,7 +80,9 @@ jobs:
           node studio/test_media_store.mjs
           node studio/test_media_store_ambiguous_load.mjs
       - name: Startup project recovery regression
-        run: node studio/test_startup_corruption_guard.mjs
+        run: |
+          node studio/test_startup_corruption_guard.mjs
+          node studio/test_startup_project_structure.js
       - name: Local media metadata regression
         run: node studio/test_media_metadata_engine.js
       - name: Strict media relink identity regression
