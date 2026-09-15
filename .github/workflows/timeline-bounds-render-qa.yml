@@ -1,0 +1,28 @@
+name: ProfitMente Studio Timeline Bounds Render QA
+
+on:
+  push:
+    paths:
+      - 'studio/timeline_bounds_preflight.py'
+      - 'studio/test_timeline_bounds_preflight.py'
+      - 'studio/render_bundle.py'
+      - '.github/workflows/timeline-bounds-render-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timeline-bounds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/timeline_bounds_preflight.py studio/test_timeline_bounds_preflight.py studio/render_bundle.py
+      - name: Timeline bounds regression
+        run: python studio/test_timeline_bounds_preflight.py
+      - name: Render wiring
+        run: grep -q "timeline_bounds_preflight.py" studio/render_bundle.py
+      - name: Zero-cost guard
+        run: |
+          ! grep -Eqi 'openai|anthropic|elevenlabs|runway|stripe|api[_-]?key' studio/timeline_bounds_preflight.py
