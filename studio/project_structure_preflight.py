@@ -14,6 +14,23 @@ def _identity(value):
     return None
 
 
+def _safe_asset_name(value):
+    """Return a portable basename or None.
+
+    Bundles intentionally keep media directly under assets/. A persisted asset name
+    must therefore never be able to escape that directory or alias another entry on
+    case-insensitive filesystems (Windows is a primary Studio target).
+    """
+    if not isinstance(value, str):
+        return None
+    name = value.strip()
+    if not name or name in ('.', '..'):
+        return None
+    if '/' in name or '\\' in name or '\x00' in name:
+        return None
+    return name
+
+
 def inspect(project):
     issues = []
     if not isinstance(project, dict):
@@ -43,6 +60,7 @@ def inspect(project):
                 clip_ids.add(cid)
 
     asset_ids = set()
+    asset_names = set()
     for index, asset in enumerate(assets):
         if not isinstance(asset, dict):
             issues.append(f'Asset {index}: estructura inválida; se esperaba un objeto.')
@@ -54,9 +72,17 @@ def inspect(project):
             issues.append(f'Asset {index}: id duplicado {aid!r}; el render no puede elegir un archivo de forma segura.')
         else:
             asset_ids.add(aid)
-        name = asset.get('name')
-        if not isinstance(name, str) or not name.strip():
-            issues.append(f'Asset {index}: nombre de archivo inválido.')
+
+        raw_name = asset.get('name')
+        name = _safe_asset_name(raw_name)
+        if name is None:
+            issues.append(f'Asset {index}: nombre de archivo inválido o ruta no permitida.')
+        else:
+            key = name.casefold()
+            if key in asset_names:
+                issues.append(f'Asset {index}: nombre de archivo duplicado {name!r}; el bundle sería ambiguo en Windows.')
+            else:
+                asset_names.add(key)
 
     return issues
 
