@@ -23,9 +23,24 @@
     return Number.isFinite(parsed)?parsed:null;
   }
 
+  function validClipEditScalars(clip){
+    const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);
+    if(track===null||!Number.isInteger(track)||track<0||track>6)return false;
+    if(start===null||start<0||duration===null||duration<=0)return false;
+    if(clip.sourceOffset!=null){
+      const sourceOffset=numberValue(clip.sourceOffset);
+      if(sourceOffset===null||sourceOffset<0)return false;
+    }
+    if(clip.speed!=null){
+      const speed=numberValue(clip.speed);
+      if(speed===null||speed<0.25||speed>4)return false;
+    }
+    return true;
+  }
+
   function validClipContainer(clips){
     if(!Array.isArray(clips)||clips.length>MAX_PROJECT_CLIPS)return false;
-    return clips.every(clip=>clip&&typeof clip==='object'&&!Array.isArray(clip));
+    return clips.every(clip=>clip&&typeof clip==='object'&&!Array.isArray(clip)&&validClipEditScalars(clip));
   }
 
   function normalizeProject(value){
