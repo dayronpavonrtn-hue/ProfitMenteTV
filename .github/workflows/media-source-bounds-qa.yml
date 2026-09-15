@@ -1,0 +1,29 @@
+name: ProfitMente Studio Media Source Bounds QA
+
+on:
+  push:
+    paths:
+      - 'studio/media_preflight.py'
+      - 'studio/regression_media_source_bounds.py'
+      - 'studio/render_bundle.py'
+      - '.github/workflows/media-source-bounds-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/media_preflight.py'
+      - 'studio/regression_media_source_bounds.py'
+      - 'studio/render_bundle.py'
+
+jobs:
+  source-bounds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/media_preflight.py studio/regression_media_source_bounds.py studio/render_bundle.py
+      - name: Source media bounds regression
+        working-directory: studio
+        run: python regression_media_source_bounds.py
+      - name: Verify render wiring and zero-cost boundary
+        run: |
+          grep -q "media_preflight.py" studio/render_bundle.py
+          ! grep -Ei "openai|anthropic|runway|heygen|stripe|paid api" studio/media_preflight.py studio/regression_media_source_bounds.py
