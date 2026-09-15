@@ -1,0 +1,27 @@
+name: ProfitMente Studio Bundle Extraction Budget QA
+
+on:
+  push:
+    paths:
+      - 'studio/render_bundle.py'
+      - 'studio/tests/bundle-extraction-budget-regression.py'
+      - '.github/workflows/bundle-extraction-budget-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render_bundle.py'
+      - 'studio/tests/bundle-extraction-budget-regression.py'
+      - '.github/workflows/bundle-extraction-budget-qa.yml'
+
+jobs:
+  bundle-extraction-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check renderer syntax
+        run: python -m py_compile studio/render_bundle.py
+      - name: Reject excessive bundle members before extraction
+        run: python studio/tests/bundle-extraction-budget-regression.py
