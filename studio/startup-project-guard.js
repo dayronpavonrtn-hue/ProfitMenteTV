@@ -18,6 +18,8 @@
   const KEYFRAME_EASINGS=new Set(['linear','ease-in','ease-out','ease-in-out','hold']);
   const MOTION_TEXT_STYLES=new Set(['title','label','callout']);
   const MOTION_TEXT_ANIMATIONS=new Set(['none','fade','pop','slide-up']);
+  const VIDEO_TRANSITIONS=new Set(['cut','fade','zoom','slide']);
+  const VIDEO_FIT_MODES=new Set(['cover','contain']);
   const HEX_COLOR=/^#[0-9a-f]{6}$/i;
 
   function defaultProject(){return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,renderQuality:'high',clips:[]}}
@@ -28,6 +30,14 @@
   function clipIdentityKey(id){if(id==null)return null;const value=id.trim();if(/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(value)){const numeric=Number(value);if(Number.isFinite(numeric))return `n:${Object.is(numeric,-0)?0:numeric}`}return `s:${value}`}
   function validVisualAdjustments(clip){if(clip.visualAdjustments==null)return true;const adjustments=clip.visualAdjustments;if(!adjustments||typeof adjustments!=='object'||Array.isArray(adjustments))return false;for(const [key,[min,max]] of Object.entries(VISUAL_ADJUSTMENT_LIMITS)){if(adjustments[key]==null)continue;const value=numberValue(adjustments[key]);if(value===null||value<min||value>max)return false}return true}
   function validVisualKeyframes(clip,duration){if(clip.visualKeyframes==null)return true;const frames=clip.visualKeyframes;if(!Array.isArray(frames)||frames.length>MAX_VISUAL_KEYFRAMES)return false;for(const frame of frames){if(!frame||typeof frame!=='object'||Array.isArray(frame))return false;const time=numberValue(frame.time);if(time===null||time<0||time>duration)return false;for(const [key,min,max] of [['x',-200,200],['y',-200,200],['scale',.1,8],['rotation',-3600,3600],['opacity',0,1]]){if(frame[key]==null)continue;const value=numberValue(frame[key]);if(value===null||value<min||value>max)return false}if(frame.easing!=null&&(typeof frame.easing!=='string'||!KEYFRAME_EASINGS.has(frame.easing.trim().toLowerCase())))return false}return true}
+  function validVideoState(clip,track,duration){
+    if(track!==0&&track!==1)return true;
+    if(clip.transition!=null&&(typeof clip.transition!=='string'||!VIDEO_TRANSITIONS.has(clip.transition.trim())))return false;
+    if(clip.fitMode!=null&&(typeof clip.fitMode!=='string'||!VIDEO_FIT_MODES.has(clip.fitMode.trim())))return false;
+    if(!validOptionalNumber(clip,'transitionDuration',.05,Math.min(2,duration)))return false;
+    if(clip.visualCrop!=null){const crop=clip.visualCrop;if(!crop||typeof crop!=='object'||Array.isArray(crop))return false;const values={};for(const key of ['left','right','top','bottom']){const value=crop[key]==null?0:numberValue(crop[key]);if(value===null||value<0||value>95)return false;values[key]=value}if(values.left+values.right>95+1e-9||values.top+values.bottom>95+1e-9)return false}
+    return true;
+  }
   function validMotionTextState(clip,track){
     if(track!==2)return true;
     if(clip.textStyle!=null&&(typeof clip.textStyle!=='string'||!MOTION_TEXT_STYLES.has(clip.textStyle.trim())))return false;
@@ -37,7 +47,7 @@
     if(clip.name!=null&&(typeof clip.name!=='string'||clip.name.length>180))return false;
     return true;
   }
-  function validClipEditScalars(clip,projectDuration){const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);if(!validClipId(clip.id)||!validMediaReference(clip.asset))return false;if(track===null||!Number.isInteger(track)||track<0||track>6)return false;if(start===null||start<0||duration===null||duration<=0)return false;const end=start+duration;if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)return false;if(projectDuration!=null&&end>projectDuration+1e-9)return false;if(!validOptionalNumber(clip,'sourceOffset',0,Infinity))return false;if(!validOptionalNumber(clip,'speed',.25,4))return false;for(const [key,[min,max]] of Object.entries(OPTIONAL_CLIP_NUMBERS))if(!validOptionalNumber(clip,key,min,max))return false;if(!validOptionalNumber(clip,'fadeIn',0,duration)||!validOptionalNumber(clip,'fadeOut',0,duration))return false;for(const key of BOOLEAN_CLIP_FIELDS)if(clip[key]!=null&&typeof clip[key]!=='boolean')return false;if(!validVisualAdjustments(clip)||!validVisualKeyframes(clip,duration)||!validMotionTextState(clip,track))return false;return true}
+  function validClipEditScalars(clip,projectDuration){const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);if(!validClipId(clip.id)||!validMediaReference(clip.asset))return false;if(track===null||!Number.isInteger(track)||track<0||track>6)return false;if(start===null||start<0||duration===null||duration<=0)return false;const end=start+duration;if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)return false;if(projectDuration!=null&&end>projectDuration+1e-9)return false;if(!validOptionalNumber(clip,'sourceOffset',0,Infinity))return false;if(!validOptionalNumber(clip,'speed',.25,4))return false;for(const [key,[min,max]] of Object.entries(OPTIONAL_CLIP_NUMBERS))if(!validOptionalNumber(clip,key,min,max))return false;if(!validOptionalNumber(clip,'fadeIn',0,duration)||!validOptionalNumber(clip,'fadeOut',0,duration))return false;for(const key of BOOLEAN_CLIP_FIELDS)if(clip[key]!=null&&typeof clip[key]!=='boolean')return false;if(!validVisualAdjustments(clip)||!validVisualKeyframes(clip,duration)||!validVideoState(clip,track,duration)||!validMotionTextState(clip,track))return false;return true}
   function validClipContainer(clips,projectDuration){if(!Array.isArray(clips)||clips.length>MAX_PROJECT_CLIPS)return false;const ids=new Set();for(const clip of clips){if(!clip||typeof clip!=='object'||Array.isArray(clip)||!validClipEditScalars(clip,projectDuration))return false;if(clip.id!=null){const identity=clipIdentityKey(clip.id);if(ids.has(identity))return false;ids.add(identity)}}return true}
   function normalizeProject(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
