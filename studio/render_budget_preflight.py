@@ -10,6 +10,8 @@ import math
 import pathlib
 import sys
 
+from track_state_render import normalize_track_solo
+
 MAX_RENDER_SECONDS = 6 * 60 * 60
 MAX_ACTIVE_CLIPS = 10000
 
@@ -26,6 +28,35 @@ def finite_number(value):
     return number if math.isfinite(number) else None
 
 
+def effective_clip_count(project):
+    """Count only clips that can actually contribute to the MP4 composition."""
+    project = normalize_track_solo(project, normalize_scalars=False)
+    state = project.get('trackState') if isinstance(project.get('trackState'), dict) else {}
+
+    def track_state(track):
+        value = state.get(str(track), state.get(track, {}))
+        return value if isinstance(value, dict) else {}
+
+    active = 0
+    for clip in project.get('clips', []):
+        if not isinstance(clip, dict) or clip.get('disabled') is True:
+            continue
+        track_value = finite_number(clip.get('track'))
+        # Structural/timeline preflights own malformed-track diagnostics. Count an
+        # unparseable clip conservatively so the budget guard cannot be bypassed.
+        if track_value is None or not track_value.is_integer() or int(track_value) not in range(7):
+            active += 1
+            continue
+        track = int(track_value)
+        ts = track_state(track)
+        if track in (0, 1, 2, 3) and ts.get('hidden') is True:
+            continue
+        if track in (4, 5, 6) and (ts.get('muted') is True or clip.get('muted') is True):
+            continue
+        active += 1
+    return active
+
+
 def main(path):
     project = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
     duration = finite_number(project.get('duration'))
@@ -39,7 +70,7 @@ def main(path):
     clips = project.get('clips')
     if not isinstance(clips, list):
         raise SystemExit('Render bloqueado: clips debe ser una lista')
-    active = sum(1 for clip in clips if isinstance(clip, dict) and clip.get('disabled') is not True)
+    active = effective_clip_count(project)
     if active > MAX_ACTIVE_CLIPS:
         raise SystemExit(
             f'Render bloqueado: {active} clips activos superan el límite local seguro '
