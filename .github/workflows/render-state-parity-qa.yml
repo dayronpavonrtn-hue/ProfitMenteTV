@@ -1,0 +1,38 @@
+name: ProfitMente Studio Render State Parity QA
+
+on:
+  push:
+    paths:
+      - 'studio/project_structure_preflight.py'
+      - 'studio/render_state_preflight.py'
+      - 'studio/test_render_state_preflight.py'
+      - '.github/workflows/render-state-parity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project_structure_preflight.py'
+      - 'studio/render_state_preflight.py'
+      - 'studio/test_render_state_preflight.py'
+      - '.github/workflows/render-state-parity-qa.yml'
+
+jobs:
+  render-state-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/project_structure_preflight.py studio/render_state_preflight.py studio/test_render_state_preflight.py
+      - name: Strict state regression
+        run: python studio/test_render_state_preflight.py
+      - name: Verify bundle render invokes raw structure gate before normalization
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('studio/render_bundle.py').read_text()
+          gate=text.index("project_structure_preflight.py")
+          normalize=text.index("normalize_project_media_ids(normalize_track_solo(data))")
+          assert gate < normalize
+          print('raw structure/state gate ordering OK')
+          PY
+      - name: Cost-zero guard
+        run: |
+          ! grep -RniE 'stripe|openai.*api|anthropic.*api|runway.*api' studio/project_structure_preflight.py studio/render_state_preflight.py studio/test_render_state_preflight.py
