@@ -10,12 +10,19 @@ from media_identity import normalize_project_media_ids
 from track_state_render import normalize_track_solo
 from render_progress import write_progress
 
+MAX_BUNDLE_MEMBERS = 4096
+MAX_BUNDLE_FILE_BYTES = 8 * 1024 * 1024 * 1024
+MAX_BUNDLE_TOTAL_BYTES = 16 * 1024 * 1024 * 1024
+
 
 def safe_extract_bundle(tar, destination):
-    """Extract only normal files/directories that stay inside destination."""
+    """Extract a bounded set of normal files/directories that stay inside destination."""
     destination = pathlib.Path(destination).resolve()
     seen = set()
     members = tar.getmembers()
+    if len(members) > MAX_BUNDLE_MEMBERS:
+        raise RuntimeError(f'Bundle inválido: demasiados archivos ({len(members)} > {MAX_BUNDLE_MEMBERS})')
+    total_bytes = 0
     for member in members:
         name = member.name.replace('\\', '/')
         if not name or name.startswith('/'):
@@ -31,6 +38,12 @@ def safe_extract_bundle(tar, destination):
             raise RuntimeError(f'Enlace no permitido en bundle: {member.name}')
         if not (member.isdir() or member.isfile()):
             raise RuntimeError(f'Tipo de archivo no permitido en bundle: {member.name}')
+        if member.isfile():
+            if member.size < 0 or member.size > MAX_BUNDLE_FILE_BYTES:
+                raise RuntimeError(f'Archivo demasiado grande en bundle: {member.name}')
+            total_bytes += member.size
+            if total_bytes > MAX_BUNDLE_TOTAL_BYTES:
+                raise RuntimeError('Bundle inválido: contenido extraído demasiado grande')
     tar.extractall(destination, members=members)
 
 
