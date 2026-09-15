@@ -9,8 +9,11 @@
   const RENDER_QUALITIES=new Set(['draft','standard','high']);
   const MAX_RENDER_DURATION=21600;
   const MAX_PROJECT_CLIPS=10000;
+  const MAX_VISUAL_KEYFRAMES=2000;
   const OPTIONAL_CLIP_NUMBERS={volume:[0,2],sourceVolume:[0,2],positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};
   const BOOLEAN_CLIP_FIELDS=['muted','disabled','flipX','flipY'];
+  const VISUAL_ADJUSTMENT_LIMITS={brightness:[0,300],contrast:[0,300],saturation:[0,300],grayscale:[0,100]};
+  const KEYFRAME_EASINGS=new Set(['linear','ease-in','ease-out','ease-in-out','hold']);
 
   function defaultProject(){
     return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,renderQuality:'high',clips:[]};
@@ -31,6 +34,36 @@
     return value!==null&&value>=min&&value<=max;
   }
 
+  function validVisualAdjustments(clip){
+    if(clip.visualAdjustments==null)return true;
+    const adjustments=clip.visualAdjustments;
+    if(!adjustments||typeof adjustments!=='object'||Array.isArray(adjustments))return false;
+    for(const [key,[min,max]] of Object.entries(VISUAL_ADJUSTMENT_LIMITS)){
+      if(adjustments[key]==null)continue;
+      const value=numberValue(adjustments[key]);
+      if(value===null||value<min||value>max)return false;
+    }
+    return true;
+  }
+
+  function validVisualKeyframes(clip,duration){
+    if(clip.visualKeyframes==null)return true;
+    const frames=clip.visualKeyframes;
+    if(!Array.isArray(frames)||frames.length>MAX_VISUAL_KEYFRAMES)return false;
+    for(const frame of frames){
+      if(!frame||typeof frame!=='object'||Array.isArray(frame))return false;
+      const time=numberValue(frame.time);
+      if(time===null||time<0||time>duration)return false;
+      for(const [key,min,max] of [['x',-200,200],['y',-200,200],['scale',.1,8],['rotation',-3600,3600],['opacity',0,1]]){
+        if(frame[key]==null)continue;
+        const value=numberValue(frame[key]);
+        if(value===null||value<min||value>max)return false;
+      }
+      if(frame.easing!=null&&(typeof frame.easing!=='string'||!KEYFRAME_EASINGS.has(frame.easing.trim().toLowerCase())))return false;
+    }
+    return true;
+  }
+
   function validClipEditScalars(clip,projectDuration){
     const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);
     if(track===null||!Number.isInteger(track)||track<0||track>6)return false;
@@ -43,6 +76,7 @@
     for(const [key,[min,max]] of Object.entries(OPTIONAL_CLIP_NUMBERS))if(!validOptionalNumber(clip,key,min,max))return false;
     if(!validOptionalNumber(clip,'fadeIn',0,duration)||!validOptionalNumber(clip,'fadeOut',0,duration))return false;
     for(const key of BOOLEAN_CLIP_FIELDS)if(clip[key]!=null&&typeof clip[key]!=='boolean')return false;
+    if(!validVisualAdjustments(clip)||!validVisualKeyframes(clip,duration))return false;
     return true;
   }
 
@@ -135,7 +169,7 @@
     }
   }
 
-  const api={PRIMARY_KEY,BACKUP_KEY,LAST_GOOD_KEY,MAX_RENDER_DURATION,MAX_PROJECT_CLIPS,defaultProject,normalizeProject,isProject,parseStored,serializeProject,persist,recoverLastGood,quarantine,guard};
+  const api={PRIMARY_KEY,BACKUP_KEY,LAST_GOOD_KEY,MAX_RENDER_DURATION,MAX_PROJECT_CLIPS,MAX_VISUAL_KEYFRAMES,defaultProject,normalizeProject,isProject,parseStored,serializeProject,persist,recoverLastGood,quarantine,guard};
   root.ProfitMenteStartupProjectGuard=api;
   if(typeof document!=='undefined'){
     let result;
