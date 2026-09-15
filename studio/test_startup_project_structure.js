@@ -3,6 +3,7 @@ require('./startup-project-guard.js');
 const guard=globalThis.ProfitMenteStartupProjectGuard;
 assert.ok(guard,'startup project guard must load');
 assert.strictEqual(guard.MAX_PROJECT_CLIPS,10000);
+assert.strictEqual(guard.MAX_VISUAL_KEYFRAMES,2000);
 const base={name:'Saved',mode:'Manual',duration:45,format:'9:16',clips:[]};
 const clip={id:'clip-1',track:0,start:0,duration:10};
 assert.ok(guard.normalizeProject(base));
@@ -19,6 +20,15 @@ for(const field of ['muted','disabled','flipX','flipY']){
   assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`);
 }
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,volume:1.5,sourceVolume:.8,positionX:25,positionY:-25,scale:2,rotation:90,opacity:.5,fadeIn:2,fadeOut:3,muted:false,disabled:false,flipX:true,flipY:false}]}),'valid render controls must recover');
+assert.ok(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments:{brightness:120,contrast:90,saturation:110,grayscale:25},visualKeyframes:[{time:0,x:0,y:0,scale:1,rotation:0,opacity:1,easing:'linear'},{time:10,x:100,y:-100,scale:2,rotation:180,opacity:.5,easing:'ease-in-out'}]}]}),'valid visual adjustments and keyframes must recover');
+for(const visualAdjustments of [[],{brightness:301},{contrast:-1},{saturation:'bad'},{grayscale:101}]){
+  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments}]}),null,'invalid visual adjustments must not reach preview/render');
+}
+for(const visualKeyframes of [[null],[{time:-1}],[{time:11}],[{time:1,scale:0}],[{time:1,opacity:2}],[{time:1,easing:'spring'}]]){
+  assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes}]}),null,'invalid visual keyframes must not reach preview/render');
+}
+const tooManyKeyframes=Array.from({length:guard.MAX_VISUAL_KEYFRAMES+1},(_,i)=>({time:(i%10)}));
+assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes:tooManyKeyframes}]}),null,'startup recovery must enforce the visual keyframe budget');
 const oversized=Array.from({length:guard.MAX_PROJECT_CLIPS+1},()=>clip);
 assert.strictEqual(guard.normalizeProject({...base,clips:oversized}),null,'startup recovery must reject timelines beyond the import/render project budget');
 const store=new Map();
@@ -28,4 +38,4 @@ const result=guard.guard(storage);
 assert.strictEqual(result.quarantined,true,'malformed startup projects must be quarantined');
 assert.ok(store.has(guard.BACKUP_KEY),'malformed startup projects must be preserved for recovery');
 assert.strictEqual(store.has(guard.PRIMARY_KEY),false,'malformed primary project must not remain active');
-console.log('startup project structure and render controls: ok');
+console.log('startup project structure, render controls and visual state: ok');
