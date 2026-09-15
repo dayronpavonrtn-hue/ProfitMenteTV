@@ -39,7 +39,23 @@
   }
   function validClipEditScalars(clip,projectDuration){const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);if(!validClipId(clip.id)||!validMediaReference(clip.asset))return false;if(track===null||!Number.isInteger(track)||track<0||track>6)return false;if(start===null||start<0||duration===null||duration<=0)return false;const end=start+duration;if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)return false;if(projectDuration!=null&&end>projectDuration+1e-9)return false;if(!validOptionalNumber(clip,'sourceOffset',0,Infinity))return false;if(!validOptionalNumber(clip,'speed',.25,4))return false;for(const [key,[min,max]] of Object.entries(OPTIONAL_CLIP_NUMBERS))if(!validOptionalNumber(clip,key,min,max))return false;if(!validOptionalNumber(clip,'fadeIn',0,duration)||!validOptionalNumber(clip,'fadeOut',0,duration))return false;for(const key of BOOLEAN_CLIP_FIELDS)if(clip[key]!=null&&typeof clip[key]!=='boolean')return false;if(!validVisualAdjustments(clip)||!validVisualKeyframes(clip,duration)||!validMotionTextState(clip,track))return false;return true}
   function validClipContainer(clips,projectDuration){if(!Array.isArray(clips)||clips.length>MAX_PROJECT_CLIPS)return false;const ids=new Set();for(const clip of clips){if(!clip||typeof clip!=='object'||Array.isArray(clip)||!validClipEditScalars(clip,projectDuration))return false;if(clip.id!=null){const identity=clipIdentityKey(clip.id);if(ids.has(identity))return false;ids.add(identity)}}return true}
-  function normalizeProject(value){if(!value||typeof value!=='object'||Array.isArray(value))return null;const duration=numberValue(value.duration),fps=numberValue(value.fps);const normalizedDuration=duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45;if(value.clips!=null&&!validClipContainer(value.clips,normalizedDuration))return null;const renderQuality=typeof value.renderQuality==='string'?value.renderQuality.trim().toLowerCase():'';return {...value,version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',mode:MODES.has(value.mode)?value.mode:'Automático',duration:normalizedDuration,format:FORMATS.has(value.format)?value.format:'9:16',fps:FRAME_RATES.has(fps)?fps:30,renderQuality:RENDER_QUALITIES.has(renderQuality)?renderQuality:'high',clips:Array.isArray(value.clips)?value.clips:[]}}
+  function normalizeProject(value){
+    if(!value||typeof value!=='object'||Array.isArray(value))return null;
+    const duration=numberValue(value.duration);
+    const normalizedDuration=duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45;
+    if(value.clips!=null&&!validClipContainer(value.clips,normalizedDuration))return null;
+    const formatExplicit=value.format!==undefined;
+    if(formatExplicit&&(typeof value.format!=='string'||!FORMATS.has(value.format)))return null;
+    const fpsExplicit=value.fps!==undefined||value.frameRate!==undefined;
+    if((value.fps!==undefined&&value.fps===null)||(value.frameRate!==undefined&&value.frameRate===null))return null;
+    const fpsSource=value.fps??value.frameRate;
+    const fps=fpsExplicit?numberValue(fpsSource):30;
+    if(fpsExplicit&&!FRAME_RATES.has(fps))return null;
+    const qualityExplicit=value.renderQuality!==undefined;
+    if(qualityExplicit&&(typeof value.renderQuality!=='string'||!RENDER_QUALITIES.has(value.renderQuality.trim().toLowerCase())))return null;
+    const renderQuality=qualityExplicit?value.renderQuality.trim().toLowerCase():'high';
+    return {...value,version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',mode:MODES.has(value.mode)?value.mode:'Automático',duration:normalizedDuration,format:formatExplicit?value.format:'9:16',fps:fpsExplicit?fps:30,renderQuality,clips:Array.isArray(value.clips)?value.clips:[]};
+  }
   function isProject(value){return normalizeProject(value)!==null}
   function parseStored(raw){if(raw==null)return null;try{return normalizeProject(JSON.parse(raw))}catch{return null}}
   function serializeProject(project){const normalized=normalizeProject(project);if(!normalized)throw new Error('invalid project structure');return {project:normalized,raw:JSON.stringify(normalized)}}
