@@ -1,0 +1,35 @@
+name: ProfitMente Studio Project Structure Render QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/project_structure_preflight.py'
+      - 'studio/render_bundle.py'
+      - 'studio/tests/project-structure-preflight-regression.py'
+      - '.github/workflows/project-structure-render-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  project-structure-render-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/project_structure_preflight.py studio/render_bundle.py studio/tests/project-structure-preflight-regression.py
+      - name: Project structure regression
+        run: python studio/tests/project-structure-preflight-regression.py
+      - name: Verify render wiring and zero-cost guard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('studio/render_bundle.py').read_text(encoding='utf-8')
+          structure="project_structure_preflight.py"
+          normalize="normalize_project_media_ids(normalize_track_solo(data))"
+          assert structure in text
+          assert text.index(structure) < text.index(normalize), 'raw structure guard must run before normalization'
+          workflow=Path('.github/workflows/project-structure-render-qa.yml').read_text(encoding='utf-8').lower()
+          forbidden=('stripe','openai_api_key','runway','replicate.com')
+          assert not any(token in workflow for token in forbidden)
+          print('Render wiring + $0 guard OK')
+          PY
