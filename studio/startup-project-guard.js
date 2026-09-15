@@ -9,6 +9,8 @@
   const RENDER_QUALITIES=new Set(['draft','standard','high']);
   const MAX_RENDER_DURATION=21600;
   const MAX_PROJECT_CLIPS=10000;
+  const OPTIONAL_CLIP_NUMBERS={volume:[0,2],sourceVolume:[0,2],positionX:[-100,100],positionY:[-100,100],scale:[.25,3],rotation:[-180,180],opacity:[0,1]};
+  const BOOLEAN_CLIP_FIELDS=['muted','disabled','flipX','flipY'];
 
   function defaultProject(){
     return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,renderQuality:'high',clips:[]};
@@ -23,6 +25,12 @@
     return Number.isFinite(parsed)?parsed:null;
   }
 
+  function validOptionalNumber(clip,key,min,max){
+    if(clip[key]==null)return true;
+    const value=numberValue(clip[key]);
+    return value!==null&&value>=min&&value<=max;
+  }
+
   function validClipEditScalars(clip,projectDuration){
     const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);
     if(track===null||!Number.isInteger(track)||track<0||track>6)return false;
@@ -30,14 +38,11 @@
     const end=start+duration;
     if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)return false;
     if(projectDuration!=null&&end>projectDuration+1e-9)return false;
-    if(clip.sourceOffset!=null){
-      const sourceOffset=numberValue(clip.sourceOffset);
-      if(sourceOffset===null||sourceOffset<0)return false;
-    }
-    if(clip.speed!=null){
-      const speed=numberValue(clip.speed);
-      if(speed===null||speed<0.25||speed>4)return false;
-    }
+    if(!validOptionalNumber(clip,'sourceOffset',0,Infinity))return false;
+    if(!validOptionalNumber(clip,'speed',.25,4))return false;
+    for(const [key,[min,max]] of Object.entries(OPTIONAL_CLIP_NUMBERS))if(!validOptionalNumber(clip,key,min,max))return false;
+    if(!validOptionalNumber(clip,'fadeIn',0,duration)||!validOptionalNumber(clip,'fadeOut',0,duration))return false;
+    for(const key of BOOLEAN_CLIP_FIELDS)if(clip[key]!=null&&typeof clip[key]!=='boolean')return false;
     return true;
   }
 
