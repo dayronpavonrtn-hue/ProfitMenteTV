@@ -30,6 +30,10 @@ for(const asset of ['', ' media-1', 'media-1 ', 'bad\nmedia', 'x'.repeat(guard.M
 for(const [field,value] of [['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.1],['fadeIn',11],['fadeOut',-1]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:value}]}),null,`${field} outside renderer bounds must be rejected`);
 for(const field of ['muted','disabled','flipX','flipY']){assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:'false'}]}),null,`${field} must be a real boolean`);assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`)}
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,volume:1.5,sourceVolume:.8,positionX:25,positionY:-25,scale:2,rotation:90,opacity:.5,fadeIn:2,fadeOut:3,muted:false,disabled:false,flipX:true,flipY:false}]}),'valid render controls must recover');
+const video={...clip,transition:'fade',transitionDuration:1.5,fitMode:'contain',visualCrop:{left:10,right:15,top:5,bottom:20}};
+assert.ok(guard.normalizeProject({...base,clips:[video]}),'valid video composition controls must recover');
+for(const bad of [{transition:'wipe'},{fitMode:'stretch'},{transitionDuration:0},{transitionDuration:2.1},{visualCrop:[]},{visualCrop:{left:-1}},{visualCrop:{right:96}},{visualCrop:{left:50,right:46}},{visualCrop:{top:70,bottom:30}}])assert.strictEqual(guard.normalizeProject({...base,clips:[{...video,...bad}]}),null,'invalid video composition controls must not reach preview/render');
+assert.ok(guard.normalizeProject({...base,clips:[{...clip,track:2,transition:'legacy-value',fitMode:'legacy-value',visualCrop:{left:999}}]}),'video-only controls on non-video tracks must remain ignored for legacy compatibility');
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments:{brightness:120,contrast:90,saturation:110,grayscale:25},visualKeyframes:[{time:0,x:0,y:0,scale:1,rotation:0,opacity:1,easing:'linear'},{time:10,x:100,y:-100,scale:2,rotation:180,opacity:.5,easing:'ease-in-out'}]}]}),'valid visual adjustments and keyframes must recover');
 for(const visualAdjustments of [[],{brightness:301},{contrast:-1},{saturation:'bad'},{grayscale:101}])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualAdjustments}]}),null,'invalid visual adjustments must not reach preview/render');
 for(const visualKeyframes of [[null],[{time:-1}],[{time:11}],[{time:1,scale:0}],[{time:1,opacity:2}],[{time:1,easing:'spring'}]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,visualKeyframes}]}),null,'invalid visual keyframes must not reach preview/render');
@@ -46,4 +50,4 @@ const result=guard.guard(storage);
 assert.strictEqual(result.quarantined,true,'malformed startup projects must be quarantined');
 assert.ok(store.has(guard.BACKUP_KEY),'malformed startup projects must be preserved for recovery');
 assert.strictEqual(store.has(guard.PRIMARY_KEY),false,'malformed primary project must not remain active');
-console.log('startup project structure, duration, canonical clip/media identity, render controls, visual state and motion text: ok');
+console.log('startup project structure, duration, identity, render controls, video composition, visual state and motion text: ok');
