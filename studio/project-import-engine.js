@@ -1,6 +1,9 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectImportEngine=api.ProfitMenteProjectImportEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
+const MAX_RENDER_DURATION=21600;
+const SUPPORTED_FPS=[24,30,60];
+const SUPPORTED_QUALITIES=['draft','standard','high'];
 class ProfitMenteProjectImportEngine{
-  constructor(defaults={version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',fps:30,clips:[]}){this.defaults=defaults}
+  constructor(defaults={version:'1.3',name:'Nuevo video',mode:'Manual',duration:45,format:'9:16',fps:30,renderQuality:'high',clips:[]}){this.defaults=defaults}
   unwrap(input){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Proyecto JSON inválido');
     if(input.kind==='profitmente-studio-project'){
@@ -45,15 +48,21 @@ class ProfitMenteProjectImportEngine{
     out.name=typeof p.name==='string'&&p.name.trim()?p.name.trim().slice(0,160):'Proyecto importado';
     out.mode=p.mode==='Automático'?'Automático':'Manual';
     const duration=parseFiniteNumber(p.duration,'Duración de proyecto');
-    if(duration<=0||duration>86400)throw new Error('Duración de proyecto inválida');
+    if(duration<=0||duration>MAX_RENDER_DURATION)throw new Error(`Duración de proyecto inválida: máximo ${MAX_RENDER_DURATION/3600} horas para render local`);
     out.duration=duration;
     if(!['9:16','16:9','1:1'].includes(p.format))throw new Error('Formato de proyecto no compatible');
     out.format=p.format;
+    const fpsExplicit=p.fps!==undefined||p.frameRate!==undefined;
     const fpsSource=p.fps??p.frameRate??this.defaults.fps??30;
-    const fpsPrimitive=typeof fpsSource==='number'||(typeof fpsSource==='string'&&fpsSource.trim());
-    const fpsNumber=fpsPrimitive?Number(fpsSource):NaN;
-    out.fps=Number.isFinite(fpsNumber)&&[24,30,60].includes(Math.round(fpsNumber))&&Math.abs(fpsNumber-Math.round(fpsNumber))<1e-9?Math.round(fpsNumber):30;
+    const fpsNumber=parseFiniteNumber(fpsSource,'FPS de proyecto');
+    if(!SUPPORTED_FPS.includes(fpsNumber)){
+      if(fpsExplicit)throw new Error('FPS de proyecto no compatible');
+      out.fps=30;
+    }else out.fps=fpsNumber;
     delete out.frameRate;
+    const qualitySource=p.renderQuality??this.defaults.renderQuality??'high';
+    if(typeof qualitySource!=='string'||!SUPPORTED_QUALITIES.includes(qualitySource.trim().toLowerCase()))throw new Error('Calidad de render no compatible');
+    out.renderQuality=qualitySource.trim().toLowerCase();
     const ids=new Set();
     const normalizeOptionalNumber=(copy,key,min,max,label)=>{
       if(copy[key]===undefined||copy[key]===null)return;
@@ -105,7 +114,7 @@ class ProfitMenteProjectImportEngine{
       const start=parseFiniteNumber(c.start??0,'Tiempo de clip'),clipDuration=parseFiniteNumber(c.duration??0,'Tiempo de clip'),track=parseFiniteNumber(c.track??0,'Pista de clip'),end=start+clipDuration;
       if(start<0||clipDuration<=0)throw new Error('Tiempo de clip inválido');
       if(!Number.isInteger(track)||track<0||track>6)throw new Error('Pista de clip inválida');
-      if(!Number.isFinite(end)||end>86400)throw new Error('Tiempo de clip fuera de rango');
+      if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)throw new Error('Tiempo de clip fuera de rango');
       if(end>out.duration+1e-9)throw new Error('Clip excede la duración del proyecto');
       const copy=structuredClone(c);
       copy.track=track;copy.start=start;copy.duration=clipDuration;
