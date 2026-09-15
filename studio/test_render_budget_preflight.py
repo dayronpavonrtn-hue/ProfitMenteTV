@@ -35,4 +35,14 @@ expect_fail({'duration': 'NaN', 'clips': []}, 'duración de proyecto inválida')
 expect_fail({'duration': 45, 'clips': {}}, 'clips debe ser una lista')
 expect_fail({'duration': 45, 'clips': [{}] * 10001}, 'clips activos superan el límite local seguro')
 expect_ok({'duration': 45, 'clips': [{'disabled': True}] * 10001})
+# Hidden visual tracks and muted audio tracks/clips produce no render workload.
+expect_ok({'duration': 45, 'trackState': {'0': {'hidden': True}}, 'clips': [{'track': 0}] * 10001})
+expect_ok({'duration': 45, 'trackState': {'4': {'muted': True}}, 'clips': [{'track': 4}] * 10001})
+expect_ok({'duration': 45, 'clips': [{'track': 4, 'muted': True}] * 10001})
+# A visual clip remains active when muted: muted only suppresses its source audio.
+expect_fail({'duration': 45, 'clips': [{'track': 0, 'muted': True}] * 10001}, 'clips activos superan el límite local seguro')
+# Imported string booleans are not trusted as state flags.
+expect_fail({'duration': 45, 'trackState': {'0': {'hidden': 'true'}}, 'clips': [{'track': 0}] * 10001}, 'clips activos superan el límite local seguro')
+# Invalid tracks count conservatively here and are diagnosed by the timeline preflight later.
+expect_fail({'duration': 45, 'clips': [{'track': 'oops'}] * 10001}, 'clips activos superan el límite local seguro')
 print('render budget preflight regression OK')
