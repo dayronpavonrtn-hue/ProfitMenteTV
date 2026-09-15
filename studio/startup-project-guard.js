@@ -41,8 +41,11 @@
   function validClipContainer(clips,projectDuration){if(!Array.isArray(clips)||clips.length>MAX_PROJECT_CLIPS)return false;const ids=new Set();for(const clip of clips){if(!clip||typeof clip!=='object'||Array.isArray(clip)||!validClipEditScalars(clip,projectDuration))return false;if(clip.id!=null){const identity=clipIdentityKey(clip.id);if(ids.has(identity))return false;ids.add(identity)}}return true}
   function normalizeProject(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
-    const duration=numberValue(value.duration);
-    const normalizedDuration=duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45;
+    const durationExplicit=value.duration!==undefined;
+    if(durationExplicit&&value.duration===null)return null;
+    const duration=durationExplicit?numberValue(value.duration):45;
+    if(durationExplicit&&(duration===null||duration<=0||duration>MAX_RENDER_DURATION))return null;
+    const normalizedDuration=durationExplicit?Math.max(1,duration):45;
     if(value.clips!=null&&!validClipContainer(value.clips,normalizedDuration))return null;
     const formatExplicit=value.format!==undefined;
     if(formatExplicit&&(typeof value.format!=='string'||!FORMATS.has(value.format)))return null;
