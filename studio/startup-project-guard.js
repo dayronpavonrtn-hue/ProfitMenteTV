@@ -23,10 +23,13 @@
     return Number.isFinite(parsed)?parsed:null;
   }
 
-  function validClipEditScalars(clip){
+  function validClipEditScalars(clip,projectDuration){
     const track=numberValue(clip.track),start=numberValue(clip.start),duration=numberValue(clip.duration);
     if(track===null||!Number.isInteger(track)||track<0||track>6)return false;
     if(start===null||start<0||duration===null||duration<=0)return false;
+    const end=start+duration;
+    if(!Number.isFinite(end)||end>MAX_RENDER_DURATION)return false;
+    if(projectDuration!=null&&end>projectDuration+1e-9)return false;
     if(clip.sourceOffset!=null){
       const sourceOffset=numberValue(clip.sourceOffset);
       if(sourceOffset===null||sourceOffset<0)return false;
@@ -38,22 +41,23 @@
     return true;
   }
 
-  function validClipContainer(clips){
+  function validClipContainer(clips,projectDuration){
     if(!Array.isArray(clips)||clips.length>MAX_PROJECT_CLIPS)return false;
-    return clips.every(clip=>clip&&typeof clip==='object'&&!Array.isArray(clip)&&validClipEditScalars(clip));
+    return clips.every(clip=>clip&&typeof clip==='object'&&!Array.isArray(clip)&&validClipEditScalars(clip,projectDuration));
   }
 
   function normalizeProject(value){
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
-    if(value.clips!=null&&!validClipContainer(value.clips))return null;
     const duration=numberValue(value.duration),fps=numberValue(value.fps);
+    const normalizedDuration=duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45;
+    if(value.clips!=null&&!validClipContainer(value.clips,normalizedDuration))return null;
     const renderQuality=typeof value.renderQuality==='string'?value.renderQuality.trim().toLowerCase():'';
     return {
       ...value,
       version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',
       name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',
       mode:MODES.has(value.mode)?value.mode:'Automático',
-      duration:duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45,
+      duration:normalizedDuration,
       format:FORMATS.has(value.format)?value.format:'9:16',
       fps:FRAME_RATES.has(fps)?fps:30,
       renderQuality:RENDER_QUALITIES.has(renderQuality)?renderQuality:'high',
