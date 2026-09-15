@@ -4,6 +4,8 @@ import json
 import pathlib
 import sys
 
+from media_identity import media_id_key
+
 
 def _identity(value):
     if isinstance(value, bool) or value is None:
@@ -87,11 +89,15 @@ def inspect(project):
         if not isinstance(asset, dict):
             issues.append(f'Asset {index}: estructura inválida; se esperaba un objeto.')
             continue
-        aid = _identity(asset.get('id'))
+        # Use the exact identity semantics consumed by normalize_project_media_ids.
+        # Values such as 1, 1.0, "01" and "1.0" are the same browser/renderer
+        # identity and must be rejected here, before normalization can raise an
+        # uncontrolled exception or make a clip-to-file reference ambiguous.
+        aid = media_id_key(asset.get('id'))
         if aid is None:
             issues.append(f'Asset {index}: id inválido.')
         elif aid in asset_ids:
-            issues.append(f'Asset {index}: id duplicado {aid!r}; el render no puede elegir un archivo de forma segura.')
+            issues.append(f'Asset {index}: id duplicado o ambiguo {aid!r}; el render no puede elegir un archivo de forma segura.')
         else:
             asset_ids.add(aid)
 
