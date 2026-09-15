@@ -63,23 +63,19 @@ try:
         project=td/'project.json'; assets=td/'assets'
         if not project.is_file(): raise RuntimeError('Bundle inválido: falta project.json')
         assets.mkdir(exist_ok=True)
-        # Validate raw container shape before normalization. Normalizers and the MP4
-        # compositor assume clips/assets are arrays of objects; malformed imports
-        # must fail with a controlled preflight error instead of crashing or letting
-        # duplicate asset IDs select an arbitrary file.
         write_progress(14,'Verificando estructura base del proyecto')
         subprocess.run([sys.executable,str(root/'project_structure_preflight.py'),str(project)],check=True)
+        write_progress(15,'Verificando formato, FPS y calidad')
+        subprocess.run([sys.executable,str(root/'composition_settings_preflight.py'),str(project)],check=True)
         data=json.loads(project.read_text(encoding='utf-8'))
         data=normalize_project_media_ids(normalize_track_solo(data))
         project.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
-        write_progress(15,'Verificando presupuesto local de render')
+        write_progress(16,'Verificando presupuesto local de render')
         subprocess.run([sys.executable,str(root/'render_budget_preflight.py'),str(project)],check=True)
-        write_progress(16,'Verificando identidad de clips')
+        write_progress(17,'Verificando identidad de clips')
         subprocess.run([sys.executable,str(root/'clip_identity_preflight.py'),str(project)],check=True)
         write_progress(18,'Validando estructura del proyecto')
         subprocess.run([sys.executable,str(root/'validate_project.py'),str(project),str(assets)],check=True)
-        # render_mp4 clamps composition to project.duration. Reject active clips that
-        # extend beyond that boundary so export can never silently shorten an edit.
         write_progress(20,'Verificando límites de la timeline')
         subprocess.run([sys.executable,str(root/'timeline_bounds_preflight.py'),str(project)],check=True)
         write_progress(21,'Verificando paridad preview → MP4')
