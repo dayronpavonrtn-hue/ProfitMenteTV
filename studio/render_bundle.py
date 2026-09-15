@@ -50,6 +50,12 @@ try:
         project=td/'project.json'; assets=td/'assets'
         if not project.is_file(): raise RuntimeError('Bundle inválido: falta project.json')
         assets.mkdir(exist_ok=True)
+        # Validate raw container shape before normalization. Normalizers and the MP4
+        # compositor assume clips/assets are arrays of objects; malformed imports
+        # must fail with a controlled preflight error instead of crashing or letting
+        # duplicate asset IDs select an arbitrary file.
+        write_progress(14,'Verificando estructura base del proyecto')
+        subprocess.run([sys.executable,str(root/'project_structure_preflight.py'),str(project)],check=True)
         data=json.loads(project.read_text(encoding='utf-8'))
         data=normalize_project_media_ids(normalize_track_solo(data))
         project.write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
