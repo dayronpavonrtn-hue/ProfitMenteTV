@@ -24,7 +24,7 @@ def inspect(project):
     project = normalize_track_solo(project, normalize_scalars=False)
     duration = finite(project.get('duration'))
     if duration is None or duration <= 0:
-        return []  # validate_project.py reports the malformed project duration.
+        return []
 
     state = project.get('trackState') if isinstance(project.get('trackState'), dict) else {}
 
@@ -41,13 +41,18 @@ def inspect(project):
             continue
         track = int(track)
         ts = track_state(track)
-        inactive = (track in (0, 1, 2, 3) and ts.get('hidden') is True) or (track in (4, 5, 6) and ts.get('muted') is True)
+        # Match render_mp4.py's effective selection: muted audio clips produce no
+        # output, so dormant ranges must not block an otherwise valid export.
+        inactive = (
+            (track in (0, 1, 2, 3) and ts.get('hidden') is True)
+            or (track in (4, 5, 6) and (ts.get('muted') is True or clip.get('muted') is True))
+        )
         if inactive:
             continue
         start = finite(clip.get('start'))
         length = finite(clip.get('duration'))
         if start is None or length is None or start < 0 or length <= 0:
-            continue  # structural validator owns malformed scalar errors.
+            continue
         end = start + length
         if start >= duration - 1e-9:
             issues.append(f'Clip {clip.get("id", index)!r} empieza en {start:.3f}s, fuera de la duración del proyecto ({duration:.3f}s).')
