@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject active timeline clips that would be silently truncated by MP4 export."""
+"""Reject active timeline clips that would be silently truncated or misread by MP4 export."""
 import json
 import math
 import pathlib
@@ -11,7 +11,9 @@ TOLERANCE = 0.05
 
 
 def finite(value):
-    if isinstance(value, bool) or value is None:
+    if isinstance(value, bool) or value is None or not isinstance(value, (int, float, str)):
+        return None
+    if isinstance(value, str) and not value.strip():
         return None
     try:
         number = float(value)
@@ -24,7 +26,7 @@ def inspect(project):
     project = normalize_track_solo(project, normalize_scalars=False)
     duration = finite(project.get('duration'))
     if duration is None or duration <= 0:
-        return []
+        return ['La duración del proyecto es inválida; el render no puede interpretar la timeline de forma segura.']
 
     state = project.get('trackState') if isinstance(project.get('trackState'), dict) else {}
 
@@ -36,8 +38,10 @@ def inspect(project):
     for index, clip in enumerate(project.get('clips', []) or []):
         if not isinstance(clip, dict):
             continue
+        clip_id = clip.get('id', index)
         track = finite(clip.get('track'))
-        if track is None or not track.is_integer():
+        if track is None or not track.is_integer() or int(track) not in range(7):
+            issues.append(f'Clip {clip_id!r} tiene una pista inválida; el render no puede ubicarlo de forma segura.')
             continue
         track = int(track)
         ts = track_state(track)
@@ -51,13 +55,20 @@ def inspect(project):
             continue
         start = finite(clip.get('start'))
         length = finite(clip.get('duration'))
-        if start is None or length is None or start < 0 or length <= 0:
+        if start is None:
+            issues.append(f'Clip {clip_id!r} tiene un inicio inválido; el render no puede posicionarlo de forma segura.')
+            continue
+        if length is None or length <= 0:
+            issues.append(f'Clip {clip_id!r} tiene una duración inválida; el render no puede recortarlo de forma segura.')
+            continue
+        if start < 0:
+            issues.append(f'Clip {clip_id!r} tiene un inicio negativo ({start:.3f}s).')
             continue
         end = start + length
         if start >= duration - 1e-9:
-            issues.append(f'Clip {clip.get("id", index)!r} empieza en {start:.3f}s, fuera de la duración del proyecto ({duration:.3f}s).')
+            issues.append(f'Clip {clip_id!r} empieza en {start:.3f}s, fuera de la duración del proyecto ({duration:.3f}s).')
         elif end > duration + TOLERANCE:
-            issues.append(f'Clip {clip.get("id", index)!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
+            issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
     return issues
 
 
