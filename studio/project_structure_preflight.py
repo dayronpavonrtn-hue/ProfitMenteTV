@@ -28,12 +28,7 @@ def _safe_asset_name(value):
 
 
 def _validate_state_flags(project, issues):
-    """Keep persisted editor flags unambiguous across JS and Python.
-
-    Only real JSON booleans are accepted. In Python bool('false') is True, so
-    accepting string flags could hide/mute content during MP4 render even though
-    Studio preview treats the imported value as invalid/non-boolean.
-    """
+    """Keep persisted editor flags unambiguous across JS and Python."""
     flags = ('hidden', 'muted', 'solo', 'locked')
     for field in ('trackState', 'trackStates'):
         states = project.get(field)
@@ -67,6 +62,7 @@ def inspect(project):
         assets = []
 
     clip_ids = set()
+    clip_asset_refs = []
     for index, clip in enumerate(clips):
         if not isinstance(clip, dict):
             issues.append(f'Clip {index}: estructura inválida; se esperaba un objeto.')
@@ -82,6 +78,12 @@ def inspect(project):
                 issues.append(f'Clip {index}: id duplicado {cid!r}.')
             else:
                 clip_ids.add(cid)
+        if 'asset' in clip and clip.get('asset') is not None:
+            asset_ref = media_id_key(clip.get('asset'))
+            if asset_ref is None:
+                issues.append(f'Clip {index}: referencia de medio inválida.')
+            else:
+                clip_asset_refs.append((index, asset_ref))
 
     asset_ids = set()
     asset_names = set()
@@ -89,10 +91,6 @@ def inspect(project):
         if not isinstance(asset, dict):
             issues.append(f'Asset {index}: estructura inválida; se esperaba un objeto.')
             continue
-        # Use the exact identity semantics consumed by normalize_project_media_ids.
-        # Values such as 1, 1.0, "01" and "1.0" are the same browser/renderer
-        # identity and must be rejected here, before normalization can raise an
-        # uncontrolled exception or make a clip-to-file reference ambiguous.
         aid = media_id_key(asset.get('id'))
         if aid is None:
             issues.append(f'Asset {index}: id inválido.')
@@ -111,6 +109,13 @@ def inspect(project):
                 issues.append(f'Asset {index}: nombre de archivo duplicado {name!r}; el bundle sería ambiguo en Windows.')
             else:
                 asset_names.add(key)
+
+    # Validate the exact canonical references consumed by the renderer. This
+    # catches broken imported/persisted projects before FFmpeg setup and avoids
+    # silently rendering a clip without its intended source media.
+    for index, asset_ref in clip_asset_refs:
+        if asset_ref not in asset_ids:
+            issues.append(f'Clip {index}: medio {asset_ref!r} no existe en assets.')
 
     return issues
 
