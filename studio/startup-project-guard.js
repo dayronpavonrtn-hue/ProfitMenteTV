@@ -6,9 +6,11 @@
   const FORMATS=new Set(['9:16','16:9','1:1']);
   const MODES=new Set(['Automático','Manual']);
   const FRAME_RATES=new Set([24,30,60]);
+  const RENDER_QUALITIES=new Set(['draft','standard','high']);
+  const MAX_RENDER_DURATION=21600;
 
   function defaultProject(){
-    return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,clips:[]};
+    return {version:'1.3',name:'Nuevo video',mode:'Automático',duration:45,format:'9:16',fps:30,renderQuality:'high',clips:[]};
   }
 
   function numberValue(value){
@@ -24,14 +26,16 @@
     if(!value||typeof value!=='object'||Array.isArray(value))return null;
     if(value.clips!=null&&!Array.isArray(value.clips))return null;
     const duration=numberValue(value.duration),fps=numberValue(value.fps);
+    const renderQuality=typeof value.renderQuality==='string'?value.renderQuality.trim().toLowerCase():'';
     return {
       ...value,
       version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',
       name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',
       mode:MODES.has(value.mode)?value.mode:'Automático',
-      duration:duration!==null&&duration>0?Math.max(1,duration):45,
+      duration:duration!==null&&duration>0?Math.min(MAX_RENDER_DURATION,Math.max(1,duration)):45,
       format:FORMATS.has(value.format)?value.format:'9:16',
       fps:FRAME_RATES.has(fps)?fps:30,
+      renderQuality:RENDER_QUALITIES.has(renderQuality)?renderQuality:'high',
       clips:Array.isArray(value.clips)?value.clips:[]
     };
   }
@@ -51,9 +55,6 @@
 
   function quarantine(storage,raw){
     if(raw==null)return null;
-    // Preserve the corrupt payload before removing the active slot. If the
-    // backup write is denied (quota/security/private mode), leave PRIMARY_KEY
-    // untouched so the only forensic copy is never destroyed.
     try{storage.setItem(BACKUP_KEY,raw)}catch{return null}
     try{storage.removeItem(PRIMARY_KEY)}catch{return null}
     return BACKUP_KEY;
@@ -62,11 +63,7 @@
   function persist(storage,project){
     if(!storage||typeof storage.setItem!=='function')throw new Error('local storage unavailable');
     const serialized=serializeProject(project);
-    // Commit the active project first. Never advance the recovery snapshot when
-    // the primary write itself fails (quota/security/storage errors).
     storage.setItem(PRIMARY_KEY,serialized.raw);
-    // A recovery snapshot is best-effort metadata. Failure to refresh it must
-    // not turn an already-successful primary save into an application failure.
     try{storage.setItem(LAST_GOOD_KEY,serialized.raw)}catch{}
     return serialized.project;
   }
@@ -108,7 +105,7 @@
     }
   }
 
-  const api={PRIMARY_KEY,BACKUP_KEY,LAST_GOOD_KEY,defaultProject,normalizeProject,isProject,parseStored,serializeProject,persist,recoverLastGood,quarantine,guard};
+  const api={PRIMARY_KEY,BACKUP_KEY,LAST_GOOD_KEY,MAX_RENDER_DURATION,defaultProject,normalizeProject,isProject,parseStored,serializeProject,persist,recoverLastGood,quarantine,guard};
   root.ProfitMenteStartupProjectGuard=api;
   if(typeof document!=='undefined'){
     let result;
