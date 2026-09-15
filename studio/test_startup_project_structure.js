@@ -28,6 +28,9 @@ assert.ok(guard.normalizeProject({...base,clips:[{...clip,asset:'media-1'}]}),'v
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,asset:42}]}),'finite legacy numeric media references must recover');
 for(const asset of ['', ' media-1', 'media-1 ', 'bad\nmedia', 'x'.repeat(guard.MAX_MEDIA_ID_LENGTH+1), {}, [], true, NaN, Infinity])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,asset}]}),null,'malformed media references must not reach preview/render');
 for(const [field,value] of [['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.1],['fadeIn',11],['fadeOut',-1]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:value}]}),null,`${field} outside renderer bounds must be rejected`);
+assert.ok(guard.normalizeProject({...base,clips:[{...clip,fadeIn:4,fadeOut:6}]}),'audio fades may exactly cover the clip');
+assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,fadeIn:6,fadeOut:5}]}),null,'overlapping recovered audio fades must not be silently rescaled');
+assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,fadeIn:'6',fadeOut:'5'}]}),null,'string audio fades must obey the same combined envelope bound');
 for(const field of ['muted','disabled','flipX','flipY']){assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:'false'}]}),null,`${field} must be a real boolean`);assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`)}
 assert.ok(guard.normalizeProject({...base,clips:[{...clip,volume:1.5,sourceVolume:.8,positionX:25,positionY:-25,scale:2,rotation:90,opacity:.5,fadeIn:2,fadeOut:3,muted:false,disabled:false,flipX:true,flipY:false}]}),'valid render controls must recover');
 const video={...clip,transition:'fade',transitionDuration:1.5,fitMode:'contain',visualCrop:{left:10,right:15,top:5,bottom:20}};
@@ -50,4 +53,4 @@ const result=guard.guard(storage);
 assert.strictEqual(result.quarantined,true,'malformed startup projects must be quarantined');
 assert.ok(store.has(guard.BACKUP_KEY),'malformed startup projects must be preserved for recovery');
 assert.strictEqual(store.has(guard.PRIMARY_KEY),false,'malformed primary project must not remain active');
-console.log('startup project structure, duration, identity, render controls, video composition, visual state and motion text: ok');
+console.log('startup project structure, duration, identity, render controls, audio envelope, video composition, visual state and motion text: ok');
