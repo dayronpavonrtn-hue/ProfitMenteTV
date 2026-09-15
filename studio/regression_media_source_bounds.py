@@ -23,17 +23,26 @@ def run():
             outside=report({'id':'outside','asset':'m1','track':4,'start':0,'duration':1,'sourceOffset':10,'speed':1})
             assert not outside['ok'] and 'fuera de la duración fuente' in outside['errors'][0]
 
-            # Inactive clips must not block export even when their source range is invalid.
+            # Persisted malformed edit scalars must fail closed instead of being silently normalized.
+            negative=report({'id':'negative','asset':'m1','track':0,'duration':1,'sourceOffset':-1,'speed':1})
+            assert not negative['ok'] and 'sourceOffset negativo' in negative['errors'][0]
+            invalid_offset=report({'id':'bad-offset','asset':'m1','track':0,'duration':1,'sourceOffset':'oops','speed':1})
+            assert not invalid_offset['ok'] and 'sourceOffset inválido' in invalid_offset['errors'][0]
+            invalid_duration=report({'id':'bad-duration','asset':'m1','track':0,'duration':'NaN','sourceOffset':0,'speed':1})
+            assert not invalid_duration['ok'] and 'duración inválida' in invalid_duration['errors'][0]
+            invalid_speed=report({'id':'bad-speed','asset':'m1','track':0,'duration':1,'sourceOffset':0,'speed':True})
+            assert not invalid_speed['ok'] and 'velocidad inválida' in invalid_speed['errors'][0]
+            out_of_range_speed=report({'id':'fast','asset':'m1','track':0,'duration':1,'sourceOffset':0,'speed':9})
+            assert not out_of_range_speed['ok'] and 'velocidad inválida' in out_of_range_speed['errors'][0]
+
             hidden=dict(base); hidden['trackState']={'0':{'hidden':True}}; hidden['clips']=[{'id':'hidden','asset':'m1','track':0,'duration':20}]
             assert mp.inspect(hidden,root)['ok']
             muted=dict(base); muted['clips']=[{'id':'muted','asset':'m1','track':4,'duration':20,'muted':True}]
             assert mp.inspect(muted,root)['ok']
 
-            # Only real booleans deactivate media; imported strings must fail closed.
             string_muted=dict(base); string_muted['clips']=[{'id':'string-muted','asset':'m1','track':4,'duration':20,'muted':'true'}]
             assert not mp.inspect(string_muted,root)['ok']
 
-            # Images are looped by render_mp4 and intentionally have no source EOF check.
             image={'id':'i1','name':'still.png','type':'image'}; (root/'still.png').write_bytes(b'x')
             image_project={'assets':[image],'trackState':{},'clips':[{'id':'still','asset':'i1','track':0,'duration':99,'sourceOffset':50}]}
             mp.probe_media=lambda path,timeout=12: ({'video'},0.0)
