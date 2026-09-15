@@ -15,6 +15,8 @@ assert.strictEqual(guard.normalizeProject({...base,clips:[{}]}),null,'clips with
 assert.ok(guard.normalizeProject({...base,clips:[clip]}),'valid saved clips must recover');
 assert.ok(guard.normalizeProject({...base,clips:[{track:0,start:0,duration:10}]}),'legacy clips without ids must remain recoverable');
 assert.strictEqual(guard.normalizeProject({...base,clips:[clip,{...clip,start:12}]}),null,'duplicate clip ids must not reach timeline selection/editing');
+for(const [left,right] of [['1','01'],['1','1.0'],['+1','1'],['-0','0']])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,id:left},{...clip,id:right,start:12}]}),null,`ambiguous clip ids ${left}/${right} must not recover`);
+assert.ok(guard.normalizeProject({...base,clips:[{...clip,id:'001-intro'},{...clip,id:'1',start:12}]}),'distinct textual clip ids must remain valid');
 for(const id of ['', ' clip-1', 'clip-1 ', 'bad\nclip', 'x'.repeat(guard.MAX_CLIP_ID_LENGTH+1), 42])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,id}]}),null,'malformed clip ids must not reach timeline selection/editing');
 for(const [field,value] of [['volume',2.1],['sourceVolume',-0.1],['positionX',101],['positionY',-101],['scale',0],['rotation',181],['opacity',1.1],['fadeIn',11],['fadeOut',-1]])assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:value}]}),null,`${field} outside renderer bounds must be rejected`);
 for(const field of ['muted','disabled','flipX','flipY']){assert.strictEqual(guard.normalizeProject({...base,clips:[{...clip,[field]:'false'}]}),null,`${field} must be a real boolean`);assert.ok(guard.normalizeProject({...base,clips:[{...clip,[field]:false}]}),`${field}=false must remain valid`)}
@@ -35,4 +37,4 @@ const result=guard.guard(storage);
 assert.strictEqual(result.quarantined,true,'malformed startup projects must be quarantined');
 assert.ok(store.has(guard.BACKUP_KEY),'malformed startup projects must be preserved for recovery');
 assert.strictEqual(store.has(guard.PRIMARY_KEY),false,'malformed primary project must not remain active');
-console.log('startup project structure, clip identity, render controls, visual state and motion text: ok');
+console.log('startup project structure, canonical clip identity, render controls, visual state and motion text: ok');
