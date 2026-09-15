@@ -57,6 +57,8 @@
     if(durationExplicit&&(duration===null||duration<=0||duration>MAX_RENDER_DURATION))return null;
     const normalizedDuration=durationExplicit?Math.max(1,duration):45;
     if(value.clips!=null&&!validClipContainer(value.clips,normalizedDuration))return null;
+    const modeExplicit=value.mode!==undefined;
+    if(modeExplicit&&(typeof value.mode!=='string'||!MODES.has(value.mode)))return null;
     const formatExplicit=value.format!==undefined;
     if(formatExplicit&&(typeof value.format!=='string'||!FORMATS.has(value.format)))return null;
     const fpsExplicit=value.fps!==undefined||value.frameRate!==undefined;
@@ -67,7 +69,7 @@
     const qualityExplicit=value.renderQuality!==undefined;
     if(qualityExplicit&&(typeof value.renderQuality!=='string'||!RENDER_QUALITIES.has(value.renderQuality.trim().toLowerCase())))return null;
     const renderQuality=qualityExplicit?value.renderQuality.trim().toLowerCase():'high';
-    return {...value,version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',mode:MODES.has(value.mode)?value.mode:'Automático',duration:normalizedDuration,format:formatExplicit?value.format:'9:16',fps:fpsExplicit?fps:30,renderQuality,clips:Array.isArray(value.clips)?value.clips:[]};
+    return {...value,version:typeof value.version==='string'&&value.version.trim()?value.version:'1.3',name:typeof value.name==='string'&&value.name.trim()?value.name:'Nuevo video',mode:modeExplicit?value.mode:'Automático',duration:normalizedDuration,format:formatExplicit?value.format:'9:16',fps:fpsExplicit?fps:30,renderQuality,clips:Array.isArray(value.clips)?value.clips:[]};
   }
   function isProject(value){return normalizeProject(value)!==null}
   function parseStored(raw){if(raw==null)return null;try{return normalizeProject(JSON.parse(raw))}catch{return null}}
