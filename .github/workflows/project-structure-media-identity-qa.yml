@@ -1,0 +1,33 @@
+name: ProfitMente Studio Project Structure Media Identity QA
+
+on:
+  push:
+    paths:
+      - 'studio/project_structure_preflight.py'
+      - 'studio/media_identity.py'
+      - 'studio/test_project_structure_media_identity.py'
+      - '.github/workflows/project-structure-media-identity-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/project_structure_preflight.py'
+      - 'studio/media_identity.py'
+      - 'studio/test_project_structure_media_identity.py'
+      - '.github/workflows/project-structure-media-identity-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile studio/project_structure_preflight.py studio/media_identity.py studio/test_project_structure_media_identity.py
+      - name: Canonical media identity regression
+        working-directory: studio
+        run: python -m unittest -v test_project_structure_media_identity.py
+      - name: Cost-zero guard
+        run: |
+          ! grep -RniE 'stripe|openai[_-]?api[_-]?key|runway|heygen' studio/project_structure_preflight.py studio/media_identity.py studio/test_project_structure_media_identity.py
