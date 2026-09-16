@@ -52,12 +52,12 @@
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c),boundaryDuration=cg&&pg?Math.min(cg.duration,pg.duration):null,boundaryUsable=boundaryDuration!=null&&boundaryDuration>=1/fps-.0001;
         if(lockedTrack||clipLocked(c)||clipLocked(prev))continue;
-        const boundaryAligned=cg&&pg&&frameAligned(cg.start,fps)&&frameAligned(pg.start+pg.duration,fps);
-        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol&&boundaryUsable&&boundaryAligned)eligible++;else if(automatic&&c.transition!=='cut')stale++}
+        const boundaryAligned=cg&&pg&&frameAligned(cg.start,fps)&&frameAligned(pg.start+pg.duration,fps),boundaryContiguous=cg&&pg&&Math.abs(cg.start-(pg.start+pg.duration))<=tol;
+        if(cg&&pg){if(boundaryContiguous&&boundaryUsable&&boundaryAligned)eligible++;else if(automatic&&c.transition!=='cut')stale++}
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
         const transitionDuration=finiteNumber(c.transitionDuration);
-        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!frameAligned(transitionDuration,fps)||!boundaryUsable||!boundaryAligned||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!frameAligned(transitionDuration,fps)||!boundaryUsable||!boundaryAligned||!boundaryContiguous||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
