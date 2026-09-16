@@ -19,10 +19,11 @@
       const owned=!script;
       let timeout;
       const cleanup=()=>{if(timeout)clearTimeout(timeout);script?.removeEventListener?.('load',onload);script?.removeEventListener?.('error',onerror)};
-      const onload=()=>{script.dataset.pmLoaded='1';cleanup();guard&&!window[guard]?reject(new Error(src+' cargó sin exponer '+guard)):resolve()};
-      const onerror=()=>{cleanup();loads.delete(src);if(owned&&script?.parentNode)script.remove();reject(new Error('No se pudo cargar '+src))};
+      const fail=message=>{cleanup();loads.delete(src);if(owned&&script?.parentNode)script.remove();reject(new Error(message))};
+      const onload=()=>{script.dataset.pmLoaded='1';if(guard&&!window[guard]){delete script.dataset.pmLoaded;fail(src+' cargó sin exponer '+guard);return}cleanup();resolve()};
+      const onerror=()=>fail('No se pudo cargar '+src);
       const armTimeout=()=>{timeout=setTimeout(()=>{if(guard&&window[guard]){cleanup();resolve()}else onerror()},5000)};
-      if(script?.dataset?.pmLoaded==='1'){guard&&!window[guard]?onerror():resolve();return}
+      if(script?.dataset?.pmLoaded==='1'){guard&&!window[guard]?fail(src+' no expone '+guard):resolve();return}
       if(script){
         script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});armTimeout();
         return;
