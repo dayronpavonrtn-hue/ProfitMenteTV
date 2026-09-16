@@ -4,7 +4,7 @@ const clone=value=>typeof structuredClone==='function'?structuredClone(value):JS
 const finite=(value,fallback)=>Number.isFinite(Number(value))?Number(value):fallback;
 function versionNumber(value){const n=Number.parseFloat(String(value||'0'));return Number.isFinite(n)?n:0}
 function uuid(prefix='clip'){return globalThis.crypto?.randomUUID?.()||`${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`}
-function normalizeMode(value){const v=String(value||'').trim().toLowerCase();return v==='automático'||v==='automatico'||v==='automatic'||v==='auto'?'Automático':'Manual'}
+function normalizeMode(value){if(value==null||String(value).trim()==='')return 'Automático';const v=String(value).trim().toLowerCase();return v==='automático'||v==='automatico'||v==='automatic'||v==='auto'?'Automático':'Manual'}
 function normalizeFormat(value){
   if(['9:16','16:9','1:1'].includes(value))return value;
   if(value&&typeof value==='object'){
