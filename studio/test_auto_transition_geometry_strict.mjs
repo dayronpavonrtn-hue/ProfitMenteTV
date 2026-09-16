@@ -54,4 +54,18 @@ const invalidPreviousResult=Engine.apply(invalidPrevious);
 assert.equal(invalidPreviousResult.invalidGeometry,1);
 assert.equal(invalidPrevious.clips[1].transition,'cut','a valid clip must not bridge from corrupt previous geometry');
 
+for(const offset of [1/30,-1/30]){
+  const oneFrameBoundary={fps:30,clips:[
+    {id:'a',track:0,sceneText:'a',start:0,duration:2},
+    {id:'b',track:0,sceneText:'b',start:2+offset,duration:2,transition:'fade',transitionDuration:.2,autoTransition:true}
+  ]};
+  const inspection=Engine.inspect(oneFrameBoundary);
+  assert.equal(inspection.eligible,0,'a one-frame gap or overlap is not a contiguous transition boundary');
+  assert.equal(inspection.stale,1,'automatic transition on a one-frame gap or overlap must be stale');
+  const result=Engine.apply(oneFrameBoundary);
+  assert.equal(oneFrameBoundary.clips[1].transition,'cut','automation must not bridge a one-frame gap or overlap');
+  assert.equal(oneFrameBoundary.clips[1].transitionDuration,undefined);
+  assert.equal(result.cleared,1);
+}
+
 console.log('auto-transition strict geometry regression: ok');
