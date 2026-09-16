@@ -1,10 +1,10 @@
 (()=>{
   if(typeof document==='undefined'||!window.ProfitMenteAutoTransitionEngine||window.ProfitMenteAutoTransitions)return;
-  const Engine=window.ProfitMenteAutoTransitionEngine,$=s=>document.querySelector(s);
+  const Engine=window.ProfitMenteAutoTransitionEngine,$=s=>document.querySelector(s),loads=new Map();
   function run(force=false){
     const result=Engine.apply(project,{force});
     if(result.changed){persist?.();drawTimeline?.();renderAt?.(+($('#playhead')?.value||0))}
-    setStatus?.(`Transiciones auto · ${result.changed} ajustada(s)${result.preserved?` · ${result.preserved} manual(es) preservada(s)`:''}${result.locked?` · ${result.locked} bloqueada(s) respetada(s)`:''}${result.skipped?` · ${result.skipped} hueco(s) omitido(s)`:''}`);
+    setStatus?.(`Transiciones auto · ${result.changed} ajustada(s)${result.cleared?` · ${result.cleared} inválida(s) limpiada(s)`:''}${result.preserved?` · ${result.preserved} manual(es) preservada(s)`:''}${result.locked?` · ${result.locked} bloqueada(s) respetada(s)`:''}${result.skipped?` · ${result.skipped} frontera(s) omitida(s)`:''}`);
     return result;
   }
   function install(){
@@ -13,8 +13,22 @@
   }
   function load(src,guard){
     if(guard&&window[guard])return Promise.resolve();
-    if([...document.scripts].some(s=>s.src.endsWith('/'+src)||s.src.endsWith(src)))return Promise.resolve();
-    return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('No se pudo cargar '+src));document.body.appendChild(s)});
+    if(loads.has(src))return loads.get(src);
+    const promise=new Promise((resolve,reject)=>{
+      let script=[...document.scripts].find(s=>s.src.endsWith('/'+src)||s.src.endsWith(src));
+      let timeout;
+      const cleanup=()=>{if(timeout)clearTimeout(timeout);script?.removeEventListener?.('load',onload);script?.removeEventListener?.('error',onerror)};
+      const onload=()=>{script.dataset.pmLoaded='1';cleanup();guard&&!window[guard]?reject(new Error(src+' cargó sin exponer '+guard)):resolve()};
+      const onerror=()=>{cleanup();loads.delete(src);reject(new Error('No se pudo cargar '+src))};
+      if(script?.dataset?.pmLoaded==='1'){guard&&!window[guard]?onerror():resolve();return}
+      if(script){
+        script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});
+        timeout=setTimeout(()=>{if(guard&&window[guard]){cleanup();resolve()}else onerror()},5000);
+        return;
+      }
+      script=document.createElement('script');script.src=src;script.async=false;script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});document.body.appendChild(script);
+    });
+    loads.set(src,promise);promise.catch(()=>loads.delete(src));return promise;
   }
   async function installPreviewRenderer(){
     try{await load('transition-preview-engine.js','ProfitMenteTransitionPreviewEngine');await load('transition-preview-integration.js','ProfitMenteTransitionPreview')}catch(error){console.error(error);setStatus?.('Transiciones configuradas · preview visual no disponible')}
