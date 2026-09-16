@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import pathlib
 import tempfile
 
@@ -17,6 +18,18 @@ def main():
         # Corrupt/partial snapshots must never break the render server.
         progress_file.write_text("{", encoding="utf-8")
         assert read_progress(progress_file) is None
+
+        # Malformed/non-finite timestamps are optional metadata and must not make
+        # an otherwise valid progress snapshot unreadable.
+        for bad_updated in ("not-a-number", None, -12, float("nan"), float("inf"), float("-inf")):
+            progress_file.write_text(
+                json.dumps({"progress": 41, "phase": "Render local", "updated": bad_updated}),
+                encoding="utf-8",
+            )
+            malformed = read_progress(progress_file)
+            assert malformed["progress"] == 41
+            assert malformed["phase"] == "Render local"
+            assert malformed["updated"] == 0.0
 
         write_progress(72, "Mezclando narración, música y SFX", progress_file)
         job_id = "progress-regression"
