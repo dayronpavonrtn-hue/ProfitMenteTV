@@ -9,6 +9,7 @@
   const fpsOf=p=>{const raw=finiteNumber(p?.fps),fps=raw==null?30:Math.round(raw);return [24,30,60].includes(fps)?fps:30};
   const frame=(v,fps)=>Math.round(v*fps)/fps;
   const boundaryTolerance=fps=>Math.max(1e-6,(1/fps)*1e-3);
+  const frameAligned=(value,fps)=>Math.abs(value-frame(value,fps))<=boundaryTolerance(fps);
   const canonicalTrack=value=>{
     const n=finiteNumber(value);
     if(n==null||!Number.isInteger(n)||n<0||n>6)return null;
@@ -51,11 +52,12 @@
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c),boundaryDuration=cg&&pg?Math.min(cg.duration,pg.duration):null,boundaryUsable=boundaryDuration!=null&&boundaryDuration>=1/fps-.0001;
         if(lockedTrack||clipLocked(c)||clipLocked(prev))continue;
-        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol&&boundaryUsable)eligible++;else if(automatic&&c.transition!=='cut')stale++}
+        const boundaryAligned=cg&&pg&&frameAligned(cg.start,fps)&&frameAligned(pg.start+pg.duration,fps);
+        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol&&boundaryUsable&&boundaryAligned)eligible++;else if(automatic&&c.transition!=='cut')stale++}
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
         const transitionDuration=finiteNumber(c.transitionDuration);
-        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!boundaryUsable||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!boundaryUsable||!boundaryAligned||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
@@ -79,8 +81,8 @@
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
-        const gap=cg.start-(pg.start+pg.duration),boundaryDuration=Math.min(cg.duration,pg.duration);
-        if(Math.abs(gap)>tol||boundaryDuration<1/fps-.0001){
+        const gap=cg.start-(pg.start+pg.duration),boundaryDuration=Math.min(cg.duration,pg.duration),boundaryAligned=frameAligned(cg.start,fps)&&frameAligned(pg.start+pg.duration,fps);
+        if(Math.abs(gap)>tol||boundaryDuration<1/fps-.0001||!boundaryAligned){
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
