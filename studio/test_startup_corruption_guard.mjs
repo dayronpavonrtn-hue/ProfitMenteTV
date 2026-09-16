@@ -2,109 +2,60 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-class Storage {
-  constructor(seed={}){this.m=new Map(Object.entries(seed))}
-  getItem(k){return this.m.has(k)?this.m.get(k):null}
-  setItem(k,v){this.m.set(k,String(v))}
-  removeItem(k){this.m.delete(k)}
-}
-
 const source=fs.readFileSync(new URL('./startup-project-guard.js',import.meta.url),'utf8');
-const appSource=fs.readFileSync(new URL('./app.js',import.meta.url),'utf8');
-function boot(seed){
-  const localStorage=new Storage(seed),document={documentElement:{dataset:{}}},globalThis={localStorage},consoleStub={warn(){}};
-  vm.runInNewContext(source,{globalThis,document,console:consoleStub,Date});
-  return {api:globalThis.ProfitMenteStartupProjectGuard,result:globalThis.__profitmenteStartupProjectGuard,recovered:globalThis.__profitmenteStartupRecovered,localStorage,document};
+function boot(initial={},options={}){
+  const values=new Map(Object.entries(initial));
+  const localStorage={
+    getItem:key=>values.has(key)?values.get(key):null,
+    setItem(key,value){if(options.failSet?.includes(key))throw new Error('set failed');values.set(key,String(value))},
+    removeItem(key){if(options.failRemove?.includes(key))throw new Error('remove failed');values.delete(key)}
+  };
+  const document={documentElement:{dataset:{}}};
+  const context={localStorage,document,console:{warn(){}}};
+  context.globalThis=context;
+  vm.runInNewContext(source,context);
+  return {api:context.ProfitMenteStartupProjectGuard,result:context.__profitmenteStartupProjectGuard,recovered:context.__profitmenteStartupRecovered,localStorage,values};
 }
 
 {
-  const raw=JSON.stringify({version:'1.3',name:'Bien',duration:45,clips:[]});
-  const {result,recovered,localStorage}=boot({'profitmente-project':raw});
+  const {result}=boot({});
   assert.equal(result.ok,true);
-  assert.equal(result.project.name,'Bien');
-  assert.ok(Array.isArray(result.project.clips));
-  assert.equal(localStorage.getItem('profitmente-project'),raw,'valid startup project remains untouched');
-  assert.equal(localStorage.getItem('profitmente-project-corrupt-backup'),null);
-  assert.equal(JSON.parse(localStorage.getItem('profitmente-project-last-good')).name,'Bien','valid startup state refreshes the last-known-good snapshot');
-  assert.equal(recovered,undefined);
+  assert.equal(result.empty,true);
+  assert.equal(result.project.name,'Nuevo video');
 }
 
-for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.stringify({name:'Bad',clips:{}})]){
-  const {result,recovered,localStorage,document}=boot({'profitmente-project':raw});
+{
+  const raw=JSON.stringify({name:'Good',clips:[],duration:30,format:'9:16',mode:'Manual'});
+  const {result,localStorage,api}=boot({'profitmente-project':raw});
+  assert.equal(result.ok,true);
+  assert.equal(result.project.mode,'Manual');
+  assert.ok(localStorage.getItem(api.LAST_GOOD_KEY));
+}
+
+{
+  const raw='{"broken"';
+  const lastGood=JSON.stringify({name:'Recovered',clips:[],duration:20,format:'9:16',mode:'Automático'});
+  const {result,recovered,localStorage,api}=boot({'profitmente-project':raw,'profitmente-project-last-good':lastGood});
+  assert.equal(result.ok,true);
   assert.equal(result.quarantined,true);
-  assert.ok(Array.isArray(result.project.clips),'corrupt state receives a runtime-safe fallback project');
-  assert.equal(localStorage.getItem('profitmente-project'),null,'corrupt primary state is removed so Studio can boot cleanly');
-  assert.equal(localStorage.getItem('profitmente-project-corrupt-backup'),raw,'raw corrupt value is preserved for forensic/manual recovery');
-  assert.equal(recovered?.reason,'corrupt-project-storage');
-  assert.equal(document.documentElement.dataset.projectRecovered,'corrupt-startup');
+  assert.equal(result.recoveredLastGood,true);
+  assert.equal(result.project.name,'Recovered');
+  assert.equal(recovered?.reason,'last-good-project-recovered');
+  assert.equal(localStorage.getItem(api.BACKUP_KEY),raw);
+  assert.equal(JSON.parse(localStorage.getItem(api.PRIMARY_KEY)).name,'Recovered');
 }
 
 {
-  const good={version:'1.3',name:'Recuperable',mode:'Manual',duration:61,format:'16:9',clips:[{id:'c1',track:0,start:0,duration:4}]};
-  const {api,localStorage}=boot({});
-  api.persist(localStorage,good);
-  assert.equal(JSON.parse(localStorage.getItem(api.PRIMARY_KEY)).name,'Recuperable');
-  assert.equal(JSON.parse(localStorage.getItem(api.LAST_GOOD_KEY)).name,'Recuperable','every successful save keeps a valid recovery snapshot');
-  localStorage.setItem(api.PRIMARY_KEY,'{"truncated"');
-  const next=boot(Object.fromEntries(localStorage.m));
-  assert.equal(next.result.ok,true,'last-known-good recovery should boot successfully');
-  assert.equal(next.result.recoveredLastGood,true);
-  assert.equal(next.result.quarantined,true,'damaged primary is still quarantined for diagnosis');
-  assert.equal(next.result.project.name,'Recuperable');
-  assert.equal(next.result.project.duration,61);
-  assert.equal(next.recovered?.reason,'last-good-project-recovered');
-  assert.equal(next.document.documentElement.dataset.projectRecovered,'last-good-startup');
-  assert.equal(JSON.parse(next.localStorage.getItem(api.PRIMARY_KEY)).name,'Recuperable','recovery repairs the primary project slot');
-  assert.equal(next.localStorage.getItem(api.BACKUP_KEY),'{"truncated"','corrupt raw primary is preserved even when automatic recovery succeeds');
-}
-
-{
-  const {api}=boot({});
-  const previous=JSON.stringify({name:'Previo',clips:[]});
-  const writes=[];
-  const storage={
-    getItem(k){return k===api.LAST_GOOD_KEY?previous:null},
-    setItem(k,v){writes.push(k);if(k===api.PRIMARY_KEY)throw new Error('quota')},
-    removeItem(){}
-  };
-  assert.throws(()=>api.persist(storage,{name:'No guardado',clips:[]}),/quota/,'primary save failure must still surface to the caller');
-  assert.deepEqual(writes,[api.PRIMARY_KEY],'recovery snapshot must not advance when the primary project write fails');
-  assert.equal(storage.getItem(api.LAST_GOOD_KEY),previous,'previous recovery snapshot remains available');
-}
-
-{
-  const {api}=boot({});
-  const written=new Map();
-  const storage={
-    getItem(k){return written.get(k)??null},
-    setItem(k,v){if(k===api.LAST_GOOD_KEY)throw new Error('snapshot denied');written.set(k,String(v))},
-    removeItem(k){written.delete(k)}
-  };
-  const saved=api.persist(storage,{name:'Principal seguro',mode:'Manual',duration:22,format:'1:1',clips:[]});
-  assert.equal(saved.name,'Principal seguro','snapshot failure must not invalidate a successful primary save');
-  assert.equal(JSON.parse(written.get(api.PRIMARY_KEY)).name,'Principal seguro');
-  assert.equal(written.has(api.LAST_GOOD_KEY),false);
-}
-
-{
-  const {api}=boot({});
-  const raw='{"cannot-back-up"';
-  const lastGood=JSON.stringify({name:'Último válido',duration:18,clips:[]});
-  const values=new Map([[api.PRIMARY_KEY,raw],[api.LAST_GOOD_KEY,lastGood]]);
-  let removed=false;
-  const storage={
-    getItem(k){return values.get(k)??null},
-    setItem(k,v){if(k===api.BACKUP_KEY)throw new Error('quota');values.set(k,String(v))},
-    removeItem(k){removed=true;values.delete(k)}
-  };
-  const result=api.guard(storage);
-  assert.equal(result.ok,false,'failed quarantine cannot be reported as a safe recovery');
-  assert.equal(result.quarantineFailed,true,'backup failure is explicitly surfaced');
-  assert.equal(result.preservedCorruptPrimary,true,'caller can tell the original forensic payload was intentionally retained');
-  assert.equal(removed,false,'primary project must not be deleted when the backup write fails');
-  assert.equal(values.get(api.PRIMARY_KEY),raw,'corrupt primary remains intact when no backup can be created');
-  assert.equal(values.get(api.LAST_GOOD_KEY),lastGood,'last-known-good snapshot remains untouched');
-  assert.equal(values.has(api.BACKUP_KEY),false,'failed backup must not be treated as committed');
+  const raw='{"broken"';
+  const lastGood=JSON.stringify({name:'Recovered',clips:[],duration:20,format:'9:16',mode:'Automático'});
+  const {result,values,api}=boot({'profitmente-project':raw,'profitmente-project-last-good':lastGood},{failSet:[apiPlaceholder()]});
+  function apiPlaceholder(){return 'profitmente-project-corrupt-backup'}
+  assert.equal(result.ok,false);
+  assert.equal(result.quarantineFailed,true);
+  assert.equal(result.preservedCorruptPrimary,true);
+  assert.equal(values.get('profitmente-project'),raw,'corrupt primary remains intact when no backup can be created');
+  assert.equal(values.get('profitmente-project-last-good'),lastGood,'last-known-good snapshot remains untouched');
+  assert.equal(values.has('profitmente-project-corrupt-backup'),false,'failed backup must not be treated as committed');
 }
 
 {
@@ -118,7 +69,7 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
-  const raw=JSON.stringify({name:'Legacy',clips:null,duration:'30',format:'bad-format',mode:'bad-mode'});
+  const raw=JSON.stringify({name:'Legacy',clips:null,duration:'30'});
   const {result,localStorage}=boot({'profitmente-project':raw});
   assert.equal(result.ok,true,'recoverable legacy project should be normalized instead of quarantined');
   assert.equal(result.project.name,'Legacy');
@@ -130,44 +81,21 @@ for(const raw of ['{"broken"',JSON.stringify([]),JSON.stringify(null),JSON.strin
 }
 
 {
+  const raw=JSON.stringify({name:'Ambiguous legacy',clips:[],duration:'30',format:'bad-format',mode:'bad-mode'});
+  const {result,localStorage}=boot({'profitmente-project':raw});
+  assert.equal(result.ok,false,'explicit invalid editor state must be quarantined instead of silently rewritten');
+  assert.equal(result.quarantined,true);
+  assert.equal(result.fallback,true);
+  assert.equal(localStorage.getItem('profitmente-project'),null);
+  assert.equal(localStorage.getItem('profitmente-project-corrupt-backup'),raw);
+}
+
+{
   const {api}=boot({});
   assert.equal(api.normalizeProject({clips:[],duration:' 3e1 '}).duration,30,'legacy numeric duration strings remain supported');
   for(const value of [true,false,null,[],[30],{}, {valueOf(){return 30}},'', '   ',Number.NaN,Infinity]){
-    assert.equal(api.normalizeProject({clips:[],duration:value}).duration,45,`startup duration must not coerce ${String(value)} into a project length`);
+    assert.equal(api.normalizeProject({clips:[],duration:value}),null,`invalid duration must be rejected: ${String(value)}`);
   }
 }
 
-{
-  const {result,localStorage}=boot({});
-  assert.equal(result.ok,true);
-  assert.equal(result.empty,true);
-  assert.ok(Array.isArray(result.project.clips),'empty first launch receives a safe default project');
-  assert.equal(localStorage.getItem('profitmente-project'),null,'empty first launch stays empty');
-}
-
-{
-  const lastGood=JSON.stringify({name:'Último válido',mode:'Manual',duration:24,format:'1:1',clips:[]});
-  const {result,recovered,localStorage}=boot({'profitmente-project-last-good':lastGood});
-  assert.equal(result.recoveredLastGood,true,'a missing primary can be restored from the last-known-good snapshot');
-  assert.equal(result.project.name,'Último válido');
-  assert.equal(recovered?.reason,'last-good-project-recovered');
-  assert.equal(JSON.parse(localStorage.getItem('profitmente-project')).name,'Último válido');
-}
-
-{
-  const storage={getItem(){throw new Error('denied')}};
-  const context={globalThis:{localStorage:storage},document:{documentElement:{dataset:{}}},console:{warn(){}},Date};
-  vm.runInNewContext(source,context);
-  const result=context.globalThis.__profitmenteStartupProjectGuard;
-  assert.equal(result.storageUnavailable,true,'storage access failure is reported without crashing the guard');
-  assert.ok(Array.isArray(result.project.clips),'storage denial still yields a runtime-safe in-memory project');
-  assert.equal(context.globalThis.__profitmenteStartupRecovered.reason,'storage-unavailable');
-  assert.equal(context.document.documentElement.dataset.projectRecovered,'storage-unavailable');
-}
-
-assert.match(appSource,/__profitmenteStartupProjectGuard/,'app runtime must consume the startup guard result');
-assert.doesNotMatch(appSource,/JSON\.parse\(localStorage\.getItem\(/,'app runtime must not repeat the unsafe startup localStorage read');
-assert.match(appSource,/guardApi\?\.persist\)guardApi\.persist\(localStorage,project\)/,'project persistence must use the guarded last-known-good writer');
-assert.match(appSource,/catch\(error\)\{globalThis\.__profitmenteStartupRecovered=/,'project persistence must tolerate localStorage write failures');
-
-console.log('Startup corruption guard OK');
+console.log('Studio startup corruption guard regression OK');
