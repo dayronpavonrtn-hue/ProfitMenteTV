@@ -8,6 +8,7 @@
   };
   const fpsOf=p=>{const raw=finiteNumber(p?.fps),fps=raw==null?30:Math.round(raw);return [24,30,60].includes(fps)?fps:30};
   const frame=(v,fps)=>Math.round(v*fps)/fps;
+  const boundaryTolerance=fps=>Math.max(1e-6,(1/fps)*1e-3);
   const canonicalTrack=value=>{
     const n=finiteNumber(value);
     if(n==null||!Number.isInteger(n)||n<0||n>6)return null;
@@ -44,7 +45,7 @@
       return clamp(frame(target,fps),1/fps,frame(max,fps));
     }
     static inspect(project){
-      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let eligible=0,manual=0,invalid=0,stale=0,locked=0,invalidGeometry=0;
+      const clips=this.generated(project),fps=fpsOf(project),tol=boundaryTolerance(fps);let eligible=0,manual=0,invalid=0,stale=0,locked=0,invalidGeometry=0;
       const lockedTrack=trackLocked(project,0);
       for(let i=0;i<clips.length;i++){if(lockedTrack||clipLocked(clips[i]))locked++;if(!geometry(clips[i]))invalidGeometry++}
       for(let i=1;i<clips.length;i++){
@@ -59,7 +60,7 @@
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
     static apply(project,{force=false}={}){
-      const clips=this.generated(project),fps=fpsOf(project),tol=1/fps+.0001;let changed=0,preserved=0,skipped=0,cleared=0,locked=0,invalidGeometry=0;
+      const clips=this.generated(project),fps=fpsOf(project),tol=boundaryTolerance(fps);let changed=0,preserved=0,skipped=0,cleared=0,locked=0,invalidGeometry=0;
       if(!clips.length)return {changed,preserved,skipped,cleared,locked,invalidGeometry,generated:0};
       if(trackLocked(project,0))return {changed,preserved,skipped,cleared,locked:clips.length,invalidGeometry:clips.filter(c=>!geometry(c)).length,generated:clips.length};
       const first=clips[0],firstGeometry=geometry(first),firstAutomatic=autoTransitionEnabled(first);
