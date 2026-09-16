@@ -144,6 +144,8 @@ class ProfitMenteProjectMigrationEngine{
     else delete project.trackState;
     delete project.trackStates;
     project.version=this.currentVersion;
+    const contract=globalThis.ProfitMenteStartupProjectGuard;
+    if(contract?.normalizeProject){const validated=contract.normalizeProject(project);if(!validated)throw new Error('La migración produjo un proyecto incompatible con el contrato actual de ProfitMente Studio');Object.assign(project,validated)}
     const before=JSON.stringify(source),after=JSON.stringify(project);
     return {project,changed:before!==after,fromVersion,toVersion:project.version,repairs:{clipIds:repairedClipIds,markerIds:repairedMarkerIds,durationExtended:duration>declaredDuration}};
   }
