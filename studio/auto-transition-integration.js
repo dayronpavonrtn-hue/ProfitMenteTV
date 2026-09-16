@@ -16,10 +16,9 @@
     if(loads.has(src))return loads.get(src);
     const promise=new Promise((resolve,reject)=>{
       let script=[...document.scripts].find(s=>s.dataset.pmFailed!=='1'&&(s.src.endsWith('/'+src)||s.src.endsWith(src)));
-      const owned=!script;
       let timeout;
       const cleanup=()=>{if(timeout)clearTimeout(timeout);script?.removeEventListener?.('load',onload);script?.removeEventListener?.('error',onerror)};
-      const fail=message=>{cleanup();loads.delete(src);if(script){delete script.dataset.pmLoaded;script.dataset.pmFailed='1'}if(owned&&script?.parentNode)script.remove();reject(new Error(message))};
+      const fail=message=>{cleanup();loads.delete(src);if(script){delete script.dataset.pmLoaded;script.dataset.pmFailed='1';script.remove()}reject(new Error(message))};
       const onload=()=>{script.dataset.pmLoaded='1';delete script.dataset.pmFailed;if(guard&&!window[guard]){fail(src+' cargó sin exponer '+guard);return}cleanup();resolve()};
       const onerror=()=>fail('No se pudo cargar '+src);
       const armTimeout=()=>{timeout=setTimeout(()=>{if(guard&&window[guard]){cleanup();resolve()}else onerror()},5000)};
