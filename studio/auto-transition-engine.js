@@ -57,7 +57,7 @@
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
         const transitionDuration=finiteNumber(c.transitionDuration);
-        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!boundaryUsable||!boundaryAligned||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!frameAligned(transitionDuration,fps)||!boundaryUsable||!boundaryAligned||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
