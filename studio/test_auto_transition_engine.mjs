@@ -41,6 +41,12 @@ assert.equal(Engine.inspect(shortOutgoing).invalid,0,'automation must not genera
 const invalidOutgoing={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.1},{id:'b',track:0,sceneText:'b',start:.1,duration:4,transition:'fade',transitionDuration:.2,autoTransition:true}]};
 assert.equal(Engine.inspect(invalidOutgoing).invalid,1,'QC must reject automatic transitions longer than either adjacent clip');
 
+const offFrameDuration={fps:30,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:2},{id:'b',track:0,sceneText:'b',start:2,duration:2,transition:'fade',transitionDuration:.15,autoTransition:true}]};
+assert.equal(Engine.inspect(offFrameDuration).invalid,1,'QC must reject automatic transition durations that land between project frames');
+Engine.apply(offFrameDuration);
+assert.equal(Engine.inspect(offFrameDuration).invalid,0,'automation must repair an off-frame automatic transition duration');
+assert.equal((offFrameDuration.clips[1].transitionDuration*30)%1,0,'repaired automatic transition duration must align to frames');
+
 const subFrame={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.01},{id:'b',track:0,sceneText:'b',start:.01,duration:2,transition:'fade',transitionDuration:1/60,autoTransition:true}]};
 assert.equal(Engine.inspect(subFrame).eligible,0,'a boundary shorter than one frame cannot render a transition');
 assert.equal(Engine.inspect(subFrame).invalid,1,'QC must reject a transition when either adjacent clip is shorter than one frame');
