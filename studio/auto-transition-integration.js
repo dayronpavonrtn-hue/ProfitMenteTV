@@ -20,13 +20,13 @@
       const cleanup=()=>{if(timeout)clearTimeout(timeout);script?.removeEventListener?.('load',onload);script?.removeEventListener?.('error',onerror)};
       const onload=()=>{script.dataset.pmLoaded='1';cleanup();guard&&!window[guard]?reject(new Error(src+' cargó sin exponer '+guard)):resolve()};
       const onerror=()=>{cleanup();loads.delete(src);reject(new Error('No se pudo cargar '+src))};
+      const armTimeout=()=>{timeout=setTimeout(()=>{if(guard&&window[guard]){cleanup();resolve()}else onerror()},5000)};
       if(script?.dataset?.pmLoaded==='1'){guard&&!window[guard]?onerror():resolve();return}
       if(script){
-        script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});
-        timeout=setTimeout(()=>{if(guard&&window[guard]){cleanup();resolve()}else onerror()},5000);
+        script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});armTimeout();
         return;
       }
-      script=document.createElement('script');script.src=src;script.async=false;script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});document.body.appendChild(script);
+      script=document.createElement('script');script.src=src;script.async=false;script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});document.body.appendChild(script);armTimeout();
     });
     loads.set(src,promise);promise.catch(()=>loads.delete(src));return promise;
   }
