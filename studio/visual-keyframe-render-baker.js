@@ -8,6 +8,7 @@
       this.samplesPerSecond=Math.max(2,Math.min(24,Number(options.samplesPerSecond)||8));
       this.maxSamplesPerSpan=Math.max(2,Math.min(48,Number(options.maxSamplesPerSpan)||24));
       this.minSpan=Math.max(.001,Number(options.minSpan)||.01);
+      this.tolerance=Math.max(.0001,Number(options.tolerance)||.001);
     }
     finite(value,fallback=0){
       if(typeof value==='number')return Number.isFinite(value)?value:fallback;
@@ -19,10 +20,6 @@
       if(typeof structuredClone==='function'){
         try{return structuredClone(value)}catch(_error){}
       }
-      // Imported/recovered JSON should be data-only, but malformed in-memory
-      // payloads can still contain functions, accessors or other values that the
-      // platform structured clone algorithm rejects. JSON fallback strips those
-      // non-project values instead of aborting the whole MP4 preparation step.
       return JSON.parse(JSON.stringify(value));
     }
     stateAt(clip,time){return this.engine.stateAt(clip,time)}
@@ -59,10 +56,25 @@
         return out;
       });
     }
+    validateBakedClip(source,baked){
+      if(!this.engine.eligible(source)||!this.engine.normalize(source).length)return true;
+      if(!Array.isArray(baked)||!baked.length)throw new Error(`Render QC: animación sin segmentos (${String(source?.id??'clip')})`);
+      const expectedStart=this.finite(source.start,0),expectedEnd=expectedStart+this.engine.duration(source),speed=Math.max(.25,Math.min(4,this.finite(source.speed,1)||1)),sourceOffset=Math.max(0,this.finite(source.sourceOffset,0));
+      let cursor=expectedStart;
+      for(let i=0;i<baked.length;i++){
+        const part=baked[i],start=this.finite(part.start,NaN),duration=this.finite(part.duration,NaN);
+        if(!Number.isFinite(start)||!Number.isFinite(duration)||duration<=0)throw new Error(`Render QC: segmento inválido (${String(source?.id??'clip')}:${i})`);
+        if(Math.abs(start-cursor)>this.tolerance)throw new Error(`Render QC: hueco o solapamiento en animación (${String(source?.id??'clip')}:${i})`);
+        if(source.asset!=null){const expectedOffset=sourceOffset+(start-expectedStart)*speed,actualOffset=this.finite(part.sourceOffset,NaN);if(!Number.isFinite(actualOffset)||Math.abs(actualOffset-expectedOffset)>this.tolerance)throw new Error(`Render QC: sourceOffset discontinuo (${String(source?.id??'clip')}:${i})`)}
+        cursor=start+duration;
+      }
+      if(Math.abs(cursor-expectedEnd)>this.tolerance)throw new Error(`Render QC: duración animada incompleta (${String(source?.id??'clip')})`);
+      return true;
+    }
     bakeProject(project){
       const output=this.clone(project||{}),source=Array.isArray(output.clips)?output.clips:[],clips=[];
-      for(const clip of source)clips.push(...this.bakeClip(output,clip));
-      output.clips=clips;output.renderCompatibility={...(output.renderCompatibility||{}),visualKeyframesBaked:true};
+      for(const clip of source){const baked=this.bakeClip(output,clip);this.validateBakedClip(clip,baked);clips.push(...baked)}
+      output.clips=clips;output.renderCompatibility={...(output.renderCompatibility||{}),visualKeyframesBaked:true,visualKeyframesValidated:true};
       return output;
     }
   }
