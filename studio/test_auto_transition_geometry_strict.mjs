@@ -68,4 +68,17 @@ for(const offset of [1/30,-1/30]){
   assert.equal(result.cleared,1);
 }
 
+const subFrameBoundary={fps:30,clips:[
+  {id:'a',track:0,sceneText:'a',start:0,duration:2.01},
+  {id:'b',track:0,sceneText:'b',start:2.01,duration:2,transition:'fade',transitionDuration:.2,autoTransition:true}
+]};
+const subFrameInspection=Engine.inspect(subFrameBoundary);
+assert.equal(subFrameInspection.eligible,0,'contiguous but sub-frame boundaries are not render-safe');
+assert.equal(subFrameInspection.stale,1);
+assert.equal(subFrameInspection.invalid,1);
+const subFrameResult=Engine.apply(subFrameBoundary);
+assert.equal(subFrameBoundary.clips[1].transition,'cut','automation must clear a transition whose boundary is off-frame');
+assert.equal(subFrameBoundary.clips[1].transitionDuration,undefined);
+assert.equal(subFrameResult.cleared,1);
+
 console.log('auto-transition strict geometry regression: ok');
