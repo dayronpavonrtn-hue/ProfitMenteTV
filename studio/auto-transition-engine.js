@@ -37,8 +37,8 @@
       if(/SOLUCI|PROBLEMA/.test(role))return index%2?'slide':'zoom';
       return TYPES[index%TYPES.length];
     }
-    static durationFor(project,clip){
-      const fps=fpsOf(project),g=geometry(clip),d=g?.duration??1,target=clamp(d*.08,.15,.42),max=Math.max(1/fps,Math.min(.65,d*.22));
+    static durationFor(project,clip,previousClip=null){
+      const fps=fpsOf(project),g=geometry(clip),pg=geometry(previousClip),d=g?.duration??1,boundaryDuration=pg?Math.min(d,pg.duration):d,target=clamp(boundaryDuration*.08,.15,.42),max=Math.max(1/fps,Math.min(.65,boundaryDuration*.22));
       return clamp(frame(target,fps),1/fps,frame(max,fps));
     }
     static inspect(project){
@@ -51,8 +51,8 @@
         if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol)eligible++;else if(automatic&&c.transition!=='cut')stale++}
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
-        const transitionDuration=finiteNumber(c.transitionDuration);
-        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!cg||transitionDuration>Math.min(2,cg.duration)+.0001))invalid++;
+        const transitionDuration=finiteNumber(c.transitionDuration),boundaryDuration=cg&&pg?Math.min(cg.duration,pg.duration):null;
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||boundaryDuration==null||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
@@ -82,7 +82,7 @@
           skipped++;continue
         }
         if(c.transition&&!automatic&&!force){preserved++;continue}
-        const type=this.preferred(c,i),duration=this.durationFor(project,c),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&automatic;
+        const type=this.preferred(c,i),duration=this.durationFor(project,c,prev),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&automatic;
         c.transition=type;c.transitionDuration=duration;c.autoTransition=true;if(!same)changed++;
       }
       return {changed,preserved,skipped,cleared,locked,invalidGeometry,generated:clips.length};
