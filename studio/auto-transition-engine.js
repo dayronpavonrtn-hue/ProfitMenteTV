@@ -38,7 +38,9 @@
       return TYPES[index%TYPES.length];
     }
     static durationFor(project,clip,previousClip=null){
-      const fps=fpsOf(project),g=geometry(clip),pg=geometry(previousClip),d=g?.duration??1,boundaryDuration=pg?Math.min(d,pg.duration):d,target=clamp(boundaryDuration*.08,.15,.42),max=Math.max(1/fps,Math.min(.65,boundaryDuration*.22));
+      const fps=fpsOf(project),g=geometry(clip),pg=geometry(previousClip),d=g?.duration??1,boundaryDuration=pg?Math.min(d,pg.duration):d;
+      if(boundaryDuration<1/fps-.0001)return null;
+      const target=clamp(boundaryDuration*.08,.15,.42),max=Math.max(1/fps,Math.min(.65,boundaryDuration*.22));
       return clamp(frame(target,fps),1/fps,frame(max,fps));
     }
     static inspect(project){
@@ -46,13 +48,13 @@
       const lockedTrack=trackLocked(project,0);
       for(let i=0;i<clips.length;i++){if(lockedTrack||clipLocked(clips[i]))locked++;if(!geometry(clips[i]))invalidGeometry++}
       for(let i=1;i<clips.length;i++){
-        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
+        const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c),boundaryDuration=cg&&pg?Math.min(cg.duration,pg.duration):null,boundaryUsable=boundaryDuration!=null&&boundaryDuration>=1/fps-.0001;
         if(lockedTrack||clipLocked(c)||clipLocked(prev))continue;
-        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol)eligible++;else if(automatic&&c.transition!=='cut')stale++}
+        if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol&&boundaryUsable)eligible++;else if(automatic&&c.transition!=='cut')stale++}
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
-        const transitionDuration=finiteNumber(c.transitionDuration),boundaryDuration=cg&&pg?Math.min(cg.duration,pg.duration):null;
-        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||boundaryDuration==null||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
+        const transitionDuration=finiteNumber(c.transitionDuration);
+        if(automatic&&c.transition!=='cut'&&(!TYPES.includes(c.transition)||transitionDuration==null||transitionDuration<1/fps-.0001||!boundaryUsable||transitionDuration>Math.min(2,boundaryDuration)+.0001))invalid++;
       }
       return {generated:clips.length,eligible,manual,invalid,stale,locked,invalidGeometry,fps};
     }
@@ -76,8 +78,8 @@
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
-        const gap=cg.start-(pg.start+pg.duration);
-        if(Math.abs(gap)>tol){
+        const gap=cg.start-(pg.start+pg.duration),boundaryDuration=Math.min(cg.duration,pg.duration);
+        if(Math.abs(gap)>tol||boundaryDuration<1/fps-.0001){
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
