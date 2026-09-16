@@ -38,11 +38,11 @@ const lockedClip={fps:30,clips:[
   {id:'b',track:0,sceneText:'b',start:2,duration:2,locked:true,transition:'zoom',transitionDuration:.3,autoTransition:true},
   {id:'c',track:0,sceneText:'c',start:4,duration:2}
 ]};
-const lockedClipBefore=structuredClone(lockedClip.clips.slice(0,2));
+const lockedClipBefore=structuredClone(lockedClip.clips);
 const lockedClipResult=Engine.apply(lockedClip,{force:true});
-assert.deepEqual(lockedClip.clips.slice(0,2),lockedClipBefore,'force must never change individually locked clips');
-assert.equal(lockedClipResult.locked,2);
-assert.equal(lockedClip.clips[2].autoTransition,true,'unlocked generated clips must remain eligible');
+assert.deepEqual(lockedClip.clips,lockedClipBefore,'force must not change locked clips or transition boundaries adjacent to them');
+assert.equal(lockedClipResult.locked,3,'both locked clips and the protected boundary after them must be skipped');
+assert.equal(lockedClip.clips[2].autoTransition,undefined,'an unlocked clip after a locked clip must keep its incoming boundary untouched');
 assert.equal(Engine.inspect(lockedClip).locked,2);
 
 for(const mapName of ['trackState','trackStates']){
