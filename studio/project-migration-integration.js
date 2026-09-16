@@ -1,9 +1,22 @@
 (()=>{
   if(typeof window==='undefined'||!window.ProfitMenteProjectMigrationEngine)return;
   const engine=new window.ProfitMenteProjectMigrationEngine();
+  function validateMigratedProject(value){
+    const ImportEngine=window.ProfitMenteProjectImportEngine;
+    if(typeof ImportEngine!=='function')return value;
+    const defaults=window.ProfitMenteProjectLibrary?.blank?.()||{};
+    const normalized=new ImportEngine(defaults).normalize(value);
+    if(value&&Object.prototype.hasOwnProperty.call(value,'libraryId'))normalized.libraryId=value.libraryId;
+    return normalized;
+  }
+  function migrateWithContract(value){
+    const result=engine.migrate(value);
+    if(!result||typeof result!=='object'||!result.project)throw new Error('La migración no produjo un proyecto válido');
+    return {...result,project:validateMigratedProject(result.project)};
+  }
   function normalizeAndStore(label='',announce=false){
     if(typeof project==='undefined'||!project)return {changed:false};
-    const result=engine.migrate(project);
+    const result=migrateWithContract(project);
     project=result.project;
     localStorage.setItem('profitmente-project',JSON.stringify(project));
     if(announce&&result.changed)setStatus?.(`${label||'Proyecto actualizado al formato actual'} · v${result.toVersion}`);
@@ -19,7 +32,7 @@
     }catch(err){console.error('ProfitMente project migration failed',err);setStatus?.('No se pudo migrar el proyecto guardado');return false}
   }
   function migrateImportedProject(value){
-    return engine.migrate(value).project;
+    return migrateWithContract(value).project;
   }
   function primitiveFinite(value){
     if(typeof value!=='number'&&typeof value!=='string')return null;
@@ -71,5 +84,5 @@
     wrapped.__profitmenteMigrationWrapped=true;
     persist=wrapped;
   }
-  window.ProfitMenteProjectMigration={engine,migrateCurrent,normalizeAndStore,migrateImportedProject,installProjectLibraryImportMigration};
+  window.ProfitMenteProjectMigration={engine,migrateCurrent,normalizeAndStore,migrateImportedProject,installProjectLibraryImportMigration,validateMigratedProject};
 })();
