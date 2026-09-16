@@ -92,6 +92,15 @@ function boot(initial={},options={}){
 
 {
   const {api}=boot({});
+  const base={clips:[{id:'clip-1',track:0,start:0,duration:4,visualKeyframes:[{time:1,x:0},{time:2,x:20}]}],duration:10,format:'9:16',mode:'Manual'};
+  assert.ok(api.normalizeProject(base),'distinct visual keyframe times remain valid at startup');
+  assert.equal(api.normalizeProject({...base,clips:[{...base.clips[0],visualKeyframes:[{time:1,x:0},{time:1,x:20}]}]}),null,'duplicate visual keyframe times must be rejected');
+  assert.equal(api.normalizeProject({...base,clips:[{...base.clips[0],visualKeyframes:[{time:1,x:0},{time:1.0005,x:20}]}]}),null,'ambiguous visual keyframe times inside 1ms must be rejected');
+  assert.ok(api.normalizeProject({...base,clips:[{...base.clips[0],visualKeyframes:[{time:1,x:0},{time:1.002,x:20}]}]}),'visual keyframes separated by more than 1ms remain valid');
+}
+
+{
+  const {api}=boot({});
   assert.equal(api.normalizeProject({clips:[],duration:' 3e1 '}).duration,30,'legacy numeric duration strings remain supported');
   for(const value of [true,false,null,[],[30],{}, {valueOf(){return 30}},'', '   ',Number.NaN,Infinity]){
     assert.equal(api.normalizeProject({clips:[],duration:value}),null,`invalid duration must be rejected: ${String(value)}`);
