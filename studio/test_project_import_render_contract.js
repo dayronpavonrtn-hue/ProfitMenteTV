@@ -4,12 +4,14 @@ const engine=new ProfitMenteProjectImportEngine();
 const base={version:'1.3',name:'Import test',mode:'Manual',duration:30,format:'9:16',fps:30,renderQuality:'high',clips:[]};
 function project(clip){return {...base,clips:[{id:'clip-1',track:0,start:0,duration:5,...clip}]}}
 function rejects(clip,pattern){assert.throws(()=>engine.normalize(project(clip)),pattern)}
-const valid=engine.normalize(project({asset:'media-1',muted:false,flipX:true,transition:'fade',transitionDuration:.4,fitMode:'contain',visualCrop:{left:5,right:10,top:0,bottom:15}}));
+const valid=engine.normalize(project({asset:'media-1',muted:false,flipX:true,transition:'fade',transitionDuration:.4,fitMode:'contain',visualCrop:{left:5,right:10,top:0,bottom:15},fadeIn:2,fadeOut:3}));
 assert.equal(valid.clips[0].asset,'media-1');
 assert.equal(valid.clips[0].flipX,true);
 assert.equal(valid.clips[0].transition,'fade');
 assert.equal(valid.clips[0].fitMode,'contain');
 assert.deepEqual(valid.clips[0].visualCrop,{left:5,right:10,top:0,bottom:15});
+assert.equal(valid.clips[0].fadeIn,2);
+assert.equal(valid.clips[0].fadeOut,3);
 assert.equal(engine.normalize({...base,mode:'Automático'}).mode,'Automático');
 assert.equal(engine.normalize({...base,mode:'Manual'}).mode,'Manual');
 assert.throws(()=>engine.normalize({...base,mode:'automatic'}),/Modo de editor inválido/);
@@ -19,6 +21,8 @@ rejects({asset:'   '},/Referencia de medio inválida/);
 rejects({asset:'x'.repeat(129)},/Referencia de medio inválida/);
 rejects({muted:'false'},/muted inválido/);
 rejects({flipY:1},/flipY inválido/);
+rejects({fadeIn:3,fadeOut:2.01},/Fades de audio solapados/);
+rejects({fadeIn:'3',fadeOut:'2.01'},/Fades de audio solapados/);
 rejects({transition:'wipe'},/Transición de video inválida/);
 rejects({fitMode:'stretch'},/Ajuste de video inválido/);
 rejects({transitionDuration:.01},/Duración de transición inválido/);
