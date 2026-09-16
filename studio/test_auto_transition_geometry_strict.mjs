@@ -62,6 +62,7 @@ for(const offset of [1/30,-1/30]){
   const inspection=Engine.inspect(oneFrameBoundary);
   assert.equal(inspection.eligible,0,'a one-frame gap or overlap is not a contiguous transition boundary');
   assert.equal(inspection.stale,1,'automatic transition on a one-frame gap or overlap must be stale');
+  assert.equal(inspection.invalid,1,'QC must reject an automatic transition that bridges a timeline gap or overlap');
   const result=Engine.apply(oneFrameBoundary);
   assert.equal(oneFrameBoundary.clips[1].transition,'cut','automation must not bridge a one-frame gap or overlap');
   assert.equal(oneFrameBoundary.clips[1].transitionDuration,undefined);
