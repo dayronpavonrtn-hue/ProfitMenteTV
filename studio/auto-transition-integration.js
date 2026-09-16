@@ -29,7 +29,7 @@
       }
       script=document.createElement('script');script.src=src;script.async=false;script.addEventListener('load',onload,{once:true});script.addEventListener('error',onerror,{once:true});document.body.appendChild(script);armTimeout();
     });
-    loads.set(src,promise);promise.catch(()=>loads.delete(src));return promise;
+    loads.set(src,promise);promise.then(()=>loads.delete(src),()=>loads.delete(src));return promise;
   }
   async function installPreviewRenderer(){
     try{await load('transition-preview-engine.js','ProfitMenteTransitionPreviewEngine');await load('transition-preview-integration.js','ProfitMenteTransitionPreview')}catch(error){console.error(error);setStatus?.('Transiciones configuradas · preview visual no disponible')}
