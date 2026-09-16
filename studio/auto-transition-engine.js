@@ -47,7 +47,7 @@
       for(let i=0;i<clips.length;i++){if(lockedTrack||clipLocked(clips[i]))locked++;if(!geometry(clips[i]))invalidGeometry++}
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
-        if(lockedTrack||clipLocked(c))continue;
+        if(lockedTrack||clipLocked(c)||clipLocked(prev))continue;
         if(cg&&pg){const gap=cg.start-(pg.start+pg.duration);if(Math.abs(gap)<=tol)eligible++;else if(automatic&&c.transition!=='cut')stale++}
         else if(automatic&&c.transition!=='cut')stale++;
         if(c.transition&&!automatic)manual++;
@@ -66,7 +66,7 @@
       else if(force||firstAutomatic||!first.transition){if(first.transition!=='cut'||first.transitionDuration!=null||!firstAutomatic){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
-        if(clipLocked(c)){
+        if(clipLocked(c)||clipLocked(prev)){
           locked++;
           if(!cg)invalidGeometry++;
           continue
