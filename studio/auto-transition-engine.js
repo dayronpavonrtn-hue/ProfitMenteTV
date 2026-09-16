@@ -65,12 +65,16 @@
       else if(force||firstAutomatic||!first.transition){if(first.transition!=='cut'||first.transitionDuration!=null||!firstAutomatic){first.transition='cut';delete first.transitionDuration;first.autoTransition=true;changed++}}
       for(let i=1;i<clips.length;i++){
         const c=clips[i],prev=clips[i-1],cg=geometry(c),pg=geometry(prev),automatic=autoTransitionEnabled(c);
+        if(clipLocked(c)){
+          locked++;
+          if(!cg)invalidGeometry++;
+          continue
+        }
         if(!cg||!pg){
           if(!cg)invalidGeometry++;
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
           skipped++;continue
         }
-        if(clipLocked(c)){locked++;continue}
         const gap=cg.start-(pg.start+pg.duration);
         if(Math.abs(gap)>tol){
           if(automatic&&(c.transition!=='cut'||c.transitionDuration!=null)){c.transition='cut';delete c.transitionDuration;changed++;cleared++}
