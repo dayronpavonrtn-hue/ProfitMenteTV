@@ -41,6 +41,14 @@ assert.equal(Engine.inspect(shortOutgoing).invalid,0,'automation must not genera
 const invalidOutgoing={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.1},{id:'b',track:0,sceneText:'b',start:.1,duration:4,transition:'fade',transitionDuration:.2,autoTransition:true}]};
 assert.equal(Engine.inspect(invalidOutgoing).invalid,1,'QC must reject automatic transitions longer than either adjacent clip');
 
+const subFrame={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.01},{id:'b',track:0,sceneText:'b',start:.01,duration:2,transition:'fade',transitionDuration:1/60,autoTransition:true}]};
+assert.equal(Engine.inspect(subFrame).eligible,0,'a boundary shorter than one frame cannot render a transition');
+assert.equal(Engine.inspect(subFrame).invalid,1,'QC must reject a transition when either adjacent clip is shorter than one frame');
+const subFrameResult=Engine.apply(subFrame);
+assert.equal(subFrame.clips[1].transition,'cut','automation must clear an impossible sub-frame transition');
+assert.equal(subFrame.clips[1].transitionDuration,undefined);
+assert.equal(subFrameResult.cleared,1);
+
 const lockedClip={fps:30,clips:[
   {id:'a',track:0,sceneText:'a',start:0,duration:2,locked:true,transition:'fade'},
   {id:'b',track:0,sceneText:'b',start:2,duration:2,locked:true,transition:'zoom',transitionDuration:.3,autoTransition:true},
