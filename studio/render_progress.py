@@ -22,6 +22,18 @@ def _clean_phase(value) -> str:
     return text[:120]
 
 
+def _clean_updated(value) -> float:
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    # Reject NaN/Infinity without adding a dependency: finite numbers are the
+    # only timestamps that remain unchanged after subtracting themselves.
+    if number != number or number in (float("inf"), float("-inf")):
+        return 0.0
+    return max(0.0, number)
+
+
 def write_progress(progress, phase, path=None) -> bool:
     """Atomically publish render progress. No-op when async progress is not requested."""
     target_value = path or os.environ.get(ENV_NAME)
@@ -58,5 +70,5 @@ def read_progress(path):
     return {
         "progress": _clean_progress(value.get("progress")),
         "phase": _clean_phase(value.get("phase")),
-        "updated": float(value.get("updated") or 0),
+        "updated": _clean_updated(value.get("updated")),
     }
