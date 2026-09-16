@@ -33,6 +33,14 @@ const short={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.2},{i
 Engine.apply(short);assert.ok(short.clips[1].transitionDuration<=.2+.0001);assert.equal((short.clips[1].transitionDuration*60)%1,0);
 assert.equal(Engine.inspect(short).invalid,0);
 
+const shortOutgoing={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.1},{id:'b',track:0,sceneText:'b',start:.1,duration:4}]};
+Engine.apply(shortOutgoing);
+assert.ok(shortOutgoing.clips[1].transitionDuration<=.1+.0001,'incoming transition must fit the shorter outgoing clip too');
+assert.equal((shortOutgoing.clips[1].transitionDuration*60)%1,0,'boundary-limited transition must remain frame aligned');
+assert.equal(Engine.inspect(shortOutgoing).invalid,0,'automation must not generate a transition invalid for the outgoing clip');
+const invalidOutgoing={fps:60,clips:[{id:'a',track:0,sceneText:'a',start:0,duration:.1},{id:'b',track:0,sceneText:'b',start:.1,duration:4,transition:'fade',transitionDuration:.2,autoTransition:true}]};
+assert.equal(Engine.inspect(invalidOutgoing).invalid,1,'QC must reject automatic transitions longer than either adjacent clip');
+
 const lockedClip={fps:30,clips:[
   {id:'a',track:0,sceneText:'a',start:0,duration:2,locked:true,transition:'fade'},
   {id:'b',track:0,sceneText:'b',start:2,duration:2,locked:true,transition:'zoom',transitionDuration:.3,autoTransition:true},
