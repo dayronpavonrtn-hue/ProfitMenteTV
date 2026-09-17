@@ -13,9 +13,16 @@
     return `s:${raw}`;
   };
   const finiteNumber=value=>{
-    if(value===undefined||value===null||value==='')return value;
+    if(value===undefined||value===null)return value;
+    if(typeof value==='string'&&!value.trim())return value;
     const numeric=Number(value);
     return Number.isFinite(numeric)?numeric:value;
+  };
+  const strictFiniteNumber=value=>{
+    if(typeof value==='number')return Number.isFinite(value)?value:null;
+    if(typeof value!=='string'||!value.trim())return null;
+    const numeric=Number(value);
+    return Number.isFinite(numeric)?numeric:null;
   };
 
   function normalizeTimingProject(project){
@@ -56,16 +63,16 @@
 
   function timingIssues(project){
     const issues=[];
-    const duration=Number(project?.duration);
-    if(!Number.isFinite(duration)||duration<=0)issues.push('Duración de proyecto inválida.');
+    const duration=strictFiniteNumber(project?.duration);
+    if(duration===null||duration<=0)issues.push('Duración de proyecto inválida.');
     for(const clip of Array.isArray(project?.clips)?project.clips:[]){
       if(!clip||typeof clip!=='object')continue;
       const label=clip.name||clip.id||'clip';
-      const start=Number(clip.start),clipDuration=Number(clip.duration);
-      if(!Number.isFinite(start))issues.push(`Inicio de clip inválido: ${label}`);
-      if(!Number.isFinite(clipDuration))issues.push(`Duración de clip inválida: ${label}`);
-      if(clip.sourceOffset!=null&&!Number.isFinite(Number(clip.sourceOffset)))issues.push(`Punto de entrada inválido: ${label}`);
-      if(clip.speed!=null&&!Number.isFinite(Number(clip.speed)))issues.push(`Velocidad de clip inválida: ${label}`);
+      const start=strictFiniteNumber(clip.start),clipDuration=strictFiniteNumber(clip.duration);
+      if(start===null)issues.push(`Inicio de clip inválido: ${label}`);
+      if(clipDuration===null)issues.push(`Duración de clip inválida: ${label}`);
+      if(clip.sourceOffset!=null&&strictFiniteNumber(clip.sourceOffset)===null)issues.push(`Punto de entrada inválido: ${label}`);
+      if(clip.speed!=null&&strictFiniteNumber(clip.speed)===null)issues.push(`Velocidad de clip inválida: ${label}`);
     }
     return issues;
   }
@@ -113,7 +120,7 @@
   };
   QA.prototype.__profitMenteMediaIdentityGuard=true;
 
-  root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
-  if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
 })(typeof window!=='undefined'?window:globalThis);
 if(typeof document!=='undefined'&&document.readyState==='loading'&&!globalThis.ProfitMenteQAStrictProjectGuard){document.write('<script src="qa-strict-project-guard.js"></scr'+'ipt>')}
