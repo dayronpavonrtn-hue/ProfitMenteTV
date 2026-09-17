@@ -82,8 +82,8 @@
 
   const supportLoads=new Map();
   function loadScriptOnce(src,key,onload){
-    const selector=`script[data-profitmente-${key}]`;
-    let script=document.querySelector(selector);
+    const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
+    let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key)||null;
     if(script?.dataset?.pmLoaded==='1'){
       onload?.();
       return Promise.resolve(script);
@@ -102,7 +102,7 @@
     if(!script){
       script=document.createElement('script');
       script.src=src;
-      script.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;
+      script.dataset[dataKey]=key;
       created=true;
     }
     const target=script;
