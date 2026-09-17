@@ -12,7 +12,9 @@ ENV_NAME = "PROFITMENTE_PROGRESS_FILE"
 def _clean_progress(value) -> int:
     try:
         number = int(round(float(value)))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # Progress is optional UI metadata. NaN/Infinity or otherwise malformed
+        # values must not interrupt rendering or progress polling.
         number = 0
     return max(0, min(99, number))
 
