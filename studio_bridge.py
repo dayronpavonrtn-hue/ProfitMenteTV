@@ -5,6 +5,8 @@ TRACKS = ['video','overlay','motion','captions','sfx','music','voice']
 SUPPORTED_FPS = (24, 30, 60)
 MIN_SPEED = 0.25
 MAX_SPEED = 4.0
+MIN_VOLUME = 0.0
+MAX_VOLUME = 2.0
 
 
 def finite_number(value, default=None):
@@ -48,6 +50,13 @@ def normalize_source_offset(value):
 def normalize_speed(value):
     number = finite_number(value, 1.0)
     return number if number is not None and MIN_SPEED <= number <= MAX_SPEED else 1.0
+
+
+def normalize_volume(value, default=1.0):
+    number = finite_number(value, default)
+    if number is None:
+        number = default
+    return min(MAX_VOLUME, max(MIN_VOLUME, number))
 
 
 def convert(project):
@@ -112,6 +121,13 @@ def convert(project):
                 'text': text if isinstance(text, str) else str(text or ''),
                 'animation':clip.get('animation') or 'pop_word',
                 'highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True))),
+            })
+        elif idx in (4, 5, 6):
+            default_volume = 0.22 if idx == 5 else 1.0
+            volume = normalize_volume(clip.get('volume'), default_volume)
+            item.update({
+                'volume': volume,
+                'gain_db': -120.0 if volume <= 0 else 20.0 * math.log10(volume),
             })
         tracks[TRACKS[idx]].append(item)
     return {
