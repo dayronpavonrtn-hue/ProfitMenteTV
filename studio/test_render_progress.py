@@ -21,6 +21,17 @@ def main():
         progress_file.write_bytes(b"{\xff\xfe\x80}")
         assert read_progress(progress_file) is None
 
+        # Malformed/non-finite progress values are optional UI metadata and must
+        # be sanitized rather than interrupting render progress polling.
+        for bad_progress in ("not-a-number", None, float("nan"), float("inf"), float("-inf")):
+            progress_file.write_text(
+                json.dumps({"progress": bad_progress, "phase": "Render local", "updated": 1}),
+                encoding="utf-8",
+            )
+            malformed_progress = read_progress(progress_file)
+            assert malformed_progress["progress"] == 0
+            assert malformed_progress["phase"] == "Render local"
+
         # Malformed/non-finite timestamps are optional metadata and must not make
         # an otherwise valid progress snapshot unreadable.
         for bad_updated in ("not-a-number", None, -12, float("nan"), float("inf"), float("-inf")):
