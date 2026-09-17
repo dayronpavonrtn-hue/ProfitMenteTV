@@ -3,6 +3,8 @@ from pathlib import Path
 
 TRACKS = ['video','overlay','motion','captions','sfx','music','voice']
 SUPPORTED_FPS = (24, 30, 60)
+MIN_SPEED = 0.25
+MAX_SPEED = 4.0
 
 
 def finite_number(value, default=None):
@@ -36,6 +38,16 @@ def normalize_fps(value, fallback=30):
     fallback_number = finite_number(fallback, 30)
     rounded = int(round(fallback_number)) if fallback_number is not None else 30
     return rounded if rounded in SUPPORTED_FPS else 30
+
+
+def normalize_source_offset(value):
+    number = finite_number(value, 0.0)
+    return number if number is not None and number >= 0 else 0.0
+
+
+def normalize_speed(value):
+    number = finite_number(value, 1.0)
+    return number if number is not None and MIN_SPEED <= number <= MAX_SPEED else 1.0
 
 
 def convert(project):
@@ -84,6 +96,8 @@ def convert(project):
             'start':start,
             'end':end,
             'asset_id':clip.get('asset'),
+            'source_offset':normalize_source_offset(clip.get('sourceOffset')),
+            'speed':normalize_speed(clip.get('speed')),
         }
         if idx==0:
             transition = clip.get('transition')
