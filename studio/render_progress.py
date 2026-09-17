@@ -22,14 +22,20 @@ def _clean_progress(value) -> int:
 
 
 def _clean_phase(value) -> str:
-    text = " ".join(str(value or "").strip().split())
+    try:
+        text = " ".join(str(value or "").strip().split())
+    except (TypeError, ValueError, OverflowError):
+        # Phase text is optional UI metadata just like the numeric progress.
+        # A malformed/custom value must never be able to abort a render merely
+        # because converting it to display text failed.
+        return ""
     return text[:120]
 
 
 def _clean_updated(value) -> float:
     try:
         number = float(value or 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0.0
     # Reject NaN/Infinity without adding a dependency: finite numbers are the
     # only timestamps that remain unchanged after subtracting themselves.
