@@ -85,12 +85,15 @@ def read_progress(path):
         return None
     target = pathlib.Path(path)
     try:
-        # A progress snapshot is tiny by contract. Refuse unexpectedly large files
-        # before reading them so a corrupt/stale path cannot waste memory on every
-        # render-server polling cycle.
-        if target.stat().st_size > MAX_PROGRESS_FILE_BYTES:
+        # Bound the actual read rather than trusting a separate stat(). The file can
+        # be replaced between stat and read while render stages publish atomically.
+        # Reading one sentinel byte beyond the protocol limit detects oversized
+        # snapshots without ever loading an unexpectedly large/corrupt file.
+        with target.open("rb") as handle:
+            raw = handle.read(MAX_PROGRESS_FILE_BYTES + 1)
+        if len(raw) > MAX_PROGRESS_FILE_BYTES:
             return None
-        value = json.loads(target.read_text(encoding="utf-8"))
+        value = json.loads(raw.decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         # The progress channel is optional. A partially written, corrupt, or
         # non-UTF8 snapshot must never interrupt the render server/UI polling.
