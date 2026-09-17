@@ -83,8 +83,11 @@
   const supportLoads=new Map();
   function loadScriptOnce(src,key,onload){
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
-    let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key)||null;
-    if(script?.dataset?.pmLoaded==='1'){
+    const absoluteSrc=new URL(src,document.baseURI).href;
+    let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key||node.src===absoluteSrc)||null;
+    if(script?.dataset?.pmLoaded==='1'||(script&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1')){
+      script.dataset.pmLoaded='1';
+      delete script.dataset.pmFailed;
       onload?.();
       return Promise.resolve(script);
     }
