@@ -98,14 +98,11 @@
   function loadScriptOnce(src,key,onload){
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
     const absoluteSrc=new URL(src,document.baseURI).href;
-    let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key||node.src===absoluteSrc)||null;
+    let script=Array.from(document.scripts||[]).find(node=>node.dataset?.pmFailed!=='1'&&(node.dataset?.[dataKey]===key||node.src===absoluteSrc))||null;
     const managed=script?.dataset?.[dataKey]===key;
     const expectedGlobal=supportGlobals[key];
     const ready=()=>!expectedGlobal||!!window[expectedGlobal];
     const staticReady=ready();
-    // A static engine may already have executed while the document is still
-    // parsing. In that case its load event is already gone; waiting for it
-    // would incorrectly time out and remove a perfectly healthy dependency.
     if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&expectedGlobal&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
@@ -113,7 +110,10 @@
       return Promise.resolve(script);
     }
     if(script?.dataset?.pmFailed==='1'||(script?.dataset?.pmLoaded==='1'&&!staticReady)||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
-      script.remove();
+      const failedScript=script;
+      failedScript.dataset.pmFailed='1';
+      delete failedScript.dataset.pmLoaded;
+      if(managed)failedScript.remove();
       script=null;
       supportLoads.delete(key);
     }
