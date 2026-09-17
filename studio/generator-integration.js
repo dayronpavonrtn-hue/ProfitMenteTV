@@ -195,13 +195,8 @@
   }
 
   function bootRecovery(){
-    if(window.ProfitMenteRecoveryEngine||document.querySelector('script[data-profitmente-recovery]'))return;
-    const core=document.createElement('script');core.src='recovery-engine.js';core.dataset.profitmenteRecovery='core';
-    core.onload=()=>{
-      if(document.querySelector('script[data-profitmente-recovery="integration"]'))return;
-      const integration=document.createElement('script');integration.src='recovery-integration.js';integration.dataset.profitmenteRecovery='integration';document.body.appendChild(integration);
-    };
-    document.body.appendChild(core);
+    if(window.ProfitMenteRecoveryEngine){loadScriptOnce('recovery-integration.js','recoveryIntegration');return}
+    loadScriptOnce('recovery-engine.js','recoveryEngine',()=>loadScriptOnce('recovery-integration.js','recoveryIntegration'));
   }
   if(document.readyState==='complete')bootSupportModules();else window.addEventListener('load',bootSupportModules,{once:true});
 })();
