@@ -15,6 +15,7 @@ function legacyNumericKey(value){
   return Number.isSafeInteger(number)&&number>=0&&String(number)===value?number:null;
 }
 function isCanonicalId(value,key){return typeof value==='string'&&value===key}
+function canonicalAsset(asset,key){return isCanonicalId(asset?.id,key)?asset:{...asset,id:key}}
 class ProfitMenteIndexedDbMediaBackend{
   constructor(indexedDBApi=globalThis.indexedDB){this.indexedDB=indexedDBApi}
   open(){return new Promise((resolve,reject)=>{if(!this.indexedDB){reject(new Error('IndexedDB no disponible'));return}let req;try{req=this.indexedDB.open(DB,1)}catch(error){reject(error);return}req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('No se pudo abrir IndexedDB'))})}
@@ -38,11 +39,11 @@ class ProfitMenteMediaStore{
       const values=this.replaceFromBackend(items);this.storageAvailable=true;this.lastError=null;this.loaded=true;return values;
     }catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}
   }
-  async put(asset){await this.putMany([asset]);return asset}
+  async put(asset){const [saved]=await this.putMany([asset]);return saved}
   async putMany(assets){
     const list=Array.from(assets||[]);if(!list.length)return [];
     const prepared=[];const seen=new Set();
-    for(const asset of list){const key=keyOf(asset?.id);if(!key)throw new Error('El medio necesita un id válido');if(seen.has(key))throw new Error(`El lote contiene un id de medio duplicado: ${key}`);seen.add(key);prepared.push([key,asset])}
+    for(const asset of list){const key=keyOf(asset?.id);if(!key)throw new Error('El medio necesita un id válido');if(seen.has(key))throw new Error(`El lote contiene un id de medio duplicado: ${key}`);seen.add(key);prepared.push([key,canonicalAsset(asset,key)])}
     for(const [key,asset] of prepared){this.memory.set(key,asset);this.pendingDeletes.delete(key);this.dirty.add(key)}this.revision++;
     await this.flush();if(this.dirty.size||this.pendingDeletes.size)await this.flush();return prepared.map(([,asset])=>asset)
   }
