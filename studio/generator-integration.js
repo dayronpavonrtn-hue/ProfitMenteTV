@@ -81,18 +81,34 @@
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
   const supportLoads=new Map();
+  const supportGlobals={
+    mediaReplaceEngine:'ProfitMenteMediaReplaceEngine',
+    renderJobClient:'ProfitMenteRenderJobClient',
+    visualGapEngine:'ProfitMenteVisualGapEngine',
+    projectVersionEngine:'ProfitMenteProjectVersionEngine',
+    subtitleExportEngine:'ProfitMenteSubtitleExportEngine',
+    renderRangeEngine:'ProfitMenteRenderRangeEngine',
+    projectResetEngine:'ProfitMenteProjectResetEngine',
+    audioNormalizeEngine:'ProfitMenteAudioNormalizeEngine',
+    safeAreaEngine:'ProfitMenteSafeAreaEngine',
+    projectImportEngine:'ProfitMenteProjectImportEngine',
+    portability:'ProfitMenteProjectPortability',
+    recoveryEngine:'ProfitMenteRecoveryEngine'
+  };
   function loadScriptOnce(src,key,onload){
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
     const absoluteSrc=new URL(src,document.baseURI).href;
     let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key||node.src===absoluteSrc)||null;
     const managed=script?.dataset?.[dataKey]===key;
-    if(script?.dataset?.pmLoaded==='1'||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1')){
+    const expectedGlobal=supportGlobals[key];
+    const staticReady=!expectedGlobal||!!window[expectedGlobal];
+    if(script?.dataset?.pmLoaded==='1'||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
       onload?.();
       return Promise.resolve(script);
     }
-    if(script?.dataset?.pmFailed==='1'){
+    if(script?.dataset?.pmFailed==='1'||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
       script.remove();
       script=null;
       supportLoads.delete(key);
