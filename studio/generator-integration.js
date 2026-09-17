@@ -80,9 +80,56 @@
   };
   topic.addEventListener('keydown',e=>{if(e.key==='Enter')btn.click()});
 
+  const supportLoads=new Map();
   function loadScriptOnce(src,key,onload){
-    if(document.querySelector(`script[data-profitmente-${key}]`)){onload?.();return}
-    const s=document.createElement('script');s.src=src;s.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;s.onload=()=>onload?.();document.body.appendChild(s);
+    const selector=`script[data-profitmente-${key}]`;
+    let script=document.querySelector(selector);
+    if(script?.dataset?.pmLoaded==='1'){
+      onload?.();
+      return Promise.resolve(script);
+    }
+    if(script?.dataset?.pmFailed==='1'){
+      script.remove();
+      script=null;
+      supportLoads.delete(key);
+    }
+    if(supportLoads.has(key)){
+      const pending=supportLoads.get(key);
+      if(onload)pending.then(()=>onload()).catch(()=>{});
+      return pending;
+    }
+    let created=false;
+    if(!script){
+      script=document.createElement('script');
+      script.src=src;
+      script.dataset[`profitmente${key[0].toUpperCase()+key.slice(1)}`]=key;
+      created=true;
+    }
+    const target=script;
+    const pending=new Promise((resolve,reject)=>{
+      let settled=false;
+      const finish=(ok,error)=>{
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        target.removeEventListener('load',loaded);
+        target.removeEventListener('error',failed);
+        supportLoads.delete(key);
+        if(ok){target.dataset.pmLoaded='1';delete target.dataset.pmFailed;onload?.();resolve(target);return}
+        target.dataset.pmFailed='1';
+        if(created)target.remove();
+        reject(error||new Error(`No se pudo cargar ${src}`));
+      };
+      const loaded=()=>finish(true);
+      const failed=()=>finish(false,new Error(`No se pudo cargar ${src}`));
+      target.addEventListener('load',loaded,{once:true});
+      target.addEventListener('error',failed,{once:true});
+      const timer=setTimeout(()=>finish(false,new Error(`Tiempo agotado cargando ${src}`)),5000);
+      if(created)document.body.appendChild(target);
+    });
+    supportLoads.set(key,pending);
+    pending.catch(error=>console.warn('ProfitMente support module unavailable:',error));
+    return pending;
   }
 
   loadScriptOnce('generator-autofill.js','generatorAutofill');
