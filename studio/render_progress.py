@@ -8,6 +8,7 @@ import tempfile
 import time
 
 ENV_NAME = "PROFITMENTE_PROGRESS_FILE"
+MAX_PROGRESS_FILE_BYTES = 64 * 1024
 
 
 def _clean_progress(value) -> int:
@@ -84,6 +85,11 @@ def read_progress(path):
         return None
     target = pathlib.Path(path)
     try:
+        # A progress snapshot is tiny by contract. Refuse unexpectedly large files
+        # before reading them so a corrupt/stale path cannot waste memory on every
+        # render-server polling cycle.
+        if target.stat().st_size > MAX_PROGRESS_FILE_BYTES:
+            return None
         value = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         # The progress channel is optional. A partially written, corrupt, or
