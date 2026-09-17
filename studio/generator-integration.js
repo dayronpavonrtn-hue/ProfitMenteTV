@@ -103,7 +103,10 @@
     const expectedGlobal=supportGlobals[key];
     const ready=()=>!expectedGlobal||!!window[expectedGlobal];
     const staticReady=ready();
-    if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
+    // A static engine may already have executed while the document is still
+    // parsing. In that case its load event is already gone; waiting for it
+    // would incorrectly time out and remove a perfectly healthy dependency.
+    if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&expectedGlobal&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
       onload?.();
@@ -219,10 +222,9 @@
     if(window.ProfitMenteProjectPortability){bootRecovery();return}
     loadScriptOnce('project-portability.js','portability',bootRecovery);
   }
-
   function bootRecovery(){
     if(window.ProfitMenteRecoveryEngine){loadScriptOnce('recovery-integration.js','recoveryIntegration');return}
     loadScriptOnce('recovery-engine.js','recoveryEngine',()=>loadScriptOnce('recovery-integration.js','recoveryIntegration'));
   }
-  if(document.readyState==='complete')bootSupportModules();else window.addEventListener('load',bootSupportModules,{once:true});
+  bootSupportModules();
 })();
