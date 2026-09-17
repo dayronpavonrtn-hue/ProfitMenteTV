@@ -18,6 +18,8 @@ def main():
         # Corrupt/partial snapshots must never break the render server.
         progress_file.write_text("{", encoding="utf-8")
         assert read_progress(progress_file) is None
+        progress_file.write_bytes(b"{\xff\xfe\x80}")
+        assert read_progress(progress_file) is None
 
         # Malformed/non-finite timestamps are optional metadata and must not make
         # an otherwise valid progress snapshot unreadable.
