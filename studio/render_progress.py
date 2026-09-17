@@ -63,7 +63,9 @@ def read_progress(path):
     target = pathlib.Path(path)
     try:
         value = json.loads(target.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        # The progress channel is optional. A partially written, corrupt, or
+        # non-UTF8 snapshot must never interrupt the render server/UI polling.
         return None
     if not isinstance(value, dict):
         return None
