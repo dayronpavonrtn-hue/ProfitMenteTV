@@ -84,6 +84,31 @@
     return issues;
   }
 
+  function mediaBoundsIssues(project,assets){
+    const issues=[];
+    const byId=new Map();
+    for(const asset of Array.isArray(assets)?assets:[]){
+      if(!asset||typeof asset!=='object'||asset.type==='image')continue;
+      const key=mediaIdKey(asset.id),duration=strictFiniteNumber(asset.duration);
+      if(key!==null&&duration!==null&&duration>0&&!byId.has(key))byId.set(key,{asset,duration});
+    }
+    for(const clip of Array.isArray(project?.clips)?project.clips:[]){
+      if(!clip||typeof clip!=='object')continue;
+      const key=mediaIdKey(clip.asset),source=key===null?null:byId.get(key);
+      if(!source)continue;
+      const clipDuration=strictFiniteNumber(clip.duration);
+      const sourceOffset=clip.sourceOffset==null?0:strictFiniteNumber(clip.sourceOffset);
+      const speed=clip.speed==null?1:strictFiniteNumber(clip.speed);
+      if(clipDuration===null||clipDuration<=0||sourceOffset===null||sourceOffset<0||speed===null||speed<MIN_CLIP_SPEED||speed>MAX_CLIP_SPEED)continue;
+      const sourceEnd=sourceOffset+clipDuration*speed;
+      if(sourceEnd>source.duration+1e-6){
+        const label=clip.name||clip.id||source.asset.name||'clip';
+        issues.push(`Clip excede la duración del medio fuente: ${label} requiere ${sourceEnd.toFixed(2)}s y el medio tiene ${source.duration.toFixed(2)}s.`);
+      }
+    }
+    return issues;
+  }
+
   function findCanonicalMediaCollisions(assets){
     const seen=new Map(),collisions=[];
     for(let index=0;index<(Array.isArray(assets)?assets.length:0);index++){
@@ -104,15 +129,16 @@
     const result=originalInspect.call(this,normalized.project,normalized.assets);
     const collisions=findCanonicalMediaCollisions(assets);
     const malformedTiming=timingIssues(project);
-    if(!collisions.length&&!malformedTiming.length)return result;
+    const sourceBounds=mediaBoundsIssues(project,assets);
+    if(!collisions.length&&!malformedTiming.length&&!sourceBounds.length)return result;
 
     const issues=Array.isArray(result.issues)?result.issues.slice():[];
-    for(const issue of malformedTiming)if(!issues.includes(issue))issues.push(issue);
+    for(const issue of [...malformedTiming,...sourceBounds])if(!issues.includes(issue))issues.push(issue);
     for(const collision of collisions){
       const first=assets[collision.firstIndex]||{},second=assets[collision.secondIndex]||{};
       issues.push(`IDs de medio ambiguos: ${first.name||`medio ${collision.firstIndex+1}`} y ${second.name||`medio ${collision.secondIndex+1}`} comparten el ID canónico "${collision.key}".`);
     }
-    const added=collisions.length+malformedTiming.length;
+    const added=collisions.length+malformedTiming.length+sourceBounds.length;
     return {
       ...result,
       ok:false,
@@ -121,13 +147,14 @@
       metrics:{
         ...(result.metrics||{}),
         ...(collisions.length?{mediaIdentityCollisions:collisions.length}:{}),
-        ...(malformedTiming.length?{invalidTimingFields:malformedTiming.length}:{})
+        ...(malformedTiming.length?{invalidTimingFields:malformedTiming.length}:{}),
+        ...(sourceBounds.length?{sourceBoundsErrors:sourceBounds.length}:{})
       }
     };
   };
   QA.prototype.__profitMenteMediaIdentityGuard=true;
 
-  root.ProfitMenteMediaIdentityGuard={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
-  if(typeof module!=='undefined'&&module.exports)module.exports={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  root.ProfitMenteMediaIdentityGuard={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,mediaBoundsIssues,findCanonicalMediaCollisions};
+  if(typeof module!=='undefined'&&module.exports)module.exports={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,mediaBoundsIssues,findCanonicalMediaCollisions};
 })(typeof window!=='undefined'?window:globalThis);
 if(typeof document!=='undefined'&&document.readyState==='loading'&&!globalThis.ProfitMenteQAStrictProjectGuard){document.write('<script src="qa-strict-project-guard.js"></scr'+'ipt>')}
