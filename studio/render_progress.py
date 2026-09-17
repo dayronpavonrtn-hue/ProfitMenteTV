@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import tempfile
 import time
 
 ENV_NAME = "PROFITMENTE_PROGRESS_FILE"
@@ -47,15 +48,34 @@ def write_progress(progress, phase, path=None) -> bool:
         "phase": _clean_phase(phase),
         "updated": time.time(),
     }
+    temporary = None
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_name(target.name + ".tmp")
-        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(target)
+        # Each writer gets its own temporary file. A fixed ``progress.json.tmp``
+        # can collide when render stages overlap, causing one process to replace
+        # another process's temporary file or fail with FileNotFoundError.
+        fd, temporary_name = tempfile.mkstemp(
+            prefix=target.name + ".",
+            suffix=".tmp",
+            dir=str(target.parent),
+        )
+        temporary = pathlib.Path(temporary_name)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+        temporary = None
         return True
     except OSError:
         # Rendering must never fail because the optional UI progress channel failed.
         return False
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def read_progress(path):
