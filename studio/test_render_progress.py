@@ -2,6 +2,7 @@
 import json
 import pathlib
 import tempfile
+import threading
 
 import studio_server
 from render_progress import read_progress, write_progress
@@ -14,6 +15,27 @@ def main():
         first = read_progress(progress_file)
         assert first["progress"] == 35
         assert first["phase"] == "Componiendo video y gráficos"
+
+        # Multiple local render stages may briefly overlap. Concurrent publishers
+        # must not fight over one fixed .tmp file or leave temporary debris behind.
+        barrier = threading.Barrier(8)
+        failures = []
+
+        def publish(index):
+            barrier.wait()
+            if not write_progress(index * 10, f"Etapa {index}", progress_file):
+                failures.append(index)
+
+        workers = [threading.Thread(target=publish, args=(index,)) for index in range(1, 9)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+        assert not failures
+        concurrent = read_progress(progress_file)
+        assert concurrent is not None
+        assert concurrent["phase"].startswith("Etapa ")
+        assert not list(pathlib.Path(td).glob("progress.json.*.tmp"))
 
         # Corrupt/partial snapshots must never break the render server.
         progress_file.write_text("{", encoding="utf-8")
