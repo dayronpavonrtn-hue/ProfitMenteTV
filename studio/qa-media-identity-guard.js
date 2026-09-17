@@ -69,10 +69,15 @@
       if(!clip||typeof clip!=='object')continue;
       const label=clip.name||clip.id||'clip';
       const start=strictFiniteNumber(clip.start),clipDuration=strictFiniteNumber(clip.duration);
-      if(start===null)issues.push(`Inicio de clip inválido: ${label}`);
-      if(clipDuration===null)issues.push(`Duración de clip inválida: ${label}`);
-      if(clip.sourceOffset!=null&&strictFiniteNumber(clip.sourceOffset)===null)issues.push(`Punto de entrada inválido: ${label}`);
-      if(clip.speed!=null&&strictFiniteNumber(clip.speed)===null)issues.push(`Velocidad de clip inválida: ${label}`);
+      const sourceOffset=clip.sourceOffset==null?null:strictFiniteNumber(clip.sourceOffset);
+      const speed=clip.speed==null?null:strictFiniteNumber(clip.speed);
+      if(start===null||start<0)issues.push(`Inicio de clip inválido: ${label}`);
+      if(clipDuration===null||clipDuration<=0)issues.push(`Duración de clip inválida: ${label}`);
+      if(clip.sourceOffset!=null&&(sourceOffset===null||sourceOffset<0))issues.push(`Punto de entrada inválido: ${label}`);
+      if(clip.speed!=null&&(speed===null||speed<=0))issues.push(`Velocidad de clip inválida: ${label}`);
+      if(duration!==null&&duration>0&&start!==null&&start>=0&&clipDuration!==null&&clipDuration>0&&start+clipDuration>duration+1e-6){
+        issues.push(`Clip fuera de la duración del proyecto: ${label}`);
+      }
     }
     return issues;
   }
