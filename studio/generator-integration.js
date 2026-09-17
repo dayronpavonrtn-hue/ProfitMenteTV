@@ -101,14 +101,15 @@
     let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key||node.src===absoluteSrc)||null;
     const managed=script?.dataset?.[dataKey]===key;
     const expectedGlobal=supportGlobals[key];
-    const staticReady=!expectedGlobal||!!window[expectedGlobal];
-    if(script?.dataset?.pmLoaded==='1'||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
+    const ready=()=>!expectedGlobal||!!window[expectedGlobal];
+    const staticReady=ready();
+    if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
       onload?.();
       return Promise.resolve(script);
     }
-    if(script?.dataset?.pmFailed==='1'||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
+    if(script?.dataset?.pmFailed==='1'||(script?.dataset?.pmLoaded==='1'&&!staticReady)||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
       script.remove();
       script=null;
       supportLoads.delete(key);
@@ -130,6 +131,10 @@
       let settled=false;
       const finish=(ok,error)=>{
         if(settled)return;
+        if(ok&&!ready()){
+          ok=false;
+          error=new Error(`El módulo ${src} cargó sin exponer ${expectedGlobal}`);
+        }
         settled=true;
         clearTimeout(timer);
         target.removeEventListener('load',loaded);
@@ -137,6 +142,7 @@
         supportLoads.delete(key);
         if(ok){target.dataset.pmLoaded='1';delete target.dataset.pmFailed;onload?.();resolve(target);return}
         target.dataset.pmFailed='1';
+        delete target.dataset.pmLoaded;
         if(created)target.remove();
         reject(error||new Error(`No se pudo cargar ${src}`));
       };
