@@ -82,22 +82,14 @@
 
   const supportLoads=new Map();
   const supportGlobals={
-    mediaReplaceEngine:'ProfitMenteMediaReplaceEngine',
-    renderJobClient:'ProfitMenteRenderJobClient',
-    visualGapEngine:'ProfitMenteVisualGapEngine',
-    projectVersionEngine:'ProfitMenteProjectVersionEngine',
-    subtitleExportEngine:'ProfitMenteSubtitleExportEngine',
-    renderRangeEngine:'ProfitMenteRenderRangeEngine',
-    projectResetEngine:'ProfitMenteProjectResetEngine',
-    audioNormalizeEngine:'ProfitMenteAudioNormalizeEngine',
-    safeAreaEngine:'ProfitMenteSafeAreaEngine',
-    projectImportEngine:'ProfitMenteProjectImportEngine',
-    portability:'ProfitMenteProjectPortability',
-    recoveryEngine:'ProfitMenteRecoveryEngine'
+    mediaReplaceEngine:'ProfitMenteMediaReplaceEngine',renderJobClient:'ProfitMenteRenderJobClient',visualGapEngine:'ProfitMenteVisualGapEngine',projectVersionEngine:'ProfitMenteProjectVersionEngine',subtitleExportEngine:'ProfitMenteSubtitleExportEngine',renderRangeEngine:'ProfitMenteRenderRangeEngine',projectResetEngine:'ProfitMenteProjectResetEngine',audioNormalizeEngine:'ProfitMenteAudioNormalizeEngine',safeAreaEngine:'ProfitMenteSafeAreaEngine',projectImportEngine:'ProfitMenteProjectImportEngine',portability:'ProfitMenteProjectPortability',recoveryEngine:'ProfitMenteRecoveryEngine'
   };
   const invokeSupportCallback=(callback,key)=>{
     if(!callback)return;
-    try{callback()}catch(error){console.warn(`ProfitMente support callback failed (${key}):`,error)}
+    try{
+      const result=callback();
+      if(result&&typeof result.then==='function')result.catch(error=>console.warn(`ProfitMente async support callback failed (${key}):`,error));
+    }catch(error){console.warn(`ProfitMente support callback failed (${key}):`,error)}
   };
   function loadScriptOnce(src,key,onload){
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
@@ -108,133 +100,43 @@
     const ready=()=>!expectedGlobal||!!window[expectedGlobal];
     const staticReady=ready();
     if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&expectedGlobal&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
-      script.dataset.pmLoaded='1';
-      delete script.dataset.pmFailed;
-      invokeSupportCallback(onload,key);
-      return Promise.resolve(script);
+      script.dataset.pmLoaded='1';delete script.dataset.pmFailed;invokeSupportCallback(onload,key);return Promise.resolve(script);
     }
     if(script?.dataset?.pmFailed==='1'||(script?.dataset?.pmLoaded==='1'&&!staticReady)||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
-      const failedScript=script;
-      failedScript.dataset.pmFailed='1';
-      delete failedScript.dataset.pmLoaded;
-      if(managed)failedScript.remove();
-      script=null;
-      supportLoads.delete(key);
+      const failedScript=script;failedScript.dataset.pmFailed='1';delete failedScript.dataset.pmLoaded;if(managed)failedScript.remove();script=null;supportLoads.delete(key);
     }
-    if(supportLoads.has(key)){
-      const pending=supportLoads.get(key);
-      if(onload)pending.then(()=>invokeSupportCallback(onload,key)).catch(()=>{});
-      return pending;
-    }
+    if(supportLoads.has(key)){const pending=supportLoads.get(key);if(onload)pending.then(()=>invokeSupportCallback(onload,key)).catch(()=>{});return pending}
     let created=false;
-    if(!script){
-      script=document.createElement('script');
-      script.src=src;
-      script.dataset[dataKey]=key;
-      created=true;
-    }
+    if(!script){script=document.createElement('script');script.src=src;script.dataset[dataKey]=key;created=true}
     const target=script;
     const pending=new Promise((resolve,reject)=>{
       let settled=false;
       const finish=(ok,error)=>{
         if(settled)return;
-        if(ok&&!ready()){
-          ok=false;
-          error=new Error(`El módulo ${src} cargó sin exponer ${expectedGlobal}`);
-        }
-        settled=true;
-        clearTimeout(timer);
-        target.removeEventListener('load',loaded);
-        target.removeEventListener('error',failed);
-        supportLoads.delete(key);
-        if(ok){
-          target.dataset.pmLoaded='1';
-          delete target.dataset.pmFailed;
-          resolve(target);
-          invokeSupportCallback(onload,key);
-          return;
-        }
-        target.dataset.pmFailed='1';
-        delete target.dataset.pmLoaded;
-        if(created)target.remove();
-        reject(error||new Error(`No se pudo cargar ${src}`));
+        if(ok&&!ready()){ok=false;error=new Error(`El módulo ${src} cargó sin exponer ${expectedGlobal}`)}
+        settled=true;clearTimeout(timer);target.removeEventListener('load',loaded);target.removeEventListener('error',failed);supportLoads.delete(key);
+        if(ok){target.dataset.pmLoaded='1';delete target.dataset.pmFailed;resolve(target);invokeSupportCallback(onload,key);return}
+        target.dataset.pmFailed='1';delete target.dataset.pmLoaded;if(created)target.remove();reject(error||new Error(`No se pudo cargar ${src}`));
       };
-      const loaded=()=>finish(true);
-      const failed=()=>finish(false,new Error(`No se pudo cargar ${src}`));
-      target.addEventListener('load',loaded,{once:true});
-      target.addEventListener('error',failed,{once:true});
+      const loaded=()=>finish(true),failed=()=>finish(false,new Error(`No se pudo cargar ${src}`));
+      target.addEventListener('load',loaded,{once:true});target.addEventListener('error',failed,{once:true});
       const timer=setTimeout(()=>finish(false,new Error(`Tiempo agotado cargando ${src}`)),5000);
       if(created)document.body.appendChild(target);
     });
-    supportLoads.set(key,pending);
-    pending.catch(error=>console.warn('ProfitMente support module unavailable:',error));
-    return pending;
+    supportLoads.set(key,pending);pending.catch(error=>console.warn('ProfitMente support module unavailable:',error));return pending;
   }
-
-  loadScriptOnce('generator-autofill.js','generatorAutofill');
-  loadScriptOnce('qa-autofix.js','qaAutofix',()=>loadScriptOnce('source-window-guard.js','sourceWindowGuard'));
-  loadScriptOnce('export-preflight.js','exportPreflight');
-  loadScriptOnce('post-render-report.js','postRenderReport');
-  loadScriptOnce('render-error-engine.js','renderErrorEngine');
-
-  function bootMediaReplacement(){
-    if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}
-    loadScriptOnce('media-replace-engine.js','mediaReplaceEngine',()=>loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration'));
-  }
-  function bootRenderJobs(){
-    if(window.ProfitMenteRenderJobClient){loadScriptOnce('render-job-integration.js','renderJobIntegration');return}
-    loadScriptOnce('render-job-client.js','renderJobClient',()=>loadScriptOnce('render-job-integration.js','renderJobIntegration'));
-  }
-  function bootVisualGaps(){
-    if(window.ProfitMenteVisualGapEngine){loadScriptOnce('visual-gap-integration.js','visualGapIntegration');return}
-    loadScriptOnce('visual-gap-engine.js','visualGapEngine',()=>loadScriptOnce('visual-gap-integration.js','visualGapIntegration'));
-  }
-  function bootProjectVersions(){
-    if(window.ProfitMenteProjectVersionEngine){loadScriptOnce('project-version-integration.js','projectVersionIntegration');return}
-    loadScriptOnce('project-version-engine.js','projectVersionEngine',()=>loadScriptOnce('project-version-integration.js','projectVersionIntegration'));
-  }
-  function bootSubtitleExport(){
-    if(window.ProfitMenteSubtitleExportEngine){loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration');return}
-    loadScriptOnce('subtitle-export-engine.js','subtitleExportEngine',()=>loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration'));
-  }
-  function bootRenderRange(){
-    if(window.ProfitMenteRenderRangeEngine){loadScriptOnce('render-range-integration.js','renderRangeIntegration');return}
-    loadScriptOnce('render-range-engine.js','renderRangeEngine',()=>loadScriptOnce('render-range-integration.js','renderRangeIntegration'));
-  }
-  function bootProjectReset(){
-    if(window.ProfitMenteProjectResetEngine){loadScriptOnce('project-reset-integration.js','projectResetIntegration');return}
-    loadScriptOnce('project-reset-engine.js','projectResetEngine',()=>loadScriptOnce('project-reset-integration.js','projectResetIntegration'));
-  }
-  function bootAudioNormalize(){
-    if(window.ProfitMenteAudioNormalizeEngine){loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration');return}
-    loadScriptOnce('audio-normalize-engine.js','audioNormalizeEngine',()=>loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration'));
-  }
-  function bootSafeArea(){
-    if(window.ProfitMenteSafeAreaEngine){loadScriptOnce('safe-area-integration.js','safeAreaIntegration');return}
-    loadScriptOnce('safe-area-engine.js','safeAreaEngine',()=>loadScriptOnce('safe-area-integration.js','safeAreaIntegration'));
-  }
-  function bootProjectImport(){
-    if(window.ProfitMenteProjectImportEngine){loadScriptOnce('project-import-integration.js','projectImportIntegration');return}
-    loadScriptOnce('project-import-engine.js','projectImportEngine',()=>loadScriptOnce('project-import-integration.js','projectImportIntegration'));
-  }
-
-  function bootSupportModules(){
-    bootMediaReplacement();
-    bootRenderJobs();
-    bootVisualGaps();
-    bootProjectVersions();
-    bootSubtitleExport();
-    bootRenderRange();
-    bootProjectReset();
-    bootAudioNormalize();
-    bootSafeArea();
-    bootProjectImport();
-    if(window.ProfitMenteProjectPortability){bootRecovery();return}
-    loadScriptOnce('project-portability.js','portability',bootRecovery);
-  }
-  function bootRecovery(){
-    if(window.ProfitMenteRecoveryEngine){loadScriptOnce('recovery-integration.js','recoveryIntegration');return}
-    loadScriptOnce('recovery-engine.js','recoveryEngine',()=>loadScriptOnce('recovery-integration.js','recoveryIntegration'));
-  }
+  loadScriptOnce('generator-autofill.js','generatorAutofill');loadScriptOnce('qa-autofix.js','qaAutofix',()=>loadScriptOnce('source-window-guard.js','sourceWindowGuard'));loadScriptOnce('export-preflight.js','exportPreflight');loadScriptOnce('post-render-report.js','postRenderReport');loadScriptOnce('render-error-engine.js','renderErrorEngine');
+  function bootMediaReplacement(){if(window.ProfitMenteMediaReplaceEngine){loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration');return}loadScriptOnce('media-replace-engine.js','mediaReplaceEngine',()=>loadScriptOnce('media-replace-integration.js','mediaReplaceIntegration'))}
+  function bootRenderJobs(){if(window.ProfitMenteRenderJobClient){loadScriptOnce('render-job-integration.js','renderJobIntegration');return}loadScriptOnce('render-job-client.js','renderJobClient',()=>loadScriptOnce('render-job-integration.js','renderJobIntegration'))}
+  function bootVisualGaps(){if(window.ProfitMenteVisualGapEngine){loadScriptOnce('visual-gap-integration.js','visualGapIntegration');return}loadScriptOnce('visual-gap-engine.js','visualGapEngine',()=>loadScriptOnce('visual-gap-integration.js','visualGapIntegration'))}
+  function bootProjectVersions(){if(window.ProfitMenteProjectVersionEngine){loadScriptOnce('project-version-integration.js','projectVersionIntegration');return}loadScriptOnce('project-version-engine.js','projectVersionEngine',()=>loadScriptOnce('project-version-integration.js','projectVersionIntegration'))}
+  function bootSubtitleExport(){if(window.ProfitMenteSubtitleExportEngine){loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration');return}loadScriptOnce('subtitle-export-engine.js','subtitleExportEngine',()=>loadScriptOnce('subtitle-export-integration.js','subtitleExportIntegration'))}
+  function bootRenderRange(){if(window.ProfitMenteRenderRangeEngine){loadScriptOnce('render-range-integration.js','renderRangeIntegration');return}loadScriptOnce('render-range-engine.js','renderRangeEngine',()=>loadScriptOnce('render-range-integration.js','renderRangeIntegration'))}
+  function bootProjectReset(){if(window.ProfitMenteProjectResetEngine){loadScriptOnce('project-reset-integration.js','projectResetIntegration');return}loadScriptOnce('project-reset-engine.js','projectResetEngine',()=>loadScriptOnce('project-reset-integration.js','projectResetIntegration'))}
+  function bootAudioNormalize(){if(window.ProfitMenteAudioNormalizeEngine){loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration');return}loadScriptOnce('audio-normalize-engine.js','audioNormalizeEngine',()=>loadScriptOnce('audio-normalize-integration.js','audioNormalizeIntegration'))}
+  function bootSafeArea(){if(window.ProfitMenteSafeAreaEngine){loadScriptOnce('safe-area-integration.js','safeAreaIntegration');return}loadScriptOnce('safe-area-engine.js','safeAreaEngine',()=>loadScriptOnce('safe-area-integration.js','safeAreaIntegration'))}
+  function bootProjectImport(){if(window.ProfitMenteProjectImportEngine){loadScriptOnce('project-import-integration.js','projectImportIntegration');return}loadScriptOnce('project-import-engine.js','projectImportEngine',()=>loadScriptOnce('project-import-integration.js','projectImportIntegration'))}
+  function bootSupportModules(){bootMediaReplacement();bootRenderJobs();bootVisualGaps();bootProjectVersions();bootSubtitleExport();bootRenderRange();bootProjectReset();bootAudioNormalize();bootSafeArea();bootProjectImport();if(window.ProfitMenteProjectPortability){bootRecovery();return}loadScriptOnce('project-portability.js','portability',bootRecovery)}
+  function bootRecovery(){if(window.ProfitMenteRecoveryEngine){loadScriptOnce('recovery-integration.js','recoveryIntegration');return}loadScriptOnce('recovery-engine.js','recoveryEngine',()=>loadScriptOnce('recovery-integration.js','recoveryIntegration'))}
   bootSupportModules();
 })();
