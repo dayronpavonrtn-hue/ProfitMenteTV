@@ -85,7 +85,8 @@
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
     const absoluteSrc=new URL(src,document.baseURI).href;
     let script=Array.from(document.scripts||[]).find(node=>node.dataset?.[dataKey]===key||node.src===absoluteSrc)||null;
-    if(script?.dataset?.pmLoaded==='1'||(script&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1')){
+    const managed=script?.dataset?.[dataKey]===key;
+    if(script?.dataset?.pmLoaded==='1'||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1')){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
       onload?.();
