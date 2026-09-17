@@ -3,6 +3,7 @@ import json
 import pathlib
 import tempfile
 import threading
+from unittest import mock
 
 import studio_server
 from render_progress import MAX_PROGRESS_FILE_BYTES, read_progress, write_progress
@@ -15,6 +16,12 @@ def main():
         first = read_progress(progress_file)
         assert first["progress"] == 35
         assert first["phase"] == "Componiendo video y gráficos"
+
+        # The reader must bound the bytes it actually consumes. A stat-then-read
+        # design is racy because atomic publishers can replace the path in between.
+        with mock.patch.object(pathlib.Path, "stat", side_effect=AssertionError("read_progress must not stat first")):
+            stat_free = read_progress(progress_file)
+        assert stat_free["progress"] == 35
 
         # Multiple local render stages may briefly overlap. Concurrent publishers
         # must not fight over one fixed .tmp file or leave temporary debris behind.
