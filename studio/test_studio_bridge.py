@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from studio_bridge import convert, normalize_fps, normalize_track
+from studio_bridge import convert, normalize_fps, normalize_source_offset, normalize_speed, normalize_track
 
 
 def test_track_aliases_and_asset_zero():
@@ -90,6 +90,29 @@ def test_manual_video_and_caption_choices_survive_bridge():
     assert caption['highlight_keywords'] is False
 
 
+def test_trim_and_speed_survive_bridge_with_safe_defaults():
+    project = {
+        'duration': 10,
+        'clips': [
+            {'id': 'trimmed', 'track': 0, 'start': 0, 'duration': 2, 'sourceOffset': 3.25, 'speed': 1.5},
+            {'id': 'bad-values', 'track': 4, 'start': 2, 'duration': 1, 'sourceOffset': -8, 'speed': 99},
+        ],
+    }
+    plan = convert(project)
+    trimmed = plan['tracks']['video'][0]
+    assert trimmed['source_offset'] == 3.25
+    assert trimmed['speed'] == 1.5
+    bad = plan['tracks']['sfx'][0]
+    assert bad['source_offset'] == 0.0
+    assert bad['speed'] == 1.0
+    assert normalize_source_offset('2.5') == 2.5
+    assert normalize_source_offset('bad') == 0.0
+    assert normalize_speed('0.25') == 0.25
+    assert normalize_speed(4) == 4
+    assert normalize_speed(0.1) == 1.0
+    assert normalize_speed(float('inf')) == 1.0
+
+
 def test_fps_and_project_defaults():
     assert normalize_track('05') == 5
     assert normalize_track('5.0') == 5
@@ -109,6 +132,7 @@ def run():
     test_invalid_tracks_are_skipped_without_crashing()
     test_timeline_bounds_and_bad_numeric_values()
     test_manual_video_and_caption_choices_survive_bridge()
+    test_trim_and_speed_survive_bridge_with_safe_defaults()
     test_fps_and_project_defaults()
     print('Studio bridge QA OK')
 
