@@ -95,6 +95,10 @@
     portability:'ProfitMenteProjectPortability',
     recoveryEngine:'ProfitMenteRecoveryEngine'
   };
+  const invokeSupportCallback=(callback,key)=>{
+    if(!callback)return;
+    try{callback()}catch(error){console.warn(`ProfitMente support callback failed (${key}):`,error)}
+  };
   function loadScriptOnce(src,key,onload){
     const dataKey=`profitmente${key[0].toUpperCase()+key.slice(1)}`;
     const absoluteSrc=new URL(src,document.baseURI).href;
@@ -106,7 +110,7 @@
     if((script?.dataset?.pmLoaded==='1'&&staticReady)||(script&&!managed&&expectedGlobal&&staticReady)||(script&&!managed&&document.readyState==='complete'&&script.dataset?.pmFailed!=='1'&&staticReady)){
       script.dataset.pmLoaded='1';
       delete script.dataset.pmFailed;
-      onload?.();
+      invokeSupportCallback(onload,key);
       return Promise.resolve(script);
     }
     if(script?.dataset?.pmFailed==='1'||(script?.dataset?.pmLoaded==='1'&&!staticReady)||(script&&!managed&&document.readyState==='complete'&&!staticReady)){
@@ -119,7 +123,7 @@
     }
     if(supportLoads.has(key)){
       const pending=supportLoads.get(key);
-      if(onload)pending.then(()=>onload()).catch(()=>{});
+      if(onload)pending.then(()=>invokeSupportCallback(onload,key)).catch(()=>{});
       return pending;
     }
     let created=false;
@@ -143,7 +147,13 @@
         target.removeEventListener('load',loaded);
         target.removeEventListener('error',failed);
         supportLoads.delete(key);
-        if(ok){target.dataset.pmLoaded='1';delete target.dataset.pmFailed;onload?.();resolve(target);return}
+        if(ok){
+          target.dataset.pmLoaded='1';
+          delete target.dataset.pmFailed;
+          resolve(target);
+          invokeSupportCallback(onload,key);
+          return;
+        }
         target.dataset.pmFailed='1';
         delete target.dataset.pmLoaded;
         if(created)target.remove();
