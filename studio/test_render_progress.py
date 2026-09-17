@@ -5,7 +5,7 @@ import tempfile
 import threading
 
 import studio_server
-from render_progress import read_progress, write_progress
+from render_progress import MAX_PROGRESS_FILE_BYTES, read_progress, write_progress
 
 
 def main():
@@ -41,6 +41,11 @@ def main():
         progress_file.write_text("{", encoding="utf-8")
         assert read_progress(progress_file) is None
         progress_file.write_bytes(b"{\xff\xfe\x80}")
+        assert read_progress(progress_file) is None
+
+        # Progress snapshots are tiny. A corrupt path pointing at a large file must
+        # be rejected before the polling loop attempts to read/parse the whole file.
+        progress_file.write_bytes(b"x" * (MAX_PROGRESS_FILE_BYTES + 1))
         assert read_progress(progress_file) is None
 
         # Malformed/non-finite progress values are optional UI metadata and must
