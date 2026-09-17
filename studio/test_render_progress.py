@@ -10,6 +10,12 @@ from render_progress import MAX_PROGRESS_FILE_BYTES, read_progress, write_progre
 
 
 def main():
+    # Progress reporting is optional and integrations can pass malformed path
+    # values. Those values must never abort the render or the polling endpoint.
+    invalid_path = object()
+    assert write_progress(10, "Render local", invalid_path) is False
+    assert read_progress(invalid_path) is None
+
     with tempfile.TemporaryDirectory(prefix="profitmente-progress-test-") as td:
         progress_file = pathlib.Path(td) / "progress.json"
         assert write_progress(35, "  Componiendo   video y gráficos  ", progress_file)
