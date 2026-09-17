@@ -10,7 +10,7 @@ function keyOf(value){
   return text||null;
 }
 function legacyNumericKey(value){
-  if(typeof value!=='string'||!^(0|[1-9]\d*)$/.test(value))return null;
+  if(typeof value!=='string'||!/^(0|[1-9]\d*)$/.test(value))return null;
   const number=Number(value);
   return Number.isSafeInteger(number)&&number>=0&&String(number)===value?number:null;
 }
