@@ -1,6 +1,6 @@
 class ProfitMenteQAEngine{
   inspect(project,assets){
-    const projectValid=!!project&&typeof project==='object'&&!Array.isArray(project);project=projectValid?project:{};assets=Array.isArray(assets)?assets:[];
+    const projectValid=!!project&&typeof project==='object'&&!Array.isArray(project);project=projectValid?project:{};assets=(Array.isArray(assets)?assets:[]).filter(a=>a&&typeof a==='object'&&!Array.isArray(a));
     const strictNumber=value=>{if(typeof value==='number')return Number.isFinite(value)?value:null;if(typeof value!=='string')return null;const text=value.trim();if(!text||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text))return null;const number=Number(text);return Number.isFinite(number)?number:null};
     const trackKey=value=>{const number=strictNumber(value);return number!==null&&Number.isSafeInteger(number)&&number>=0&&number<=6?number:null};
     const mediaIdKey=value=>{if(typeof value==='string'){const key=value.trim();return key||null}if(typeof value==='number'&&Number.isSafeInteger(value))return String(value);return null};
