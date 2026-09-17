@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from studio_bridge import convert, normalize_fps, normalize_source_offset, normalize_speed, normalize_track
+from studio_bridge import convert, normalize_fps, normalize_source_offset, normalize_speed, normalize_track, normalize_volume
 
 
 def test_track_aliases_and_asset_zero():
@@ -113,6 +113,31 @@ def test_trim_and_speed_survive_bridge_with_safe_defaults():
     assert normalize_speed(float('inf')) == 1.0
 
 
+def test_manual_audio_volume_survives_bridge():
+    project = {
+        'duration': 8,
+        'clips': [
+            {'id': 'music', 'track': 5, 'start': 0, 'duration': 8, 'volume': 0.22},
+            {'id': 'voice', 'track': 6, 'start': 0, 'duration': 8, 'volume': 1.5},
+            {'id': 'muted', 'track': 4, 'start': 1, 'duration': 1, 'volume': 0},
+            {'id': 'clamped', 'track': 4, 'start': 2, 'duration': 1, 'volume': 9},
+        ],
+    }
+    plan = convert(project)
+    music = plan['tracks']['music'][0]
+    voice = plan['tracks']['voice'][0]
+    muted, clamped = plan['tracks']['sfx']
+    assert music['volume'] == 0.22
+    assert math.isclose(music['gain_db'], 20 * math.log10(0.22))
+    assert voice['volume'] == 1.5
+    assert muted['volume'] == 0
+    assert muted['gain_db'] == -120.0
+    assert clamped['volume'] == 2.0
+    assert normalize_volume('bad', 0.22) == 0.22
+    assert normalize_volume(-1) == 0.0
+    assert normalize_volume(float('inf')) == 1.0
+
+
 def test_fps_and_project_defaults():
     assert normalize_track('05') == 5
     assert normalize_track('5.0') == 5
@@ -133,6 +158,7 @@ def run():
     test_timeline_bounds_and_bad_numeric_values()
     test_manual_video_and_caption_choices_survive_bridge()
     test_trim_and_speed_survive_bridge_with_safe_defaults()
+    test_manual_audio_volume_survives_bridge()
     test_fps_and_project_defaults()
     print('Studio bridge QA OK')
 
