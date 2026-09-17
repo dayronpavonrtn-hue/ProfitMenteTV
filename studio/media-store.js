@@ -9,12 +9,17 @@ function keyOf(value){
   const text=value.trim();
   return text||null;
 }
+function legacyNumericKey(value){
+  if(typeof value!=='string'||!^(0|[1-9]\d*)$/.test(value))return null;
+  const number=Number(value);
+  return Number.isSafeInteger(number)&&number>=0&&String(number)===value?number:null;
+}
 class ProfitMenteIndexedDbMediaBackend{
   constructor(indexedDBApi=globalThis.indexedDB){this.indexedDB=indexedDBApi}
   open(){return new Promise((resolve,reject)=>{if(!this.indexedDB){reject(new Error('IndexedDB no disponible'));return}let req;try{req=this.indexedDB.open(DB,1)}catch(error){reject(error);return}req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('No se pudo abrir IndexedDB'))})}
   async loadAll(){const db=await this.open();return new Promise((resolve,reject)=>{let req;try{req=db.transaction(STORE,'readonly').objectStore(STORE).getAll()}catch(error){db.close?.();reject(error);return}req.onsuccess=()=>{db.close?.();resolve(Array.isArray(req.result)?req.result:[])};req.onerror=()=>{db.close?.();reject(req.error||new Error('No se pudieron leer los medios'))}})}
   async putMany(assets){if(!assets.length)return;const db=await this.open();return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,'readwrite');const store=tx.objectStore(STORE);for(const asset of assets)store.put(asset)}catch(error){db.close?.();reject(error);return}tx.oncomplete=()=>{db.close?.();resolve()};tx.onerror=()=>{db.close?.();reject(tx.error||new Error('No se pudieron guardar los medios'))};tx.onabort=()=>{db.close?.();reject(tx.error||new Error('Guardado de medios abortado'))}})}
-  async deleteMany(ids){if(!ids.length)return;const db=await this.open();return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,'readwrite');const store=tx.objectStore(STORE);for(const id of ids)store.delete(id)}catch(error){db.close?.();reject(error);return}tx.oncomplete=()=>{db.close?.();resolve()};tx.onerror=()=>{db.close?.();reject(tx.error||new Error('No se pudieron eliminar los medios'))};tx.onabort=()=>{db.close?.();reject(tx.error||new Error('Eliminación de medios abortada'))}})}
+  async deleteMany(ids){if(!ids.length)return;const db=await this.open();return new Promise((resolve,reject)=>{let tx;try{tx=db.transaction(STORE,'readwrite');const store=tx.objectStore(STORE);for(const id of ids){store.delete(id);const legacy=legacyNumericKey(id);if(legacy!==null)store.delete(legacy)}}catch(error){db.close?.();reject(error);return}tx.oncomplete=()=>{db.close?.();resolve()};tx.onerror=()=>{db.close?.();reject(tx.error||new Error('No se pudieron eliminar los medios'))};tx.onabort=()=>{db.close?.();reject(tx.error||new Error('Eliminación de medios abortada'))}})}
 }
 class ProfitMenteMediaStore{
   constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null;this.revision=0}
