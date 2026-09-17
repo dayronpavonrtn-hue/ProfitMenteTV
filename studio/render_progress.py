@@ -49,7 +49,12 @@ def write_progress(progress, phase, path=None) -> bool:
     target_value = path or os.environ.get(ENV_NAME)
     if not target_value:
         return False
-    target = pathlib.Path(target_value)
+    # The progress channel is optional. Invalid path-like values supplied by an
+    # integration/environment must not be able to abort the actual render.
+    try:
+        target = pathlib.Path(target_value)
+    except (TypeError, ValueError, OSError):
+        return False
     payload = {
         "progress": _clean_progress(progress),
         "phase": _clean_phase(phase),
@@ -89,7 +94,10 @@ def read_progress(path):
     """Read and sanitize a progress snapshot; malformed/partial files are ignored."""
     if not path:
         return None
-    target = pathlib.Path(path)
+    try:
+        target = pathlib.Path(path)
+    except (TypeError, ValueError, OSError):
+        return None
     try:
         # Bound the actual read rather than trusting a separate stat(). The file can
         # be replaced between stat and read while render stages publish atomically.
