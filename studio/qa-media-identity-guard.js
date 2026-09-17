@@ -2,6 +2,8 @@
   const QA=root?.ProfitMenteQAEngine;
   if(!QA||QA.prototype.__profitMenteMediaIdentityGuard)return;
 
+  const MIN_CLIP_SPEED=0.25;
+  const MAX_CLIP_SPEED=4;
   const mediaIdKey=value=>{
     if(value===undefined||value===null)return null;
     const raw=String(value).trim();
@@ -74,7 +76,7 @@
       if(start===null||start<0)issues.push(`Inicio de clip inválido: ${label}`);
       if(clipDuration===null||clipDuration<=0)issues.push(`Duración de clip inválida: ${label}`);
       if(clip.sourceOffset!=null&&(sourceOffset===null||sourceOffset<0))issues.push(`Punto de entrada inválido: ${label}`);
-      if(clip.speed!=null&&(speed===null||speed<=0))issues.push(`Velocidad de clip inválida: ${label}`);
+      if(clip.speed!=null&&(speed===null||speed<MIN_CLIP_SPEED||speed>MAX_CLIP_SPEED))issues.push(`Velocidad de clip fuera de rango (${MIN_CLIP_SPEED}x-${MAX_CLIP_SPEED}x): ${label}`);
       if(duration!==null&&duration>0&&start!==null&&start>=0&&clipDuration!==null&&clipDuration>0&&start+clipDuration>duration+1e-6){
         issues.push(`Clip fuera de la duración del proyecto: ${label}`);
       }
@@ -125,7 +127,7 @@
   };
   QA.prototype.__profitMenteMediaIdentityGuard=true;
 
-  root.ProfitMenteMediaIdentityGuard={mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
-  if(typeof module!=='undefined'&&module.exports)module.exports={mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  root.ProfitMenteMediaIdentityGuard={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
+  if(typeof module!=='undefined'&&module.exports)module.exports={MIN_CLIP_SPEED,MAX_CLIP_SPEED,mediaIdKey,finiteNumber,strictFiniteNumber,normalizeTimingProject,normalizeMediaIdentity,timingIssues,findCanonicalMediaCollisions};
 })(typeof window!=='undefined'?window:globalThis);
 if(typeof document!=='undefined'&&document.readyState==='loading'&&!globalThis.ProfitMenteQAStrictProjectGuard){document.write('<script src="qa-strict-project-guard.js"></scr'+'ipt>')}
