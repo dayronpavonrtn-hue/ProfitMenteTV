@@ -74,8 +74,24 @@ def build_export(project, final=True):
     return {'ok': qa['ok'], 'project': export_project, 'plan': plan, 'qa': qa}
 
 
+def _sync_parent_directory(directory):
+    """Make a successful rename durable on filesystems that support directory fsync.
+
+    Windows does not expose POSIX directory fsync through Python, so the already-flushed
+    file + os.replace path remains the safe fallback there.
+    """
+    if os.name == 'nt' or not hasattr(os, 'O_DIRECTORY'):
+        return
+    flags = os.O_RDONLY | os.O_DIRECTORY
+    fd = os.open(str(directory), flags)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _atomic_write_json(destination, payload):
-    """Publish a complete export without exposing a partially written JSON file."""
+    """Publish a complete, crash-durable export without exposing partial JSON."""
     out = Path(destination)
     out.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(payload, ensure_ascii=False, indent=2)
@@ -86,6 +102,7 @@ def _atomic_write_json(destination, payload):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_name, out)
+        _sync_parent_directory(out.parent)
     except BaseException:
         try:
             os.unlink(temp_name)
