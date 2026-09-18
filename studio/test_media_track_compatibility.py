@@ -1,6 +1,13 @@
 """Regression checks for Studio's zero-cost media/track export gate."""
 
-from export_pipeline import validate_media_track_compatibility
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from studio.export_pipeline import validate_media_track_compatibility
 
 
 def project(asset_type, track, mime=None):
