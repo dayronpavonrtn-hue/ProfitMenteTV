@@ -29,6 +29,8 @@ def test_ready_project_reports_full_coverage():
     assert report['metrics']['visual_coverage_ratio'] == 1.0
     assert report['metrics']['unresolved_source_clips'] == 0
     assert report['metrics']['timeline_gaps'] == []
+    assert report['metrics']['video_overlaps'] == []
+    assert report['metrics']['voice_overlaps'] == []
     final = inspect_project(project, final=True)
     assert final['ok'] is True
     assert final['stage'] == 'final-render'
@@ -63,6 +65,55 @@ def test_unresolved_source_can_enter_generator_but_not_final_render():
     assert any('sin medio fuente' in blocker for blocker in final['blockers'])
 
 
+def test_main_video_overlap_is_warning_then_final_blocker():
+    project = {
+        'duration': 6,
+        'assets': [
+            {'id': 'a', 'type': 'video', 'duration': 4},
+            {'id': 'b', 'type': 'video', 'duration': 4},
+        ],
+        'clips': [
+            {'id': 'first', 'track': 0, 'asset': 'a', 'start': 0, 'duration': 4},
+            {'id': 'second', 'track': 0, 'asset': 'b', 'start': 3, 'duration': 3},
+        ],
+    }
+    generator = inspect_project(project)
+    assert generator['ok'] is True
+    assert generator['metrics']['video_overlaps'] == [
+        {'start': 3.0, 'end': 4.0, 'clip_ids': ['first', 'second']}
+    ]
+    assert any('solapamiento' in warning for warning in generator['warnings'])
+    final = inspect_project(project, final=True)
+    assert final['ok'] is False
+    assert any('pista principal de video' in blocker for blocker in final['blockers'])
+
+
+def test_voice_overlap_is_detected_but_music_layering_is_allowed():
+    project = {
+        'duration': 6,
+        'assets': [
+            {'id': 'v', 'type': 'video', 'duration': 6},
+            {'id': 'voice-a', 'type': 'audio', 'duration': 4},
+            {'id': 'voice-b', 'type': 'audio', 'duration': 4},
+            {'id': 'music-a', 'type': 'audio', 'duration': 6},
+            {'id': 'music-b', 'type': 'audio', 'duration': 6},
+        ],
+        'clips': [
+            {'id': 'video', 'track': 0, 'asset': 'v', 'start': 0, 'duration': 6},
+            {'id': 'voice1', 'track': 6, 'asset': 'voice-a', 'start': 0, 'duration': 4},
+            {'id': 'voice2', 'track': 6, 'asset': 'voice-b', 'start': 3, 'duration': 3},
+            {'id': 'music1', 'track': 5, 'asset': 'music-a', 'start': 0, 'duration': 6},
+            {'id': 'music2', 'track': 5, 'asset': 'music-b', 'start': 0, 'duration': 6},
+        ],
+    }
+    report = inspect_project(project)
+    assert len(report['metrics']['voice_overlaps']) == 1
+    assert any('pista de voz' in warning for warning in report['warnings'])
+    final = inspect_project(project, final=True)
+    assert final['ok'] is False
+    assert any('pista de voz' in blocker for blocker in final['blockers'])
+
+
 def test_no_visual_content_blocks_render_readiness():
     report = inspect_project({'duration': 5, 'clips': [
         {'id': 'caption', 'track': 3, 'start': 0, 'duration': 5, 'text': 'Solo texto'}
@@ -87,6 +138,8 @@ def run():
     test_ready_project_reports_full_coverage()
     test_visual_gaps_are_warning_for_generator_but_block_final_render()
     test_unresolved_source_can_enter_generator_but_not_final_render()
+    test_main_video_overlap_is_warning_then_final_blocker()
+    test_voice_overlap_is_detected_but_music_layering_is_allowed()
     test_no_visual_content_blocks_render_readiness()
     test_bridge_validation_becomes_qa_blocker()
     print('Studio render QA OK')
