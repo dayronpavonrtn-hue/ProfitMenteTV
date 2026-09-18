@@ -12,6 +12,7 @@ from studio_bridge import convert, is_temporal_asset, normalize_asset_id, normal
 def test_track_aliases_and_asset_zero():
     project = {
         'duration': 12, 'fps': 60,
+        'assets': [{'id': 0}, {'id': '07'}, {'id': 4}, {'id': 6}],
         'clips': [
             {'id': 'v0', 'track': '00', 'name': 'Video', 'start': 0, 'duration': 2, 'asset': 0},
             {'id': 'ov1', 'track': '1.0', 'name': 'Overlay', 'start': 1, 'duration': 2, 'asset': '07'},
@@ -68,6 +69,21 @@ def test_generator_bridge_blocks_known_source_overrun():
     assert convert(image)['tracks']['overlay'][0]['end'] == 8
     assert is_temporal_asset({'mime': 'audio/wav'}) is True
     assert is_temporal_asset({'type': 'image'}) is False
+
+
+def test_generator_bridge_blocks_dangling_media_reference():
+    project = {'duration': 5, 'assets': [{'id': 'known', 'type': 'video', 'duration': 5}], 'clips': [
+        {'id': 'missing-media', 'track': 0, 'asset': 'missing', 'start': 0, 'duration': 1}]}
+    try:
+        convert(project)
+    except ValueError as exc:
+        message = str(exc)
+        assert 'missing-media' in message
+        assert 'missing' in message
+    else:
+        raise AssertionError('dangling media reference must be blocked before render')
+    generated = convert({'duration': 5, 'clips': [{'id': 'caption-only', 'track': 3, 'start': 0, 'duration': 1, 'text': 'OK'}]})
+    assert generated['tracks']['captions'][0]['asset_id'] is None
 
 
 def test_invalid_tracks_are_skipped_without_crashing():
@@ -165,6 +181,7 @@ def run():
     test_track_aliases_and_asset_zero()
     test_media_ids_are_canonical_across_catalog_and_clips()
     test_generator_bridge_blocks_known_source_overrun()
+    test_generator_bridge_blocks_dangling_media_reference()
     test_invalid_tracks_are_skipped_without_crashing()
     test_timeline_bounds_and_bad_numeric_values()
     test_manual_video_and_caption_choices_survive_bridge()
