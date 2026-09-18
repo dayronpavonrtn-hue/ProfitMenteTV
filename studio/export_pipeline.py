@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -78,19 +79,14 @@ def _canonical_id(value):
             number = float(value)
         except (TypeError, ValueError):
             return None
-        if not number == number or number in (float('inf'), float('-inf')):
+        if not math.isfinite(number):
             return None
         return str(int(number)) if number.is_integer() else str(number)
     return None
 
 
 def validate_project_identity(project):
-    """Reject duplicate clip/asset IDs before bridge normalization can make them ambiguous.
-
-    Timeline editing, automation and media references address objects by ID. Silently accepting
-    duplicates can make an edit target one clip while render resolves another asset, so export
-    fails closed instead. Missing IDs remain allowed for backwards-compatible generated clips.
-    """
+    """Reject duplicate clip/asset IDs before bridge normalization can make them ambiguous."""
     if not isinstance(project, dict):
         raise TypeError('Proyecto inválido')
     problems = []
@@ -131,6 +127,43 @@ def _asset_kind(asset):
     return None
 
 
+def _positive_finite(value):
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number > 0 else None
+
+
+def validate_referenced_media_metadata(project):
+    """Fail early when referenced media carries corrupt metadata that the bridge would drop."""
+    if not isinstance(project, dict):
+        raise TypeError('Proyecto inválido')
+    assets = project.get('assets') if isinstance(project.get('assets'), list) else []
+    lookup = {_canonical_id(asset.get('id')): asset for asset in assets if isinstance(asset, dict) and _canonical_id(asset.get('id')) is not None}
+    clips = project.get('clips') if isinstance(project.get('clips'), list) else []
+    referenced = {_canonical_id(clip.get('asset')) for clip in clips if isinstance(clip, dict)}
+    problems = []
+    for asset_id in sorted(item for item in referenced if item is not None):
+        asset = lookup.get(asset_id)
+        if not isinstance(asset, dict):
+            continue  # studio_bridge owns missing-reference reporting
+        kind = _asset_kind(asset)
+        if kind in {'video', 'audio'} and 'duration' in asset and _positive_finite(asset.get('duration')) is None:
+            problems.append(f'Medio {asset_id!r}: duración inválida.')
+        if kind in {'video', 'image'}:
+            for field, label in (('width', 'ancho'), ('height', 'alto')):
+                if field in asset and _positive_finite(asset.get(field)) is None:
+                    problems.append(f'Medio {asset_id!r}: {label} inválido.')
+        if asset.get('mediaReadable') is False:
+            problems.append(f'Medio {asset_id!r}: Studio no pudo decodificarlo.')
+    if problems:
+        raise ValueError('Metadatos de medios inválidos: ' + ' | '.join(problems))
+    return True
+
+
 def validate_media_track_compatibility(project):
     """Fail before generator/render when a known media type is placed on an impossible track."""
     if not isinstance(project, dict):
@@ -140,9 +173,9 @@ def validate_media_track_compatibility(project):
     for asset in assets:
         if not isinstance(asset, dict):
             continue
-        asset_id = asset.get('id')
-        if asset_id is not None and not isinstance(asset_id, bool):
-            lookup[str(asset_id).strip()] = asset
+        asset_id = _canonical_id(asset.get('id'))
+        if asset_id is not None:
+            lookup[asset_id] = asset
 
     problems = []
     clips = project.get('clips') if isinstance(project.get('clips'), list) else []
@@ -150,10 +183,10 @@ def validate_media_track_compatibility(project):
         if not isinstance(clip, dict):
             continue
         track = _track_index(clip.get('track'))
-        asset_id = clip.get('asset')
-        if track is None or asset_id is None or isinstance(asset_id, bool):
+        asset_id = _canonical_id(clip.get('asset'))
+        if track is None or asset_id is None:
             continue
-        asset = lookup.get(str(asset_id).strip())
+        asset = lookup.get(asset_id)
         kind = _asset_kind(asset)
         if kind is None:
             continue
@@ -170,6 +203,7 @@ def validate_media_track_compatibility(project):
 def build_export(project, final=True):
     validate_project_identity(project)
     export_project = apply_export_track_state(project)
+    validate_referenced_media_metadata(export_project)
     validate_media_track_compatibility(export_project)
     plan = convert(export_project)
     qa = inspect_plan(plan, final=final)
