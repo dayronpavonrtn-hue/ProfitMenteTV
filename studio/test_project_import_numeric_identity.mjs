@@ -36,7 +36,10 @@ for(const [field,value] of [
   assert.throws(()=>engine.normalize({duration:12,format:'9:16',clips:[{id:`bad-${field}`,track:0,start:0,duration:4,[field]:value}]}),/inválido/,`${field} must reject non numeric primitives instead of coercing them`);
 }
 
-const fpsFallback=engine.normalize({duration:12,format:'9:16',fps:true,clips:[]});
-assert.equal(fpsFallback.fps,30,'malformed fps values must fall back instead of coercing booleans');
+for(const fps of [true,false,[],[30],{},null,'']){
+  assert.throws(()=>engine.normalize({duration:12,format:'9:16',fps,clips:[]}),/FPS de proyecto inválid/,`explicit malformed fps must be rejected instead of coerced: ${JSON.stringify(fps)}`);
+}
+const fpsDefault=engine.normalize({duration:12,format:'9:16',clips:[]});
+assert.equal(fpsDefault.fps,30,'missing fps must retain the documented 30 FPS default');
 
 console.log('Strict project import numeric identity QA passed');
