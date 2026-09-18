@@ -42,18 +42,42 @@ assert.equal(legacy.clips[0].duration,3);
 
 const animated=engine.normalize({...base,clips:[{
   id:'animated',track:0,start:1,duration:4,type:'video',
-  visualAdjustments:{brightness:'350',contrast:80,saturation:-10,grayscale:'25'},
+  visualAdjustments:{brightness:'300',contrast:80,saturation:0,grayscale:'25'},
   visualKeyframes:[
-    {time:4,x:250,y:-250,scale:99,rotation:7200,opacity:2,easing:'EASE-IN'},
     {time:1,x:10,y:20,scale:1.2,rotation:5,opacity:.8,easing:'hold'},
-    {time:1.0005,x:11,y:21,scale:1.3,rotation:6,opacity:.7,easing:'not-real'}
+    {time:4,x:200,y:-200,scale:8,rotation:3600,opacity:1,easing:'ease-in'}
   ]
 }]});
 assert.deepEqual(animated.clips[0].visualAdjustments,{brightness:300,contrast:80,saturation:0,grayscale:25});
-assert.equal(animated.clips[0].visualKeyframes.length,2,'near-duplicate imported keyframes should be deduplicated');
-assert.deepEqual(animated.clips[0].visualKeyframes[0],{time:1,x:11,y:21,scale:1.3,rotation:6,opacity:.7,easing:'linear'});
+assert.equal(animated.clips[0].visualKeyframes.length,2);
+assert.deepEqual(animated.clips[0].visualKeyframes[0],{time:1,x:10,y:20,scale:1.2,rotation:5,opacity:.8,easing:'hold'});
 assert.deepEqual(animated.clips[0].visualKeyframes[1],{time:4,x:200,y:-200,scale:8,rotation:3600,opacity:1,easing:'ease-in'});
 
+assert.throws(
+  ()=>engine.normalize({...base,clips:[{id:'bad-brightness',track:0,start:0,duration:2,visualAdjustments:{brightness:350}}]}),
+  /Ajuste visual brightness inválido/,
+  'out-of-range visual adjustments must be rejected instead of silently clamped'
+);
+assert.throws(
+  ()=>engine.normalize({...base,clips:[{id:'bad-saturation',track:0,start:0,duration:2,visualAdjustments:{saturation:-10}}]}),
+  /Ajuste visual saturation inválido/,
+  'negative saturation must be rejected instead of silently clamped'
+);
+assert.throws(
+  ()=>engine.normalize({...base,clips:[{id:'bad-kf-range',track:0,start:0,duration:2,visualKeyframes:[{time:1,x:250}]}]}),
+  /Posición X de keyframe inválida/,
+  'out-of-range keyframe values must be rejected instead of silently clamped'
+);
+assert.throws(
+  ()=>engine.normalize({...base,clips:[{id:'bad-kf-easing',track:0,start:0,duration:2,visualKeyframes:[{time:1,easing:'not-real'}]}]}),
+  /Easing de keyframe inválido/,
+  'unknown keyframe easing must be rejected instead of silently normalized'
+);
+assert.throws(
+  ()=>engine.normalize({...base,clips:[{id:'duplicate-kf',track:0,start:0,duration:2,visualKeyframes:[{time:1},{time:1.0005}]}]}),
+  /Tiempos de keyframe duplicados o ambiguos/,
+  'near-duplicate imported keyframes must be rejected instead of silently deduplicated'
+);
 assert.throws(
   ()=>engine.normalize({...base,clips:[{id:'bad-kf',track:0,start:0,duration:2,visualKeyframes:[{time:2.01}]}]}),
   /Tiempo de keyframe fuera del clip/,
