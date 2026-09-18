@@ -13,7 +13,7 @@ VISUAL_TRACKS = ('video', 'overlay', 'motion')
 AUDIO_TRACKS = ('sfx', 'music', 'voice')
 
 
-def _coverage(items, duration):
+def _spans(items, duration):
     spans = []
     for item in items:
         try:
@@ -22,7 +22,12 @@ def _coverage(items, duration):
             continue
         start, end = max(0.0, start), min(duration, end)
         if end > start:
-            spans.append((start, end))
+            spans.append((start, end, item.get('id')))
+    return spans
+
+
+def _coverage(items, duration):
+    spans = [(start, end) for start, end, _ in _spans(items, duration)]
     if not spans:
         return 0.0, [(0.0, duration)] if duration > 0 else []
     spans.sort()
@@ -43,6 +48,24 @@ def _coverage(items, duration):
     return covered, gaps
 
 
+def _overlaps(items, duration):
+    spans = sorted(_spans(items, duration), key=lambda span: (span[0], span[1]))
+    overlaps = []
+    active = []
+    for start, end, item_id in spans:
+        active = [span for span in active if span[1] > start + 1e-6]
+        for other_start, other_end, other_id in active:
+            overlap_end = min(end, other_end)
+            if overlap_end > start + 1e-6:
+                overlaps.append({
+                    'start': round(start, 6),
+                    'end': round(overlap_end, 6),
+                    'clip_ids': [other_id, item_id],
+                })
+        active.append((start, end, item_id))
+    return overlaps
+
+
 def inspect_plan(plan, final=False):
     if not isinstance(plan, dict):
         raise TypeError('Plan inválido')
@@ -53,6 +76,8 @@ def inspect_plan(plan, final=False):
     captions = [item for item in tracks.get('captions', []) if isinstance(item, dict)]
     covered, gaps = _coverage(visual, duration)
     ratio = covered / duration if duration > 0 else 0.0
+    video_overlaps = _overlaps(tracks.get('video', []), duration)
+    voice_overlaps = _overlaps(tracks.get('voice', []), duration)
     blockers, warnings = [], []
     if duration <= 0:
         blockers.append('La duración del proyecto no es válida.')
@@ -60,6 +85,12 @@ def inspect_plan(plan, final=False):
         blockers.append('No hay clips visuales para renderizar.')
     elif gaps:
         message = f'La imagen no cubre todo el proyecto: {len(gaps)} hueco(s) en timeline.'
+        (blockers if final else warnings).append(message)
+    if video_overlaps:
+        message = f'Hay {len(video_overlaps)} solapamiento(s) en la pista principal de video; revisa cortes y transiciones.'
+        (blockers if final else warnings).append(message)
+    if voice_overlaps:
+        message = f'Hay {len(voice_overlaps)} solapamiento(s) en la pista de voz; puede producir diálogo duplicado.'
         (blockers if final else warnings).append(message)
     if not audio:
         warnings.append('El proyecto no contiene pistas de audio.')
@@ -83,6 +114,8 @@ def inspect_plan(plan, final=False):
             'caption_clips': len(captions),
             'unresolved_source_clips': len(unresolved),
             'timeline_gaps': [{'start': round(a, 6), 'end': round(b, 6)} for a, b in gaps],
+            'video_overlaps': video_overlaps,
+            'voice_overlaps': voice_overlaps,
         },
     }
 
@@ -99,7 +132,7 @@ def main():
     parser = argparse.ArgumentParser(description='QA local y gratuito antes de generar o renderizar un proyecto de ProfitMente Studio.')
     parser.add_argument('project', help='JSON exportado por ProfitMente Studio')
     parser.add_argument('-o', '--output', help='Guardar reporte JSON opcional')
-    parser.add_argument('--final', action='store_true', help='Aplicar el gate estricto de render final: sin huecos ni medios sin resolver.')
+    parser.add_argument('--final', action='store_true', help='Aplicar el gate estricto de render final: sin huecos, solapamientos críticos ni medios sin resolver.')
     args = parser.parse_args()
     project = json.loads(Path(args.project).read_text(encoding='utf-8'))
     report = inspect_project(project, final=args.final)
