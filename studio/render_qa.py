@@ -66,6 +66,32 @@ def _overlaps(items, duration):
     return overlaps
 
 
+def _automation_state(tracks):
+    enabled, disabled, unresolved = [], [], []
+    for track_name, items in tracks.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get('automation'), dict):
+                continue
+            automation = item['automation']
+            entry = {
+                'clip_id': item.get('id'),
+                'track': track_name,
+                'start': automation.get('start'),
+                'end': automation.get('end'),
+            }
+            if automation.get('enabled') is False:
+                disabled.append(entry)
+                continue
+            enabled.append(entry)
+            # An enabled automation needs at least one actionable instruction.
+            # Otherwise the bridge preserved intent but no generator can know what to do.
+            if not automation.get('preset') and not automation.get('rule'):
+                unresolved.append(entry)
+    return enabled, disabled, unresolved
+
+
 def inspect_plan(plan, final=False):
     if not isinstance(plan, dict):
         raise TypeError('Plan inválido')
@@ -78,6 +104,7 @@ def inspect_plan(plan, final=False):
     ratio = covered / duration if duration > 0 else 0.0
     video_overlaps = _overlaps(tracks.get('video', []), duration)
     voice_overlaps = _overlaps(tracks.get('voice', []), duration)
+    automated, disabled_automation, unresolved_automation = _automation_state(tracks)
     blockers, warnings = [], []
     if duration <= 0:
         blockers.append('La duración del proyecto no es válida.')
@@ -91,6 +118,9 @@ def inspect_plan(plan, final=False):
         (blockers if final else warnings).append(message)
     if voice_overlaps:
         message = f'Hay {len(voice_overlaps)} solapamiento(s) en la pista de voz; puede producir diálogo duplicado.'
+        (blockers if final else warnings).append(message)
+    if unresolved_automation:
+        message = f'Hay {len(unresolved_automation)} automatización(es) activas sin preset ni regla; el generador debe resolverlas antes del render final.'
         (blockers if final else warnings).append(message)
     if not audio:
         warnings.append('El proyecto no contiene pistas de audio.')
@@ -113,6 +143,10 @@ def inspect_plan(plan, final=False):
             'audio_clips': len(audio),
             'caption_clips': len(captions),
             'unresolved_source_clips': len(unresolved),
+            'automation_enabled_clips': len(automated),
+            'automation_disabled_clips': len(disabled_automation),
+            'automation_unresolved_clips': len(unresolved_automation),
+            'automation_unresolved': unresolved_automation,
             'timeline_gaps': [{'start': round(a, 6), 'end': round(b, 6)} for a, b in gaps],
             'video_overlaps': video_overlaps,
             'voice_overlaps': voice_overlaps,
@@ -132,7 +166,7 @@ def main():
     parser = argparse.ArgumentParser(description='QA local y gratuito antes de generar o renderizar un proyecto de ProfitMente Studio.')
     parser.add_argument('project', help='JSON exportado por ProfitMente Studio')
     parser.add_argument('-o', '--output', help='Guardar reporte JSON opcional')
-    parser.add_argument('--final', action='store_true', help='Aplicar el gate estricto de render final: sin huecos, solapamientos críticos ni medios sin resolver.')
+    parser.add_argument('--final', action='store_true', help='Aplicar el gate estricto de render final: sin huecos, solapamientos críticos, automatizaciones pendientes ni medios sin resolver.')
     args = parser.parse_args()
     project = json.loads(Path(args.project).read_text(encoding='utf-8'))
     report = inspect_project(project, final=args.final)
