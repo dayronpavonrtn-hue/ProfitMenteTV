@@ -28,6 +28,8 @@ def test_ready_project_reports_full_coverage():
     assert report['warnings'] == []
     assert report['metrics']['visual_coverage_ratio'] == 1.0
     assert report['metrics']['unresolved_source_clips'] == 0
+    assert report['metrics']['automation_enabled_clips'] == 0
+    assert report['metrics']['automation_unresolved_clips'] == 0
     assert report['metrics']['timeline_gaps'] == []
     assert report['metrics']['video_overlaps'] == []
     assert report['metrics']['voice_overlaps'] == []
@@ -114,6 +116,42 @@ def test_voice_overlap_is_detected_but_music_layering_is_allowed():
     assert any('pista de voz' in blocker for blocker in final['blockers'])
 
 
+def test_enabled_automation_requires_action_before_final_render():
+    project = {
+        'duration': 4,
+        'assets': [{'id': 'v', 'type': 'video', 'duration': 4}],
+        'clips': [{'id': 'auto', 'track': 0, 'asset': 'v', 'start': 0, 'duration': 4,
+                   'automation': {'enabled': True, 'intensity': 0.8}}],
+    }
+    generator = inspect_project(project)
+    assert generator['ok'] is True
+    assert generator['metrics']['automation_enabled_clips'] == 1
+    assert generator['metrics']['automation_unresolved_clips'] == 1
+    assert generator['metrics']['automation_unresolved'][0]['clip_id'] == 'auto'
+    assert any('automatización' in warning for warning in generator['warnings'])
+    final = inspect_project(project, final=True)
+    assert final['ok'] is False
+    assert any('automatización' in blocker for blocker in final['blockers'])
+
+
+def test_actionable_and_disabled_automation_are_final_safe():
+    project = {
+        'duration': 4,
+        'assets': [{'id': 'v', 'type': 'video', 'duration': 4}],
+        'clips': [
+            {'id': 'auto', 'track': 0, 'asset': 'v', 'start': 0, 'duration': 4,
+             'automation': {'enabled': True, 'rule': 'beat-sync', 'intensity': 0.6}},
+            {'id': 'caption', 'track': 3, 'start': 0, 'duration': 2,
+             'automation': {'enabled': False}},
+        ],
+    }
+    final = inspect_project(project, final=True)
+    assert final['metrics']['automation_enabled_clips'] == 1
+    assert final['metrics']['automation_disabled_clips'] == 1
+    assert final['metrics']['automation_unresolved_clips'] == 0
+    assert not any('automatización' in blocker for blocker in final['blockers'])
+
+
 def test_no_visual_content_blocks_render_readiness():
     report = inspect_project({'duration': 5, 'clips': [
         {'id': 'caption', 'track': 3, 'start': 0, 'duration': 5, 'text': 'Solo texto'}
@@ -140,6 +178,8 @@ def run():
     test_unresolved_source_can_enter_generator_but_not_final_render()
     test_main_video_overlap_is_warning_then_final_blocker()
     test_voice_overlap_is_detected_but_music_layering_is_allowed()
+    test_enabled_automation_requires_action_before_final_render()
+    test_actionable_and_disabled_automation_are_final_safe()
     test_no_visual_content_blocks_render_readiness()
     test_bridge_validation_becomes_qa_blocker()
     print('Studio render QA OK')
