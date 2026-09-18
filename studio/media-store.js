@@ -26,7 +26,17 @@ class ProfitMenteIndexedDbMediaBackend{
 class ProfitMenteMediaStore{
   constructor(backend){this.backend=backend===undefined?new ProfitMenteIndexedDbMediaBackend():backend;this.memory=new Map();this.dirty=new Set();this.pendingDeletes=new Set();this.storageAvailable=true;this.loaded=false;this.lastError=null;this.flushPromise=null;this.revision=0}
   values(){return Array.from(this.memory.values())}
-  replaceFromBackend(items){this.memory.clear();const list=Array.isArray(items)?items:[];for(const asset of list){const key=keyOf(asset?.id);if(!key)continue;const current=this.memory.get(key);if(!current||(!isCanonicalId(current.id,key)&&isCanonicalId(asset.id,key)))this.memory.set(key,asset)}return this.values()}
+  replaceFromBackend(items){
+    this.memory.clear();
+    const list=Array.isArray(items)?items:[];
+    const grouped=new Map();
+    for(const asset of list){const key=keyOf(asset?.id);if(!key)continue;const group=grouped.get(key)||[];group.push(asset);grouped.set(key,group)}
+    for(const [key,group] of grouped){
+      if(group.length!==1)continue;
+      this.memory.set(key,canonicalAsset(group[0],key));
+    }
+    return this.values();
+  }
   async loadAll(){if(this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();if(!this.backend){this.storageAvailable=false;this.loaded=true;return this.values()}const revision=this.revision;try{const items=await this.backend.loadAll();if(this.revision!==revision||this.dirty.size||this.pendingDeletes.size||this.flushPromise)return this.values();const values=this.replaceFromBackend(items);this.storageAvailable=true;this.lastError=null;this.loaded=true;return values}catch(error){this.storageAvailable=false;this.lastError=error;this.loaded=true;return this.values()}}
   async refreshFromBackend(){
     if(this.flushPromise)await this.flushPromise;
