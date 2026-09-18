@@ -58,6 +58,7 @@ def normalize_asset_id(value):
         return value or None
     if isinstance(value, (int, float)):
         if isinstance(value, float) and not math.isfinite(value): return None
+        if float(value).is_integer(): return str(int(value))
         return str(value)
     return None
 
@@ -76,6 +77,10 @@ def normalize_assets(value):
             if isinstance(field_value, str) and field_value.strip(): item[field] = field_value.strip()
         duration = finite_number(asset.get('duration'))
         if duration is not None and duration > 0: item['duration'] = duration
+        for field in ('width', 'height', 'size'):
+            number = finite_number(asset.get(field))
+            if number is not None and number > 0: item[field] = int(round(number))
+        if isinstance(asset.get('mediaReadable'), bool): item['media_readable'] = asset['mediaReadable']
         result.append(item)
     return result
 
@@ -93,6 +98,9 @@ def validate_asset_reference(asset_id, asset_lookup, clip_id=None):
     if asset is None:
         label = clip_id if clip_id is not None else 'clip'
         raise ValueError(f'Clip {label!r} referencia un medio inexistente: {asset_id!r}')
+    if asset.get('media_readable') is False:
+        label = clip_id if clip_id is not None else 'clip'
+        raise ValueError(f'Clip {label!r} referencia un medio que Studio no pudo decodificar: {asset_id!r}')
     return asset
 
 
