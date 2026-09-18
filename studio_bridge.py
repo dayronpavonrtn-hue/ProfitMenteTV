@@ -87,6 +87,15 @@ def is_temporal_asset(asset):
     return kind in ('video', 'audio') or mime.startswith(('video/', 'audio/'))
 
 
+def validate_asset_reference(asset_id, asset_lookup, clip_id=None):
+    if asset_id is None: return None
+    asset = asset_lookup.get(asset_id)
+    if asset is None:
+        label = clip_id if clip_id is not None else 'clip'
+        raise ValueError(f'Clip {label!r} referencia un medio inexistente: {asset_id!r}')
+    return asset
+
+
 def validate_source_bounds(item, asset, clip_id=None):
     if not is_temporal_asset(asset) or 'duration' not in asset: return
     source_duration = asset['duration']
@@ -126,8 +135,9 @@ def convert(project):
         name = clip.get('name', 'Clip')
         if not isinstance(name, str): name = str(name) if name is not None else 'Clip'
         asset_id = normalize_asset_id(clip.get('asset'))
+        asset = validate_asset_reference(asset_id, asset_lookup, clip.get('id'))
         item={'id':clip.get('id'),'name':name,'start':start,'end':end,'asset_id':asset_id,'source_offset':normalize_source_offset(clip.get('sourceOffset')),'speed':normalize_speed(clip.get('speed'))}
-        validate_source_bounds(item, asset_lookup.get(asset_id), clip.get('id'))
+        validate_source_bounds(item, asset, clip.get('id'))
         if idx==0:
             transition = clip.get('transition')
             item.update({'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut','zoom_from':1.0,'zoom_to':1.03})
