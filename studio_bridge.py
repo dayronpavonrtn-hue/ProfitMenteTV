@@ -10,23 +10,17 @@ MAX_VOLUME = 2.0
 
 
 def finite_number(value, default=None):
-    if value is None or isinstance(value, bool):
-        return default
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return default
+    if value is None or isinstance(value, bool): return default
+    try: number = float(value)
+    except (TypeError, ValueError): return default
     return number if math.isfinite(number) else default
 
 
 def normalize_track(value):
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, str) and not value.strip():
-        return None
+    if value is None or isinstance(value, bool): return None
+    if isinstance(value, str) and not value.strip(): return None
     number = finite_number(value)
-    if number is None or not number.is_integer():
-        return None
+    if number is None or not number.is_integer(): return None
     index = int(number)
     return index if 0 <= index < len(TRACKS) else None
 
@@ -35,8 +29,7 @@ def normalize_fps(value, fallback=30):
     number = finite_number(value)
     if number is not None:
         rounded = int(round(number))
-        if rounded in SUPPORTED_FPS:
-            return rounded
+        if rounded in SUPPORTED_FPS: return rounded
     fallback_number = finite_number(fallback, 30)
     rounded = int(round(fallback_number)) if fallback_number is not None else 30
     return rounded if rounded in SUPPORTED_FPS else 30
@@ -54,125 +47,77 @@ def normalize_speed(value):
 
 def normalize_volume(value, default=1.0):
     number = finite_number(value, default)
-    if number is None:
-        number = default
+    if number is None: number = default
     return min(MAX_VOLUME, max(MIN_VOLUME, number))
 
 
-def normalize_assets(value):
-    """Keep only portable media metadata from Studio exports.
+def normalize_asset_id(value):
+    if value is None or isinstance(value, bool): return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and not math.isfinite(value): return None
+        return str(value)
+    return None
 
-    Browser Blob/File objects are intentionally not part of the bridge JSON.  The
-    catalog gives generator/preflight code enough identity/type information to
-    resolve supplied media without silently losing the Studio library context.
-    """
-    if not isinstance(value, list):
-        return []
-    result = []
-    seen = set()
+
+def normalize_assets(value):
+    if not isinstance(value, list): return []
+    result, seen = [], set()
     for asset in value:
-        if not isinstance(asset, dict):
-            continue
-        asset_id = asset.get('id')
-        if asset_id is None or isinstance(asset_id, bool):
-            continue
-        key = (type(asset_id).__name__, str(asset_id))
-        if key in seen:
-            continue
-        seen.add(key)
+        if not isinstance(asset, dict): continue
+        asset_id = normalize_asset_id(asset.get('id'))
+        if asset_id is None or asset_id in seen: continue
+        seen.add(asset_id)
         item = {'id': asset_id}
         for field in ('name', 'type', 'mime'):
             field_value = asset.get(field)
-            if isinstance(field_value, str) and field_value.strip():
-                item[field] = field_value.strip()
+            if isinstance(field_value, str) and field_value.strip(): item[field] = field_value.strip()
         duration = finite_number(asset.get('duration'))
-        if duration is not None and duration > 0:
-            item['duration'] = duration
+        if duration is not None and duration > 0: item['duration'] = duration
         result.append(item)
     return result
 
 
 def convert(project):
-    if not isinstance(project, dict):
-        raise TypeError('Proyecto inválido')
-
+    if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     duration = finite_number(project.get('duration'), 45.0)
-    if duration is None or duration <= 0:
-        duration = 45.0
-
+    if duration is None or duration <= 0: duration = 45.0
     fmt = str(project.get('format') or '9:16').strip()
     sizes = {'9:16':(1080,1920),'16:9':(1920,1080),'1:1':(1080,1080)}
-    if fmt not in sizes:
-        fmt = '9:16'
+    if fmt not in sizes: fmt = '9:16'
     width,height = sizes[fmt]
     fps = normalize_fps(project.get('fps'), 30)
-
     tracks={k:[] for k in TRACKS}
     clips = project.get('clips', [])
-    if not isinstance(clips, list):
-        clips = []
-
+    if not isinstance(clips, list): clips = []
     for clip in clips:
-        if not isinstance(clip, dict):
-            continue
+        if not isinstance(clip, dict): continue
         idx = normalize_track(clip.get('track'))
-        if idx is None:
-            continue
+        if idx is None: continue
         start = max(0.0, finite_number(clip.get('start'), 0.0))
-        if start >= duration:
-            continue
+        if start >= duration: continue
         clip_duration = finite_number(clip.get('duration'), 1.0)
-        if clip_duration is None:
-            clip_duration = 1.0
+        if clip_duration is None: clip_duration = 1.0
         clip_duration = max(0.05, clip_duration)
         end = min(duration, start + clip_duration)
-        if end <= start:
-            continue
-
+        if end <= start: continue
         name = clip.get('name', 'Clip')
-        if not isinstance(name, str):
-            name = str(name) if name is not None else 'Clip'
-        item={
-            'id':clip.get('id'),
-            'name':name,
-            'start':start,
-            'end':end,
-            'asset_id':clip.get('asset'),
-            'source_offset':normalize_source_offset(clip.get('sourceOffset')),
-            'speed':normalize_speed(clip.get('speed')),
-        }
+        if not isinstance(name, str): name = str(name) if name is not None else 'Clip'
+        item={'id':clip.get('id'),'name':name,'start':start,'end':end,'asset_id':normalize_asset_id(clip.get('asset')),'source_offset':normalize_source_offset(clip.get('sourceOffset')),'speed':normalize_speed(clip.get('speed'))}
         if idx==0:
             transition = clip.get('transition')
-            item.update({
-                'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut',
-                'zoom_from':1.0,
-                'zoom_to':1.03,
-            })
+            item.update({'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut','zoom_from':1.0,'zoom_to':1.03})
         elif idx==3:
             text = clip.get('text', name)
-            item.update({
-                'text': text if isinstance(text, str) else str(text or ''),
-                'animation':clip.get('animation') or 'pop_word',
-                'highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True))),
-            })
+            item.update({'text': text if isinstance(text, str) else str(text or ''),'animation':clip.get('animation') or 'pop_word','highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True)))})
         elif idx in (4, 5, 6):
             default_volume = 0.22 if idx == 5 else 1.0
             volume = normalize_volume(clip.get('volume'), default_volume)
-            item.update({
-                'volume': volume,
-                'gain_db': -120.0 if volume <= 0 else 20.0 * math.log10(volume),
-            })
+            item.update({'volume': volume,'gain_db': -120.0 if volume <= 0 else 20.0 * math.log10(volume)})
         tracks[TRACKS[idx]].append(item)
-    return {
-        'source':'ProfitMente Studio',
-        'project_name':project.get('name','Nuevo video'),
-        'mode':project.get('mode','Manual'),
-        'format':{'width':width,'height':height,'fps':fps},
-        'duration':duration,
-        'assets':normalize_assets(project.get('assets')),
-        'tracks':tracks,
-        'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True},
-    }
+    return {'source':'ProfitMente Studio','project_name':project.get('name','Nuevo video'),'mode':project.get('mode','Manual'),'format':{'width':width,'height':height,'fps':fps},'duration':duration,'assets':normalize_assets(project.get('assets')),'tracks':tracks,'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True}}
 
 
 def main():
@@ -187,5 +132,4 @@ def main():
     print(out)
 
 
-if __name__=='__main__':
-    main()
+if __name__=='__main__': main()
