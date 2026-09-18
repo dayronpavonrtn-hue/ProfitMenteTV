@@ -23,13 +23,18 @@ def test_ready_project_reports_full_coverage():
     }
     report = inspect_project(project)
     assert report['ok'] is True
+    assert report['stage'] == 'generator'
     assert report['blockers'] == []
     assert report['warnings'] == []
     assert report['metrics']['visual_coverage_ratio'] == 1.0
+    assert report['metrics']['unresolved_source_clips'] == 0
     assert report['metrics']['timeline_gaps'] == []
+    final = inspect_project(project, final=True)
+    assert final['ok'] is True
+    assert final['stage'] == 'final-render'
 
 
-def test_visual_gaps_are_visible_before_render():
+def test_visual_gaps_are_warning_for_generator_but_block_final_render():
     project = {'duration': 6, 'clips': [
         {'id': 'a', 'track': 0, 'start': 0, 'duration': 2},
         {'id': 'b', 'track': 1, 'start': 4, 'duration': 2},
@@ -39,6 +44,23 @@ def test_visual_gaps_are_visible_before_render():
     assert report['metrics']['visual_coverage_seconds'] == 4
     assert report['metrics']['timeline_gaps'] == [{'start': 2.0, 'end': 4.0}]
     assert any('hueco' in warning for warning in report['warnings'])
+    final = inspect_project(project, final=True)
+    assert final['ok'] is False
+    assert any('hueco' in blocker for blocker in final['blockers'])
+    assert any('sin medio fuente' in blocker for blocker in final['blockers'])
+
+
+def test_unresolved_source_can_enter_generator_but_not_final_render():
+    project = {'duration': 5, 'clips': [
+        {'id': 'generated-later', 'track': 0, 'start': 0, 'duration': 5},
+    ]}
+    generator = inspect_project(project)
+    assert generator['ok'] is True
+    assert generator['metrics']['unresolved_source_clips'] == 1
+    final = inspect_project(project, final=True)
+    assert final['ok'] is False
+    assert final['metrics']['unresolved_source_clips'] == 1
+    assert any('sin medio fuente' in blocker for blocker in final['blockers'])
 
 
 def test_no_visual_content_blocks_render_readiness():
@@ -63,7 +85,8 @@ def test_bridge_validation_becomes_qa_blocker():
 
 def run():
     test_ready_project_reports_full_coverage()
-    test_visual_gaps_are_visible_before_render()
+    test_visual_gaps_are_warning_for_generator_but_block_final_render()
+    test_unresolved_source_can_enter_generator_but_not_final_render()
     test_no_visual_content_blocks_render_readiness()
     test_bridge_validation_becomes_qa_blocker()
     print('Studio render QA OK')
