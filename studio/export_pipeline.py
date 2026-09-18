@@ -193,6 +193,8 @@ def validate_media_track_compatibility(project):
         clip_id = clip.get('id', clip.get('name', 'clip'))
         if track in {0, 1, 2} and kind == 'audio':
             problems.append(f'Clip {clip_id!r}: medio de audio no puede usarse en pista visual {track}.')
+        elif track == 3:
+            problems.append(f'Clip {clip_id!r}: la pista 3 es exclusiva para captions y no acepta medios {kind}.')
         elif track in AUDIO_TRACKS and kind != 'audio':
             problems.append(f'Clip {clip_id!r}: medio {kind} no puede usarse en pista de audio {track}.')
     if problems:
