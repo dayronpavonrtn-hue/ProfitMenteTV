@@ -1,5 +1,7 @@
 import copy
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from studio_bridge import convert
@@ -72,10 +74,36 @@ def build_export(project, final=True):
     return {'ok': qa['ok'], 'project': export_project, 'plan': plan, 'qa': qa}
 
 
-def export_file(source, destination, final=True):
-    project = json.loads(Path(source).read_text(encoding='utf-8'))
-    result = build_export(project, final=final)
+def _atomic_write_json(destination, payload):
+    """Publish a complete export without exposing a partially written JSON file."""
     out = Path(destination)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    fd, temp_name = tempfile.mkstemp(prefix=f'.{out.name}.', suffix='.tmp', dir=str(out.parent))
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, out)
+    except BaseException:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def export_file(source, destination, final=True):
+    """Build and atomically publish an export only after its requested QA gate passes.
+
+    A failed final-render gate must never overwrite a previously valid export. Generator
+    exports use the same rule for hard blockers while retaining generator-stage warnings.
+    """
+    project = json.loads(Path(source).read_text(encoding='utf-8'))
+    result = build_export(project, final=final)
+    if not result['ok']:
+        blockers = result.get('qa', {}).get('blockers') or ['QA bloqueó la exportación.']
+        raise ValueError('Exportación bloqueada por QA: ' + ' | '.join(str(item) for item in blockers))
+    _atomic_write_json(destination, result)
     return result
