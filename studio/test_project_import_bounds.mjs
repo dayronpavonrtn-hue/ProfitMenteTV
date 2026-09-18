@@ -65,7 +65,7 @@ assert.throws(
 );
 assert.throws(
   ()=>engine.normalize({...base,clips:[{id:'bad-kf-range',track:0,start:0,duration:2,visualKeyframes:[{time:1,x:250}]}]}),
-  /Posición X de keyframe inválida/,
+  /Posición X de keyframe inválid[oa]/,
   'out-of-range keyframe values must be rejected instead of silently clamped'
 );
 assert.throws(
