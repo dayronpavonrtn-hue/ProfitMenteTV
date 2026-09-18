@@ -67,8 +67,64 @@ def apply_export_track_state(project):
     return clean
 
 
+def _asset_kind(asset):
+    """Return image/video/audio when metadata is conclusive; otherwise None."""
+    if not isinstance(asset, dict):
+        return None
+    raw_type = str(asset.get('type') or '').strip().lower()
+    mime = str(asset.get('mime') or '').strip().lower()
+    if raw_type in {'image', 'video', 'audio'}:
+        return raw_type
+    for kind in ('image', 'video', 'audio'):
+        if mime.startswith(kind + '/'):
+            return kind
+    return None
+
+
+def validate_media_track_compatibility(project):
+    """Fail before generator/render when a known media type is placed on an impossible track.
+
+    Unknown metadata stays permissive for backwards compatibility. Caption clips are text
+    and may legitimately have no asset. Video/overlay/motion accept image or video; the
+    audio tracks accept audio only.
+    """
+    if not isinstance(project, dict):
+        raise TypeError('Proyecto inválido')
+    assets = project.get('assets') if isinstance(project.get('assets'), list) else []
+    lookup = {}
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        asset_id = asset.get('id')
+        if asset_id is not None and not isinstance(asset_id, bool):
+            lookup[str(asset_id).strip()] = asset
+
+    problems = []
+    clips = project.get('clips') if isinstance(project.get('clips'), list) else []
+    for clip in clips:
+        if not isinstance(clip, dict):
+            continue
+        track = _track_index(clip.get('track'))
+        asset_id = clip.get('asset')
+        if track is None or asset_id is None or isinstance(asset_id, bool):
+            continue
+        asset = lookup.get(str(asset_id).strip())
+        kind = _asset_kind(asset)
+        if kind is None:
+            continue
+        clip_id = clip.get('id', clip.get('name', 'clip'))
+        if track in {0, 1, 2} and kind == 'audio':
+            problems.append(f'Clip {clip_id!r}: medio de audio no puede usarse en pista visual {track}.')
+        elif track in AUDIO_TRACKS and kind != 'audio':
+            problems.append(f'Clip {clip_id!r}: medio {kind} no puede usarse en pista de audio {track}.')
+    if problems:
+        raise ValueError('Medios incompatibles con el timeline: ' + ' | '.join(problems))
+    return True
+
+
 def build_export(project, final=True):
     export_project = apply_export_track_state(project)
+    validate_media_track_compatibility(export_project)
     plan = convert(export_project)
     qa = inspect_plan(plan, final=final)
     return {'ok': qa['ok'], 'project': export_project, 'plan': plan, 'qa': qa}
