@@ -59,6 +59,39 @@ def normalize_volume(value, default=1.0):
     return min(MAX_VOLUME, max(MIN_VOLUME, number))
 
 
+def normalize_assets(value):
+    """Keep only portable media metadata from Studio exports.
+
+    Browser Blob/File objects are intentionally not part of the bridge JSON.  The
+    catalog gives generator/preflight code enough identity/type information to
+    resolve supplied media without silently losing the Studio library context.
+    """
+    if not isinstance(value, list):
+        return []
+    result = []
+    seen = set()
+    for asset in value:
+        if not isinstance(asset, dict):
+            continue
+        asset_id = asset.get('id')
+        if asset_id is None or isinstance(asset_id, bool):
+            continue
+        key = (type(asset_id).__name__, str(asset_id))
+        if key in seen:
+            continue
+        seen.add(key)
+        item = {'id': asset_id}
+        for field in ('name', 'type', 'mime'):
+            field_value = asset.get(field)
+            if isinstance(field_value, str) and field_value.strip():
+                item[field] = field_value.strip()
+        duration = finite_number(asset.get('duration'))
+        if duration is not None and duration > 0:
+            item['duration'] = duration
+        result.append(item)
+    return result
+
+
 def convert(project):
     if not isinstance(project, dict):
         raise TypeError('Proyecto inválido')
@@ -136,6 +169,7 @@ def convert(project):
         'mode':project.get('mode','Manual'),
         'format':{'width':width,'height':height,'fps':fps},
         'duration':duration,
+        'assets':normalize_assets(project.get('assets')),
         'tracks':tracks,
         'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True},
     }
