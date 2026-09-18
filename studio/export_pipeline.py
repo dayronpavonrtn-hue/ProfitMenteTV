@@ -57,7 +57,7 @@ def apply_export_track_state(project):
             return False
         track = _track_index(clip.get('track'))
         if track is None:
-            return True  # let the bridge own malformed-track handling
+            return True
         state = states[track]
         if track in VISUAL_TRACKS:
             return not state['hidden'] and (not visual_solo or track in visual_solo)
@@ -65,6 +65,56 @@ def apply_export_track_state(project):
 
     clean['clips'] = [clip for clip in clips if active(clip)]
     return clean
+
+
+def _canonical_id(value):
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    if isinstance(value, (int, float)):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not number == number or number in (float('inf'), float('-inf')):
+            return None
+        return str(int(number)) if number.is_integer() else str(number)
+    return None
+
+
+def validate_project_identity(project):
+    """Reject duplicate clip/asset IDs before bridge normalization can make them ambiguous.
+
+    Timeline editing, automation and media references address objects by ID. Silently accepting
+    duplicates can make an edit target one clip while render resolves another asset, so export
+    fails closed instead. Missing IDs remain allowed for backwards-compatible generated clips.
+    """
+    if not isinstance(project, dict):
+        raise TypeError('Proyecto inválido')
+    problems = []
+    for field, label in (('assets', 'medio'), ('clips', 'clip')):
+        values = project.get(field)
+        if not isinstance(values, list):
+            continue
+        seen = set()
+        duplicates = set()
+        for item in values:
+            if not isinstance(item, dict):
+                continue
+            item_id = _canonical_id(item.get('id'))
+            if item_id is None:
+                continue
+            if item_id in seen:
+                duplicates.add(item_id)
+            seen.add(item_id)
+        if duplicates:
+            joined = ', '.join(repr(item_id) for item_id in sorted(duplicates))
+            problems.append(f'ID(s) de {label} duplicado(s): {joined}.')
+    if problems:
+        raise ValueError('Identidad de proyecto ambigua: ' + ' | '.join(problems))
+    return True
 
 
 def _asset_kind(asset):
@@ -82,12 +132,7 @@ def _asset_kind(asset):
 
 
 def validate_media_track_compatibility(project):
-    """Fail before generator/render when a known media type is placed on an impossible track.
-
-    Unknown metadata stays permissive for backwards compatibility. Caption clips are text
-    and may legitimately have no asset. Video/overlay/motion accept image or video; the
-    audio tracks accept audio only.
-    """
+    """Fail before generator/render when a known media type is placed on an impossible track."""
     if not isinstance(project, dict):
         raise TypeError('Proyecto inválido')
     assets = project.get('assets') if isinstance(project.get('assets'), list) else []
@@ -123,6 +168,7 @@ def validate_media_track_compatibility(project):
 
 
 def build_export(project, final=True):
+    validate_project_identity(project)
     export_project = apply_export_track_state(project)
     validate_media_track_compatibility(export_project)
     plan = convert(export_project)
@@ -131,11 +177,6 @@ def build_export(project, final=True):
 
 
 def _sync_parent_directory(directory):
-    """Make a successful rename durable on filesystems that support directory fsync.
-
-    Windows does not expose POSIX directory fsync through Python, so the already-flushed
-    file + os.replace path remains the safe fallback there.
-    """
     if os.name == 'nt' or not hasattr(os, 'O_DIRECTORY'):
         return
     flags = os.O_RDONLY | os.O_DIRECTORY
@@ -168,11 +209,7 @@ def _atomic_write_json(destination, payload):
 
 
 def export_file(source, destination, final=True):
-    """Build and atomically publish an export only after its requested QA gate passes.
-
-    A failed final-render gate must never overwrite a previously valid export. Generator
-    exports use the same rule for hard blockers while retaining generator-stage warnings.
-    """
+    """Build and atomically publish an export only after its requested QA gate passes."""
     project = json.loads(Path(source).read_text(encoding='utf-8'))
     result = build_export(project, final=final)
     if not result['ok']:
