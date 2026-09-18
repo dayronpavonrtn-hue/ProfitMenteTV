@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from studio_bridge import convert, normalize_asset_id, normalize_assets, normalize_fps, normalize_source_offset, normalize_speed, normalize_track, normalize_volume
+from studio_bridge import convert, is_temporal_asset, normalize_asset_id, normalize_assets, normalize_fps, normalize_source_offset, normalize_speed, normalize_track, normalize_volume
 
 
 def test_track_aliases_and_asset_zero():
@@ -44,11 +44,30 @@ def test_media_ids_are_canonical_across_catalog_and_clips():
     plan = convert(project)
     assert [asset['id'] for asset in plan['assets']] == ['7', 'media-a']
     assert plan['tracks']['video'][0]['asset_id'] == '7'
+    assert plan['tracks']['video'][0]['source_duration'] == 5
+    assert plan['tracks']['video'][0]['source_end'] == 2
     assert plan['tracks']['overlay'][0]['asset_id'] == 'media-a'
     assert normalize_asset_id(False) is None
     assert normalize_asset_id('   ') is None
     assert normalize_asset_id(float('inf')) is None
     assert len(normalize_assets([{'id': 1}, {'id': '1'}])) == 1
+
+
+def test_generator_bridge_blocks_known_source_overrun():
+    base = {'duration': 10, 'assets': [{'id': 'v', 'type': 'video', 'duration': 5}]}
+    exact = dict(base, clips=[{'id': 'exact', 'track': 0, 'asset': 'v', 'start': 0, 'duration': 2, 'sourceOffset': 2, 'speed': 1.5}])
+    item = convert(exact)['tracks']['video'][0]
+    assert item['source_end'] == 5
+    try:
+        convert(dict(base, clips=[{'id': 'over', 'track': 0, 'asset': 'v', 'start': 0, 'duration': 2, 'sourceOffset': 2.1, 'speed': 1.5}]))
+    except ValueError as exc:
+        assert 'over' in str(exc)
+    else:
+        raise AssertionError('known temporal source overrun must be blocked')
+    image = {'duration': 10, 'assets': [{'id': 'img', 'type': 'image', 'duration': 1}], 'clips': [{'id': 'still', 'track': 1, 'asset': 'img', 'start': 0, 'duration': 8}]}
+    assert convert(image)['tracks']['overlay'][0]['end'] == 8
+    assert is_temporal_asset({'mime': 'audio/wav'}) is True
+    assert is_temporal_asset({'type': 'image'}) is False
 
 
 def test_invalid_tracks_are_skipped_without_crashing():
@@ -145,6 +164,7 @@ def test_fps_and_project_defaults():
 def run():
     test_track_aliases_and_asset_zero()
     test_media_ids_are_canonical_across_catalog_and_clips()
+    test_generator_bridge_blocks_known_source_overrun()
     test_invalid_tracks_are_skipped_without_crashing()
     test_timeline_bounds_and_bad_numeric_values()
     test_manual_video_and_caption_choices_survive_bridge()
