@@ -80,6 +80,24 @@ def normalize_assets(value):
     return result
 
 
+def is_temporal_asset(asset):
+    if not isinstance(asset, dict): return False
+    kind = str(asset.get('type') or '').strip().lower()
+    mime = str(asset.get('mime') or '').strip().lower()
+    return kind in ('video', 'audio') or mime.startswith(('video/', 'audio/'))
+
+
+def validate_source_bounds(item, asset, clip_id=None):
+    if not is_temporal_asset(asset) or 'duration' not in asset: return
+    source_duration = asset['duration']
+    source_end = item['source_offset'] + (item['end'] - item['start']) * item['speed']
+    item['source_duration'] = source_duration
+    item['source_end'] = source_end
+    if source_end > source_duration + 1e-6:
+        label = clip_id if clip_id is not None else item.get('name', 'clip')
+        raise ValueError(f'Clip {label!r} excede la duración del medio fuente')
+
+
 def convert(project):
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     duration = finite_number(project.get('duration'), 45.0)
@@ -89,6 +107,8 @@ def convert(project):
     if fmt not in sizes: fmt = '9:16'
     width,height = sizes[fmt]
     fps = normalize_fps(project.get('fps'), 30)
+    assets = normalize_assets(project.get('assets'))
+    asset_lookup = {asset['id']: asset for asset in assets}
     tracks={k:[] for k in TRACKS}
     clips = project.get('clips', [])
     if not isinstance(clips, list): clips = []
@@ -105,7 +125,9 @@ def convert(project):
         if end <= start: continue
         name = clip.get('name', 'Clip')
         if not isinstance(name, str): name = str(name) if name is not None else 'Clip'
-        item={'id':clip.get('id'),'name':name,'start':start,'end':end,'asset_id':normalize_asset_id(clip.get('asset')),'source_offset':normalize_source_offset(clip.get('sourceOffset')),'speed':normalize_speed(clip.get('speed'))}
+        asset_id = normalize_asset_id(clip.get('asset'))
+        item={'id':clip.get('id'),'name':name,'start':start,'end':end,'asset_id':asset_id,'source_offset':normalize_source_offset(clip.get('sourceOffset')),'speed':normalize_speed(clip.get('speed'))}
+        validate_source_bounds(item, asset_lookup.get(asset_id), clip.get('id'))
         if idx==0:
             transition = clip.get('transition')
             item.update({'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut','zoom_from':1.0,'zoom_to':1.03})
@@ -117,7 +139,7 @@ def convert(project):
             volume = normalize_volume(clip.get('volume'), default_volume)
             item.update({'volume': volume,'gain_db': -120.0 if volume <= 0 else 20.0 * math.log10(volume)})
         tracks[TRACKS[idx]].append(item)
-    return {'source':'ProfitMente Studio','project_name':project.get('name','Nuevo video'),'mode':project.get('mode','Manual'),'format':{'width':width,'height':height,'fps':fps},'duration':duration,'assets':normalize_assets(project.get('assets')),'tracks':tracks,'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True}}
+    return {'source':'ProfitMente Studio','project_name':project.get('name','Nuevo video'),'mode':project.get('mode','Manual'),'format':{'width':width,'height':height,'fps':fps},'duration':duration,'assets':assets,'tracks':tracks,'features':{'safe_captions':True,'audio_ducking':True,'browser_project':True}}
 
 
 def main():
