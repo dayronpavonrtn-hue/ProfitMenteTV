@@ -10,8 +10,8 @@ assert.equal(engine.normalize({...base,fps:'24'}).fps,24,'numeric-string fps mus
 assert.equal(engine.normalize({...base,fps:60}).fps,60,'supported current fps must be preserved');
 assert.equal(engine.normalize({...base,frameRate:'30'}).fps,30,'legacy frameRate must migrate to fps');
 assert.equal('frameRate' in engine.normalize({...base,frameRate:24}),false,'legacy frameRate alias must be removed');
-assert.equal(engine.normalize({...base,fps:25}).fps,30,'unsupported fps must fall back to renderer default');
-assert.equal(engine.normalize({...base,fps:'not-a-rate'}).fps,30,'malformed fps must fall back safely');
+assert.throws(()=>engine.normalize({...base,fps:25}),/FPS de proyecto no compatible/,'explicit unsupported fps must be rejected by the strict project contract');
+assert.throws(()=>engine.normalize({...base,fps:'not-a-rate'}),/FPS de proyecto inválido/,'explicit malformed fps must be rejected by the strict project contract');
 assert.equal(engine.normalize({...base,fps:undefined,frameRate:60}).fps,60,'legacy frameRate must be used when fps is absent');
 assert.equal(engine.normalize(base).fps,30,'projects without frame-rate metadata must use canonical default');
 
