@@ -7,6 +7,9 @@ MIN_SPEED = 0.25
 MAX_SPEED = 4.0
 MIN_VOLUME = 0.0
 MAX_VOLUME = 2.0
+VISUAL_ADJUSTMENT_RANGES = {'brightness': (0.0, 300.0), 'contrast': (0.0, 200.0), 'saturation': (0.0, 300.0), 'grayscale': (0.0, 100.0)}
+VISUAL_KEYFRAME_RANGES = {'x': (-200.0, 200.0), 'y': (-200.0, 200.0), 'scale': (0.05, 8.0), 'rotation': (-3600.0, 3600.0), 'opacity': (0.0, 1.0)}
+VISUAL_EASINGS = {'linear', 'ease-in', 'ease-out', 'ease-in-out', 'hold'}
 
 
 def finite_number(value, default=None):
@@ -85,6 +88,48 @@ def normalize_assets(value):
     return result
 
 
+def normalize_visual_adjustments(value):
+    if value is None: return None
+    if not isinstance(value, dict): raise ValueError('Ajustes visuales inválidos')
+    result = {}
+    for field, bounds in VISUAL_ADJUSTMENT_RANGES.items():
+        if field not in value: continue
+        number = finite_number(value.get(field))
+        if number is None or not bounds[0] <= number <= bounds[1]:
+            raise ValueError(f'Ajuste visual {field} inválido')
+        result[field] = number
+    return result or None
+
+
+def normalize_visual_keyframes(value, clip_duration):
+    if value is None: return None
+    if not isinstance(value, list): raise ValueError('Keyframes visuales inválidos')
+    result = []
+    for frame in value:
+        if not isinstance(frame, dict): raise ValueError('Keyframe visual inválido')
+        time = finite_number(frame.get('time'))
+        if time is None or time < 0 or time > clip_duration + 1e-6:
+            raise ValueError('Tiempo de keyframe fuera del clip')
+        item = {'time': time}
+        for field, bounds in VISUAL_KEYFRAME_RANGES.items():
+            if field not in frame: continue
+            number = finite_number(frame.get(field))
+            if number is None or not bounds[0] <= number <= bounds[1]:
+                raise ValueError(f'{field} de keyframe inválido')
+            item[field] = number
+        easing = frame.get('easing')
+        if easing is not None:
+            if not isinstance(easing, str) or easing.strip().lower() not in VISUAL_EASINGS:
+                raise ValueError('Easing de keyframe inválido')
+            item['easing'] = easing.strip().lower()
+        result.append(item)
+    result.sort(key=lambda frame: frame['time'])
+    for previous, current in zip(result, result[1:]):
+        if current['time'] - previous['time'] < 0.001:
+            raise ValueError('Tiempos de keyframe duplicados o ambiguos')
+    return result or None
+
+
 def is_temporal_asset(asset):
     if not isinstance(asset, dict): return False
     kind = str(asset.get('type') or '').strip().lower()
@@ -146,6 +191,11 @@ def convert(project):
         asset = validate_asset_reference(asset_id, asset_lookup, clip.get('id'))
         item={'id':clip.get('id'),'name':name,'start':start,'end':end,'asset_id':asset_id,'source_offset':normalize_source_offset(clip.get('sourceOffset')),'speed':normalize_speed(clip.get('speed'))}
         validate_source_bounds(item, asset, clip.get('id'))
+        if idx in (0, 1, 2):
+            adjustments = normalize_visual_adjustments(clip.get('visualAdjustments'))
+            keyframes = normalize_visual_keyframes(clip.get('visualKeyframes'), end - start)
+            if adjustments is not None: item['visual_adjustments'] = adjustments
+            if keyframes is not None: item['visual_keyframes'] = keyframes
         if idx==0:
             transition = clip.get('transition')
             item.update({'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut','zoom_from':1.0,'zoom_to':1.03})
