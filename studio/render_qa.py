@@ -43,7 +43,7 @@ def _coverage(items, duration):
     return covered, gaps
 
 
-def inspect_plan(plan):
+def inspect_plan(plan, final=False):
     if not isinstance(plan, dict):
         raise TypeError('Plan inválido')
     duration = float(plan.get('duration') or 0)
@@ -59,16 +59,19 @@ def inspect_plan(plan):
     if not visual:
         blockers.append('No hay clips visuales para renderizar.')
     elif gaps:
-        warnings.append(f'La imagen no cubre todo el proyecto: {len(gaps)} hueco(s) en timeline.')
+        message = f'La imagen no cubre todo el proyecto: {len(gaps)} hueco(s) en timeline.'
+        (blockers if final else warnings).append(message)
     if not audio:
         warnings.append('El proyecto no contiene pistas de audio.')
     if not captions:
         warnings.append('El proyecto no contiene captions.')
     unresolved = [item.get('id') for item in visual + audio if item.get('asset_id') is None]
     if unresolved:
-        warnings.append(f'Hay {len(unresolved)} clip(s) sin medio fuente; el generador deberá resolverlos antes del render final.')
+        message = f'Hay {len(unresolved)} clip(s) sin medio fuente; el generador deberá resolverlos antes del render final.'
+        (blockers if final else warnings).append(message)
     return {
         'ok': not blockers,
+        'stage': 'final-render' if final else 'generator',
         'blockers': blockers,
         'warnings': warnings,
         'metrics': {
@@ -78,26 +81,28 @@ def inspect_plan(plan):
             'visual_clips': len(visual),
             'audio_clips': len(audio),
             'caption_clips': len(captions),
+            'unresolved_source_clips': len(unresolved),
             'timeline_gaps': [{'start': round(a, 6), 'end': round(b, 6)} for a, b in gaps],
         },
     }
 
 
-def inspect_project(project):
+def inspect_project(project, final=False):
     try:
         plan = convert(project)
     except (TypeError, ValueError) as exc:
-        return {'ok': False, 'blockers': [str(exc)], 'warnings': [], 'metrics': {}}
-    return inspect_plan(plan)
+        return {'ok': False, 'stage': 'final-render' if final else 'generator', 'blockers': [str(exc)], 'warnings': [], 'metrics': {}}
+    return inspect_plan(plan, final=final)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='QA local y gratuito antes de renderizar un proyecto de ProfitMente Studio.')
+    parser = argparse.ArgumentParser(description='QA local y gratuito antes de generar o renderizar un proyecto de ProfitMente Studio.')
     parser.add_argument('project', help='JSON exportado por ProfitMente Studio')
     parser.add_argument('-o', '--output', help='Guardar reporte JSON opcional')
+    parser.add_argument('--final', action='store_true', help='Aplicar el gate estricto de render final: sin huecos ni medios sin resolver.')
     args = parser.parse_args()
     project = json.loads(Path(args.project).read_text(encoding='utf-8'))
-    report = inspect_project(project)
+    report = inspect_project(project, final=args.final)
     text = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output:
         out = Path(args.output)
