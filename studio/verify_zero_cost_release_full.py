@@ -98,6 +98,7 @@ def main() -> None:
         # Stable render snapshots and final output quality.
         ("Render iniciado usa snapshot estable aunque el proyecto siga editándose", [node, "test_render_snapshot.mjs"]),
         ("WebM usa resolución final, bitrate correcto y estado inmutable", [node, "test_webm_render_state.mjs"]),
+        ("Exportación final rechaza metadatos inválidos de medios referenciados", [py, "tests/export-media-metadata-regression.py"]),
         ("Ducking temporal aparece en el MP4 final", [py, "test_audio_ducking_render.py"]),
         ("Envolventes y fades aparecen en el MP4 final", [py, "test_audio_envelope_render.py"]),
         ("MP4 final decodifica completamente", [py, "test_verify_render_decode.py"]),
