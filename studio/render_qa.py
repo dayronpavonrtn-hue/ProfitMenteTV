@@ -57,11 +57,7 @@ def _overlaps(items, duration):
         for other_start, other_end, other_id in active:
             overlap_end = min(end, other_end)
             if overlap_end > start + 1e-6:
-                overlaps.append({
-                    'start': round(start, 6),
-                    'end': round(overlap_end, 6),
-                    'clip_ids': [other_id, item_id],
-                })
+                overlaps.append({'start': round(start, 6), 'end': round(overlap_end, 6), 'clip_ids': [other_id, item_id]})
         active.append((start, end, item_id))
     return overlaps
 
@@ -75,21 +71,23 @@ def _automation_state(tracks):
             if not isinstance(item, dict) or not isinstance(item.get('automation'), dict):
                 continue
             automation = item['automation']
-            entry = {
-                'clip_id': item.get('id'),
-                'track': track_name,
-                'start': automation.get('start'),
-                'end': automation.get('end'),
-            }
+            entry = {'clip_id': item.get('id'), 'track': track_name, 'start': automation.get('start'), 'end': automation.get('end')}
             if automation.get('enabled') is False:
                 disabled.append(entry)
                 continue
             enabled.append(entry)
-            # An enabled automation needs at least one actionable instruction.
-            # Otherwise the bridge preserved intent but no generator can know what to do.
             if not automation.get('preset') and not automation.get('rule'):
                 unresolved.append(entry)
     return enabled, disabled, unresolved
+
+
+def _caption_quality(captions):
+    empty = []
+    for item in captions:
+        text = item.get('text')
+        if not isinstance(text, str) or not text.strip():
+            empty.append({'clip_id': item.get('id'), 'start': item.get('start'), 'end': item.get('end')})
+    return empty
 
 
 def inspect_plan(plan, final=False):
@@ -105,6 +103,7 @@ def inspect_plan(plan, final=False):
     video_overlaps = _overlaps(tracks.get('video', []), duration)
     voice_overlaps = _overlaps(tracks.get('voice', []), duration)
     automated, disabled_automation, unresolved_automation = _automation_state(tracks)
+    empty_captions = _caption_quality(captions)
     blockers, warnings = [], []
     if duration <= 0:
         blockers.append('La duración del proyecto no es válida.')
@@ -121,6 +120,9 @@ def inspect_plan(plan, final=False):
         (blockers if final else warnings).append(message)
     if unresolved_automation:
         message = f'Hay {len(unresolved_automation)} automatización(es) activas sin preset ni regla; el generador debe resolverlas antes del render final.'
+        (blockers if final else warnings).append(message)
+    if empty_captions:
+        message = f'Hay {len(empty_captions)} caption(s) sin texto visible; deben resolverse antes del render final.'
         (blockers if final else warnings).append(message)
     if not audio:
         warnings.append('El proyecto no contiene pistas de audio.')
@@ -142,6 +144,8 @@ def inspect_plan(plan, final=False):
             'visual_clips': len(visual),
             'audio_clips': len(audio),
             'caption_clips': len(captions),
+            'empty_caption_clips': len(empty_captions),
+            'empty_captions': empty_captions,
             'unresolved_source_clips': len(unresolved),
             'automation_enabled_clips': len(automated),
             'automation_disabled_clips': len(disabled_automation),
