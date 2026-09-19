@@ -45,6 +45,11 @@ assert inspect(project(
     [{'id': 'source-ok', 'track': 0, 'asset': 'video-1', 'start': 0, 'duration': 2, 'sourceOffset': 1, 'speed': 2}],
     assets=[video],
 )) == []
+# Container/browser duration metadata can differ by a few milliseconds; do not reject frame-scale drift.
+assert inspect(project(
+    [{'id': 'source-rounding', 'track': 0, 'asset': 'video-1', 'start': 0, 'duration': 2.02, 'sourceOffset': 1, 'speed': 2}],
+    assets=[video],
+)) == []
 issues = inspect(project(
     [{'id': 'source-overrun', 'track': 0, 'asset': 'video-1', 'start': 0, 'duration': 3, 'sourceOffset': 1, 'speed': 2}],
     assets=[video],
