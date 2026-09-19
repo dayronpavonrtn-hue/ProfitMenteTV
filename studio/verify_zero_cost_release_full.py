@@ -85,6 +85,7 @@ def main() -> None:
         ("Render MP4 interpreta flags booleanos de forma estricta", [py, "test_render_clip_boolean_flags.py"]),
         ("Preflight valida audio embebido de clips visuales", [py, "test_source_audio_preflight.py"]),
         ("Preflight conserva IDs numéricos de medios y narración", [node, "../tools/test_export_preflight_media_ids.js"]),
+        ("Preflight de narración rechaza timing e identidades ambiguas", [node, "test_export_preflight_identity.mjs"]),
         ("Pipeline final valida referencias, controles, mute y límites de fuente", [py, "test_export_pipeline.py"]),
         ("Checkpoints automáticos deduplican y limitan versiones", [node, "test_automation_checkpoint.mjs"]),
         ("Auto Finish crea checkpoint antes de mutar o renderizar", [node, "test_automation_checkpoint_wiring.mjs"]),
