@@ -32,6 +32,7 @@ Editor de video local-first para ProfitMente TV. El objetivo actual es mantener 
 - Exportación local de subtítulos SRT y VTT.
 - QA de render en GitHub Actions.
 - Lanzador de Windows con doble clic para abrir Studio sin escribir comandos.
+- Gate completo local de liberación $0 ejecutable con doble clic, sin APIs ni publicación social.
 
 ## Abrir el editor en Windows
 La forma más simple es hacer doble clic en:
@@ -39,6 +40,15 @@ La forma más simple es hacer doble clic en:
 `studio/start_studio_windows.bat`
 
 El lanzador busca `py` o `python`, inicia el servidor local de ProfitMente Studio, abre automáticamente el navegador y mantiene el servidor activo mientras la ventana esté abierta. No expone el servidor a la red: escucha únicamente en `127.0.0.1`.
+
+## Verificación completa antes de usar una versión
+En Windows, haz doble clic en:
+
+`studio/verify_zero_cost_release_full_windows.bat`
+
+El lanzador comprueba primero Python, Node.js, FFmpeg y ffprobe y luego ejecuta el gate integral `verify_zero_cost_release_full.py`. Si alguna regresión falla, conserva la ventana abierta e identifica el bloque de QA que falló. Si termina con `[OK]`, la versión pasó el conjunto local de pruebas que protege editor, preview, timeline, biblioteca, persistencia, automatización, exportación MP4 y control de calidad.
+
+Esta verificación es local: no activa servicios de pago y no publica contenido en redes sociales.
 
 ## Flujo recomendado para MP4 final
 1. Abre Studio con `studio/start_studio_windows.bat`.
