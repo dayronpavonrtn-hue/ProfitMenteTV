@@ -90,6 +90,8 @@ def inspect(project):
             issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
 
         # Temporal media must have enough source material for trim + playback speed.
+        # Use the same frame-scale tolerance as timeline bounds: browser metadata and
+        # container timestamps routinely differ by a few milliseconds.
         asset = asset_lookup.get(canonical_id(clip.get('asset')))
         if isinstance(asset, dict):
             kind = str(asset.get('type') or '').strip().lower()
@@ -99,7 +101,7 @@ def inspect(project):
                 speed = finite(clip.get('speed', 1))
                 if source_offset is not None and source_offset >= 0 and speed is not None and speed > 0:
                     source_end = source_offset + length * speed
-                    if source_end > source_duration + 1e-9:
+                    if source_end > source_duration + TOLERANCE:
                         issues.append(
                             f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
                         )
