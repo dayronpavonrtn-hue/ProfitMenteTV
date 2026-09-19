@@ -38,6 +38,17 @@ def expect_broken_reference(p, expected_text):
         raise AssertionError('broken media reference must block final export')
 
 
+def expect_bad_playback(p, expected_text):
+    try:
+        build_export(p, final=True)
+    except ValueError as exc:
+        message = str(exc)
+        assert 'Controles de reproducción inválidos' in message
+        assert expected_text in message
+    else:
+        raise AssertionError('invalid playback controls must block final export')
+
+
 def run():
     p = project(
         [clip('video', 0, 'v'), clip('overlay', 1, 'o'), clip('voice', 6, 'a'), clip('music', 5, 'm')],
@@ -58,8 +69,6 @@ def run():
     filtered = apply_export_track_state(p)
     assert [c['id'] for c in filtered['clips']] == ['music'], 'legacy and current state must merge safely'
 
-    # Per-clip mute must survive editor -> export semantics. studio_bridge does not
-    # serialize the muted flag, so the export gate must remove muted audio clips.
     muted_voice = clip('muted-voice', 6, 'a')
     muted_voice['muted'] = True
     p = project([clip('video', 0, 'v'), muted_voice, clip('music', 5, 'm')])
@@ -78,7 +87,6 @@ def run():
     expect_broken_reference(project([clip('missing', 0, 'does-not-exist')]), 'does-not-exist')
     expect_broken_reference(project([clip('empty', 0, '   ')]), 'vacía o inválida')
 
-    # A broken reference on a disabled track must not block export because that clip is not rendered.
     disabled = project(
         [clip('video', 0, 'v'), clip('disabled-missing', 1, 'does-not-exist')],
         {'1': {'hidden': True}},
@@ -86,6 +94,32 @@ def run():
     ready = build_export(disabled, final=True)
     assert ready['ok'] is True
     assert [c['id'] for c in ready['project']['clips']] == ['video']
+
+    bad = clip('bad-offset', 0, 'v')
+    bad['sourceOffset'] = -0.01
+    expect_bad_playback(project([bad]), 'sourceOffset')
+
+    for value in (0, 0.24, 4.01, float('nan'), 'fast'):
+        bad = clip('bad-speed', 0, 'v')
+        bad['speed'] = value
+        expect_bad_playback(project([bad]), 'speed')
+
+    for value in (-0.01, 2.01, float('inf'), 'loud'):
+        bad = clip('bad-volume', 6, 'a')
+        bad['volume'] = value
+        expect_bad_playback(project([bad]), 'volume')
+
+    good = clip('controlled-audio', 6, 'a')
+    good.update({'sourceOffset': 0, 'speed': 0.25, 'volume': 0})
+    assert build_export(project([good]), final=True)['ok'] is True
+    good.update({'speed': 4, 'volume': 2})
+    assert build_export(project([good]), final=True)['ok'] is True
+
+    # Invalid controls on a disabled track are irrelevant to the rendered result.
+    ignored = clip('ignored', 5, 'm')
+    ignored['volume'] = 99
+    ready = build_export(project([clip('video', 0, 'v'), ignored], {'5': {'muted': True}}), final=True)
+    assert ready['ok'] is True
 
 
 if __name__ == '__main__':
