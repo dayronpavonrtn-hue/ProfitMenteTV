@@ -115,6 +115,24 @@ def run():
     good.update({'speed': 4, 'volume': 2})
     assert build_export(project([good]), final=True)['ok'] is True
 
+    # Source trimming and playback speed must never read beyond a temporal asset.
+    bounded = project([])
+    bounded['assets'].append({'id': 'bounded', 'type': 'video', 'name': 'bounded.mp4', 'duration': 12})
+    valid = clip('bounded-ok', 0, 'bounded')
+    valid.update({'duration': 4, 'sourceOffset': 4, 'speed': 2})
+    ready = build_export({**bounded, 'clips': [valid]}, final=True)
+    assert ready['ok'] is True
+    assert ready['plan']['tracks']['video'][0]['source_end'] == 12
+
+    invalid = clip('bounded-overrun', 0, 'bounded')
+    invalid.update({'duration': 4, 'sourceOffset': 4.01, 'speed': 2})
+    try:
+        build_export({**bounded, 'clips': [invalid]}, final=True)
+    except ValueError as exc:
+        assert 'excede la duración del medio fuente' in str(exc)
+    else:
+        raise AssertionError('source overrun must block final export')
+
     # Invalid controls on a disabled track are irrelevant to the rendered result.
     ignored = clip('ignored', 5, 'm')
     ignored['volume'] = 99
