@@ -44,6 +44,8 @@ class ProfitMenteAudioQCEngine{
     const duration=this.finiteNumber(sourceDuration,null);if(duration===null||duration<=0)return {status:'unavailable',reason:'unknown_duration'};
     const sourceOffset=this.finiteNumber(clip.sourceOffset??0,null),clipDuration=this.finiteNumber(clip.duration,null),speed=this.finiteNumber(clip.speed??1,null);
     if(sourceOffset===null||sourceOffset<0||clipDuration===null||clipDuration<=0||speed===null||speed<=0)return {status:'unavailable',reason:'invalid_timing',clipId:clip.id,track:this.canonicalTrack(clip.track)};
+    const sourceEnd=sourceOffset+clipDuration*speed,tolerance=Math.max(1e-6,duration*1e-9);
+    if(!Number.isFinite(sourceEnd)||sourceOffset>=duration||sourceEnd>duration+tolerance)return {status:'unavailable',reason:'source_window_out_of_bounds',clipId:clip.id,track:this.canonicalTrack(clip.track),sourceOffset,sourceEnd,sourceDuration:duration};
     const visible=waveformEngine.slicePeaks(peaks,{sourceOffset,clipDuration,speed,sourceDuration:duration,bins:512});
     return {...this.inspectPeaks(visible,this.clipGain(project,clip)),clipId:clip.id,track:this.canonicalTrack(clip.track)};
   }
