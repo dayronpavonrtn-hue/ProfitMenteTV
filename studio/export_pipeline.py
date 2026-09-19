@@ -7,6 +7,7 @@ from pathlib import Path
 
 from studio_bridge import convert
 from studio.render_qa import inspect_plan
+from studio.timeline_bounds_preflight import inspect as inspect_timeline_bounds
 
 VISUAL_TRACKS = {0, 1, 2, 3}
 AUDIO_TRACKS = {4, 5, 6}
@@ -149,7 +150,7 @@ def validate_referenced_media_metadata(project):
     for asset_id in sorted(item for item in referenced if item is not None):
         asset = lookup.get(asset_id)
         if not isinstance(asset, dict):
-            continue  # studio_bridge owns missing-reference reporting
+            continue
         kind = _asset_kind(asset)
         if kind in {'video', 'audio'} and 'duration' in asset and _positive_finite(asset.get('duration')) is None:
             problems.append(f'Medio {asset_id!r}: duración inválida.')
@@ -202,11 +203,20 @@ def validate_media_track_compatibility(project):
     return True
 
 
+def validate_timeline_bounds(project):
+    """Reuse Studio's timeline preflight before bridge normalization can hide unsafe edits."""
+    issues = inspect_timeline_bounds(project)
+    if issues:
+        raise ValueError('Timeline inválida para render: ' + ' | '.join(str(issue) for issue in issues))
+    return True
+
+
 def build_export(project, final=True):
     validate_project_identity(project)
     export_project = apply_export_track_state(project)
     validate_referenced_media_metadata(export_project)
     validate_media_track_compatibility(export_project)
+    validate_timeline_bounds(export_project)
     plan = convert(export_project)
     qa = inspect_plan(plan, final=final)
     return {'ok': qa['ok'], 'project': export_project, 'plan': plan, 'qa': qa}
