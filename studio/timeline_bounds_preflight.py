@@ -5,7 +5,10 @@ import math
 import pathlib
 import sys
 
-from track_state_render import normalize_track_solo
+try:
+    from .track_state_render import normalize_track_solo
+except ImportError:  # direct script execution from studio/
+    from track_state_render import normalize_track_solo
 
 TOLERANCE = 0.05
 
@@ -45,8 +48,6 @@ def inspect(project):
             continue
         track = int(track)
         ts = track_state(track)
-        # Match render_mp4.py's effective selection: muted audio clips produce no
-        # output, so dormant ranges must not block an otherwise valid export.
         inactive = (
             (track in (0, 1, 2, 3) and ts.get('hidden') is True)
             or (track in (4, 5, 6) and (ts.get('muted') is True or clip.get('muted') is True))
