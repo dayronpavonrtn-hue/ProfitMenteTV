@@ -102,6 +102,7 @@ def inspect_plan(plan, final=False):
     ratio = covered / duration if duration > 0 else 0.0
     video_overlaps = _overlaps(tracks.get('video', []), duration)
     voice_overlaps = _overlaps(tracks.get('voice', []), duration)
+    caption_overlaps = _overlaps(captions, duration)
     automated, disabled_automation, unresolved_automation = _automation_state(tracks)
     empty_captions = _caption_quality(captions)
     blockers, warnings = [], []
@@ -117,6 +118,9 @@ def inspect_plan(plan, final=False):
         (blockers if final else warnings).append(message)
     if voice_overlaps:
         message = f'Hay {len(voice_overlaps)} solapamiento(s) en la pista de voz; puede producir diálogo duplicado.'
+        (blockers if final else warnings).append(message)
+    if caption_overlaps:
+        message = f'Hay {len(caption_overlaps)} solapamiento(s) entre captions; puede mostrar subtítulos duplicados al mismo tiempo.'
         (blockers if final else warnings).append(message)
     if unresolved_automation:
         message = f'Hay {len(unresolved_automation)} automatización(es) activas sin preset ni regla; el generador debe resolverlas antes del render final.'
@@ -154,6 +158,7 @@ def inspect_plan(plan, final=False):
             'timeline_gaps': [{'start': round(a, 6), 'end': round(b, 6)} for a, b in gaps],
             'video_overlaps': video_overlaps,
             'voice_overlaps': voice_overlaps,
+            'caption_overlaps': caption_overlaps,
         },
     }
 
