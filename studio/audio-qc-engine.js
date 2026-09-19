@@ -51,11 +51,11 @@ class ProfitMenteAudioQCEngine{
   }
   static inspectMixOverlaps(results=[],{warningDb=-1,clipDb=-0.05}={}){
     const rows=(Array.isArray(results)?results:[]).filter(r=>r?.clip&&Number.isFinite(r.effectivePeak));
-    const events=[];
+    const events=[],invalidTiming=[];
     for(const row of rows){
-      const start=this.finiteNumber(row.clip.start,null),duration=this.finiteNumber(row.clip.duration,null);
-      if(start===null||duration===null||duration<=0)continue;
-      events.push({time:start,kind:1,row},{time:start+duration,kind:-1,row});
+      const start=this.finiteNumber(row.clip.start,null),duration=this.finiteNumber(row.clip.duration,null),end=start===null||duration===null?null:start+duration;
+      if(start===null||start<0||duration===null||duration<=0||!Number.isFinite(end)){invalidTiming.push(row.clip?.id);continue}
+      events.push({time:start,kind:1,row},{time:end,kind:-1,row});
     }
     events.sort((a,b)=>a.time-b.time||a.kind-b.kind);
     const active=new Set(),segments=[];let last=null;
@@ -68,7 +68,7 @@ class ProfitMenteAudioQCEngine{
       if(event.kind<0)active.delete(event.row);else active.add(event.row);last=event.time;
     }
     const worst=segments.slice().sort((a,b)=>b.effectivePeak-a.effectivePeak)[0]||null;
-    return {segments,clipping:segments.filter(s=>s.status==='clipping').length,hot:segments.filter(s=>s.status==='hot').length,worst};
+    return {segments,clipping:segments.filter(s=>s.status==='clipping').length,hot:segments.filter(s=>s.status==='hot').length,worst,invalidTiming,invalidTimingCount:invalidTiming.length};
   }
   static planHeadroomFix(project,results=[],mix=null,{targetDb=-1}={}){
     const rows=(Array.isArray(results)?results:[]).filter(row=>row?.clip&&Number.isFinite(row.effectivePeak));
