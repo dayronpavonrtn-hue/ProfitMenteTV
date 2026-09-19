@@ -203,7 +203,7 @@ def convert(project):
         if idx==0:
             transition = clip.get('transition'); item.update({'transition': transition.strip() if isinstance(transition, str) and transition.strip() else 'cut','zoom_from':1.0,'zoom_to':1.03})
         elif idx==3:
-            text = clip.get('text', name); item.update({'text': text if isinstance(text, str) else str(text or ''),'animation':clip.get('animation') or 'pop_word','highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True)))})
+            text = clip.get('text', ''); item.update({'text': text if isinstance(text, str) else str(text or ''),'animation':clip.get('animation') or 'pop_word','highlight_keywords':bool(clip.get('highlightKeywords',clip.get('highlight_keywords',True)))})
         elif idx in (4, 5, 6):
             default_volume = 0.22 if idx == 5 else 1.0; volume = normalize_volume(clip.get('volume'), default_volume); item.update({'volume': volume,'gain_db': -120.0 if volume <= 0 else 20.0 * math.log10(volume)})
         tracks[TRACKS[idx]].append(item)
