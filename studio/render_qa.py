@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -13,12 +14,20 @@ VISUAL_TRACKS = ('video', 'overlay', 'motion')
 AUDIO_TRACKS = ('sfx', 'music', 'voice')
 
 
+def _finite(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
 def _spans(items, duration):
     spans = []
     for item in items:
-        try:
-            start, end = float(item['start']), float(item['end'])
-        except (KeyError, TypeError, ValueError):
+        start = _finite(item.get('start')) if isinstance(item, dict) else None
+        end = _finite(item.get('end')) if isinstance(item, dict) else None
+        if start is None or end is None:
             continue
         start, end = max(0.0, start), min(duration, end)
         if end > start:
@@ -93,7 +102,8 @@ def _caption_quality(captions):
 def inspect_plan(plan, final=False):
     if not isinstance(plan, dict):
         raise TypeError('Plan inválido')
-    duration = float(plan.get('duration') or 0)
+    raw_duration = _finite(plan.get('duration'))
+    duration = raw_duration if raw_duration is not None and raw_duration > 0 else 0.0
     tracks = plan.get('tracks') if isinstance(plan.get('tracks'), dict) else {}
     visual = [item for name in VISUAL_TRACKS for item in tracks.get(name, []) if isinstance(item, dict)]
     audio = [item for name in AUDIO_TRACKS for item in tracks.get(name, []) if isinstance(item, dict)]
@@ -110,7 +120,7 @@ def inspect_plan(plan, final=False):
         blockers.append('La duración del proyecto no es válida.')
     if not visual:
         blockers.append('No hay clips visuales para renderizar.')
-    elif gaps:
+    elif duration > 0 and gaps:
         message = f'La imagen no cubre todo el proyecto: {len(gaps)} hueco(s) en timeline.'
         (blockers if final else warnings).append(message)
     if video_overlaps:
