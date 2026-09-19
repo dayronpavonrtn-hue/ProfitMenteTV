@@ -49,6 +49,18 @@ def expect_bad_playback(p, expected_text):
         raise AssertionError('invalid playback controls must block final export')
 
 
+def expect_bad_track(value):
+    bad = clip('bad-track', value, 'v')
+    try:
+        build_export(project([bad]), final=True)
+    except ValueError as exc:
+        message = str(exc)
+        assert 'Pistas de timeline inválidas' in message
+        assert 'bad-track' in message
+    else:
+        raise AssertionError(f'invalid timeline track {value!r} must block final export')
+
+
 def run():
     p = project(
         [clip('video', 0, 'v'), clip('overlay', 1, 'o'), clip('voice', 6, 'a'), clip('music', 5, 'm')],
@@ -83,6 +95,11 @@ def run():
     ready = build_export(project([clip('video', 0, 'v')]), final=True)
     assert ready['ok'] is True
     assert ready['plan']['tracks']['video'][0]['id'] == 'video'
+
+    # Invalid/ambiguous track identities must never disappear silently in the bridge.
+    for value in (None, True, False, '', ' ', -1, 7, 1.5, 'voice', float('nan'), float('inf')):
+        expect_bad_track(value)
+    assert build_export(project([clip('string-track', '6', 'a')]), final=True)['ok'] is True
 
     expect_broken_reference(project([clip('missing', 0, 'does-not-exist')]), 'does-not-exist')
     expect_broken_reference(project([clip('empty', 0, '   ')]), 'vacía o inválida')
@@ -120,7 +137,6 @@ def run():
     good.update({'speed': 4, 'volume': 2, 'sourceVolume': 2})
     assert build_export(project([good]), final=True)['ok'] is True
 
-    # Source trimming and playback speed must never read beyond a temporal asset.
     bounded = project([])
     bounded['assets'].append({'id': 'bounded', 'type': 'video', 'name': 'bounded.mp4', 'duration': 12})
     valid = clip('bounded-ok', 0, 'bounded')
@@ -138,7 +154,6 @@ def run():
     else:
         raise AssertionError('source overrun must block final export')
 
-    # Invalid controls on a disabled track are irrelevant to the rendered result.
     ignored = clip('ignored', 5, 'm')
     ignored['volume'] = 99
     ignored['sourceVolume'] = 99
