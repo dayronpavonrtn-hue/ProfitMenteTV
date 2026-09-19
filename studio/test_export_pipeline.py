@@ -109,10 +109,15 @@ def run():
         bad['volume'] = value
         expect_bad_playback(project([bad]), 'volume')
 
+    for value in (-0.01, 2.01, float('nan'), 'boost'):
+        bad = clip('bad-source-volume', 6, 'a')
+        bad['sourceVolume'] = value
+        expect_bad_playback(project([bad]), 'sourceVolume')
+
     good = clip('controlled-audio', 6, 'a')
-    good.update({'sourceOffset': 0, 'speed': 0.25, 'volume': 0})
+    good.update({'sourceOffset': 0, 'speed': 0.25, 'volume': 0, 'sourceVolume': 0})
     assert build_export(project([good]), final=True)['ok'] is True
-    good.update({'speed': 4, 'volume': 2})
+    good.update({'speed': 4, 'volume': 2, 'sourceVolume': 2})
     assert build_export(project([good]), final=True)['ok'] is True
 
     # Source trimming and playback speed must never read beyond a temporal asset.
@@ -136,6 +141,7 @@ def run():
     # Invalid controls on a disabled track are irrelevant to the rendered result.
     ignored = clip('ignored', 5, 'm')
     ignored['volume'] = 99
+    ignored['sourceVolume'] = 99
     ready = build_export(project([clip('video', 0, 'v'), ignored], {'5': {'muted': True}}), final=True)
     assert ready['ok'] is True
 
