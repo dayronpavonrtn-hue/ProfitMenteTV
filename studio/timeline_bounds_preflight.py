@@ -25,6 +25,18 @@ def finite(value):
     return number if math.isfinite(number) else None
 
 
+def canonical_id(value):
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    number = finite(value)
+    if number is None:
+        return None
+    return str(int(number)) if number.is_integer() else str(number)
+
+
 def inspect(project):
     project = normalize_track_solo(project, normalize_scalars=False)
     duration = finite(project.get('duration'))
@@ -32,6 +44,12 @@ def inspect(project):
         return ['La duración del proyecto es inválida; el render no puede interpretar la timeline de forma segura.']
 
     state = project.get('trackState') if isinstance(project.get('trackState'), dict) else {}
+    assets = project.get('assets') if isinstance(project.get('assets'), list) else []
+    asset_lookup = {
+        canonical_id(asset.get('id')): asset
+        for asset in assets
+        if isinstance(asset, dict) and canonical_id(asset.get('id')) is not None
+    }
 
     def track_state(track):
         value = state.get(str(track), state.get(track, {}))
@@ -70,6 +88,21 @@ def inspect(project):
             issues.append(f'Clip {clip_id!r} empieza en {start:.3f}s, fuera de la duración del proyecto ({duration:.3f}s).')
         elif end > duration + TOLERANCE:
             issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
+
+        # Temporal media must have enough source material for trim + playback speed.
+        asset = asset_lookup.get(canonical_id(clip.get('asset')))
+        if isinstance(asset, dict):
+            kind = str(asset.get('type') or '').strip().lower()
+            source_duration = finite(asset.get('duration'))
+            if kind in {'video', 'audio'} and source_duration is not None and source_duration > 0:
+                source_offset = finite(clip.get('sourceOffset', 0))
+                speed = finite(clip.get('speed', 1))
+                if source_offset is not None and source_offset >= 0 and speed is not None and speed > 0:
+                    source_end = source_offset + length * speed
+                    if source_end > source_duration + 1e-9:
+                        issues.append(
+                            f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
+                        )
     return issues
 
 
