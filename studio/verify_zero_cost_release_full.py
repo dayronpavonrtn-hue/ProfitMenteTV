@@ -80,6 +80,7 @@ def main() -> None:
         ("Auto Finish interpreta mute importado de forma estricta", [node, "test_auto_finish_strict_mute.mjs"]),
         ("QA interpreta flags booleanos de forma estricta", [node, "test_qa_strict_boolean_flags.js"]),
         ("QA rechaza escalares numéricos ambiguos", [node, "test_qa_numeric_scalar_guard.js"]),
+        ("QA de audio rechaza timing y duración de fuente inválidos", [node, "tests/audio-qc-invalid-timing-regression.mjs"]),
         ("QA de render bloquea valores temporales no finitos", [py, "test_render_qa_nonfinite.py"]),
         ("Validador rechaza números no canónicos", [py, "test_validate_project_strict_numeric.py"]),
         ("Render MP4 interpreta flags booleanos de forma estricta", [py, "test_render_clip_boolean_flags.py"]),
