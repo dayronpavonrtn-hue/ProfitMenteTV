@@ -48,16 +48,18 @@ r=P.narrationCoverage(qa(),project([{track:{valueOf(){return 6}},start:0,duratio
 assert.equal(r.metrics.narrationCoverage,0,'coercible objects must never masquerade as narration clips');
 assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
 
-r=P.narrationCoverage(qa(),project([{track:6,start:{valueOf(){return 0}},duration:20,asset:'voice'}]));
-assert.equal(r.metrics.narrationCoverage,100,'invalid start metadata must fall back safely without invoking object coercion');
+for(const badStart of [{valueOf(){return 0}},'NaN','Infinity',-1,true]){
+  r=P.narrationCoverage(qa(),project([{track:6,start:badStart,duration:20,asset:'voice'}]));
+  assert.equal(r.metrics.narrationCoverage,0,`invalid start metadata must not create fake narration coverage: ${String(badStart)}`);
+}
 
-r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:{valueOf(){return 20}},asset:'voice'}]));
-assert.equal(r.metrics.narrationCoverage,0,'coercible duration objects must not create fake narration coverage');
-assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
+for(const badDuration of [{valueOf(){return 20}},'0x14','NaN','Infinity',-1,0,true]){
+  r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:badDuration,asset:'voice'}]));
+  assert.equal(r.metrics.narrationCoverage,0,`invalid duration metadata must not create fake narration coverage: ${String(badDuration)}`);
+}
 
-r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:'0x14',asset:'voice'}]));
-assert.equal(r.metrics.narrationCoverage,0,'hex duration metadata must not create fake narration coverage');
-assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
+r=P.narrationCoverage(qa(),{mode:'Automático',duration:'NaN',clips:[{track:6,start:0,duration:20,asset:'voice'}]});
+assert.equal(r.metrics.narrationCoverage,0,'invalid project duration must never report fake narration coverage');
 
 r=P.narrationCoverage(qa(),{mode:'Automático',duration:20,clips:[{track:true,start:0,duration:20,asset:null,pending:true}]});
 assert.equal(r.metrics.narrationCoverage,0);
