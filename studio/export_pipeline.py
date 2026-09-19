@@ -97,6 +97,20 @@ def validate_project_identity(project):
     return True
 
 
+def validate_clip_tracks(project):
+    if not isinstance(project, dict): raise TypeError('Proyecto inválido')
+    clips = project.get('clips') if isinstance(project.get('clips'), list) else []
+    problems = []
+    for index, clip in enumerate(clips):
+        if not isinstance(clip, dict): continue
+        raw_track = clip.get('track')
+        if _track_index(raw_track) is None:
+            clip_id = clip.get('id', clip.get('name', index))
+            problems.append(f'Clip {clip_id!r}: pista {raw_track!r} inválida; debe ser un entero entre 0 y 6.')
+    if problems: raise ValueError('Pistas de timeline inválidas: ' + ' | '.join(problems))
+    return True
+
+
 def validate_asset_references(project):
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     assets = project.get('assets') if isinstance(project.get('assets'), list) else []
@@ -202,6 +216,7 @@ def validate_timeline_bounds(project):
 
 def build_export(project, final=True):
     validate_project_identity(project)
+    validate_clip_tracks(project)
     export_project = apply_export_track_state(project)
     validate_asset_references(export_project)
     validate_referenced_media_metadata(export_project)
