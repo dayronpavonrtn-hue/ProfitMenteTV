@@ -28,6 +28,7 @@ REQUIRED_CHECKS = (
     "test_qa_numeric_scalar_guard.js",
     "test_validate_project_strict_numeric.py",
     "test_render_clip_boolean_flags.py",
+    "test_export_pipeline.py",
     "test_render_snapshot.mjs",
     "test_webm_render_state.mjs",
     "test_audio_ducking_render.py",
@@ -55,7 +56,7 @@ def main() -> None:
 
     print(
         "PASS: gate FULL $0 conserva persistencia, rollback, preview/timeline, "
-        "render y QC críticos sin servicios de pago."
+        "pipeline final, render y QC críticos sin servicios de pago."
     )
 
 
