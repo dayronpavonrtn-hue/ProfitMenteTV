@@ -60,18 +60,21 @@
     }
     static narrationCoverage(qa,project){
       const next={...(qa||{}),issues:[...(qa?.issues||[])],warnings:[...(qa?.warnings||[])],metrics:{...(qa?.metrics||{})}};
-      const projectDuration=this.finiteNumber(project?.duration,0),duration=Math.max(.001,projectDuration>0?projectDuration:0),clips=Array.isArray(project?.clips)?project.clips:[];
+      const rawProjectDuration=this.strictFinite(project?.duration),projectDuration=rawProjectDuration!==null&&rawProjectDuration>0?rawProjectDuration:0,duration=Math.max(.001,projectDuration),clips=Array.isArray(project?.clips)?project.clips:[];
       const trackMuted=this.audioTrackMuted(project,6);
       const isNarration=c=>this.canonicalTrack(c?.track)===6;
-      const clipDuration=c=>Math.max(0,this.finiteNumber(c?.duration,0));
-      const clipStart=c=>Math.max(0,this.finiteNumber(c?.start,0));
-      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&this.hasAsset(c)&&c?.muted!==true&&clipDuration(c)>0);
-      const ranges=voice.map(c=>{const start=clipStart(c);return [start,Math.min(duration,start+clipDuration(c))]}).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
+      const clipTiming=c=>{
+        const start=this.strictFinite(c?.start),clipDuration=this.strictFinite(c?.duration);
+        if(start===null||clipDuration===null||start<0||clipDuration<=0)return null;
+        return {start,duration:clipDuration};
+      };
+      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&this.hasAsset(c)&&c?.muted!==true&&clipTiming(c));
+      const ranges=voice.map(c=>{const timing=clipTiming(c);return [timing.start,Math.min(duration,timing.start+timing.duration)]}).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
       let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
-      const ratio=Math.max(0,Math.min(1,seconds/duration)),percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
+      const ratio=projectDuration>0?Math.max(0,Math.min(1,seconds/projectDuration)):0,percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
       const mode=String(project?.mode||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),automatic=mode.includes('automatic');
       if(!automatic||trackMuted)return next;
-      const pending=clips.some(c=>isNarration(c)&&!this.hasAsset(c)&&clipDuration(c)>0);
+      const pending=clips.some(c=>isNarration(c)&&!this.hasAsset(c)&&!!clipTiming(c));
       if(pending&&ratio<.72)next.warnings.push(`Narración automática pendiente · cobertura actual ${percent}%. Añade o graba una voz que cubra al menos 72% del video.`);
       else if(voice.length&&ratio<.72)next.warnings.push(`Narración automática incompleta · cobertura ${percent}%. Recomendado: al menos 72% del video.`);
       else if(!voice.length)next.warnings.push('El proyecto automático no tiene narración activa. Añade o graba una voz antes del render final.');
