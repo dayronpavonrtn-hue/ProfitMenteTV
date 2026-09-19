@@ -18,6 +18,13 @@
       const n=this.strictFinite(value);
       return n===null?fallback:n;
     }
+    static hasAsset(clip){
+      const value=clip?.asset;
+      if(value==null||typeof value==='boolean')return false;
+      if(typeof value==='number')return Number.isFinite(value);
+      if(typeof value==='string')return value.trim().length>0;
+      return false;
+    }
     static summarize(qa,health){
       qa=qa||{ok:false,score:0,issues:['QA no disponible'],warnings:[],metrics:{}};health=health||{ok:false,render_ready:false};
       const issues=[...(qa.issues||[])],warnings=[...(qa.warnings||[])];
@@ -58,13 +65,13 @@
       const isNarration=c=>this.canonicalTrack(c?.track)===6;
       const clipDuration=c=>Math.max(0,this.finiteNumber(c?.duration,0));
       const clipStart=c=>Math.max(0,this.finiteNumber(c?.start,0));
-      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&c?.asset&&c?.muted!==true&&clipDuration(c)>0);
+      const voice=trackMuted?[]:clips.filter(c=>isNarration(c)&&this.hasAsset(c)&&c?.muted!==true&&clipDuration(c)>0);
       const ranges=voice.map(c=>{const start=clipStart(c);return [start,Math.min(duration,start+clipDuration(c))]}).filter(r=>r[1]>r[0]).sort((a,b)=>a[0]-b[0]);
       let seconds=0;if(ranges.length){let [s,e]=ranges[0];for(const [a,b] of ranges.slice(1)){if(a<=e)e=Math.max(e,b);else{seconds+=e-s;s=a;e=b}}seconds+=e-s}
       const ratio=Math.max(0,Math.min(1,seconds/duration)),percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
       const mode=String(project?.mode||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),automatic=mode.includes('automatic');
       if(!automatic||trackMuted)return next;
-      const pending=clips.some(c=>isNarration(c)&&!c?.asset&&clipDuration(c)>0);
+      const pending=clips.some(c=>isNarration(c)&&!this.hasAsset(c)&&clipDuration(c)>0);
       if(pending&&ratio<.72)next.warnings.push(`Narración automática pendiente · cobertura actual ${percent}%. Añade o graba una voz que cubra al menos 72% del video.`);
       else if(voice.length&&ratio<.72)next.warnings.push(`Narración automática incompleta · cobertura ${percent}%. Recomendado: al menos 72% del video.`);
       else if(!voice.length)next.warnings.push('El proyecto automático no tiene narración activa. Añade o graba una voz antes del render final.');
