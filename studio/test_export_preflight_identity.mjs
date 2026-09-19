@@ -40,6 +40,11 @@ r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:20,asset:'voice',m
 assert.equal(r.metrics.narrationCoverage,0,'only strict boolean true may mute narration');
 assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
 
+r=P.narrationCoverage(qa(),project([{track:6,start:0,duration:20,asset:null,pending:true,muted:true}]));
+assert.equal(r.metrics.narrationCoverage,0,'muted pending narration must not count as coverage');
+assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)),'muted pending narration must be treated as inactive, not as an outstanding recording');
+assert.ok(!r.warnings.some(x=>/pendiente/i.test(x)),'muted pending narration must not produce a misleading pending warning');
+
 r=P.narrationCoverage(qa(),project([{track:'0x6',start:0,duration:20,asset:'fake'}]));
 assert.equal(r.metrics.narrationCoverage,0,'hex track aliases must not masquerade as narration clips');
 assert.ok(r.warnings.some(x=>/no tiene narración activa/i.test(x)));
