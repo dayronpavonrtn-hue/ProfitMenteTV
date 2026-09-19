@@ -43,16 +43,10 @@ def main() -> None:
     require("ffprobe")
     py = sys.executable
 
-    # First run the broad integrated gate. The checks below intentionally mirror
-    # additional zero-cost GitHub workflow guards so a local PASS exercises the
-    # critical editing -> persistence -> preview -> render/export path too.
     run("Gate integral ProfitMente Studio $0", [py, "verify_zero_cost_release.py"])
 
     parity_checks = [
-        # Offline / zero-cost content generation.
         ("Fallback B-roll offline mantiene costo $0", [py, "tests/test_zero_cost_broll.py"]),
-
-        # Interactive editor, timeline and preview parity.
         ("Inspector respeta locks e identidad de clips", [node, "test_clip_lock_track_inspector.mjs"]),
         ("Edición avanzada rechaza identidades de pista inválidas", [node, "test_advanced_edit_lock_guard.mjs"]),
         ("Reporte QA renderiza datos de forma segura", [node, "test_qa_report_safe_render.mjs"]),
@@ -72,8 +66,6 @@ def main() -> None:
         ("Trim izquierdo conserva ventana de fuente", [node, "test_timeline_left_trim.mjs"]),
         ("Trim derecho conserva ventana de fuente", [node, "test_timeline_right_trim.mjs"]),
         ("Waveform de timeline coincide con ventana editada y reemplazos", [node, "test_waveform_timeline_parity.mjs"]),
-
-        # Media library, persistence and import rollback safety.
         ("Biblioteca protege medios usados por otros proyectos", [node, "test_media_library_cross_project_guard.mjs"]),
         ("Biblioteca conserva búsqueda, filtros y borrado después del inspector", [node, "test_media_library_inspector_rebind.mjs"]),
         ("Reemplazo de medios conserva seguridad y duración legacy", [node, "test_media_replace_engine.mjs"]),
@@ -82,8 +74,6 @@ def main() -> None:
         ("Importación de bundle exige pre-guardado seguro", [node, "tests/bundle-import-presave-regression.js"]),
         ("WebM bloquea exportación si la persistencia no es segura", [node, "tests/webm-storage-safety-regression.js"]),
         ("MP4 bloquea exportación si la persistencia no es segura", [node, "tests/mp4-persistence-safety-regression.mjs"]),
-
-        # Automatic editor safety and strict imported-state handling.
         ("Generador y autofill conservan identidades canónicas", [node, "test_generator_identity.mjs"]),
         ("Preview de audio conserva identidad canónica", [node, "test_audio_engine_identity.mjs"]),
         ("Smart Mix conserva estado de audio y automatización segura", [node, "test_smart_mix_engine.mjs"]),
@@ -92,10 +82,9 @@ def main() -> None:
         ("QA rechaza escalares numéricos ambiguos", [node, "test_qa_numeric_scalar_guard.js"]),
         ("Validador rechaza números no canónicos", [py, "test_validate_project_strict_numeric.py"]),
         ("Render MP4 interpreta flags booleanos de forma estricta", [py, "test_render_clip_boolean_flags.py"]),
+        ("Pipeline final valida referencias, controles, mute y límites de fuente", [py, "test_export_pipeline.py"]),
         ("Checkpoints automáticos deduplican y limitan versiones", [node, "test_automation_checkpoint.mjs"]),
         ("Auto Finish crea checkpoint antes de mutar o renderizar", [node, "test_automation_checkpoint_wiring.mjs"]),
-
-        # Stable render snapshots and final output quality.
         ("Render iniciado usa snapshot estable aunque el proyecto siga editándose", [node, "test_render_snapshot.mjs"]),
         ("WebM usa resolución final, bitrate correcto y estado inmutable", [node, "test_webm_render_state.mjs"]),
         ("Exportación final rechaza metadatos inválidos de medios referenciados", [py, "tests/export-media-metadata-regression.py"]),
