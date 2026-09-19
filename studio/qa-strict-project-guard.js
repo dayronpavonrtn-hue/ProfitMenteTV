@@ -28,7 +28,9 @@
     for(const clip of clips){
       if(!clip||typeof clip!=='object'){issues.push('Clip inválido en timeline.');continue}
       const label=String(clip.name||clip.id||'clip');
-      if(canonicalTrack(clip.track)===null)issues.push(`Pista inválida: ${label}`);
+      const track=canonicalTrack(clip.track);
+      if(track===null)issues.push(`Pista inválida: ${label}`);
+      if(track===3&&String(clip.name??'').trim()==='')issues.push(`Caption vacío: ${String(clip.id||'clip')}`);
       for(const [field,caption] of [['start','Inicio'],['duration','Duración']]){
         const value=finiteNumber(clip[field],null);
         if(value===null)issues.push(`${caption} de clip inválido: ${label}`);
@@ -59,12 +61,7 @@
         const track=canonicalTrack(key);
         if(track===null||!state||typeof state!=='object'||Array.isArray(state))continue;
         const current=out[track]||{hidden:false,muted:false,locked:false,solo:false};
-        out[track]={
-          hidden:current.hidden||strictFlag(state.hidden),
-          muted:current.muted||strictFlag(state.muted),
-          locked:current.locked||strictFlag(state.locked),
-          solo:current.solo||strictFlag(state.solo)
-        };
+        out[track]={hidden:current.hidden||strictFlag(state.hidden),muted:current.muted||strictFlag(state.muted),locked:current.locked||strictFlag(state.locked),solo:current.solo||strictFlag(state.solo)};
       }
       return out;
     };
@@ -75,17 +72,7 @@
       trackStates:sanitizeStates(project.trackStates),
       clips:(Array.isArray(project.clips)?project.clips:[]).map(clip=>{
         if(!clip||typeof clip!=='object')return clip;
-        const sanitized={
-          ...clip,
-          track:canonicalTrack(clip.track),
-          start:finiteNumber(clip.start,0),
-          duration:finiteNumber(clip.duration,0),
-          ...(clip.sourceOffset!=null?{sourceOffset:finiteNumber(clip.sourceOffset,0)}:{}),
-          ...(clip.speed!=null?{speed:finiteNumber(clip.speed,1)}:{}),
-          ...(clip.volume!=null?{volume:finiteNumber(clip.volume,1)}:{}),
-          ...(clip.fadeIn!=null?{fadeIn:finiteNumber(clip.fadeIn,0)}:{}),
-          ...(clip.fadeOut!=null?{fadeOut:finiteNumber(clip.fadeOut,0)}:{})
-        };
+        const sanitized={...clip,track:canonicalTrack(clip.track),start:finiteNumber(clip.start,0),duration:finiteNumber(clip.duration,0),...(clip.sourceOffset!=null?{sourceOffset:finiteNumber(clip.sourceOffset,0)}:{}),...(clip.speed!=null?{speed:finiteNumber(clip.speed,1)}:{}),...(clip.volume!=null?{volume:finiteNumber(clip.volume,1)}:{}),...(clip.fadeIn!=null?{fadeIn:finiteNumber(clip.fadeIn,0)}:{}),...(clip.fadeOut!=null?{fadeOut:finiteNumber(clip.fadeOut,0)}:{})};
         for(const flag of clipFlags)if(clip[flag]!=null)sanitized[flag]=strictFlag(clip[flag]);
         return sanitized;
       })
@@ -99,13 +86,7 @@
     if(!strictIssues.length)return result;
     const issues=Array.isArray(result.issues)?result.issues.slice():[];
     for(const issue of strictIssues)if(!issues.includes(issue))issues.push(issue);
-    return {
-      ...result,
-      ok:false,
-      issues,
-      score:Math.max(0,Number(result.score||0)-strictIssues.length*25),
-      metrics:{...(result.metrics||{}),invalidProjectFields:strictIssues.length}
-    };
+    return {...result,ok:false,issues,score:Math.max(0,Number(result.score||0)-strictIssues.length*25),metrics:{...(result.metrics||{}),invalidProjectFields:strictIssues.length}};
   };
   QA.prototype.__profitMenteStrictProjectGuard=true;
   root.ProfitMenteQAStrictProjectGuard={finiteNumber,canonicalTrack,strictFlag,invalidProjectFields,sanitizeProject};
