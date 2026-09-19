@@ -114,6 +114,35 @@ def validate_project_identity(project):
     return True
 
 
+def validate_asset_references(project):
+    """Reject active clips that point to media no longer present in the project library."""
+    if not isinstance(project, dict):
+        raise TypeError('Proyecto inválido')
+    assets = project.get('assets') if isinstance(project.get('assets'), list) else []
+    asset_ids = {
+        asset_id
+        for asset in assets
+        if isinstance(asset, dict)
+        for asset_id in [_canonical_id(asset.get('id'))]
+        if asset_id is not None
+    }
+    clips = project.get('clips') if isinstance(project.get('clips'), list) else []
+    problems = []
+    for index, clip in enumerate(clips):
+        if not isinstance(clip, dict) or 'asset' not in clip:
+            continue
+        raw_asset = clip.get('asset')
+        asset_id = _canonical_id(raw_asset)
+        clip_id = clip.get('id', clip.get('name', index))
+        if asset_id is None:
+            problems.append(f'Clip {clip_id!r}: referencia de medio vacía o inválida.')
+        elif asset_id not in asset_ids:
+            problems.append(f'Clip {clip_id!r}: el medio {asset_id!r} no existe en la biblioteca del proyecto.')
+    if problems:
+        raise ValueError('Referencias de medios rotas: ' + ' | '.join(problems))
+    return True
+
+
 def _asset_kind(asset):
     """Return image/video/audio when metadata is conclusive; otherwise None."""
     if not isinstance(asset, dict):
@@ -214,6 +243,7 @@ def validate_timeline_bounds(project):
 def build_export(project, final=True):
     validate_project_identity(project)
     export_project = apply_export_track_state(project)
+    validate_asset_references(export_project)
     validate_referenced_media_metadata(export_project)
     validate_media_track_compatibility(export_project)
     validate_timeline_bounds(export_project)
