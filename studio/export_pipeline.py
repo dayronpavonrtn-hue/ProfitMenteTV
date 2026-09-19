@@ -178,7 +178,7 @@ def validate_media_track_compatibility(project):
 
 
 def validate_clip_playback_parameters(project):
-    """Reject invalid trim/speed/volume values before the bridge silently normalizes them."""
+    """Reject invalid trim/speed/gain values before the bridge silently normalizes them."""
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     problems = []
     clips = project.get('clips') if isinstance(project.get('clips'), list) else []
@@ -194,10 +194,15 @@ def validate_clip_playback_parameters(project):
             if speed is None or not 0.25 <= speed <= 4.0:
                 problems.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
         track = _track_index(clip.get('track'))
-        if track in AUDIO_TRACKS and 'volume' in clip:
-            volume = _finite_number(clip.get('volume'))
-            if volume is None or not 0.0 <= volume <= 2.0:
-                problems.append(f'Clip {clip_id!r}: volume debe estar entre 0.0 y 2.0.')
+        if track in AUDIO_TRACKS:
+            if 'volume' in clip:
+                volume = _finite_number(clip.get('volume'))
+                if volume is None or not 0.0 <= volume <= 2.0:
+                    problems.append(f'Clip {clip_id!r}: volume debe estar entre 0.0 y 2.0.')
+            if 'sourceVolume' in clip:
+                source_volume = _finite_number(clip.get('sourceVolume'))
+                if source_volume is None or not 0.0 <= source_volume <= 2.0:
+                    problems.append(f'Clip {clip_id!r}: sourceVolume debe estar entre 0.0 y 2.0.')
     if problems:
         raise ValueError('Controles de reproducción inválidos: ' + ' | '.join(problems))
     return True
