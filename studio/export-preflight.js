@@ -74,7 +74,7 @@
       const ratio=projectDuration>0?Math.max(0,Math.min(1,seconds/projectDuration)):0,percent=+(ratio*100).toFixed(1);next.metrics.narrationCoverage=percent;
       const mode=String(project?.mode||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),automatic=mode.includes('automatic');
       if(!automatic||trackMuted)return next;
-      const pending=clips.some(c=>isNarration(c)&&!this.hasAsset(c)&&!!clipTiming(c));
+      const pending=clips.some(c=>isNarration(c)&&c?.muted!==true&&!this.hasAsset(c)&&!!clipTiming(c));
       if(pending&&ratio<.72)next.warnings.push(`Narración automática pendiente · cobertura actual ${percent}%. Añade o graba una voz que cubra al menos 72% del video.`);
       else if(voice.length&&ratio<.72)next.warnings.push(`Narración automática incompleta · cobertura ${percent}%. Recomendado: al menos 72% del video.`);
       else if(!voice.length)next.warnings.push('El proyecto automático no tiene narración activa. Añade o graba una voz antes del render final.');
