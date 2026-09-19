@@ -58,6 +58,19 @@ def run():
     filtered = apply_export_track_state(p)
     assert [c['id'] for c in filtered['clips']] == ['music'], 'legacy and current state must merge safely'
 
+    # Per-clip mute must survive editor -> export semantics. studio_bridge does not
+    # serialize the muted flag, so the export gate must remove muted audio clips.
+    muted_voice = clip('muted-voice', 6, 'a')
+    muted_voice['muted'] = True
+    p = project([clip('video', 0, 'v'), muted_voice, clip('music', 5, 'm')])
+    filtered = apply_export_track_state(p)
+    assert [c['id'] for c in filtered['clips']] == ['video', 'music']
+    assert p['clips'][1]['muted'] is True, 'export filtering must not mutate clip mute state'
+    ready = build_export(p, final=True)
+    assert ready['ok'] is True
+    assert ready['plan']['tracks']['voice'] == []
+    assert [item['id'] for item in ready['plan']['tracks']['music']] == ['music']
+
     ready = build_export(project([clip('video', 0, 'v')]), final=True)
     assert ready['ok'] is True
     assert ready['plan']['tracks']['video'][0]['id'] == 'video'
