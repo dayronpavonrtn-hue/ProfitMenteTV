@@ -41,8 +41,10 @@ class ProfitMenteAudioQCEngine{
   }
   static inspectClip({project=null,clip=null,peaks=[],sourceDuration=0,waveformEngine=null}={}){
     if(!clip||!waveformEngine||typeof waveformEngine.slicePeaks!=='function')return {status:'unavailable',reason:'missing_input'};
-    const duration=Math.max(0,this.finiteNumber(sourceDuration,0));if(duration<=0)return {status:'unavailable',reason:'unknown_duration'};
-    const visible=waveformEngine.slicePeaks(peaks,{sourceOffset:this.finiteNumber(clip.sourceOffset,0),clipDuration:this.finiteNumber(clip.duration,0),speed:this.finiteNumber(clip.speed,1),sourceDuration:duration,bins:512});
+    const duration=this.finiteNumber(sourceDuration,null);if(duration===null||duration<=0)return {status:'unavailable',reason:'unknown_duration'};
+    const sourceOffset=this.finiteNumber(clip.sourceOffset??0,null),clipDuration=this.finiteNumber(clip.duration,null),speed=this.finiteNumber(clip.speed??1,null);
+    if(sourceOffset===null||sourceOffset<0||clipDuration===null||clipDuration<=0||speed===null||speed<=0)return {status:'unavailable',reason:'invalid_timing',clipId:clip.id,track:this.canonicalTrack(clip.track)};
+    const visible=waveformEngine.slicePeaks(peaks,{sourceOffset,clipDuration,speed,sourceDuration:duration,bins:512});
     return {...this.inspectPeaks(visible,this.clipGain(project,clip)),clipId:clip.id,track:this.canonicalTrack(clip.track)};
   }
   static inspectMixOverlaps(results=[],{warningDb=-1,clipDb=-0.05}={}){
