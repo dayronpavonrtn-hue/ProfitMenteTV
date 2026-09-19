@@ -8,6 +8,7 @@ from pathlib import Path
 from studio_bridge import convert
 from studio.render_qa import inspect_plan
 from studio.timeline_bounds_preflight import inspect as inspect_timeline_bounds
+from studio.source_audio_preflight import validate as validate_source_audio
 
 VISUAL_TRACKS = {0, 1, 2, 3}
 AUDIO_TRACKS = {4, 5, 6}
@@ -36,7 +37,6 @@ def _merged_track_state(project):
 
 
 def apply_export_track_state(project):
-    """Return a copy containing only clips that are audible/visible at export time."""
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     clean = copy.deepcopy(project)
     clips = clean.get('clips')
@@ -46,7 +46,6 @@ def apply_export_track_state(project):
     states = _merged_track_state(clean)
     visual_solo = {i for i in VISUAL_TRACKS if states[i]['solo']}
     audio_solo = {i for i in AUDIO_TRACKS if states[i]['solo']}
-
     def active(clip):
         if not isinstance(clip, dict): return False
         track = _track_index(clip.get('track'))
@@ -55,7 +54,6 @@ def apply_export_track_state(project):
         if track in VISUAL_TRACKS:
             return not state['hidden'] and (not visual_solo or track in visual_solo)
         return clip.get('muted') is not True and not state['muted'] and (not audio_solo or track in audio_solo)
-
     clean['clips'] = [clip for clip in clips if active(clip)]
     return clean
 
@@ -63,8 +61,7 @@ def apply_export_track_state(project):
 def _canonical_id(value):
     if value is None or isinstance(value, bool): return None
     if isinstance(value, str):
-        value = value.strip()
-        return value or None
+        value = value.strip(); return value or None
     if isinstance(value, (int, float)):
         try: number = float(value)
         except (TypeError, ValueError): return None
@@ -108,8 +105,7 @@ def validate_asset_references(project):
     problems = []
     for index, clip in enumerate(clips):
         if not isinstance(clip, dict) or 'asset' not in clip: continue
-        asset_id = _canonical_id(clip.get('asset'))
-        clip_id = clip.get('id', clip.get('name', index))
+        asset_id = _canonical_id(clip.get('asset')); clip_id = clip.get('id', clip.get('name', index))
         if asset_id is None: problems.append(f'Clip {clip_id!r}: referencia de medio vacía o inválida.')
         elif asset_id not in asset_ids: problems.append(f'Clip {clip_id!r}: el medio {asset_id!r} no existe en la biblioteca del proyecto.')
     if problems: raise ValueError('Referencias de medios rotas: ' + ' | '.join(problems))
@@ -118,8 +114,7 @@ def validate_asset_references(project):
 
 def _asset_kind(asset):
     if not isinstance(asset, dict): return None
-    raw_type = str(asset.get('type') or '').strip().lower()
-    mime = str(asset.get('mime') or '').strip().lower()
+    raw_type = str(asset.get('type') or '').strip().lower(); mime = str(asset.get('mime') or '').strip().lower()
     if raw_type in {'image', 'video', 'audio'}: return raw_type
     for kind in ('image', 'video', 'audio'):
         if mime.startswith(kind + '/'): return kind
@@ -127,8 +122,7 @@ def _asset_kind(asset):
 
 
 def _positive_finite(value):
-    number = _finite_number(value)
-    return number if number is not None and number > 0 else None
+    number = _finite_number(value); return number if number is not None and number > 0 else None
 
 
 def validate_referenced_media_metadata(project):
@@ -142,8 +136,7 @@ def validate_referenced_media_metadata(project):
         asset = lookup.get(asset_id)
         if not isinstance(asset, dict): continue
         kind = _asset_kind(asset)
-        if kind in {'video', 'audio'} and 'duration' in asset and _positive_finite(asset.get('duration')) is None:
-            problems.append(f'Medio {asset_id!r}: duración inválida.')
+        if kind in {'video', 'audio'} and 'duration' in asset and _positive_finite(asset.get('duration')) is None: problems.append(f'Medio {asset_id!r}: duración inválida.')
         if kind in {'video', 'image'}:
             for field, label in (('width', 'ancho'), ('height', 'alto')):
                 if field in asset and _positive_finite(asset.get(field)) is None: problems.append(f'Medio {asset_id!r}: {label} inválido.')
@@ -164,8 +157,7 @@ def validate_media_track_compatibility(project):
     clips = project.get('clips') if isinstance(project.get('clips'), list) else []
     for clip in clips:
         if not isinstance(clip, dict): continue
-        track = _track_index(clip.get('track'))
-        asset_id = _canonical_id(clip.get('asset'))
+        track = _track_index(clip.get('track')); asset_id = _canonical_id(clip.get('asset'))
         if track is None or asset_id is None: continue
         kind = _asset_kind(lookup.get(asset_id))
         if kind is None: continue
@@ -178,7 +170,6 @@ def validate_media_track_compatibility(project):
 
 
 def validate_clip_playback_parameters(project):
-    """Reject invalid trim/speed/gain values before the bridge silently normalizes them."""
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
     problems = []
     clips = project.get('clips') if isinstance(project.get('clips'), list) else []
@@ -187,24 +178,19 @@ def validate_clip_playback_parameters(project):
         clip_id = clip.get('id', clip.get('name', index))
         if 'sourceOffset' in clip:
             offset = _finite_number(clip.get('sourceOffset'))
-            if offset is None or offset < 0:
-                problems.append(f'Clip {clip_id!r}: sourceOffset debe ser un número finito >= 0.')
+            if offset is None or offset < 0: problems.append(f'Clip {clip_id!r}: sourceOffset debe ser un número finito >= 0.')
         if 'speed' in clip:
             speed = _finite_number(clip.get('speed'))
-            if speed is None or not 0.25 <= speed <= 4.0:
-                problems.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
+            if speed is None or not 0.25 <= speed <= 4.0: problems.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
         track = _track_index(clip.get('track'))
         if track in AUDIO_TRACKS:
             if 'volume' in clip:
                 volume = _finite_number(clip.get('volume'))
-                if volume is None or not 0.0 <= volume <= 2.0:
-                    problems.append(f'Clip {clip_id!r}: volume debe estar entre 0.0 y 2.0.')
+                if volume is None or not 0.0 <= volume <= 2.0: problems.append(f'Clip {clip_id!r}: volume debe estar entre 0.0 y 2.0.')
             if 'sourceVolume' in clip:
                 source_volume = _finite_number(clip.get('sourceVolume'))
-                if source_volume is None or not 0.0 <= source_volume <= 2.0:
-                    problems.append(f'Clip {clip_id!r}: sourceVolume debe estar entre 0.0 y 2.0.')
-    if problems:
-        raise ValueError('Controles de reproducción inválidos: ' + ' | '.join(problems))
+                if source_volume is None or not 0.0 <= source_volume <= 2.0: problems.append(f'Clip {clip_id!r}: sourceVolume debe estar entre 0.0 y 2.0.')
+    if problems: raise ValueError('Controles de reproducción inválidos: ' + ' | '.join(problems))
     return True
 
 
@@ -221,6 +207,7 @@ def build_export(project, final=True):
     validate_referenced_media_metadata(export_project)
     validate_media_track_compatibility(export_project)
     validate_clip_playback_parameters(export_project)
+    validate_source_audio(export_project)
     validate_timeline_bounds(export_project)
     plan = convert(export_project)
     qa = inspect_plan(plan, final=final)
@@ -229,24 +216,19 @@ def build_export(project, final=True):
 
 def _sync_parent_directory(directory):
     if os.name == 'nt' or not hasattr(os, 'O_DIRECTORY'): return
-    flags = os.O_RDONLY | os.O_DIRECTORY
-    fd = os.open(str(directory), flags)
+    flags = os.O_RDONLY | os.O_DIRECTORY; fd = os.open(str(directory), flags)
     try: os.fsync(fd)
     finally: os.close(fd)
 
 
 def _atomic_write_json(destination, payload):
-    out = Path(destination)
-    out.parent.mkdir(parents=True, exist_ok=True)
+    out = Path(destination); out.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     fd, temp_name = tempfile.mkstemp(prefix=f'.{out.name}.', suffix='.tmp', dir=str(out.parent))
     try:
         with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_name, out)
-        _sync_parent_directory(out.parent)
+            handle.write(text); handle.flush(); os.fsync(handle.fileno())
+        os.replace(temp_name, out); _sync_parent_directory(out.parent)
     except BaseException:
         try: os.unlink(temp_name)
         except FileNotFoundError: pass
