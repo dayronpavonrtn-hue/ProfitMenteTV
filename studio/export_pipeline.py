@@ -63,7 +63,10 @@ def apply_export_track_state(project):
         state = states[track]
         if track in VISUAL_TRACKS:
             return not state['hidden'] and (not visual_solo or track in visual_solo)
-        return not state['muted'] and (not audio_solo or track in audio_solo)
+        # Clip-level mute is an editor decision too. The bridge does not carry the
+        # `muted` flag into the render plan, so remove muted audio here instead of
+        # accidentally rendering it at full volume.
+        return clip.get('muted') is not True and not state['muted'] and (not audio_solo or track in audio_solo)
 
     clean['clips'] = [clip for clip in clips if active(clip)]
     return clean
