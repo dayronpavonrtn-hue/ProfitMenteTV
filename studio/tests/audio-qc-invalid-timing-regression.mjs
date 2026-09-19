@@ -22,5 +22,16 @@ for(const sourceDuration of [0,-1,NaN,Infinity,'bad']){
   assert.equal(result.status,'unavailable',`sourceDuration=${String(sourceDuration)} must be unavailable`);
   assert.equal(result.reason,'unknown_duration');
 }
+for(const clip of [
+  {...base,sourceOffset:10},
+  {...base,sourceOffset:9.5,duration:1},
+  {...base,sourceOffset:8,duration:2,speed:1.1},
+  {...base,sourceOffset:Number.MAX_VALUE,duration:Number.MAX_VALUE,speed:Number.MAX_VALUE}
+]){
+  const result=inspect(clip,10);
+  assert.equal(result.status,'unavailable','audio trim beyond the decoded source must not produce trusted QC');
+  assert.equal(result.reason,'source_window_out_of_bounds');
+}
+assert.equal(inspect({...base,sourceOffset:8,duration:2,speed:1},10).status,'ok','a trim ending exactly at source duration remains valid');
 assert.equal(inspect({...base,sourceOffset:'1.25',duration:'2.5',speed:'1.5'}).status,'ok','serialized finite numeric timing remains compatible');
 console.log('ProfitMente audio QC invalid timing regression: OK');
