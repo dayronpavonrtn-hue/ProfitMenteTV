@@ -7,12 +7,17 @@ class ProfitMenteProjectAutosaveEngine{
     const parsed=Number(value);
     return Number.isFinite(parsed)?parsed:fallback;
   }
-  static fields(project={}){const duration=this.numeric(project.duration,45);return {name:project.name||'Nuevo video',duration:Math.max(1,duration),format:['9:16','16:9','1:1'].includes(project.format)?project.format:'9:16',mode:project.mode==='Automático'?'Automático':'Manual'}}
+  static name(value,fallback='Nuevo video'){
+    if(typeof value!=='string')return fallback;
+    const normalized=value.trim();
+    return normalized||fallback;
+  }
+  static fields(project={}){const duration=this.numeric(project.duration,45);return {name:this.name(project.name),duration:Math.max(1,duration),format:['9:16','16:9','1:1'].includes(project.format)?project.format:'9:16',mode:project.mode==='Automático'?'Automático':'Manual'}}
   static merge(project={},values={}){
     const current=this.fields(project),rawDuration=values.duration;
     const parsedDuration=rawDuration===''||rawDuration==null?current.duration:this.numeric(rawDuration,current.duration);
     return {
-      name:typeof values.name==='string'&&values.name.trim()?values.name.trim():current.name,
+      name:this.name(values.name,current.name),
       duration:Math.max(1,parsedDuration),
       format:['9:16','16:9','1:1'].includes(values.format)?values.format:current.format,
       mode:values.mode==='Automático'||values.mode==='Manual'?values.mode:current.mode
