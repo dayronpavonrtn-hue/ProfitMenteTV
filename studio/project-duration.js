@@ -1,22 +1,31 @@
 (()=>{
   const root=typeof window!=='undefined'?window:globalThis;
+  const MAX_DURATION=60*60;
+  const finite=(value,fallback=0)=>{try{const n=Number(value);return Number.isFinite(n)?n:fallback}catch(_){return fallback}};
+  const clipsOf=project=>Array.isArray(project?.clips)?project.clips:[];
+  const safeEnd=c=>Math.min(MAX_DURATION,Math.max(0,finite(c?.start))+Math.max(0,finite(c?.duration)));
   class ProfitMenteProjectDuration{
     static contentEnd(project){
       let end=0;
-      for(const c of project?.clips||[]){
-        const start=Math.max(0,Number(c?.start)||0),duration=Math.max(0,Number(c?.duration)||0);
-        end=Math.max(end,start+duration);
-      }
+      for(const c of clipsOf(project))end=Math.max(end,safeEnd(c));
       return end;
     }
     static outside(project){
-      const limit=Math.max(0,Number(project?.duration)||0);
-      return (project?.clips||[]).filter(c=>(Number(c?.start)||0)+(Number(c?.duration)||0)>limit+.001);
+      const limit=Math.max(0,Math.min(MAX_DURATION,finite(project?.duration)));
+      return clipsOf(project).filter(c=>safeEnd(c)>limit+.001);
     }
     static fit(project,{minimum=1,padding=0}={}){
-      if(!project)return 0;
-      const next=Math.max(Number(minimum)||1,this.contentEnd(project)+Math.max(0,Number(padding)||0));
+      if(!project||typeof project!=='object')return 0;
+      const min=Math.max(1,finite(minimum,1));
+      const pad=Math.max(0,finite(padding));
+      const next=Math.min(MAX_DURATION,Math.max(min,this.contentEnd(project)+pad));
       project.duration=Number(next.toFixed(3));
+      return project.duration;
+    }
+    static sanitize(project){
+      if(!project||typeof project!=='object')return 0;
+      const current=finite(project.duration,45);
+      project.duration=Number(Math.max(1,Math.min(MAX_DURATION,current)).toFixed(3));
       return project.duration;
     }
   }
@@ -34,13 +43,13 @@
     row.classList.toggle('warn',outside.length>0);
   }
   btn.onclick=()=>{
-    const before=Number(project.duration)||0,next=ProfitMenteProjectDuration.fit(project);
-    durationInput.value=next;const p=$('#playhead');if(p){p.max=next;if(Number(p.value)>next)p.value=next}
+    const before=finite(project.duration),next=ProfitMenteProjectDuration.fit(project);
+    durationInput.value=next;const p=$('#playhead');if(p){p.max=next;if(finite(p.value)>next)p.value=next}
     if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+p?.value||0);
     if(typeof setStatus==='function')setStatus(`Duración ajustada ${before.toFixed(2)}s → ${next.toFixed(2)}s sin recortar clips`);refresh();
   };
-  durationInput.addEventListener('change',()=>requestAnimationFrame(refresh));
+  durationInput.addEventListener('change',()=>{const value=ProfitMenteProjectDuration.sanitize(project);durationInput.value=value;requestAnimationFrame(refresh)});
   const basePersist=typeof persist==='function'?persist:null;
-  if(basePersist){persist=function(){const r=basePersist.apply(this,arguments);refresh();return r}}
-  refresh();
+  if(basePersist){persist=function(){ProfitMenteProjectDuration.sanitize(project);const r=basePersist.apply(this,arguments);refresh();return r}}
+  ProfitMenteProjectDuration.sanitize(project);durationInput.value=project.duration;refresh();
 })();
