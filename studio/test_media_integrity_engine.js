@@ -10,13 +10,22 @@ assert.equal(report.ok,true);assert.equal(report.valid,3);
 assert.equal(Engine.auditProject({clips:[{asset:0},{assetId:'voice'}]},valid).ok,true);
 report=Engine.validateLibrary([...valid,{id:'voice',type:'audio',duration:1,src:'x'}]);
 assert.equal(report.ok,false);assert.deepEqual(report.duplicates,['voice']);
+const localBlob={size:128,arrayBuffer:async()=>new ArrayBuffer(0)};
+const localVideo={id:'local-video',type:'video',duration:4.2,blob:localBlob,size:128,mediaReadable:true};
+const localResult=Engine.validateAsset(localVideo);
+assert.equal(localResult.ok,true);assert.equal(localResult.source,'local_blob');
+assert.equal(Engine.auditProject({clips:[{asset:'local-video'}]},[localVideo]).ok,true);
 for(const asset of [
   {id:'x',type:'video',duration:0,src:'x'},
   {id:'x',type:'audio',duration:NaN,src:'x'},
   {id:'x',type:'video',duration:1,src:''},
   {id:'x',type:'exe',duration:1,src:'x'},
   {id:true,type:'video',duration:1,src:'x'},
-  {id:'x',type:'video',duration:1,src:'x',size:-1}
+  {id:1.5,type:'video',duration:1,src:'x'},
+  {id:'x',type:'video',duration:1,src:'x',size:-1},
+  {id:'x',type:'video',duration:1,blob:{size:10}},
+  {id:'x',type:'video',duration:1,blob:{size:0,arrayBuffer:async()=>new ArrayBuffer(0)}},
+  {id:'x',type:'video',duration:1,blob:localBlob,mediaReadable:false}
 ])assert.equal(Engine.validateAsset(asset).ok,false,JSON.stringify(asset));
 const audit=Engine.auditProject({clips:[{asset:0},{asset:'missing'}]},valid);
 assert.equal(audit.ok,false);assert.deepEqual(audit.missingAssets,['missing']);
