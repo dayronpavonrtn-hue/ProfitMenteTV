@@ -15,6 +15,17 @@ class ProfitMenteAudioQCEngine{
     }
     return 1;
   }
+  static gainValidation(project,clip,track){
+    const values=[];
+    for(const map of [project?.trackState,project?.trackStates]){
+      if(!map||typeof map!=='object')continue;
+      for(const [key,state] of Object.entries(map))if(this.canonicalTrack(key)===track&&state&&typeof state==='object'&&Object.prototype.hasOwnProperty.call(state,'gain'))values.push(state.gain);
+    }
+    if((track===0||track===1)&&Object.prototype.hasOwnProperty.call(clip||{},'sourceVolume'))values.push(clip.sourceVolume);
+    if((track===4||track===5||track===6)&&Object.prototype.hasOwnProperty.call(clip||{},'volume'))values.push(clip.volume);
+    for(const value of values){const n=this.finiteNumber(value,null);if(n===null||n<0||n>2)return false}
+    return true;
+  }
   static trackLocked(project,track){
     const canonical=this.canonicalTrack(track);if(canonical===null)return false;
     for(const map of [project?.trackState,project?.trackStates]){
@@ -42,6 +53,7 @@ class ProfitMenteAudioQCEngine{
   static inspectClip({project=null,clip=null,peaks=[],sourceDuration=0,waveformEngine=null}={}){
     if(!clip||!waveformEngine||typeof waveformEngine.slicePeaks!=='function')return {status:'unavailable',reason:'missing_input'};
     const track=this.canonicalTrack(clip.track);if(track===null)return {status:'unavailable',reason:'invalid_track',clipId:clip.id,track:null};
+    if(!this.gainValidation(project,clip,track))return {status:'unavailable',reason:'invalid_gain',clipId:clip.id,track};
     const duration=this.finiteNumber(sourceDuration,null);if(duration===null||duration<=0)return {status:'unavailable',reason:'unknown_duration',clipId:clip.id,track};
     const sourceOffset=this.finiteNumber(clip.sourceOffset??0,null),clipDuration=this.finiteNumber(clip.duration,null),speed=this.finiteNumber(clip.speed??1,null);
     if(sourceOffset===null||sourceOffset<0||clipDuration===null||clipDuration<=0||speed===null||speed<=0)return {status:'unavailable',reason:'invalid_timing',clipId:clip.id,track};
