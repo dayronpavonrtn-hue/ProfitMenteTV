@@ -73,6 +73,10 @@
       qaFixBtn:'Antes de reparación QA',
       safeAreaFixBtn:'Antes de ajustar zona segura',
       visualGapFillBtn:'Antes de completar huecos',
+      renderBtn:'Antes de render WebM',
+      renderMp4Btn:'Antes de render MP4',
+      bundleBtn:'Antes de exportar paquete MP4',
+      exportBtn:'Antes de exportar proyecto',
       clearBtn:'Antes de crear proyecto nuevo'
     };
     function checkpoint(label){
