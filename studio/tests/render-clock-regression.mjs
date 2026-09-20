@@ -12,4 +12,10 @@ assert.ok(Math.abs(fast.result.elapsed-.2)<1e-9,'fast rendering must finish on t
 assert.ok(fast.result.frames>=5,'fast renderer should preserve useful frame cadence');
 assert.ok(fast.result.lastTime<.2,'no frame may begin after project end');
 await assert.rejects(()=>new globalThis.ProfitMenteRenderClock({now:()=>0,sleep:async()=>{}}).run(0,async()=>{}),/Duración de render inválida/);
+const controller=new AbortController();let now=0,frames=0;
+const cancellable=new globalThis.ProfitMenteRenderClock({fps:30,now:()=>now,sleep:async ms=>{now+=ms}});
+await assert.rejects(()=>cancellable.run(2,async()=>{frames++;now+=5;if(frames===2)controller.abort()},{signal:controller.signal}),error=>error?.name==='AbortError'&&/cancelado/i.test(error.message),'cancelled render must stop with AbortError');
+assert.equal(frames,2,'render must stop immediately after cancellation');
+const preCancelled=new AbortController();preCancelled.abort();
+await assert.rejects(()=>cancellable.run(2,async()=>{throw new Error('frame must not run')},{signal:preCancelled.signal}),error=>error?.name==='AbortError','pre-cancelled render must never start');
 console.log('render-clock regression OK');
