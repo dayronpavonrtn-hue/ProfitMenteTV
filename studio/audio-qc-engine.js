@@ -41,13 +41,14 @@ class ProfitMenteAudioQCEngine{
   }
   static inspectClip({project=null,clip=null,peaks=[],sourceDuration=0,waveformEngine=null}={}){
     if(!clip||!waveformEngine||typeof waveformEngine.slicePeaks!=='function')return {status:'unavailable',reason:'missing_input'};
-    const duration=this.finiteNumber(sourceDuration,null);if(duration===null||duration<=0)return {status:'unavailable',reason:'unknown_duration'};
+    const track=this.canonicalTrack(clip.track);if(track===null)return {status:'unavailable',reason:'invalid_track',clipId:clip.id,track:null};
+    const duration=this.finiteNumber(sourceDuration,null);if(duration===null||duration<=0)return {status:'unavailable',reason:'unknown_duration',clipId:clip.id,track};
     const sourceOffset=this.finiteNumber(clip.sourceOffset??0,null),clipDuration=this.finiteNumber(clip.duration,null),speed=this.finiteNumber(clip.speed??1,null);
-    if(sourceOffset===null||sourceOffset<0||clipDuration===null||clipDuration<=0||speed===null||speed<=0)return {status:'unavailable',reason:'invalid_timing',clipId:clip.id,track:this.canonicalTrack(clip.track)};
+    if(sourceOffset===null||sourceOffset<0||clipDuration===null||clipDuration<=0||speed===null||speed<=0)return {status:'unavailable',reason:'invalid_timing',clipId:clip.id,track};
     const sourceEnd=sourceOffset+clipDuration*speed,tolerance=Math.max(1e-6,duration*1e-9);
-    if(!Number.isFinite(sourceEnd)||sourceOffset>=duration||sourceEnd>duration+tolerance)return {status:'unavailable',reason:'source_window_out_of_bounds',clipId:clip.id,track:this.canonicalTrack(clip.track),sourceOffset,sourceEnd,sourceDuration:duration};
+    if(!Number.isFinite(sourceEnd)||sourceOffset>=duration||sourceEnd>duration+tolerance)return {status:'unavailable',reason:'source_window_out_of_bounds',clipId:clip.id,track,sourceOffset,sourceEnd,sourceDuration:duration};
     const visible=waveformEngine.slicePeaks(peaks,{sourceOffset,clipDuration,speed,sourceDuration:duration,bins:512});
-    return {...this.inspectPeaks(visible,this.clipGain(project,clip)),clipId:clip.id,track:this.canonicalTrack(clip.track)};
+    return {...this.inspectPeaks(visible,this.clipGain(project,clip)),clipId:clip.id,track};
   }
   static inspectMixOverlaps(results=[],{warningDb=-1,clipDb=-0.05}={}){
     const rows=(Array.isArray(results)?results:[]).filter(r=>r?.clip&&Number.isFinite(r.effectivePeak));
