@@ -110,7 +110,7 @@ class ProfitMenteAudioQCEngine{
   static summarize(results=[]){
     const list=Array.isArray(results)?results:[],counts={clipping:0,hot:0,ok:0,silent:0,unavailable:0};
     for(const item of list){const key=Object.prototype.hasOwnProperty.call(counts,item?.status)?item.status:'unavailable';counts[key]++}
-    return {...counts,total:list.length,ok:counts.clipping===0};
+    return {...counts,total:list.length,ok:counts.clipping===0&&counts.unavailable===0};
   }
 }
 if(typeof window!=='undefined')window.ProfitMenteAudioQCEngine=ProfitMenteAudioQCEngine;
