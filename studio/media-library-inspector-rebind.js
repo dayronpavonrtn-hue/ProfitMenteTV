@@ -90,10 +90,27 @@
     return cards.length;
   }
 
+  function loadUploadDedupe(){
+    if(root.ProfitMenteMediaUploadDedupe)return Promise.resolve(root.ProfitMenteMediaUploadDedupe);
+    const existing=document.querySelector('script[data-profitmente-media-upload-dedupe]');
+    if(existing)return new Promise((resolve,reject)=>{
+      existing.addEventListener('load',()=>resolve(root.ProfitMenteMediaUploadDedupe),{once:true});
+      existing.addEventListener('error',()=>reject(new Error('No se pudo cargar media-upload-dedupe.js')),{once:true});
+    });
+    return new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='media-upload-dedupe.js';script.async=false;script.dataset.profitmenteMediaUploadDedupe='1';
+      script.onload=()=>root.ProfitMenteMediaUploadDedupe?resolve(root.ProfitMenteMediaUploadDedupe):reject(new Error('El módulo de deduplicación no se inicializó'));
+      script.onerror=()=>reject(new Error('No se pudo cargar media-upload-dedupe.js'));
+      document.body.appendChild(script);
+    });
+  }
+
   const baseDraw=drawLibrary;
   drawLibrary=function(){baseDraw();enhanceInspectorCards()};
   enhanceInspectorCards();
   search.addEventListener('input',refreshFilter);
   filter.addEventListener('change',refreshFilter);
-  root.ProfitMenteMediaLibraryInspectorRebind={enhanceInspectorCards,refreshFilter};
+  root.ProfitMenteMediaLibraryInspectorRebind={enhanceInspectorCards,refreshFilter,loadUploadDedupe};
+  loadUploadDedupe().catch(error=>{console.error(error);setStatus?.('Studio activo · deduplicación de carga no disponible')});
 })(typeof globalThis!=='undefined'?globalThis:this);
