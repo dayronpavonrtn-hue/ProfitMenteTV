@@ -1,12 +1,18 @@
 (()=>{
   function text(value){return typeof value==='string'?value.trim():''}
-  function finite(value){const n=Number(value);return Number.isFinite(n)&&n>=0?n:0}
+  function size(value){
+    if(typeof value==='boolean'||value===null||value===undefined||value==='')return null;
+    const n=Number(value);
+    return Number.isSafeInteger(n)&&n>=0?n:null;
+  }
   function identity(asset={}){
     const signature=text(asset.metadataBlobSignature);
     if(!signature)return '';
-    const size=finite(asset.metadataBlobSize??asset.size??asset.blob?.size);
+    const bytes=size(asset.metadataBlobSize??asset.size??asset.blob?.size);
+    if(bytes===null)return '';
     const type=text(asset.metadataBlobType||asset.mime||asset.blob?.type).toLowerCase();
-    return `${signature}|${size}|${type}`;
+    if(!type)return '';
+    return `${signature}|${bytes}|${type}`;
   }
   function equivalent(left,right){const a=identity(left),b=identity(right);return !!a&&a===b}
   const api={identity,equivalent};
