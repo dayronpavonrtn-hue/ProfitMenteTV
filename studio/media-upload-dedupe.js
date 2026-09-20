@@ -3,7 +3,7 @@
   function size(value){
     if(typeof value==='boolean'||value===null||value===undefined||value==='')return null;
     const n=Number(value);
-    return Number.isSafeInteger(n)&&n>=0?n:null;
+    return Number.isSafeInteger(n)&&n>0?n:null;
   }
   function identity(asset={}){
     const signature=text(asset.metadataBlobSignature);
