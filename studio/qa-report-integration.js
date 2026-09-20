@@ -81,6 +81,14 @@
     return true;
   }
 
+  function loadRenderGuard(){
+    if(window.ProfitMenteRenderQAGuard||[...document.scripts].some(s=>s.src.endsWith('/render-qa-guard.js')||s.src.endsWith('render-qa-guard.js')))return;
+    const script=document.createElement('script');script.src='render-qa-guard.js';script.async=false;
+    script.onerror=()=>console.error('No se pudo cargar render-qa-guard.js');
+    document.body.appendChild(script);
+  }
+
   window.ProfitMenteQAReport={normalizedReport,reportLines,renderReport,inspectCurrent,wire};
   wire();
+  loadRenderGuard();
 })();
