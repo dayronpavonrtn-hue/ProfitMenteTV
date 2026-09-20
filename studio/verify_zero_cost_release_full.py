@@ -76,6 +76,8 @@ def main() -> None:
         ("Importación de bundle revierte escrituras parciales", [node, "tests/bundle-import-partial-write-rollback-regression.js"]),
         ("Importación de bundle exige pre-guardado seguro", [node, "tests/bundle-import-presave-regression.js"]),
         ("WebM bloquea exportación si la persistencia no es segura", [node, "tests/webm-storage-safety-regression.js"]),
+        ("WebM conserva duración exacta y cancelación segura", [node, "tests/render-clock-regression.mjs"]),
+        ("WebM conserva el renderer avanzado tras el bootstrap", [node, "render-qa-guard-advanced-regression.test.js"]),
         ("MP4 bloquea exportación si la persistencia no es segura", [node, "tests/mp4-persistence-safety-regression.mjs"]),
         ("Generador y autofill conservan identidades canónicas", [node, "test_generator_identity.mjs"]),
         ("Preview de audio conserva identidad canónica", [node, "test_audio_engine_identity.mjs"]),
