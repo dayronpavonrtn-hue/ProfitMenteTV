@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('assert');
+const dedupe=require('../media-upload-dedupe.js');
+const base={metadataBlobSignature:'abc123',metadataBlobSize:4096,metadataBlobType:'video/mp4'};
+assert.strictEqual(dedupe.equivalent(base,{...base,id:'other'}),true,'same inspected blob must be treated as duplicate regardless of id');
+assert.strictEqual(dedupe.equivalent(base,{...base,metadataBlobSignature:'different'}),false,'different content signature must remain importable');
+assert.strictEqual(dedupe.equivalent(base,{...base,metadataBlobSize:4097}),false,'different byte size must remain importable');
+assert.strictEqual(dedupe.equivalent(base,{...base,metadataBlobType:'video/webm'}),false,'different MIME type must remain importable');
+assert.strictEqual(dedupe.equivalent({name:'same.mp4',size:4096,mime:'video/mp4'},{name:'same.mp4',size:4096,mime:'video/mp4'}),false,'metadata-only similarity must not discard files without a content signature');
+assert.strictEqual(dedupe.identity({metadataBlobSignature:' sig ',metadataBlobSize:'12',metadataBlobType:'VIDEO/MP4'}),'sig|12|video/mp4','identity must canonicalize inspected metadata');
+console.log('media upload dedupe regression: OK');
