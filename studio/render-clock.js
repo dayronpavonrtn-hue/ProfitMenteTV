@@ -12,26 +12,33 @@
       if(!Number.isFinite(d)||d<=0)return 0;
       return Math.max(0,Math.min(d,(this.now()-startedAt)/1000));
     }
-    async wait(frameStartedAt){
+    cancelled(signal){return !!signal?.aborted}
+    abortError(){const error=new Error('Render cancelado');error.name='AbortError';return error}
+    async wait(frameStartedAt,signal){
+      if(this.cancelled(signal))throw this.abortError();
       const remaining=this.frameMs-(this.now()-frameStartedAt);
       if(remaining>0)await this.sleep(remaining);
+      if(this.cancelled(signal))throw this.abortError();
     }
-    async run(duration,renderFrame){
+    async run(duration,renderFrame,{signal}={}){
       const d=Number(duration);
       if(!Number.isFinite(d)||d<=0)throw new Error('Duración de render inválida');
       if(typeof renderFrame!=='function')throw new Error('Renderizador de frame no disponible');
+      if(this.cancelled(signal))throw this.abortError();
       const startedAt=this.now();
       let frames=0,lastTime=0,lastRenderMs=0;
       while(true){
+        if(this.cancelled(signal))throw this.abortError();
         const t=this.time(startedAt,d);
         if(t>=d)break;
-        if(frames>0&&t+lastRenderMs/1000>=d){await this.sleep(Math.max(0,(d-t)*1000));break}
+        if(frames>0&&t+lastRenderMs/1000>=d){await this.sleep(Math.max(0,(d-t)*1000));if(this.cancelled(signal))throw this.abortError();break}
         const frameStartedAt=this.now();
-        await renderFrame(t);
+        await renderFrame(t,signal);
+        if(this.cancelled(signal))throw this.abortError();
         lastRenderMs=Math.max(0,this.now()-frameStartedAt);
         lastTime=t;
         frames++;
-        await this.wait(frameStartedAt);
+        await this.wait(frameStartedAt,signal);
       }
       return {duration:d,frames,lastTime,elapsed:(this.now()-startedAt)/1000};
     }
