@@ -48,7 +48,20 @@
     if(typeof persist==='function')persist();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+p?.value||0);
     if(typeof setStatus==='function')setStatus(`Duración ajustada ${before.toFixed(2)}s → ${next.toFixed(2)}s sin recortar clips`);refresh();
   };
-  durationInput.addEventListener('change',()=>{const value=ProfitMenteProjectDuration.sanitize(project);durationInput.value=value;requestAnimationFrame(refresh)});
+  durationInput.addEventListener('change',()=>{
+    // Commit the value the user actually typed before sanitizing. Previously this
+    // sanitized project.duration (the old value) and then overwrote the input,
+    // so a blur/change could silently undo a manual duration edit before the
+    // debounced autosave had a chance to run.
+    const requested=finite(durationInput.value,project?.duration??45);
+    project.duration=requested;
+    const value=ProfitMenteProjectDuration.sanitize(project);durationInput.value=value;
+    const p=$('#playhead');if(p){p.max=value;if(finite(p.value)>value)p.value=value}
+    if(typeof persist==='function')persist();
+    if(typeof drawTimeline==='function')drawTimeline();
+    if(typeof renderAt==='function')void renderAt(+p?.value||0);
+    requestAnimationFrame(refresh)
+  });
   const basePersist=typeof persist==='function'?persist:null;
   if(basePersist){persist=function(){ProfitMenteProjectDuration.sanitize(project);const r=basePersist.apply(this,arguments);refresh();return r}}
   ProfitMenteProjectDuration.sanitize(project);durationInput.value=project.duration;refresh();
