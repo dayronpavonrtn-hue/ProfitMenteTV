@@ -6,12 +6,19 @@ class ProfitMenteMediaIntegrityEngine{
   }
   static canonicalId(value){
     if(typeof value==='string'){const v=value.trim();return v?v:null}
-    if(typeof value==='number'&&Number.isFinite(value))return String(value);
+    if(typeof value==='number'&&Number.isSafeInteger(value))return String(Object.is(value,-0)?0:value);
     return null;
+  }
+  static hasLocalBlob(asset){
+    const blob=asset?.blob;
+    if(!blob||typeof blob!=='object')return false;
+    const size=this.finite(blob.size);
+    const blobLike=(typeof Blob!=='undefined'&&blob instanceof Blob)||typeof blob.arrayBuffer==='function';
+    return blobLike&&(size===null||size>0);
   }
   static validateAsset(asset){
     const errors=[],warnings=[];
-    if(!asset||typeof asset!=='object')return {ok:false,errors:['invalid_asset'],warnings,assetId:null};
+    if(!asset||typeof asset!=='object'||Array.isArray(asset))return {ok:false,errors:['invalid_asset'],warnings,assetId:null};
     const assetId=this.canonicalId(asset.id??asset.assetId);
     if(!assetId)errors.push('invalid_id');
     const type=typeof asset.type==='string'?asset.type.trim().toLowerCase():'';
@@ -19,10 +26,14 @@ class ProfitMenteMediaIntegrityEngine{
     const duration=this.finite(asset.duration);
     if(type!=='image'&&(duration===null||duration<=0))errors.push('invalid_duration');
     if(type==='image'&&duration!==null&&duration<0)errors.push('invalid_duration');
-    const source=typeof (asset.src??asset.url??asset.path)==='string'?(asset.src??asset.url??asset.path).trim():'';
-    if(!source)errors.push('missing_source');
+    const sourceCandidate=asset.src??asset.url??asset.path;
+    const source=typeof sourceCandidate==='string'?sourceCandidate.trim():'';
+    const localBlob=this.hasLocalBlob(asset);
+    if(!source&&!localBlob)errors.push('missing_source');
+    if(asset.blob!=null&&!localBlob)errors.push('invalid_blob');
     if(asset.size!=null){const size=this.finite(asset.size);if(size===null||size<0)errors.push('invalid_size');else if(size===0)warnings.push('empty_file')}
-    return {ok:errors.length===0,errors,warnings,assetId,type:type||null,duration};
+    if(asset.mediaReadable===false)errors.push('media_unreadable');
+    return {ok:errors.length===0,errors,warnings,assetId,type:type||null,duration,source:localBlob?'local_blob':source?'external':null};
   }
   static validateLibrary(assets=[]){
     if(!Array.isArray(assets))return {ok:false,total:0,valid:0,invalid:1,duplicates:[],results:[],errors:['invalid_library']};
