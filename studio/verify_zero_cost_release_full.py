@@ -56,6 +56,7 @@ def main() -> None:
         ("Inicio recupera FPS canónico del proyecto", [node, "tests/startup-project-fps-regression.js"]),
         ("Autosave normaliza metadatos de persistencia de forma segura", [node, "tests/project-autosave-metadata-regression.mjs"]),
         ("Duración del proyecto resiste datos de timeline malformados", [node, "tests/project-duration-malformed-regression.cjs"]),
+        ("Edición manual de duración conserva el valor escrito antes de sanear y guardar", [node, "tests/project-duration-manual-edit-regression.cjs"]),
         ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Preview espera el frame decodificado solicitado", [node, "preview-seek-regression.test.js"]),
         ("Coordinador de Preview descarta solicitudes obsoletas", [node, "test_preview_render_coordinator.mjs"]),
