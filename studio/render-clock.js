@@ -21,17 +21,17 @@
       if(!Number.isFinite(d)||d<=0)throw new Error('Duración de render inválida');
       if(typeof renderFrame!=='function')throw new Error('Renderizador de frame no disponible');
       const startedAt=this.now();
-      let frames=0;
+      let frames=0,lastTime=0;
       while(true){
         const t=this.time(startedAt,d);
         if(t>=d)break;
         const frameStartedAt=this.now();
         await renderFrame(t);
+        lastTime=t;
         frames++;
         await this.wait(frameStartedAt);
       }
-      await renderFrame(d);
-      return {duration:d,frames,elapsed:(this.now()-startedAt)/1000};
+      return {duration:d,frames,lastTime,elapsed:(this.now()-startedAt)/1000};
     }
   }
   root.ProfitMenteRenderClock=ProfitMenteRenderClock;
