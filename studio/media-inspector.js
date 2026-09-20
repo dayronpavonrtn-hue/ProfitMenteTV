@@ -1,128 +1,18 @@
 class ProfitMenteMediaInspector{
-  constructor(options={}){
-    this.version=4;
-    const timeout=Number(options.timeoutMs);
-    this.timeoutMs=Number.isFinite(timeout)&&timeout>0?Math.min(timeout,60000):12000;
-  }
-  blobStamp(asset){
-    const blob=asset?.blob,size=Number(blob?.size??asset?.size??0),type=String(blob?.type||asset?.mime||''),modified=Number(blob?.lastModified??asset?.lastModified??0);
-    return {size:Number.isFinite(size)&&size>=0?size:0,type,modified:Number.isFinite(modified)&&modified>=0?modified:0};
-  }
-  async blobSignature(blob){
-    if(!blob||typeof blob.slice!=='function')return '';
-    try{
-      const size=Number(blob.size)||0,chunk=16384;
-      const ranges=size<=chunk*3?[[0,size]]:[[0,chunk],[Math.max(0,Math.floor(size/2)-Math.floor(chunk/2)),Math.min(size,Math.floor(size/2)+Math.ceil(chunk/2))],[Math.max(0,size-chunk),size]];
-      let h1=2166136261>>>0,h2=2246822519>>>0;
-      const feed=value=>{h1=Math.imul(h1^(value&255),16777619)>>>0;h2=Math.imul(h2^((value+97)&255),3266489917)>>>0};
-      for(const [start,end] of ranges){
-        const part=blob.slice(start,end),buffer=await part.arrayBuffer(),bytes=new Uint8Array(buffer);
-        for(let i=0;i<bytes.length;i++)feed(bytes[i]);
-        feed(start);feed(start>>>8);feed(end);feed(end>>>8);
-      }
-      for(let shift=0;shift<32;shift+=8)feed(size>>>shift);
-      return `${h1.toString(16).padStart(8,'0')}${h2.toString(16).padStart(8,'0')}`;
-    }catch{return ''}
-  }
-  metadataCurrent(asset,signature){
-    if(asset?.metadataVersion!==this.version||typeof asset?.mediaReadable!=='boolean')return false;
-    const stamp=this.blobStamp(asset),stampCurrent=Number(asset?.metadataBlobSize)===stamp.size&&String(asset?.metadataBlobType||'')===stamp.type&&Number(asset?.metadataBlobLastModified||0)===stamp.modified;
-    if(!stampCurrent||!asset?.metadataBlobSignature)return false;
-    return signature===undefined?true:String(asset.metadataBlobSignature)===String(signature||'');
-  }
-  async inspect(asset){
-    if(!asset?.blob) return asset;
-    const signature=await this.blobSignature(asset.blob);
-    if(this.metadataCurrent(asset,signature)) return asset;
-    const stamp=this.blobStamp(asset),base={...asset,size:asset.blob.size||0,metadataVersion:this.version,metadataBlobSize:stamp.size,metadataBlobType:stamp.type,metadataBlobLastModified:stamp.modified,metadataBlobSignature:signature};
-    try{
-      let meta={};
-      if(asset.type==='image') meta=await this.inspectImage(asset.blob);
-      else if(asset.type==='video') meta=await this.inspectVideo(asset.blob);
-      else if(asset.type==='audio') meta=await this.inspectAudio(asset.blob);
-      return {...base,...meta,mediaReadable:true,mediaError:''};
-    }catch(e){
-      console.warn('No se pudo inspeccionar',asset.name,e);
-      return {...base,mediaReadable:false,mediaError:String(e?.message||e||'Medio no legible')};
-    }
-  }
-  inspectImage(blob){return new Promise((resolve,reject)=>{
-    const url=URL.createObjectURL(blob),img=new Image();let done=false,timer=null;
-    const cleanup=()=>{if(timer)clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url)};
-    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)};
-    const fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
-    timer=setTimeout(()=>fail('Tiempo de espera agotado al leer la imagen'),this.timeoutMs);
-    img.onload=()=>{try{finish({width:img.naturalWidth,height:img.naturalHeight,duration:5,thumbnail:this.thumb(img,img.naturalWidth,img.naturalHeight)})}catch(e){fail(e?.message||'No se pudo generar la miniatura de la imagen')}};
-    img.onerror=()=>fail('Imagen inválida o formato no compatible');img.src=url;
-  })}
-  inspectAudio(blob){return new Promise((resolve,reject)=>{
-    const url=URL.createObjectURL(blob),el=document.createElement('audio');el.preload='metadata';let done=false,timer=null;
-    const cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onerror=null;URL.revokeObjectURL(url)};
-    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)};
-    const fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
-    timer=setTimeout(()=>fail('Tiempo de espera agotado al leer el audio'),this.timeoutMs);
-    el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0;if(duration<=0)return fail('Audio sin duración válida');finish({duration})};
-    el.onerror=()=>fail('Audio inválido o códec no compatible');el.src=url;
-  })}
-  inspectVideo(blob){return new Promise((resolve,reject)=>{
-    const url=URL.createObjectURL(blob),el=document.createElement('video');el.preload='metadata';el.muted=true;el.playsInline=true;
-    let done=false,timer=null;
-    const armTimeout=message=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>fail(message),this.timeoutMs)};
-    const cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onseeked=null;el.onerror=null;URL.revokeObjectURL(url)};
-    const finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)},fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};
-    armTimeout('Tiempo de espera agotado al leer el video');
-    el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0,width=el.videoWidth,height=el.videoHeight;if(duration<=0||!width||!height){fail('Video sin duración o dimensiones válidas');return}const target=Math.min(Math.max(.05,duration*.08),Math.max(.05,duration-.05));
-      const capture=()=>{let thumbnail=null;try{thumbnail=this.thumb(el,width,height)}catch{}finish({duration,width,height,thumbnail})};
-      if(duration>.1){armTimeout('Tiempo de espera agotado al buscar un fotograma del video');el.onseeked=capture;try{el.currentTime=target}catch{capture()}}else capture();
-    };
-    el.onerror=()=>fail('Video inválido o códec no compatible');el.src=url;
-  })}
-  thumb(source,width,height){
-    if(!width||!height)return null;const max=240,scale=Math.min(1,max/Math.max(width,height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(width*scale));c.height=Math.max(1,Math.round(height*scale));c.getContext('2d').drawImage(source,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.68)
-  }
-  label(asset){
-    const bits=[];if(asset.width&&asset.height)bits.push(`${asset.width}×${asset.height}`);if(asset.duration)bits.push(this.time(asset.duration));if(asset.size)bits.push(this.bytes(asset.size));if(asset.mediaReadable===false)bits.push('⚠ no legible');return bits.join(' · ')
-  }
+  constructor(options={}){this.version=4;const timeout=Number(options.timeoutMs);this.timeoutMs=Number.isFinite(timeout)&&timeout>0?Math.min(timeout,60000):12000}
+  blobStamp(asset){const blob=asset?.blob,size=Number(blob?.size??asset?.size??0),type=String(blob?.type||asset?.mime||''),modified=Number(blob?.lastModified??asset?.lastModified??0);return {size:Number.isFinite(size)&&size>=0?size:0,type,modified:Number.isFinite(modified)&&modified>=0?modified:0}}
+  async blobSignature(blob){if(!blob||typeof blob.slice!=='function')return '';try{const size=Number(blob.size)||0,chunk=16384,ranges=size<=chunk*3?[[0,size]]:[[0,chunk],[Math.max(0,Math.floor(size/2)-Math.floor(chunk/2)),Math.min(size,Math.floor(size/2)+Math.ceil(chunk/2))],[Math.max(0,size-chunk),size]];let h1=2166136261>>>0,h2=2246822519>>>0;const feed=value=>{h1=Math.imul(h1^(value&255),16777619)>>>0;h2=Math.imul(h2^((value+97)&255),3266489917)>>>0};for(const [start,end] of ranges){const part=blob.slice(start,end),buffer=await part.arrayBuffer(),bytes=new Uint8Array(buffer);for(let i=0;i<bytes.length;i++)feed(bytes[i]);feed(start);feed(start>>>8);feed(end);feed(end>>>8)}for(let shift=0;shift<32;shift+=8)feed(size>>>shift);return `${h1.toString(16).padStart(8,'0')}${h2.toString(16).padStart(8,'0')}`}catch{return ''}}
+  metadataCurrent(asset,signature){if(asset?.metadataVersion!==this.version||typeof asset?.mediaReadable!=='boolean')return false;const stamp=this.blobStamp(asset),stampCurrent=Number(asset?.metadataBlobSize)===stamp.size&&String(asset?.metadataBlobType||'')===stamp.type&&Number(asset?.metadataBlobLastModified||0)===stamp.modified;if(!stampCurrent||!asset?.metadataBlobSignature)return false;return signature===undefined?true:String(asset.metadataBlobSignature)===String(signature||'')}
+  identity(asset){const signature=String(asset?.metadataBlobSignature||'').trim(),mime=String(asset?.metadataBlobType||asset?.mime||'').trim().toLowerCase(),size=Number(asset?.metadataBlobSize??asset?.blob?.size??asset?.size);if(!signature||!mime||!Number.isSafeInteger(size)||size<=0)return null;return `${mime}|${size}|${signature}`}
+  sameMedia(a,b){const x=this.identity(a),y=this.identity(b);return x!==null&&x===y}
+  async inspect(asset){if(!asset?.blob)return asset;const signature=await this.blobSignature(asset.blob);if(this.metadataCurrent(asset,signature))return asset;const stamp=this.blobStamp(asset),base={...asset,size:asset.blob.size||0,metadataVersion:this.version,metadataBlobSize:stamp.size,metadataBlobType:stamp.type,metadataBlobLastModified:stamp.modified,metadataBlobSignature:signature};try{let meta={};if(asset.type==='image')meta=await this.inspectImage(asset.blob);else if(asset.type==='video')meta=await this.inspectVideo(asset.blob);else if(asset.type==='audio')meta=await this.inspectAudio(asset.blob);return {...base,...meta,mediaReadable:true,mediaError:''}}catch(e){console.warn('No se pudo inspeccionar',asset.name,e);return {...base,mediaReadable:false,mediaError:String(e?.message||e||'Medio no legible')}}}
+  inspectImage(blob){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(blob),img=new Image();let done=false,timer=null;const cleanup=()=>{if(timer)clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url)},finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)},fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};timer=setTimeout(()=>fail('Tiempo de espera agotado al leer la imagen'),this.timeoutMs);img.onload=()=>{try{finish({width:img.naturalWidth,height:img.naturalHeight,duration:5,thumbnail:this.thumb(img,img.naturalWidth,img.naturalHeight)})}catch(e){fail(e?.message||'No se pudo generar la miniatura de la imagen')}};img.onerror=()=>fail('Imagen inválida o formato no compatible');img.src=url})}
+  inspectAudio(blob){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(blob),el=document.createElement('audio');el.preload='metadata';let done=false,timer=null;const cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onerror=null;URL.revokeObjectURL(url)},finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)},fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};timer=setTimeout(()=>fail('Tiempo de espera agotado al leer el audio'),this.timeoutMs);el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0;if(duration<=0)return fail('Audio sin duración válida');finish({duration})};el.onerror=()=>fail('Audio inválido o códec no compatible');el.src=url})}
+  inspectVideo(blob){return new Promise((resolve,reject)=>{const url=URL.createObjectURL(blob),el=document.createElement('video');el.preload='metadata';el.muted=true;el.playsInline=true;let done=false,timer=null;const armTimeout=message=>{if(timer)clearTimeout(timer);timer=setTimeout(()=>fail(message),this.timeoutMs)},cleanup=()=>{if(timer)clearTimeout(timer);el.onloadedmetadata=null;el.onseeked=null;el.onerror=null;URL.revokeObjectURL(url)},finish=meta=>{if(done)return;done=true;cleanup();resolve(meta)},fail=message=>{if(done)return;done=true;cleanup();reject(new Error(message))};armTimeout('Tiempo de espera agotado al leer el video');el.onloadedmetadata=()=>{const duration=Number.isFinite(el.duration)?el.duration:0,width=el.videoWidth,height=el.videoHeight;if(duration<=0||!width||!height){fail('Video sin duración o dimensiones válidas');return}const target=Math.min(Math.max(.05,duration*.08),Math.max(.05,duration-.05)),capture=()=>{let thumbnail=null;try{thumbnail=this.thumb(el,width,height)}catch{}finish({duration,width,height,thumbnail})};if(duration>.1){armTimeout('Tiempo de espera agotado al buscar un fotograma del video');el.onseeked=capture;try{el.currentTime=target}catch{capture()}}else capture()};el.onerror=()=>fail('Video inválido o códec no compatible');el.src=url})}
+  thumb(source,width,height){if(!width||!height)return null;const max=240,scale=Math.min(1,max/Math.max(width,height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(width*scale));c.height=Math.max(1,Math.round(height*scale));c.getContext('2d').drawImage(source,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.68)}
+  label(asset){const bits=[];if(asset.width&&asset.height)bits.push(`${asset.width}×${asset.height}`);if(asset.duration)bits.push(this.time(asset.duration));if(asset.size)bits.push(this.bytes(asset.size));if(asset.mediaReadable===false)bits.push('⚠ no legible');return bits.join(' · ')}
   time(sec){sec=Math.max(0,Math.round(sec||0));return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`}
   bytes(n){if(n<1048576)return `${Math.max(1,Math.round(n/1024))} KB`;return `${(n/1048576).toFixed(1)} MB`}
 }
-if(typeof window!=='undefined')window.ProfitMenteMediaInspector=ProfitMenteMediaInspector;
-if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaInspector;
-
-(function integrateMediaInspector(){
-  if(typeof document==='undefined'||typeof putAsset!=='function'||typeof assets==='undefined')return;
-  const inspector=new ProfitMenteMediaInspector(),basePut=putAsset;
-  putAsset=async function(asset){const enriched=await inspector.inspect(asset);Object.assign(asset,enriched);return basePut(asset)};
-  drawLibrary=function(){
-    const el=document.querySelector('#mediaLibrary');el.innerHTML='';
-    if(!assets.length){el.textContent='Sin archivos';return}
-    for(const a of assets){
-      const card=document.createElement('button');card.className='mediaCard';if(a.mediaReadable===false)card.classList.add('mediaUnreadable');
-      const icon=a.type==='video'?'🎬':a.type==='image'?'🖼':'🎵';
-      card.innerHTML=`${a.thumbnail?`<img src="${a.thumbnail}" alt="">`:`<span class="mediaIcon">${icon}</span>`}<span class="mediaInfo"><b>${escapeHtml(a.name)}</b><small>${inspector.label(a)||a.mime||a.type}</small></span>`;
-      card.title=a.mediaReadable===false?`No se puede decodificar ${a.name}: ${a.mediaError||'formato no compatible'}`:`Añadir ${a.name} al cursor`;
-      card.disabled=a.mediaReadable===false;
-      card.onclick=()=>{const start=+document.querySelector('#playhead').value||0,remaining=Math.max(.25,project.duration-start),native=a.type==='image'?5:(a.duration||8),duration=Math.min(native,remaining);addClip(a.type==='audio'?5:0,a.name,a.id,start,duration)};
-      el.appendChild(card)
-    }
-  };
-  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-  async function upgradeExisting(){
-    let changed=0,unreadable=0;
-    for(let i=0;i<assets.length;i++)if(assets[i]?.blob){const current=assets[i],next=await inspector.inspect(current);if(next!==current){assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}}
-    if(changed){drawLibrary();setStatus(unreadable?`${changed} medios analizados · ${unreadable} no se pueden decodificar`:`${changed} medios analizados · duración, resolución y miniaturas listas`)}
-  }
-  function loadCleanupGuard(){
-    if(window.ProfitMenteMediaLibraryCrossProjectGuard||document.querySelector('script[data-profitmente-media-cross-project-guard]'))return;
-    const s=document.createElement('script');s.src='media-library-cross-project-guard.js';s.dataset.profitmenteMediaCrossProjectGuard='1';document.body.appendChild(s);
-  }
-  function loadInspectorRebind(){
-    if(window.ProfitMenteMediaLibraryInspectorRebind||document.querySelector('script[data-profitmente-media-inspector-rebind]'))return;
-    const s=document.createElement('script');s.src='media-library-inspector-rebind.js';s.async=false;s.dataset.profitmenteMediaInspectorRebind='1';document.body.appendChild(s);
-  }
-  setTimeout(upgradeExisting,50);
-  window.profitMenteMediaInspector=inspector;
-  if(!window.ProfitMenteMediaLibraryTools&&!document.querySelector('script[data-profitmente-media-library-tools]')){
-    const s=document.createElement('script');s.src='media-library-tools.js';s.dataset.profitmenteMediaLibraryTools='1';s.onload=()=>{loadCleanupGuard();loadInspectorRebind()};document.body.appendChild(s)
-  }else if(window.ProfitMenteMediaLibraryTools){loadCleanupGuard();loadInspectorRebind()}
-})();
+if(typeof window!=='undefined')window.ProfitMenteMediaInspector=ProfitMenteMediaInspector;if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteMediaInspector;
+(function integrateMediaInspector(){if(typeof document==='undefined'||typeof putAsset!=='function'||typeof assets==='undefined')return;const inspector=new ProfitMenteMediaInspector(),basePut=putAsset;putAsset=async function(asset){const enriched=await inspector.inspect(asset),duplicate=Array.isArray(assets)?assets.find(existing=>existing!==asset&&inspector.sameMedia(existing,enriched)):null;if(duplicate){Object.assign(asset,enriched,{id:duplicate.id,deduplicated:true,deduplicatedFrom:duplicate.id});return duplicate}Object.assign(asset,enriched,{deduplicated:false});return basePut(asset)};drawLibrary=function(){const el=document.querySelector('#mediaLibrary');el.innerHTML='';if(!assets.length){el.textContent='Sin archivos';return}for(const a of assets){const card=document.createElement('button');card.className='mediaCard';if(a.mediaReadable===false)card.classList.add('mediaUnreadable');const icon=a.type==='video'?'🎬':a.type==='image'?'🖼':'🎵';card.innerHTML=`${a.thumbnail?`<img src="${a.thumbnail}" alt="">`:`<span class="mediaIcon">${icon}</span>`}<span class="mediaInfo"><b>${escapeHtml(a.name)}</b><small>${inspector.label(a)||a.mime||a.type}</small></span>`;card.title=a.mediaReadable===false?`No se puede decodificar ${a.name}: ${a.mediaError||'formato no compatible'}`:`Añadir ${a.name} al cursor`;card.disabled=a.mediaReadable===false;card.onclick=()=>{const start=+document.querySelector('#playhead').value||0,remaining=Math.max(.25,project.duration-start),native=a.type==='image'?5:(a.duration||8),duration=Math.min(native,remaining);addClip(a.type==='audio'?5:0,a.name,a.id,start,duration)};el.appendChild(card)}};function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]))}async function upgradeExisting(){let changed=0,unreadable=0;for(let i=0;i<assets.length;i++)if(assets[i]?.blob){const current=assets[i],next=await inspector.inspect(current);if(next!==current){assets[i]=next;await basePut(next);changed++;if(next.mediaReadable===false)unreadable++}}if(changed){drawLibrary();setStatus(unreadable?`${changed} medios analizados · ${unreadable} no se pueden decodificar`:`${changed} medios analizados · duración, resolución y miniaturas listas`)}}setTimeout(upgradeExisting,50);window.profitMenteMediaInspector=inspector})();
