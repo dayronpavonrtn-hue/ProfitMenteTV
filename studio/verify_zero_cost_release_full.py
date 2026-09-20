@@ -81,6 +81,7 @@ def main() -> None:
         ("QA interpreta flags booleanos de forma estricta", [node, "test_qa_strict_boolean_flags.js"]),
         ("QA rechaza escalares numéricos ambiguos", [node, "test_qa_numeric_scalar_guard.js"]),
         ("QA de audio rechaza timing y duración de fuente inválidos", [node, "tests/audio-qc-invalid-timing-regression.mjs"]),
+        ("QA de audio rechaza pistas inválidas", [node, "tests/audio-qc-invalid-track-regression.mjs"]),
         ("QA de mezcla rechaza timing inválido del timeline", [node, "tests/audio-qc-mix-timing-regression.mjs"]),
         ("QA de render bloquea valores temporales no finitos", [py, "test_render_qa_nonfinite.py"]),
         ("Validador rechaza números no canónicos", [py, "test_validate_project_strict_numeric.py"]),
