@@ -1,0 +1,42 @@
+(()=>{
+  function text(value){return typeof value==='string'?value.trim():''}
+  function finite(value){const n=Number(value);return Number.isFinite(n)&&n>=0?n:0}
+  function identity(asset={}){
+    const signature=text(asset.metadataBlobSignature);
+    if(!signature)return '';
+    const size=finite(asset.metadataBlobSize??asset.size??asset.blob?.size);
+    const type=text(asset.metadataBlobType||asset.mime||asset.blob?.type).toLowerCase();
+    return `${signature}|${size}|${type}`;
+  }
+  function equivalent(left,right){const a=identity(left),b=identity(right);return !!a&&a===b}
+  const api={identity,equivalent};
+  if(typeof module!=='undefined'&&module.exports)module.exports=api;
+  if(typeof window==='undefined'||typeof document==='undefined')return;
+  window.ProfitMenteMediaUploadDedupe=api;
+  const input=document.querySelector('#mediaInput');
+  if(!input||input.dataset?.profitmenteDedupe==='1')return;
+  input.onchange=async event=>{
+    const files=Array.from(event.target.files||[]);let added=0,duplicates=0,rejected=0;
+    try{
+      const inspector=window.profitMenteMediaInspector||(window.ProfitMenteMediaInspector?new window.ProfitMenteMediaInspector():null);
+      for(const file of files){
+        const type=String(file.type||'').split('/')[0];
+        if(!['video','image','audio'].includes(type)){rejected++;continue}
+        let candidate={id:globalThis.crypto?.randomUUID?.()||`media-${Date.now()}-${Math.random().toString(36).slice(2)}`,name:file.name,type,mime:file.type,blob:file,size:file.size,lastModified:file.lastModified};
+        if(inspector?.inspect)candidate=await inspector.inspect(candidate);
+        if(candidate.mediaReadable===false){rejected++;continue}
+        if((typeof assets!=='undefined'?assets:[]).some(existing=>equivalent(existing,candidate))){duplicates++;continue}
+        await putAsset(candidate);
+        if(!(typeof assets!=='undefined'?assets:[]).some(existing=>typeof sameId==='function'?sameId(existing.id,candidate.id):String(existing.id)===String(candidate.id)))assets.push(candidate);
+        added++;
+      }
+      if(typeof drawLibrary==='function')drawLibrary();
+      const parts=[added?`${added} medio${added===1?'':'s'} añadido${added===1?'':'s'}`:''];
+      if(duplicates)parts.push(`${duplicates} duplicado${duplicates===1?'':'s'} omitido${duplicates===1?'':'s'}`);
+      if(rejected)parts.push(`${rejected} archivo${rejected===1?'':'s'} no compatible${rejected===1?'':'s'}`);
+      if(typeof setStatus==='function')setStatus(parts.filter(Boolean).join(' · ')||'No se añadieron medios');
+    }catch(error){console.error('ProfitMente media import failed',error);if(typeof setStatus==='function')setStatus(`No se pudo importar media: ${error?.message||error}`)}
+    finally{event.target.value=''}
+  };
+  if(input.dataset)input.dataset.profitmenteDedupe='1';
+})();
