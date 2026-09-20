@@ -1,0 +1,18 @@
+const assert=require('assert');
+globalThis.ProfitMenteQAEngine=class{inspect(){return {ok:true,score:100,issues:[],warnings:[],metrics:{clips:1,assets:1,visualCoverage:100,captionCoverage:100}}}};
+globalThis.ProfitMenteMediaIntegrityEngine=require('./media-integrity-engine.js');
+require('./qa-media-integrity-integration.js');
+const qa=new globalThis.ProfitMenteQAEngine();
+const validAsset={id:'m1',type:'video',duration:5,src:'blob:local',size:10};
+let result=qa.inspect({duration:5,clips:[{id:'c1',mediaId:'m1'}]},[validAsset]);
+assert.equal(result.ok,true);
+assert.equal(result.metrics.mediaIntegrityIssues,0);
+result=qa.inspect({duration:5,clips:[{id:'c1',mediaId:'missing'}]},[validAsset]);
+assert.equal(result.ok,false);
+assert(result.issues.some(x=>x.includes('Medio faltante')));
+assert.equal(result.metrics.mediaIntegrityIssues,1);
+result=qa.inspect({duration:5,clips:[{id:'c1',mediaId:'bad'}]},[{id:'bad',type:'video',duration:0,src:'blob:bad',size:10}]);
+assert.equal(result.ok,false);
+assert(result.metrics.mediaIntegrityIssues>=1);
+assert(result.score<100);
+console.log('qa media integrity integration regression: OK');
