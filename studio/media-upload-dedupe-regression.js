@@ -19,5 +19,10 @@ assert.strictEqual(dedupe.equivalent(asset({metadataBlobType:'VIDEO/MP4'}),asset
 assert.strictEqual(dedupe.equivalent(asset({metadataBlobSignature:''}),asset()),false,'missing signature must never create a false duplicate');
 assert.strictEqual(dedupe.equivalent(asset({metadataBlobSignature:'   '}),asset()),false,'blank signature must never create a false duplicate');
 assert.strictEqual(dedupe.identity(asset({metadataBlobSize:'1024'})),'abc123|1024|video/mp4','serialized numeric size remains compatible');
+for(const badSize of [-1,1.5,NaN,Infinity,true,false,'','not-a-size']){
+  assert.strictEqual(dedupe.identity(asset({metadataBlobSize:badSize})),'',`invalid size ${String(badSize)} must not create a dedupe identity`);
+}
+assert.strictEqual(dedupe.identity(asset({metadataBlobType:''})),'','missing MIME must not create a dedupe identity');
+assert.strictEqual(dedupe.equivalent(asset({metadataBlobSize:NaN}),asset({metadataBlobSize:NaN})),false,'corrupt metadata must never collapse distinct uploads');
 
 console.log('media upload dedupe regression: ok');
