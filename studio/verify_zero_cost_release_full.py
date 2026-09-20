@@ -54,6 +54,7 @@ def main() -> None:
         ("Timeline renderiza contenido de forma segura", [node, "test_timeline_safe_render.mjs"]),
         ("Importación de proyecto normaliza FPS para preview/render", [node, "test_project_import_fps.mjs"]),
         ("Inicio recupera FPS canónico del proyecto", [node, "tests/startup-project-fps-regression.js"]),
+        ("Autosave normaliza metadatos de persistencia de forma segura", [node, "tests/autosave-metadata-regression.js"]),
         ("Duración del proyecto resiste datos de timeline malformados", [node, "tests/project-duration-malformed-regression.cjs"]),
         ("Transporte del Preview conserva estado resiliente", [node, "test_transport_engine.mjs"]),
         ("Preview espera el frame decodificado solicitado", [node, "preview-seek-regression.test.js"]),
