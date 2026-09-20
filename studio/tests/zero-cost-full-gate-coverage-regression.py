@@ -17,6 +17,8 @@ REQUIRED_CHECKS = (
     "verify_zero_cost_release.py",
     "tests/startup-project-fps-regression.js",
     "tests/timeline-lock-strict-flags-regression.js",
+    "tests/project-duration-malformed-regression.cjs",
+    "tests/project-duration-manual-edit-regression.cjs",
     "tests/bundle-import-rejected-media-write-rollback-regression.js",
     "tests/bundle-import-partial-write-rollback-regression.js",
     "tests/bundle-import-presave-regression.js",
