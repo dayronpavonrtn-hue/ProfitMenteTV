@@ -1,0 +1,13 @@
+const assert=require('assert');
+require('./render-qa-guard.js');
+const Guard=globalThis.ProfitMenteRenderQAGuard,guard=new Guard();
+assert.strictEqual(guard.blocked({ok:true,issues:[]}),false,'clean QA must allow render');
+assert.strictEqual(guard.blocked({ok:true,issues:['missing media']}),true,'issues must block even if ok is inconsistent');
+assert.strictEqual(guard.blocked({ok:false,issues:[]}),true,'failed QA must block render');
+assert.strictEqual(guard.blocked(null),true,'missing QA report must fail closed');
+assert.strictEqual(guard.inspect(null,{},[]).ok,false,'missing QA engine must fail closed');
+assert.strictEqual(guard.inspect({inspect(){throw new Error('boom')}},{},[]).ok,false,'QA exceptions must fail closed');
+assert.strictEqual(guard.inspect({inspect(){return null}},{},[]).ok,false,'invalid QA response must fail closed');
+const report={ok:true,issues:[],warnings:[]};
+assert.strictEqual(guard.inspect({inspect(project,assets){assert.strictEqual(project.name,'x');assert.deepStrictEqual(assets,[]);return report}},{name:'x'},null),report,'guard must preserve valid QA report');
+console.log('render QA guard regression: ok');
