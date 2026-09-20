@@ -21,12 +21,14 @@
       if(!Number.isFinite(d)||d<=0)throw new Error('Duración de render inválida');
       if(typeof renderFrame!=='function')throw new Error('Renderizador de frame no disponible');
       const startedAt=this.now();
-      let frames=0,lastTime=0;
+      let frames=0,lastTime=0,lastRenderMs=0;
       while(true){
         const t=this.time(startedAt,d);
         if(t>=d)break;
+        if(frames>0&&t+lastRenderMs/1000>=d){await this.sleep(Math.max(0,(d-t)*1000));break}
         const frameStartedAt=this.now();
         await renderFrame(t);
+        lastRenderMs=Math.max(0,this.now()-frameStartedAt);
         lastTime=t;
         frames++;
         await this.wait(frameStartedAt);
