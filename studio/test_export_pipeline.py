@@ -99,7 +99,9 @@ def run():
     # Invalid/ambiguous track identities must never disappear silently in the bridge.
     for value in (None, True, False, '', ' ', -1, 7, 1.5, 'voice', float('nan'), float('inf')):
         expect_bad_track(value)
-    assert build_export(project([clip('string-track', '6', 'a')]), final=True)['ok'] is True
+    string_track = build_export(project([clip('video', 0, 'v'), clip('string-track', '6', 'a')]), final=True)
+    assert string_track['ok'] is True
+    assert [item['id'] for item in string_track['plan']['tracks']['voice']] == ['string-track']
 
     expect_broken_reference(project([clip('missing', 0, 'does-not-exist')]), 'does-not-exist')
     expect_broken_reference(project([clip('empty', 0, '   ')]), 'vacía o inválida')
@@ -133,9 +135,9 @@ def run():
 
     good = clip('controlled-audio', 6, 'a')
     good.update({'sourceOffset': 0, 'speed': 0.25, 'volume': 0, 'sourceVolume': 0})
-    assert build_export(project([good]), final=True)['ok'] is True
+    assert build_export(project([clip('video', 0, 'v'), good]), final=True)['ok'] is True
     good.update({'speed': 4, 'volume': 2, 'sourceVolume': 2})
-    assert build_export(project([good]), final=True)['ok'] is True
+    assert build_export(project([clip('video', 0, 'v'), good]), final=True)['ok'] is True
 
     bounded = project([])
     bounded['assets'].append({'id': 'bounded', 'type': 'video', 'name': 'bounded.mp4', 'duration': 12})
