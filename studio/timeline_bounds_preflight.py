@@ -94,10 +94,17 @@ def inspect(project):
         elif end > duration + TOLERANCE:
             issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
 
-        # Temporal media must have trustworthy duration metadata before source bounds
-        # can be proven safe. Fail closed here too, not only in export_pipeline.py,
-        # because this module is also used as a standalone QA/preflight command.
-        asset = asset_lookup.get(canonical_id(clip.get('asset')))
+        # Keep standalone preflight fail-closed just like export_pipeline.py.
+        # A referenced timed asset must exist, expose duration metadata, and use
+        # playback parameters that let us prove the source read stays in bounds.
+        asset_id = canonical_id(clip.get('asset'))
+        if 'asset' in clip and asset_id is None:
+            issues.append(f'Clip {clip_id!r}: referencia de medio vacía o inválida.')
+            continue
+        asset = asset_lookup.get(asset_id)
+        if asset_id is not None and not isinstance(asset, dict):
+            issues.append(f'Clip {clip_id!r}: el medio {asset_id!r} no existe en la biblioteca del proyecto.')
+            continue
         if isinstance(asset, dict):
             kind = str(asset.get('type') or '').strip().lower()
             mime = str(asset.get('mime') or '').strip().lower()
@@ -111,12 +118,20 @@ def inspect(project):
                     continue
                 source_offset = finite(clip.get('sourceOffset', 0))
                 speed = finite(clip.get('speed', 1))
-                if source_offset is not None and source_offset >= 0 and speed is not None and speed > 0:
-                    source_end = source_offset + length * speed
-                    if source_end > source_duration + SOURCE_TOLERANCE:
-                        issues.append(
-                            f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
-                        )
+                invalid_playback = False
+                if source_offset is None or source_offset < 0:
+                    issues.append(f'Clip {clip_id!r}: sourceOffset debe ser un número finito >= 0.')
+                    invalid_playback = True
+                if speed is None or not 0.25 <= speed <= 4.0:
+                    issues.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
+                    invalid_playback = True
+                if invalid_playback:
+                    continue
+                source_end = source_offset + length * speed
+                if source_end > source_duration + SOURCE_TOLERANCE:
+                    issues.append(
+                        f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
+                    )
     return issues
 
 
