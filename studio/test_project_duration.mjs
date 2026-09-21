@@ -9,4 +9,9 @@ if(D.outside(p).map(x=>x.id).join(',')!=='b')throw new Error('outside detection 
 const next=D.fit(p);if(Math.abs(next-9.75)>.001||Math.abs(p.duration-9.75)>.001)throw new Error('fit did not align duration to content');
 const empty={duration:30,clips:[]};if(D.fit(empty)!==1)throw new Error('empty project must keep safe minimum duration');
 const padded={duration:1,clips:[{start:2,duration:3}]};if(D.fit(padded,{padding:.5})!==5.5)throw new Error('padding not applied');
+const overflow={duration:3600,clips:[{id:'overflow',start:3600,duration:10}]};
+if(D.contentEnd(overflow)!==3610)throw new Error('contentEnd must expose content beyond local render ceiling');
+if(D.outside(overflow).map(x=>x.id).join(',')!=='overflow')throw new Error('overflow at local render ceiling must be detected');
+if(D.fit(overflow)!==3600)throw new Error('fit must keep the one-hour local render ceiling');
+if(D.outside(overflow).length!==1)throw new Error('fit must not hide content that remains beyond the render ceiling');
 console.log('Project duration QA OK');
