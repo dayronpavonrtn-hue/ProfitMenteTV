@@ -2,6 +2,25 @@
   if(typeof document==='undefined'||typeof ProfitMenteProjectResetEngine==='undefined')return;
   const btn=document.querySelector('#clearBtn');if(!btn)return;
   const engine=new ProfitMenteProjectResetEngine();
+  function clearTransientUi(){
+    try{if(typeof playing!=='undefined')playing=false}catch{}
+    try{if(typeof audio!=='undefined'&&audio?.stop)audio.stop()}catch{}
+    try{if(typeof playTimer!=='undefined'&&playTimer)cancelAnimationFrame(playTimer)}catch{}
+    const playBtn=document.querySelector('#playBtn');if(playBtn)playBtn.textContent='▶ Preview';
+    const ph=document.querySelector('#playhead');if(ph)ph.value=0;
+    const qaReport=document.querySelector('#qaReport');if(qaReport){qaReport.hidden=true;qaReport.replaceChildren()}
+    const topic=document.querySelector('#topicInput');if(topic)topic.value='';
+  }
+  async function refreshBlankProject(){
+    clearTransientUi();
+    if(typeof drawTimeline==='function')drawTimeline();
+    if(typeof drawLibrary==='function')drawLibrary();
+    if(typeof syncForm==='function')syncForm();
+    if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
+    if(typeof updateHistoryButtons==='function')updateHistoryButtons();
+    if(typeof renderAt==='function')await renderAt(0);
+    document.dispatchEvent(new CustomEvent('profitmente:new-project',{detail:{project}}));
+  }
   btn.onclick=async()=>{
     if(!confirm('¿Crear proyecto nuevo? Se guardará el proyecto actual y un punto de recuperación.'))return;
 
@@ -15,6 +34,7 @@
       const snapshot=engine.snapshot(window.profitMenteRecovery,project);
       const created=await window.ProfitMenteNewProject.create();
       if(!created)return;
+      await refreshBlankProject();
       if(typeof setStatus==='function')setStatus(snapshot?'Proyecto nuevo creado · anterior guardado en Mis proyectos y Recuperación':'Proyecto nuevo creado · anterior guardado en Mis proyectos');
       return;
     }
@@ -26,10 +46,7 @@
     const previousPlayhead=Number(document.querySelector('#playhead')?.value||0);
     const result=engine.reset(window.profitMenteRecovery,previousProject);
     try{
-      if(typeof playing!=='undefined'&&playing){playing=false}
-      if(typeof audio!=='undefined'&&audio?.stop)audio.stop();
-      if(typeof playTimer!=='undefined'&&playTimer)cancelAnimationFrame(playTimer);
-      const playBtn=document.querySelector('#playBtn');if(playBtn)playBtn.textContent='▶ Preview';
+      clearTransientUi();
     }catch{}
     project=result.project;
     const ph=document.querySelector('#playhead');if(ph)ph.value=0;
@@ -51,12 +68,7 @@
       if(typeof setStatus==='function')setStatus('Proyecto nuevo cancelado: no se pudo confirmar el guardado local · proyecto anterior restaurado');
       return;
     }
-    if(typeof drawTimeline==='function')drawTimeline();
-    if(typeof drawLibrary==='function')drawLibrary();
-    if(typeof syncForm==='function')syncForm();
-    if(typeof historyEngine!=='undefined'&&historyEngine?.seed)historyEngine.seed(project);
-    if(typeof updateHistoryButtons==='function')updateHistoryButtons();
-    if(typeof renderAt==='function')await renderAt(0);
+    await refreshBlankProject();
     if(typeof setStatus==='function')setStatus(result.snapshot?'Proyecto nuevo creado · versión anterior guardada en Recuperación':'Proyecto nuevo creado');
   };
   window.profitMenteProjectReset=engine;
