@@ -15,8 +15,12 @@ def project(clips, states=None):
         'assets': [
             {'id': 'v', 'type': 'image', 'name': 'video.png'},
             {'id': 'o', 'type': 'image', 'name': 'overlay.png'},
-            {'id': 'a', 'type': 'audio', 'name': 'voice.wav'},
-            {'id': 'm', 'type': 'audio', 'name': 'music.wav'},
+            # Timed media fixtures must carry the same duration metadata required
+            # from real Studio imports. Keeping the fixture export-valid ensures
+            # failures below exercise the condition under test instead of being
+            # masked by the fail-closed media-metadata preflight.
+            {'id': 'a', 'type': 'audio', 'name': 'voice.wav', 'duration': 10},
+            {'id': 'm', 'type': 'audio', 'name': 'music.wav', 'duration': 10},
         ],
         'clips': clips,
         'trackState': states or {},
@@ -136,7 +140,7 @@ def run():
     good = clip('controlled-audio', 6, 'a')
     good.update({'sourceOffset': 0, 'speed': 0.25, 'volume': 0, 'sourceVolume': 0})
     assert build_export(project([clip('video', 0, 'v'), good]), final=True)['ok'] is True
-    good.update({'speed': 4, 'volume': 2, 'sourceVolume': 2})
+    good.update({'speed': 1, 'volume': 2, 'sourceVolume': 2})
     assert build_export(project([clip('video', 0, 'v'), good]), final=True)['ok'] is True
 
     bounded = project([])
