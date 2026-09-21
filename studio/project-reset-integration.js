@@ -29,8 +29,9 @@
     // resets history/UI and emits the project-opened event used by integrations.
     // This advanced reset module loads later and must not bypass that persistence path.
     if(window.ProfitMenteNewProject?.create&&window.ProfitMenteNewProject?.flushCurrentProject){
-      const flushed=window.ProfitMenteNewProject.flushCurrentProject();
-      if(!flushed)return;
+      // Do not flush here as well: create() already performs the canonical flush.
+      // Running it twice can duplicate persistence/autosave side effects and makes
+      // a storage failure harder to reason about transactionally.
       const snapshot=engine.snapshot(window.profitMenteRecovery,project);
       const created=await window.ProfitMenteNewProject.create();
       if(!created)return;
