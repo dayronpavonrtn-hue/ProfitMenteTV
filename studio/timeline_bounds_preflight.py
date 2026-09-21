@@ -94,14 +94,21 @@ def inspect(project):
         elif end > duration + TOLERANCE:
             issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
 
-        # Temporal media must have enough source material for trim + playback speed.
-        # Keep this strict and consistent with export_pipeline.validate_clip_playback_parameters:
-        # unlike timeline placement, reading beyond the source EOF cannot produce valid media.
+        # Temporal media must have trustworthy duration metadata before source bounds
+        # can be proven safe. Fail closed here too, not only in export_pipeline.py,
+        # because this module is also used as a standalone QA/preflight command.
         asset = asset_lookup.get(canonical_id(clip.get('asset')))
         if isinstance(asset, dict):
             kind = str(asset.get('type') or '').strip().lower()
-            source_duration = finite(asset.get('duration'))
-            if kind in {'video', 'audio'} and source_duration is not None and source_duration > 0:
+            mime = str(asset.get('mime') or '').strip().lower()
+            temporal = kind in {'video', 'audio'} or mime.startswith(('video/', 'audio/'))
+            if temporal:
+                source_duration = finite(asset.get('duration'))
+                if source_duration is None or source_duration <= 0:
+                    issues.append(
+                        f'Clip {clip_id!r}: el medio fuente no tiene una duración válida; no se puede verificar el recorte de forma segura.'
+                    )
+                    continue
                 source_offset = finite(clip.get('sourceOffset', 0))
                 speed = finite(clip.get('speed', 1))
                 if source_offset is not None and source_offset >= 0 and speed is not None and speed > 0:
