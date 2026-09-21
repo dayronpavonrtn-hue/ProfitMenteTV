@@ -106,6 +106,12 @@ def inspect(project):
             issues.append(f'Clip {clip_id!r}: el medio {asset_id!r} no existe en la biblioteca del proyecto.')
             continue
         if isinstance(asset, dict):
+            # Import probing can explicitly mark a file as undecodable. The
+            # standalone preflight must not report OK for a source the final
+            # export pipeline will reject before FFmpeg starts.
+            if asset.get('mediaReadable') is False:
+                issues.append(f'Clip {clip_id!r}: Studio no pudo decodificar el medio fuente {asset_id!r}.')
+                continue
             kind = str(asset.get('type') or '').strip().lower()
             mime = str(asset.get('mime') or '').strip().lower()
             temporal = kind in {'video', 'audio'} or mime.startswith(('video/', 'audio/'))
