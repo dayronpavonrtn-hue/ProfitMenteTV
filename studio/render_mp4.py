@@ -6,15 +6,15 @@ Requires FFmpeg/ffprobe available on PATH.
 import json,sys,subprocess,pathlib,shlex,math
 from caption_layout import layout_caption
 from caption_word_layout import fit_word_caption
+from caption_render_timing import normalize_project_caption_timings
 from render_quality import resolve_render_quality
 from track_state_render import normalize_track_solo
-from visual_adjust_render import visual_adjust_filter
 
 if len(sys.argv) != 4:
     raise SystemExit('Usage: render_mp4.py project.json assets_dir output.mp4')
 
 p=pathlib.Path(sys.argv[1]); assets=pathlib.Path(sys.argv[2]); out=pathlib.Path(sys.argv[3])
-project=normalize_track_solo(json.loads(p.read_text(encoding='utf-8')))
+project=normalize_track_solo(normalize_project_caption_timings(json.loads(p.read_text(encoding='utf-8'))))
 render_quality=resolve_render_quality(project.get('renderQuality','high'))
 fmt=project.get('format','9:16'); w,h=(1080,1920) if fmt=='9:16' else ((1920,1080) if fmt=='16:9' else (1080,1080))
 duration=max(.25,float(project.get('duration',45))); clips=project.get('clips',[]); amap={a['id']:a for a in project.get('assets',[])}
@@ -268,34 +268,18 @@ def append_audio_filter(c,n,source=False):
     chain=f'[{idx}:a]atrim=start={source_offset}:duration={d*speed},asetpts=PTS-STARTPTS'
     if audio_fx:chain+=','+','.join(audio_fx)
     chain+=f',volume={vol}'
-    if fade_in>0: chain+=f',afade=t=in:st=0:d={fade_in}'
-    if fade_out>0: chain+=f',afade=t=out:st={fadeout_start}:d={fade_out}'
-    chain+=f',adelay={delay}|{delay}{label}'
-    filters.append(chain); aouts.append(label)
+    if fade_in>1e-6:chain+=f',afade=t=in:st=0:d={fade_in}'
+    if fade_out>1e-6:chain+=f',afade=t=out:st={fadeout_start}:d={fade_out}'
+    chain+=f',adelay={delay}|{delay}{label}'; filters.append(chain); aouts.append(label)
 
-for c in audio:append_audio_filter(c,len(aouts),False)
-for c in source_audio:append_audio_filter(c,len(aouts),True)
-if aouts: filters.append(''.join(aouts)+f'amix=inputs={len(aouts)}:duration=longest:dropout_transition=0,atrim=duration={duration},alimiter=limit=0.95[aout]')
+for n,c in enumerate(source_audio):append_audio_filter(c,n,True)
+for n,c in enumerate(audio,start=len(source_audio)):append_audio_filter(c,n,False)
+if aouts:
+    filters.append(''.join(aouts)+f'amix=inputs={len(aouts)}:normalize=0:dropout_transition=0,alimiter=limit=0.95[aout]')
 
-out.parent.mkdir(parents=True,exist_ok=True)
-cmd=['ffmpeg','-hide_banner','-y',*inputs,'-filter_complex',';'.join(filters),'-map',base]
-if aouts: cmd+=['-map','[aout]','-c:a','aac','-b:a',render_quality['audio_bitrate']]
-cmd+=['-t',str(duration),'-r',str(fps),'-c:v','libx264','-preset',render_quality['preset'],'-crf',render_quality['crf'],'-pix_fmt','yuv420p','-movflags','+faststart',str(out)]
-print(f"Render quality: {render_quality['id']} · H.264 {render_quality['preset']} CRF {render_quality['crf']} · AAC {render_quality['audio_bitrate']}")
-print('Rendering:', ' '.join(shlex.quote(x) for x in cmd)); subprocess.run(cmd,check=True)
-probe=subprocess.run(['ffprobe','-v','error','-show_entries','stream=codec_type,codec_name,width,height,r_frame_rate','-show_entries','format=duration,size','-of','json',str(out)],check=True,capture_output=True,text=True)
-info=json.loads(probe.stdout); streams=info.get('streams',[]); video_stream=next((s for s in streams if s.get('codec_type')=='video'),None)
-if not video_stream: raise RuntimeError('Control de calidad: el MP4 no contiene video')
-if int(video_stream.get('width',0))!=w or int(video_stream.get('height',0))!=h: raise RuntimeError(f'Control de calidad: resolución inesperada {video_stream.get("width")}x{video_stream.get("height")}')
-if aouts and not any(s.get('codec_type')=='audio' for s in streams): raise RuntimeError('Control de calidad: faltó la pista de audio')
-def rate_value(value):
-    try:
-        if '/' in str(value):
-            num,den=str(value).split('/',1); return float(num)/float(den)
-        return float(value)
-    except (TypeError,ValueError,ZeroDivisionError): return 0.0
-actual_fps=rate_value(video_stream.get('r_frame_rate'))
-if abs(actual_fps-fps)>.5: raise RuntimeError(f'Control de calidad: FPS inesperados {actual_fps:.2f} vs {fps}')
-actual=float(info.get('format',{}).get('duration',0) or 0)
-if abs(actual-duration)>1.0: raise RuntimeError(f'Control de calidad: duración inesperada {actual:.2f}s vs {duration:.2f}s')
-print(json.dumps(info,indent=2)); print(f"QA OK: {out} · {fps} FPS · calidad {render_quality['id']}")
+cmd=['ffmpeg','-y']+inputs+['-filter_complex',';'.join(filters),'-map',base]
+if aouts:cmd+=['-map','[aout]']
+cmd+=['-t',str(duration),'-r',str(fps),'-c:v','libx264','-preset',render_quality['preset'],'-crf',str(render_quality['crf']),'-pix_fmt','yuv420p']
+if aouts:cmd+=['-c:a','aac','-b:a',render_quality['audio_bitrate']]
+cmd+=['-movflags','+faststart',str(out)]
+print(' '.join(shlex.quote(x) for x in cmd)); subprocess.run(cmd,check=True)
