@@ -150,7 +150,7 @@ def validate_referenced_media_metadata(project):
         asset = lookup.get(asset_id)
         if not isinstance(asset, dict): continue
         kind = _asset_kind(asset)
-        if kind in {'video', 'audio'} and 'duration' in asset and _positive_finite(asset.get('duration')) is None: problems.append(f'Medio {asset_id!r}: duración inválida.')
+        if kind in {'video', 'audio'} and _positive_finite(asset.get('duration')) is None: problems.append(f'Medio {asset_id!r}: duración ausente o inválida.')
         if kind in {'video', 'image'}:
             for field, label in (('width', 'ancho'), ('height', 'alto')):
                 if field in asset and _positive_finite(asset.get(field)) is None: problems.append(f'Medio {asset_id!r}: {label} inválido.')
