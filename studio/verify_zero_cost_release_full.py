@@ -75,6 +75,7 @@ def main() -> None:
         ("Biblioteca protege medios usados por otros proyectos", [node, "test_media_library_cross_project_guard.mjs"]),
         ("Biblioteca conserva búsqueda, filtros y borrado después del inspector", [node, "test_media_library_inspector_rebind.mjs"]),
         ("Reemplazo de medios conserva seguridad y duración legacy", [node, "test_media_replace_engine.mjs"]),
+        ("Extracción de bundle limita cantidad de archivos antes del render", [py, "tests/bundle-extraction-budget-regression.py"]),
         ("Importación de bundle revierte escrituras rechazadas", [node, "tests/bundle-import-rejected-media-write-rollback-regression.js"]),
         ("Importación de bundle revierte escrituras parciales", [node, "tests/bundle-import-partial-write-rollback-regression.js"]),
         ("Importación de bundle exige pre-guardado seguro", [node, "tests/bundle-import-presave-regression.js"]),
