@@ -68,4 +68,9 @@ assert.match(integration,/ProfitMenteProjectTransfer/,'primary JSON import must 
 assert.ok(delegateAt>=0,'primary JSON import must delegate to project-library import when available');
 assert.ok(fallbackParseAt>=0&&delegateAt<fallbackParseAt,'persistent project-library import must run before the detached fallback path');
 assert.match(integration,/await transfer\.importProjectFile\(f\)/,'main import must await the guarded persistent project-library import');
-console.log('Safe and persistent project import QA passed');
+
+// Keep transactional fallback/rollback behavior inside the normal release gate,
+// not only as an isolated regression. A failed post-apply import must restore
+// both the previous persisted project and the visible editor/preview state.
+await import('./tests/project-import-transaction-regression.mjs');
+console.log('Safe, persistent and transactional project import QA passed');
