@@ -21,4 +21,33 @@
   document.addEventListener('profitmente:project-imported',sync);
   sync();
   window.ProfitMenteRenderQuality={engine,select,sync,get value(){return current()},set(value){engine.apply(project,value);sync();if(typeof persist==='function')persist();return engine.resolve(value)}};
+
+  // The legacy WebM path bypassed the QA gate used by MP4. Keep both export
+  // paths consistent: invalid projects never start a long local render.
+  const webmBtn=document.querySelector('#renderBtn');
+  if(webmBtn&&webmBtn.dataset.profitmenteQaRenderGuard!=='1'&&typeof webmBtn.onclick==='function'){
+    const baseWebmRender=webmBtn.onclick;
+    let webmRendering=false;
+    webmBtn.onclick=async function(event){
+      if(webmRendering)return;
+      if(typeof save==='function')save();
+      const inspector=typeof qa!=='undefined'&&qa?.inspect?qa:null;
+      if(inspector){
+        const report=inspector.inspect(project,assets);
+        if(Array.isArray(report?.issues)&&report.issues.length){
+          if(typeof setStatus==='function')setStatus('Render WebM bloqueado: corrige primero los errores de QA');
+          document.querySelector('#qaBtn')?.click();
+          return;
+        }
+      }
+      webmRendering=true;webmBtn.disabled=true;
+      try{await baseWebmRender.call(this,event)}
+      catch(error){
+        console.error('ProfitMente WebM render failed',error);
+        try{if(typeof audio!=='undefined')audio.stop?.()}catch{}
+        if(typeof setStatus==='function')setStatus('No se pudo renderizar WebM: '+(error?.message||error));
+      }finally{webmRendering=false;webmBtn.disabled=false}
+    };
+    webmBtn.dataset.profitmenteQaRenderGuard='1';
+  }
 })();
