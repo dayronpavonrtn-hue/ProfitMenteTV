@@ -96,6 +96,7 @@ def main() -> None:
         ("QA de render bloquea valores temporales no finitos", [py, "test_render_qa_nonfinite.py"]),
         ("Validador rechaza números no canónicos", [py, "test_validate_project_strict_numeric.py"]),
         ("Render MP4 interpreta flags booleanos de forma estricta", [py, "test_render_clip_boolean_flags.py"]),
+        ("Captions conservan timing preview → MP4 y descartan datos corruptos", [py, "test_caption_render_timing.py"]),
         ("Preflight valida audio embebido de clips visuales", [py, "test_source_audio_preflight.py"]),
         ("Preflight conserva IDs numéricos de medios y narración", [node, "../tools/test_export_preflight_media_ids.js"]),
         ("Preflight de narración rechaza timing e identidades ambiguas", [node, "test_export_preflight_identity.mjs"]),
