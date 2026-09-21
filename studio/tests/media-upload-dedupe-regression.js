@@ -1,5 +1,6 @@
 'use strict';
 const assert=require('assert');
+const fs=require('fs');
 const dedupe=require('../media-upload-dedupe.js');
 const base={metadataBlobSignature:'abc123',metadataBlobSize:4096,metadataBlobType:'video/mp4'};
 assert.strictEqual(dedupe.equivalent(base,{...base,id:'other'}),true,'same inspected blob must be treated as duplicate regardless of id');
@@ -8,4 +9,10 @@ assert.strictEqual(dedupe.equivalent(base,{...base,metadataBlobSize:4097}),false
 assert.strictEqual(dedupe.equivalent(base,{...base,metadataBlobType:'video/webm'}),false,'different MIME type must remain importable');
 assert.strictEqual(dedupe.equivalent({name:'same.mp4',size:4096,mime:'video/mp4'},{name:'same.mp4',size:4096,mime:'video/mp4'}),false,'metadata-only similarity must not discard files without a content signature');
 assert.strictEqual(dedupe.identity({metadataBlobSignature:' sig ',metadataBlobSize:'12',metadataBlobType:'VIDEO/MP4'}),'sig|12|video/mp4','identity must canonicalize inspected metadata');
+assert.strictEqual(typeof dedupe.removePersistedAsset,'function','batch rollback must expose a real persistent deletion path');
+const source=fs.readFileSync('studio/media-upload-dedupe.js','utf8');
+assert(!/typeof deleteAsset/.test(source),'rollback must not silently depend on an undefined deleteAsset helper');
+assert(source.includes('mediaStore.delete(id)'),'rollback must delete from the active media store');
+assert(source.includes("database.transaction(typeof STORE==='string'?STORE:'media','readwrite')"),'rollback must retain an IndexedDB fallback when the media store is unavailable');
+assert(source.includes('mediaStore.storageAvailable===false'),'rollback must detect unconfirmed persistent deletion');
 console.log('media upload dedupe regression: OK');
