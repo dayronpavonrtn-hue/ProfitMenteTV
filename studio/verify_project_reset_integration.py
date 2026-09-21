@@ -25,12 +25,12 @@ for marker in (
 ):
     assert marker in projects, f"missing canonical new-project behavior: {marker}"
 
-# The integration must use that controller first. Transient editor cleanup is
-# intentionally performed only after create() confirms the persistence-aware
-# transition, so a failed save leaves the current editor state untouched.
+# The integration must prefer the canonical create controller whenever it exists.
+# It must not require a secondary implementation detail such as flushCurrentProject,
+# otherwise a future controller refactor could silently fall back to the less capable
+# compatibility reset and bypass save-before-switch behavior.
 for marker in (
-    "window.ProfitMenteNewProject?.create",
-    "window.ProfitMenteNewProject?.flushCurrentProject",
+    "if(window.ProfitMenteNewProject?.create)",
     "const created=await window.ProfitMenteNewProject.create()",
     "if(!created)return",
     "await refreshBlankProject()",
@@ -38,6 +38,9 @@ for marker in (
     "window.profitMenteProjectReset=engine",
 ):
     assert marker in reset, f"missing reset integration behavior: {marker}"
+assert "window.ProfitMenteNewProject?.create&&window.ProfitMenteNewProject?.flushCurrentProject" not in reset, (
+    "canonical reset is incorrectly gated on the flushCurrentProject implementation detail"
+)
 
 create_at = reset.index("const created=await window.ProfitMenteNewProject.create()")
 confirm_at = reset.index("if(!created)return", create_at)
@@ -56,4 +59,4 @@ for marker in (
 ):
     assert marker in reset, f"missing transactional fallback behavior: {marker}"
 
-print("PASS: new-project persistence ordering, transient reset and rollback are protected")
+print("PASS: canonical new-project routing, transient reset and rollback are protected")
