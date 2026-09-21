@@ -3,7 +3,11 @@
   const MAX_DURATION=60*60;
   const finite=(value,fallback=0)=>{try{const n=Number(value);return Number.isFinite(n)?n:fallback}catch(_){return fallback}};
   const clipsOf=project=>Array.isArray(project?.clips)?project.clips:[];
-  const safeEnd=c=>Math.min(MAX_DURATION,Math.max(0,finite(c?.start))+Math.max(0,finite(c?.duration)));
+  // Keep the real sanitized clip end here. Clamping each clip to MAX_DURATION
+  // made a clip at/after the one-hour boundary look valid because both its end
+  // and the project limit collapsed to exactly 3600s. Clamp only when choosing
+  // a project duration; validation must still be able to see overflow.
+  const safeEnd=c=>Math.max(0,finite(c?.start))+Math.max(0,finite(c?.duration));
   class ProfitMenteProjectDuration{
     static contentEnd(project){
       let end=0;
@@ -49,10 +53,6 @@
     if(typeof setStatus==='function')setStatus(`Duración ajustada ${before.toFixed(2)}s → ${next.toFixed(2)}s sin recortar clips`);refresh();
   };
   durationInput.addEventListener('change',()=>{
-    // Commit the value the user actually typed before sanitizing. Previously this
-    // sanitized project.duration (the old value) and then overwrote the input,
-    // so a blur/change could silently undo a manual duration edit before the
-    // debounced autosave had a chance to run.
     const requested=finite(durationInput.value,project?.duration??45);
     project.duration=requested;
     const value=ProfitMenteProjectDuration.sanitize(project);durationInput.value=value;
