@@ -26,7 +26,6 @@ assert.strictEqual(lib.load(original.libraryId).duration,75,'previous project du
 blank.name='Proyecto B';
 assert.strictEqual(lib.load(original.libraryId).name,'Proyecto A editado','editing the blank project must not mutate the previous project');
 
-// A draft that has never been manually added to "Mis proyectos" must survive a transition.
 const draft={version:'1.3',name:'Borrador sin guardar',mode:'Manual',duration:45,format:'9:16',clips:[{id:'draft-clip',track:0,start:0,duration:4}]};
 assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(draft),true,'edited draft must be recognized as work worth preserving');
 const preserved=lib.saveDraftIfNeeded(draft);
@@ -34,21 +33,17 @@ assert.ok(preserved.libraryId,'unsaved draft must receive a library id before le
 assert.strictEqual(lib.load(preserved.libraryId).name,'Borrador sin guardar','unsaved draft name must remain recoverable from project library');
 assert.strictEqual(lib.load(preserved.libraryId).clips[0].id,'draft-clip','unsaved draft timeline must remain recoverable from project library');
 
-// A pristine blank should not create noisy empty entries merely by opening another project.
 const pristine=ProfitMenteProjectLibrary.blank();
 const beforeCount=lib.list().length;
 const untouched=lib.saveDraftIfNeeded(pristine);
 assert.ok(!untouched.libraryId,'pristine blank must stay transient');
 assert.strictEqual(lib.list().length,beforeCount,'pristine blank must not clutter project library');
 
-// Track controls initialize the modern schema with seven all-false rows. That initialization
-// alone must remain pristine, otherwise merely opening Studio would create an empty draft.
 const initializedTrackState={};
 for(let i=0;i<7;i++)initializedTrackState[i]={locked:false,hidden:false,muted:false,solo:false};
 const initializedOnly={...ProfitMenteProjectLibrary.blank(),trackState:initializedTrackState};
 assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(initializedOnly),false,'default modern track state must not create a noisy draft');
 
-// But a real modern track-state edit is user work and must survive New/Open transitions.
 const trackStateDraft={...ProfitMenteProjectLibrary.blank(),trackState:structuredClone(initializedTrackState)};
 trackStateDraft.trackState[1].hidden=true;
 trackStateDraft.trackState[5].muted=true;
@@ -58,11 +53,9 @@ assert.ok(preservedTrackState.libraryId,'track-state-only draft must be promoted
 assert.strictEqual(lib.load(preservedTrackState.libraryId).trackState[1].hidden,true,'hidden visual track state must remain recoverable');
 assert.strictEqual(lib.load(preservedTrackState.libraryId).trackState[5].muted,true,'muted audio track state must remain recoverable');
 
-// Legacy projects must remain protected too.
 const legacyTrackDraft={...ProfitMenteProjectLibrary.blank(),trackStates:{0:{locked:true}}};
 assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(legacyTrackDraft),true,'legacy trackStates edits must remain recognized');
 
-// Property-only edits are still real work even with an empty timeline.
 const propertyDraft={...ProfitMenteProjectLibrary.blank(),duration:90,frameRate:60};
 assert.strictEqual(ProfitMenteProjectLibrary.hasUnsavedWork(propertyDraft),true,'property-only draft edits must be preserved');
 
@@ -74,17 +67,16 @@ assert.match(source,/project=ProfitMenteProjectLibrary\.blank\(\)/,'new project 
 assert.match(source,/clearBtn\.onclick=.*newProject/,'the New project button must use the safe transition');
 assert.match(source,/newProject:true/,'new project transition must emit a project-opened event for integrations');
 
-// The later-loaded recovery/reset enhancement must not replace the safe library transition
-// with a direct blank-project assignment. It must flush the current project first and then
-// delegate to the canonical new-project controller.
+// The later-loaded recovery/reset enhancement must always prefer the canonical controller.
+// create() owns flushing/preserving the current project; flushCurrentProject is deliberately
+// treated as an implementation detail so refactors cannot silently force the weaker fallback.
 const resetIntegration=fs.readFileSync(path.join(__dirname,'project-reset-integration.js'),'utf8');
-assert.match(resetIntegration,/ProfitMenteNewProject\?\.create/,'advanced reset must detect the safe project-library controller');
-assert.match(resetIntegration,/ProfitMenteNewProject\?\.flushCurrentProject/,'advanced reset must require the safe project flush path');
-assert.match(resetIntegration,/ProfitMenteNewProject\.flushCurrentProject\(\)/,'advanced reset must persist pending work before taking recovery snapshot');
+assert.match(resetIntegration,/if\(window\.ProfitMenteNewProject\?\.create\)/,'advanced reset must prefer the safe project-library controller whenever create() is available');
 assert.match(resetIntegration,/await window\.ProfitMenteNewProject\.create\(\)/,'advanced reset must delegate project creation to the canonical transition');
-const flushIndex=resetIntegration.indexOf('ProfitMenteNewProject.flushCurrentProject()');
+assert.doesNotMatch(resetIntegration,/ProfitMenteNewProject\?\.flushCurrentProject/,'advanced reset must not gate the canonical controller on an internal flush helper');
+assert.doesNotMatch(resetIntegration,/ProfitMenteNewProject\.flushCurrentProject\(\)/,'advanced reset must not duplicate controller-owned flush logic');
 const snapshotIndex=resetIntegration.indexOf('engine.snapshot(window.profitMenteRecovery,project)');
 const createIndex=resetIntegration.indexOf('await window.ProfitMenteNewProject.create()');
-assert.ok(flushIndex>=0&&snapshotIndex>flushIndex&&createIndex>snapshotIndex,'advanced reset must flush, snapshot, then create in that order');
+assert.ok(snapshotIndex>=0&&createIndex>snapshotIndex,'advanced reset must snapshot recovery before delegating creation');
 
-console.log('safe new project + unsaved draft + modern track state + advanced reset regression passed');
+console.log('safe new project + unsaved draft + modern track state + canonical advanced reset regression passed');
