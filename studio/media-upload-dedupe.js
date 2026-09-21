@@ -33,7 +33,26 @@
     }
     return failures;
   }
-  const api={identity,equivalent,rollbackImported};
+  async function removePersistedAsset(id){
+    if(typeof mediaStore!=='undefined'&&mediaStore){
+      await mediaStore.delete(id);
+      if(mediaStore.storageAvailable===false)throw mediaStore.lastError||new Error('No se pudo confirmar la eliminación persistente del medio');
+      return true;
+    }
+    if(typeof db!=='function')throw new Error('Almacenamiento de medios no disponible para rollback');
+    const database=await db();
+    return new Promise((resolve,reject)=>{
+      let tx;
+      try{
+        tx=database.transaction(typeof STORE==='string'?STORE:'media','readwrite');
+        tx.objectStore(typeof STORE==='string'?STORE:'media').delete(id);
+      }catch(error){database.close?.();reject(error);return}
+      tx.oncomplete=()=>{database.close?.();resolve(true)};
+      tx.onerror=()=>{database.close?.();reject(tx.error||new Error('No se pudo revertir el medio persistido'))};
+      tx.onabort=()=>{database.close?.();reject(tx.error||new Error('Rollback de medio abortado'))};
+    });
+  }
+  const api={identity,equivalent,rollbackImported,removePersistedAsset};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(typeof window==='undefined'||typeof document==='undefined')return;
   window.ProfitMenteMediaUploadDedupe=api;
@@ -64,7 +83,7 @@
     }catch(error){
       const failures=await rollbackImported(
         committed,
-        async id=>{if(typeof deleteAsset==='function')await deleteAsset(id)},
+        removePersistedAsset,
         id=>{if(typeof assets==='undefined')return;const index=assets.findIndex(asset=>typeof sameId==='function'?sameId(asset.id,id):String(asset.id)===String(id));if(index>=0)assets.splice(index,1)}
       );
       if(typeof drawLibrary==='function')drawLibrary();
