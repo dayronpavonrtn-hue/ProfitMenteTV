@@ -10,7 +10,12 @@ try:
 except ImportError:  # direct script execution from studio/
     from track_state_render import normalize_track_solo
 
+# Project/timeline bounds may legitimately differ by a fraction of a frame after
+# browser editing and container timestamp rounding. Source-media bounds are
+# different: asking FFmpeg to read past EOF is never useful, so keep that check
+# aligned with export_pipeline.py's strict epsilon.
 TOLERANCE = 0.05
+SOURCE_TOLERANCE = 1e-6
 
 
 def finite(value):
@@ -90,8 +95,8 @@ def inspect(project):
             issues.append(f'Clip {clip_id!r} termina en {end:.3f}s y excede la duración del proyecto ({duration:.3f}s); el MP4 lo recortaría.')
 
         # Temporal media must have enough source material for trim + playback speed.
-        # Use the same frame-scale tolerance as timeline bounds: browser metadata and
-        # container timestamps routinely differ by a few milliseconds.
+        # Keep this strict and consistent with export_pipeline.validate_clip_playback_parameters:
+        # unlike timeline placement, reading beyond the source EOF cannot produce valid media.
         asset = asset_lookup.get(canonical_id(clip.get('asset')))
         if isinstance(asset, dict):
             kind = str(asset.get('type') or '').strip().lower()
@@ -101,7 +106,7 @@ def inspect(project):
                 speed = finite(clip.get('speed', 1))
                 if source_offset is not None and source_offset >= 0 and speed is not None and speed > 0:
                     source_end = source_offset + length * speed
-                    if source_end > source_duration + TOLERANCE:
+                    if source_end > source_duration + SOURCE_TOLERANCE:
                         issues.append(
                             f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
                         )
