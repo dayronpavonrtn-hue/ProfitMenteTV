@@ -18,8 +18,18 @@
   async function rollbackImported(committed,removePersisted,removeVisible){
     const failures=[];
     for(const asset of [...(committed||[])].reverse()){
-      try{await removePersisted(asset.id)}catch(error){failures.push({id:asset.id,error})}
-      try{removeVisible(asset.id)}catch(error){failures.push({id:asset.id,error})}
+      let persistedRemoved=false;
+      try{
+        await removePersisted(asset.id);
+        persistedRemoved=true;
+      }catch(error){
+        failures.push({id:asset.id,stage:'persistence',error});
+      }
+      // Never hide an asset that may still exist in persistent storage. Keeping it
+      // visible gives the user a recoverable item to retry deleting instead of an
+      // invisible orphan that can unexpectedly reappear after reload.
+      if(!persistedRemoved)continue;
+      try{removeVisible(asset.id)}catch(error){failures.push({id:asset.id,stage:'visible',error})}
     }
     return failures;
   }
@@ -60,7 +70,7 @@
       if(typeof drawLibrary==='function')drawLibrary();
       console.error('ProfitMente media import failed',error);
       if(failures.length)console.error('ProfitMente media import rollback incomplete',failures);
-      if(typeof setStatus==='function')setStatus(failures.length?`Importación falló y ${failures.length} reversión(es) no pudieron completarse`:`Importación cancelada sin cambios: ${error?.message||error}`);
+      if(typeof setStatus==='function')setStatus(failures.length?`Importación falló; ${failures.length} elemento(s) requieren recuperación manual`:`Importación cancelada sin cambios: ${error?.message||error}`);
     }finally{event.target.value=''}
   };
   if(input.dataset)input.dataset.profitmenteDedupe='1';
