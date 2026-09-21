@@ -39,12 +39,23 @@ assert.strictEqual(dedupe.equivalent(asset({metadataBlobSize:NaN}),asset({metada
   assert.deepStrictEqual(removedPersisted,['third','second','first'],'rollback must unwind persisted media in reverse commit order');
   assert.deepStrictEqual(removedVisible,['third','second','first'],'rollback must unwind visible media in reverse commit order');
 
+  const visibleAfterPersistenceFailure=[];
   const partial=await dedupe.rollbackImported(
     [{id:'kept-clean'},{id:'delete-fails'}],
     async id=>{if(id==='delete-fails')throw new Error('storage unavailable')},
-    ()=>{}
+    id=>visibleAfterPersistenceFailure.push(id)
   );
   assert.strictEqual(partial.length,1,'rollback persistence failures must be surfaced instead of hidden');
   assert.strictEqual(partial[0].id,'delete-fails');
+  assert.strictEqual(partial[0].stage,'persistence');
+  assert.deepStrictEqual(visibleAfterPersistenceFailure,['kept-clean'],'persisted rollback failures must stay visible and recoverable');
+
+  const visibleFailure=await dedupe.rollbackImported(
+    [{id:'visible-fails'}],
+    async()=>{},
+    ()=>{throw new Error('ui mutation failed')}
+  );
+  assert.strictEqual(visibleFailure.length,1,'visible rollback failures must be surfaced');
+  assert.strictEqual(visibleFailure[0].stage,'visible');
   console.log('media upload dedupe + transactional rollback regression: ok');
 })().catch(error=>{console.error(error);process.exitCode=1});
