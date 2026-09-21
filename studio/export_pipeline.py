@@ -185,17 +185,23 @@ def validate_media_track_compatibility(project):
 
 def validate_clip_playback_parameters(project):
     if not isinstance(project, dict): raise TypeError('Proyecto inválido')
+    assets = project.get('assets') if isinstance(project.get('assets'), list) else []
+    lookup = {_canonical_id(asset.get('id')): asset for asset in assets if isinstance(asset, dict) and _canonical_id(asset.get('id')) is not None}
     problems = []
     clips = project.get('clips') if isinstance(project.get('clips'), list) else []
     for index, clip in enumerate(clips):
         if not isinstance(clip, dict): continue
         clip_id = clip.get('id', clip.get('name', index))
+        offset = 0.0
+        speed = 1.0
         if 'sourceOffset' in clip:
-            offset = _finite_number(clip.get('sourceOffset'))
-            if offset is None or offset < 0: problems.append(f'Clip {clip_id!r}: sourceOffset debe ser un número finito >= 0.')
+            parsed_offset = _finite_number(clip.get('sourceOffset'))
+            if parsed_offset is None or parsed_offset < 0: problems.append(f'Clip {clip_id!r}: sourceOffset debe ser un número finito >= 0.')
+            else: offset = parsed_offset
         if 'speed' in clip:
-            speed = _finite_number(clip.get('speed'))
-            if speed is None or not 0.25 <= speed <= 4.0: problems.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
+            parsed_speed = _finite_number(clip.get('speed'))
+            if parsed_speed is None or not 0.25 <= parsed_speed <= 4.0: problems.append(f'Clip {clip_id!r}: speed debe estar entre 0.25 y 4.0.')
+            else: speed = parsed_speed
         track = _track_index(clip.get('track'))
         if track in AUDIO_TRACKS:
             if 'volume' in clip:
@@ -204,6 +210,15 @@ def validate_clip_playback_parameters(project):
             if 'sourceVolume' in clip:
                 source_volume = _finite_number(clip.get('sourceVolume'))
                 if source_volume is None or not 0.0 <= source_volume <= 2.0: problems.append(f'Clip {clip_id!r}: sourceVolume debe estar entre 0.0 y 2.0.')
+        asset = lookup.get(_canonical_id(clip.get('asset')))
+        source_duration = _positive_finite(asset.get('duration')) if isinstance(asset, dict) else None
+        clip_duration = _positive_finite(clip.get('duration'))
+        if source_duration is not None and clip_duration is not None:
+            source_end = offset + clip_duration * speed
+            if source_end > source_duration + 1e-6:
+                problems.append(
+                    f'Clip {clip_id!r}: el rango fuente termina en {source_end:.3f}s y excede la duración del medio fuente ({source_duration:.3f}s).'
+                )
     if problems: raise ValueError('Controles de reproducción inválidos: ' + ' | '.join(problems))
     return True
 
