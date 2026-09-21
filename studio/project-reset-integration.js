@@ -24,14 +24,12 @@
   btn.onclick=async()=>{
     if(!confirm('¿Crear proyecto nuevo? Se guardará el proyecto actual y un punto de recuperación.'))return;
 
-    // project-library.js owns the canonical safe project transition. Its controller
-    // flushes pending form/autosave state, promotes unsaved drafts into "Mis proyectos",
-    // resets history/UI and emits the project-opened event used by integrations.
-    // This advanced reset module loads later and must not bypass that persistence path.
-    if(window.ProfitMenteNewProject?.create&&window.ProfitMenteNewProject?.flushCurrentProject){
-      // Do not flush here as well: create() already performs the canonical flush.
-      // Running it twice can duplicate persistence/autosave side effects and makes
-      // a storage failure harder to reason about transactionally.
+    // project-library.js owns the canonical safe project transition. Its create()
+    // controller flushes pending form/autosave state, promotes unsaved drafts into
+    // "Mis proyectos", resets history/UI and emits the project-opened event used by
+    // integrations. Depend only on create(): flushCurrentProject is an implementation
+    // detail and must not decide whether the safe controller is used.
+    if(window.ProfitMenteNewProject?.create){
       const snapshot=engine.snapshot(window.profitMenteRecovery,project);
       const created=await window.ProfitMenteNewProject.create();
       if(!created)return;
