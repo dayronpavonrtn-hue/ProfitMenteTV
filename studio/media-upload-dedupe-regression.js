@@ -26,4 +26,25 @@ assert.strictEqual(dedupe.identity(asset({metadataBlobType:''})),'','missing MIM
 assert.strictEqual(dedupe.equivalent(asset({metadataBlobSize:0}),asset({metadataBlobSize:0})),false,'empty files must never collapse into one upload');
 assert.strictEqual(dedupe.equivalent(asset({metadataBlobSize:NaN}),asset({metadataBlobSize:NaN})),false,'corrupt metadata must never collapse distinct uploads');
 
-console.log('media upload dedupe regression: ok');
+(async()=>{
+  const removedPersisted=[];
+  const removedVisible=[];
+  const committed=[{id:'first'},{id:'second'},{id:'third'}];
+  const failures=await dedupe.rollbackImported(
+    committed,
+    async id=>removedPersisted.push(id),
+    id=>removedVisible.push(id)
+  );
+  assert.deepStrictEqual(failures,[],'successful rollback must not report failures');
+  assert.deepStrictEqual(removedPersisted,['third','second','first'],'rollback must unwind persisted media in reverse commit order');
+  assert.deepStrictEqual(removedVisible,['third','second','first'],'rollback must unwind visible media in reverse commit order');
+
+  const partial=await dedupe.rollbackImported(
+    [{id:'kept-clean'},{id:'delete-fails'}],
+    async id=>{if(id==='delete-fails')throw new Error('storage unavailable')},
+    ()=>{}
+  );
+  assert.strictEqual(partial.length,1,'rollback persistence failures must be surfaced instead of hidden');
+  assert.strictEqual(partial[0].id,'delete-fails');
+  console.log('media upload dedupe + transactional rollback regression: ok');
+})().catch(error=>{console.error(error);process.exitCode=1});
