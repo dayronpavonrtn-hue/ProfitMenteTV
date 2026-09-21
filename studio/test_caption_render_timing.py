@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import copy
 import math
+import pathlib
 import unittest
 
 from caption_render_timing import normalize_project_caption_timings, normalize_word_timings
@@ -55,6 +56,13 @@ class CaptionRenderTimingTests(unittest.TestCase):
         clip={"track":2,"start":9,"duration":1,"wordTimings":[{"word":"Motion","start":0,"end":1}]}
         project={"clips":[clip]}
         self.assertEqual(normalize_project_caption_timings(project),project)
+
+    def test_mp4_renderer_normalizes_before_rendering(self):
+        source=(pathlib.Path(__file__).with_name("render_mp4.py")).read_text(encoding="utf-8")
+        self.assertIn("from caption_render_timing import normalize_project_caption_timings",source)
+        normalize_call="normalize_project_caption_timings(json.loads(p.read_text(encoding='utf-8')))"
+        self.assertIn(normalize_call,source)
+        self.assertLess(source.index(normalize_call),source.index("clips=project.get('clips',[])"))
 
 
 if __name__ == "__main__":
