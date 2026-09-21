@@ -40,7 +40,12 @@ def finite_track(value, label):
         return -1,False
     return int(parsed),True
 
-fmt=project.get('format','9:16'); duration,duration_ok=finite_float(project.get('duration',0),'La duración del proyecto',0); clips=project.get('clips',[]); assets=project.get('assets',[]); amap={a.get('id'):a for a in assets if isinstance(a,dict) and a.get('id') is not None}
+fmt=project.get('format','9:16'); duration,duration_ok=finite_float(project.get('duration',0),'La duración del proyecto',0); clips=project.get('clips',[]); assets=project.get('assets',[])
+if not isinstance(clips,list):
+    errors.append('clips debe ser una lista'); clips=[]
+if not isinstance(assets,list):
+    errors.append('assets debe ser una lista'); assets=[]
+amap={a.get('id'):a for a in assets if isinstance(a,dict) and a.get('id') is not None}
 track_state=project.get('trackState') if isinstance(project.get('trackState'),dict) else {}
 def state(track):
     value=track_state.get(str(track),track_state.get(track,{}))
@@ -90,10 +95,6 @@ def validate_source_window(i,c,a,d,speed):
         errors.append(f'Clip {i}: fuente insuficiente; necesita hasta {end:.2f}s de un archivo de {native:.2f}s')
 if fmt not in ('9:16','16:9','1:1'): errors.append(f'Formato inválido: {fmt}')
 if duration_ok and duration<=0: errors.append('La duración debe ser mayor que 0')
-if not isinstance(clips,list):
-    errors.append('clips debe ser una lista'); clips=[]
-if not isinstance(assets,list):
-    errors.append('assets debe ser una lista'); assets=[]; amap={}
 ids=set(); color_re=re.compile(r'^#[0-9a-fA-F]{6}$')
 for i,c in enumerate(clips):
     if not isinstance(c,dict):
