@@ -15,7 +15,15 @@
     return `${signature}|${bytes}|${type}`;
   }
   function equivalent(left,right){const a=identity(left),b=identity(right);return !!a&&a===b}
-  const api={identity,equivalent};
+  async function rollbackImported(committed,removePersisted,removeVisible){
+    const failures=[];
+    for(const asset of [...(committed||[])].reverse()){
+      try{await removePersisted(asset.id)}catch(error){failures.push({id:asset.id,error})}
+      try{removeVisible(asset.id)}catch(error){failures.push({id:asset.id,error})}
+    }
+    return failures;
+  }
+  const api={identity,equivalent,rollbackImported};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(typeof window==='undefined'||typeof document==='undefined')return;
   window.ProfitMenteMediaUploadDedupe=api;
@@ -23,6 +31,7 @@
   if(!input||input.dataset?.profitmenteDedupe==='1')return;
   input.onchange=async event=>{
     const files=Array.from(event.target.files||[]);let added=0,duplicates=0,rejected=0;
+    const committed=[];
     try{
       const inspector=window.profitMenteMediaInspector||(window.ProfitMenteMediaInspector?new window.ProfitMenteMediaInspector():null);
       for(const file of files){
@@ -33,6 +42,7 @@
         if(candidate.mediaReadable===false){rejected++;continue}
         if((typeof assets!=='undefined'?assets:[]).some(existing=>equivalent(existing,candidate))){duplicates++;continue}
         await putAsset(candidate);
+        committed.push(candidate);
         if(!(typeof assets!=='undefined'?assets:[]).some(existing=>typeof sameId==='function'?sameId(existing.id,candidate.id):String(existing.id)===String(candidate.id)))assets.push(candidate);
         added++;
       }
@@ -41,8 +51,17 @@
       if(duplicates)parts.push(`${duplicates} duplicado${duplicates===1?'':'s'} omitido${duplicates===1?'':'s'}`);
       if(rejected)parts.push(`${rejected} archivo${rejected===1?'':'s'} no compatible${rejected===1?'':'s'}`);
       if(typeof setStatus==='function')setStatus(parts.filter(Boolean).join(' · ')||'No se añadieron medios');
-    }catch(error){console.error('ProfitMente media import failed',error);if(typeof setStatus==='function')setStatus(`No se pudo importar media: ${error?.message||error}`)}
-    finally{event.target.value=''}
+    }catch(error){
+      const failures=await rollbackImported(
+        committed,
+        async id=>{if(typeof deleteAsset==='function')await deleteAsset(id)},
+        id=>{if(typeof assets==='undefined')return;const index=assets.findIndex(asset=>typeof sameId==='function'?sameId(asset.id,id):String(asset.id)===String(id));if(index>=0)assets.splice(index,1)}
+      );
+      if(typeof drawLibrary==='function')drawLibrary();
+      console.error('ProfitMente media import failed',error);
+      if(failures.length)console.error('ProfitMente media import rollback incomplete',failures);
+      if(typeof setStatus==='function')setStatus(failures.length?`Importación falló y ${failures.length} reversión(es) no pudieron completarse`:`Importación cancelada sin cambios: ${error?.message||error}`);
+    }finally{event.target.value=''}
   };
   if(input.dataset)input.dataset.profitmenteDedupe='1';
 })();
