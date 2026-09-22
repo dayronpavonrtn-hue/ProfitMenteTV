@@ -2,6 +2,7 @@ class ProfitMenteRenderQueueStorageEngine{
   static DB_NAME='profitmente-studio-render-queue';
   static STORE_NAME='render-queue';
   static RECORD_KEY='mp4:v1';
+  static FALLBACK_ENVELOPE_VERSION=1;
   constructor({indexedDBFactory=globalThis.indexedDB,localStorageRef=globalThis.localStorage,dbName=ProfitMenteRenderQueueStorageEngine.DB_NAME,storeName=ProfitMenteRenderQueueStorageEngine.STORE_NAME,key=ProfitMenteRenderQueueStorageEngine.RECORD_KEY}={}){
     this.indexedDBFactory=indexedDBFactory;
     this.localStorageRef=localStorageRef;
@@ -45,6 +46,30 @@ class ProfitMenteRenderQueueStorageEngine{
     return false;
   }
   hasBinary(value,seen=new Set()){return this.hasStructuredValue(value,seen)}
+  checksum(text){
+    // Small deterministic integrity tag for the JSON-only emergency fallback.
+    // This is corruption detection, not a cryptographic signature.
+    let hash=0x811c9dc5;
+    for(let index=0;index<text.length;index++){
+      hash^=text.charCodeAt(index);
+      hash=Math.imul(hash,0x01000193)>>>0;
+    }
+    return hash.toString(16).padStart(8,'0');
+  }
+  encodeFallback(state){
+    const payload=JSON.stringify(state);
+    return JSON.stringify({v:ProfitMenteRenderQueueStorageEngine.FALLBACK_ENVELOPE_VERSION,checksum:this.checksum(payload),payload});
+  }
+  decodeFallback(raw){
+    if(!raw)return null;
+    let parsed;
+    try{parsed=JSON.parse(raw)}catch{return null}
+    // Backward compatibility with queue states written before the integrity envelope.
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.hasOwn(parsed,'payload'))return parsed;
+    if(parsed.v!==ProfitMenteRenderQueueStorageEngine.FALLBACK_ENVELOPE_VERSION||typeof parsed.payload!=='string'||typeof parsed.checksum!=='string')return null;
+    if(this.checksum(parsed.payload)!==parsed.checksum)return null;
+    try{return JSON.parse(parsed.payload)}catch{return null}
+  }
   open(){
     if(!this.indexedDBFactory?.open)return Promise.resolve(null);
     return new Promise((resolve,reject)=>{
@@ -60,13 +85,17 @@ class ProfitMenteRenderQueueStorageEngine{
   saveFallback(state){
     // localStorage is JSON-only. Reject anything JSON would drop, coerce or corrupt.
     if(this.hasStructuredValue(state))return false;
-    try{this.localStorageRef?.setItem?.(this.key,JSON.stringify(state));return true}catch{return false}
+    try{
+      const encoded=this.encodeFallback(state);
+      this.localStorageRef?.setItem?.(this.key,encoded);
+      // Some storage shims/failure modes can report success without durable bytes.
+      const persisted=this.localStorageRef?.getItem?.(this.key);
+      if(persisted!==encoded){try{this.localStorageRef?.removeItem?.(this.key)}catch{};return false}
+      return true;
+    }catch{return false}
   }
   loadFallback(){
-    try{
-      const raw=this.localStorageRef?.getItem?.(this.key);
-      return raw?JSON.parse(raw):null;
-    }catch{return null}
+    try{return this.decodeFallback(this.localStorageRef?.getItem?.(this.key))}catch{return null}
   }
   async save(state){
     if(!state||typeof state!=='object')return false;
