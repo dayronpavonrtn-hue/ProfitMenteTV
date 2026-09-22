@@ -1,0 +1,29 @@
+name: ProfitMente Studio Render Queue Enqueue Preflight QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-queue-integration.js'
+      - 'studio/test_render_queue_enqueue_preflight.mjs'
+      - '.github/workflows/render-queue-enqueue-preflight-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render-queue-integration.js'
+      - 'studio/test_render_queue_enqueue_preflight.mjs'
+      - '.github/workflows/render-queue-enqueue-preflight-qa.yml'
+
+jobs:
+  render-queue-enqueue-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check studio/render-queue-integration.js
+          node --check studio/test_render_queue_enqueue_preflight.mjs
+      - name: Queue enqueue preflight regression
+        run: node studio/test_render_queue_enqueue_preflight.mjs
