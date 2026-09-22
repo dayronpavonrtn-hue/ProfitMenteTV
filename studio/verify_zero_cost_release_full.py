@@ -72,6 +72,7 @@ def main() -> None:
         ("Biblioteca valida integridad y referencias de proyectos", [node, "test_media_integrity_engine.js"]),
         ("Biblioteca deduplica importaciones por identidad de contenido", [node, "media-upload-dedupe-regression.js"]),
         ("Biblioteca acepta medios locales aunque el navegador omita MIME", [node, "tests/media-upload-type-regression.cjs"]),
+        ("Studio activa la carga resiliente después del inspector de medios", [node, "tests/media-upload-bootstrap-regression.cjs"]),
         ("QA bloquea referencias y medios corruptos antes del render", [node, "qa-media-integrity-integration-regression.js"]),
         ("QA distingue velocidad malformada, rango y límites de fuente", [node, "tests/qa-media-speed-regression.js"]),
         ("Biblioteca protege medios usados por otros proyectos", [node, "test_media_library_cross_project_guard.mjs"]),
