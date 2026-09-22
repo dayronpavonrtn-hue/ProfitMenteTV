@@ -80,6 +80,7 @@ def main() -> None:
         ("Biblioteca conserva búsqueda, filtros y borrado después del inspector", [node, "test_media_library_inspector_rebind.mjs"]),
         ("Reemplazo de medios conserva seguridad y duración legacy", [node, "test_media_replace_engine.mjs"]),
         ("Extracción de bundle limita cantidad de archivos antes del render", [py, "tests/bundle-extraction-budget-regression.py"]),
+        ("Render fallido conserva el último MP4 y reporte QA válidos", [py, "tests/render-bundle-atomic-publish-regression.py"]),
         ("Importación de bundle conserva referencias de medios", [node, "tests/bundle-import-media-reference-regression.js"]),
         ("Importación de bundle verifica persistencia escrita", [node, "tests/bundle-import-persistence-verification-regression.js"]),
         ("Importación de bundle revierte escrituras rechazadas", [node, "tests/bundle-import-rejected-media-write-rollback-regression.js"]),
