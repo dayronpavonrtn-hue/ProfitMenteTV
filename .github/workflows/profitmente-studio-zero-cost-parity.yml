@@ -1,0 +1,32 @@
+name: ProfitMente Studio $0 parity regressions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'studio/**'
+      - '.github/workflows/profitmente-studio-zero-cost-parity.yml'
+  pull_request:
+    paths:
+      - 'studio/**'
+      - '.github/workflows/profitmente-studio-zero-cost-parity.yml'
+
+concurrency:
+  group: profitmente-studio-zero-cost-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify automatic transition synchronization
+        working-directory: studio
+        run: node tests/auto-transition-generator-sync-regression.cjs
+      - name: Verify strict audio ducking flags
+        working-directory: studio
+        run: node tests/audio-ducking-strict-flags-regression.mjs
