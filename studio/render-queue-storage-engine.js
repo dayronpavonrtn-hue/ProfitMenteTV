@@ -25,10 +25,24 @@ class ProfitMenteRenderQueueStorageEngine{
     if(typeof RegExp!=='undefined'&&value instanceof RegExp)return true;
     if(type!=='object'||seen.has(value))return false;
     seen.add(value);
-    if(Array.isArray(value))return value.some(item=>this.hasStructuredValue(item,seen));
+    if(Array.isArray(value)){
+      for(let index=0;index<value.length;index++){
+        if(!Object.prototype.hasOwnProperty.call(value,index))return true;
+        if(this.hasStructuredValue(value[index],seen))return true;
+      }
+      const extraKeys=Reflect.ownKeys(value).filter(key=>key!=='length'&&!(typeof key==='string'&&/^(0|[1-9]\d*)$/.test(key)&&Number(key)<value.length));
+      return extraKeys.length>0;
+    }
     const proto=Object.getPrototypeOf(value);
     if(proto!==Object.prototype&&proto!==null)return true;
-    return Reflect.ownKeys(value).some(key=>typeof key==='symbol'||this.hasStructuredValue(value[key],seen));
+    for(const key of Reflect.ownKeys(value)){
+      if(typeof key==='symbol')return true;
+      const descriptor=Object.getOwnPropertyDescriptor(value,key);
+      if(!descriptor?.enumerable||descriptor.get||descriptor.set)return true;
+      if(key==='toJSON'&&typeof value[key]==='function')return true;
+      if(this.hasStructuredValue(value[key],seen))return true;
+    }
+    return false;
   }
   hasBinary(value,seen=new Set()){return this.hasStructuredValue(value,seen)}
   open(){
