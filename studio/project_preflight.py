@@ -12,9 +12,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Running a file inside ``studio/`` directly puts that directory, not the repo
-# root, on sys.path. Add the root explicitly so the exact same imports work for
-# both ``python -m studio.project_preflight`` and the convenient direct command.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -22,20 +19,24 @@ if str(_REPO_ROOT) not in sys.path:
 from studio.export_pipeline import build_export
 
 
+def _json_safe(value: Any) -> Any:
+    """Return stable JSON-safe diagnostic data without hiding preflight failures."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return str(value)
+
+
 def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str, Any]:
     """Return a stable machine-readable preflight result; never leak a traceback."""
     try:
         result = build_export(project, final=final)
     except (TypeError, ValueError) as exc:
-        return {
-            "ok": False,
-            "stage": "validation",
-            "blockers": [str(exc)],
-            "warnings": [],
-        }
+        return {"ok": False, "stage": "validation", "blockers": [str(exc)], "warnings": []}
     except Exception as exc:
-        # Preflight is an automation boundary: malformed/unexpected render state
-        # must fail closed instead of crashing the caller or starting FFmpeg.
         detail = str(exc).strip() or exc.__class__.__name__
         return {
             "ok": False,
@@ -44,7 +45,15 @@ def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str,
             "warnings": [],
         }
 
-    qa = result.get("qa") if isinstance(result, dict) else None
+    if not isinstance(result, dict):
+        return {
+            "ok": False,
+            "stage": "internal",
+            "blockers": ["Preflight interno devolvió un resultado inválido."],
+            "warnings": [],
+        }
+
+    qa = result.get("qa")
     qa = qa if isinstance(qa, dict) else {}
     blockers = qa.get("blockers") if isinstance(qa.get("blockers"), list) else []
     warnings = qa.get("warnings") if isinstance(qa.get("warnings"), list) else []
@@ -57,7 +66,7 @@ def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str,
         "summary": {
             "assets": len(project.get("assets", [])) if isinstance(project.get("assets"), list) else 0,
             "clips": len(project.get("clips", [])) if isinstance(project.get("clips"), list) else 0,
-            "duration": project.get("duration"),
+            "duration": _json_safe(project.get("duration")),
         },
     }
 
@@ -80,9 +89,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pretty", action="store_true", help="Formatear la salida JSON")
     args = parser.parse_args(argv)
     report = inspect_file(args.project, final=not args.draft)
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None)
-    sys.stdout.write("\n")
-    return 0 if report["ok"] else 2
+    try:
+        json.dump(_json_safe(report), sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
+        sys.stdout.write("\n")
+    except (TypeError, ValueError) as exc:
+        fallback = {"ok": False, "stage": "internal", "blockers": [f"No se pudo serializar el preflight: {exc}"], "warnings": []}
+        json.dump(fallback, sys.stdout, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 2
+    return 0 if report.get("ok") is True else 2
 
 
 if __name__ == "__main__":
