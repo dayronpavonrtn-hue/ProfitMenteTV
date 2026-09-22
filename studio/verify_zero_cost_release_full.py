@@ -71,6 +71,7 @@ def main() -> None:
         ("Waveform de timeline coincide con ventana editada y reemplazos", [node, "test_waveform_timeline_parity.mjs"]),
         ("Biblioteca valida integridad y referencias de proyectos", [node, "test_media_integrity_engine.js"]),
         ("Biblioteca deduplica importaciones por identidad de contenido", [node, "media-upload-dedupe-regression.js"]),
+        ("Biblioteca acepta medios locales aunque el navegador omita MIME", [node, "tests/media-upload-type-regression.cjs"]),
         ("QA bloquea referencias y medios corruptos antes del render", [node, "qa-media-integrity-integration-regression.js"]),
         ("QA distingue velocidad malformada, rango y límites de fuente", [node, "tests/qa-media-speed-regression.js"]),
         ("Biblioteca protege medios usados por otros proyectos", [node, "test_media_library_cross_project_guard.mjs"]),
