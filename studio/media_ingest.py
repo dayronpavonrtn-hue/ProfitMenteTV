@@ -33,8 +33,6 @@ def _kind(mime: str, streams: list[dict]) -> str | None:
     for stream in streams:
         codec_type = str(stream.get("codec_type") or "").lower()
         if codec_type == "video":
-            # ffprobe reports still images as video streams. MIME is authoritative
-            # for common image imports so Studio does not treat PNG/JPEG as timed.
             return "image" if mime.startswith("image/") else "video"
         if codec_type == "audio":
             return "audio"
@@ -113,24 +111,50 @@ def probe(path: str | os.PathLike, ffprobe: str = "ffprobe") -> dict:
 
 
 def ingest(project: dict, paths: list[str], ffprobe: str = "ffprobe") -> tuple[dict, list[dict]]:
+    """Probe an entire batch before mutating the project.
+
+    A bad file must not leave half of a multi-file import visible to callers. Content
+    hashes are also used to deduplicate legacy projects whose asset ids predate the
+    deterministic media-<sha> id.
+    """
     if not isinstance(project, dict):
         raise TypeError("Proyecto inválido")
     assets = project.get("assets")
     if assets is None:
         assets = []
-        project["assets"] = assets
     if not isinstance(assets, list):
         raise ValueError("La biblioteca de medios del proyecto es inválida.")
-    existing = {str(a.get("id")) for a in assets if isinstance(a, dict) and a.get("id") is not None}
-    added = []
+
+    existing_ids = {
+        str(asset.get("id")) for asset in assets
+        if isinstance(asset, dict) and asset.get("id") is not None
+    }
+    existing_hashes = {
+        str(asset.get("sha256")).strip().lower() for asset in assets
+        if isinstance(asset, dict) and str(asset.get("sha256") or "").strip()
+    }
+
+    staged: list[dict] = []
+    staged_ids: set[str] = set()
+    staged_hashes: set[str] = set()
     for path in paths:
         asset = probe(path, ffprobe=ffprobe)
-        if asset["id"] in existing:
+        asset_id = str(asset["id"])
+        digest = str(asset.get("sha256") or "").strip().lower()
+        if asset_id in existing_ids or asset_id in staged_ids:
             continue
-        assets.append(asset)
-        existing.add(asset["id"])
-        added.append(asset)
-    return project, added
+        if digest and (digest in existing_hashes or digest in staged_hashes):
+            continue
+        staged.append(asset)
+        staged_ids.add(asset_id)
+        if digest:
+            staged_hashes.add(digest)
+
+    # Commit only after every requested file has been successfully inspected.
+    if project.get("assets") is None:
+        project["assets"] = assets
+    assets.extend(staged)
+    return project, staged
 
 
 def atomic_write(path: Path, payload: dict) -> None:
