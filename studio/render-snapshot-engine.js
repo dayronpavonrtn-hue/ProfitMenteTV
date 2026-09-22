@@ -7,9 +7,30 @@
 
   function cloneRenderValue(value,seen=new WeakMap()){
     if(value===null||typeof value!=='object')return value;
+    // Blob/File objects are immutable byte containers and can safely be shared.
     if(isBlobLike(value))return value;
     if(value instanceof Date)return new Date(value.getTime());
     if(seen.has(value))return seen.get(value);
+    if(typeof ArrayBuffer!=='undefined'&&value instanceof ArrayBuffer){
+      const copy=value.slice(0);seen.set(value,copy);return copy;
+    }
+    if(typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView?.(value)){
+      if(value instanceof DataView){
+        const buffer=cloneRenderValue(value.buffer,seen);
+        const copy=new DataView(buffer,value.byteOffset,value.byteLength);seen.set(value,copy);return copy;
+      }
+      const copy=new value.constructor(value);seen.set(value,copy);return copy;
+    }
+    if(value instanceof Map){
+      const copy=new Map();seen.set(value,copy);
+      for(const [key,item] of value)copy.set(cloneRenderValue(key,seen),cloneRenderValue(item,seen));
+      return copy;
+    }
+    if(value instanceof Set){
+      const copy=new Set();seen.set(value,copy);
+      for(const item of value)copy.add(cloneRenderValue(item,seen));
+      return copy;
+    }
     if(Array.isArray(value)){
       const copy=[];seen.set(value,copy);
       for(const item of value)copy.push(cloneRenderValue(item,seen));
