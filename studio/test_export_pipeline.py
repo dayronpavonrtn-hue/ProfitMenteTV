@@ -144,6 +144,7 @@ def run():
     assert build_export(project([clip('video', 0, 'v'), good]), final=True)['ok'] is True
 
     bounded = project([])
+    bounded['duration'] = 4
     bounded['assets'].append({'id': 'bounded', 'type': 'video', 'name': 'bounded.mp4', 'duration': 12})
     valid = clip('bounded-ok', 0, 'bounded')
     valid.update({'duration': 4, 'sourceOffset': 4, 'speed': 2})
