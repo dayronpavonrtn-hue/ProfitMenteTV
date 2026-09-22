@@ -10,18 +10,25 @@ class ProfitMenteRenderQueueStorageEngine{
     this.key=key;
   }
   hasStructuredValue(value,seen=new Set()){
+    if(value===undefined)return true;
     if(value==null)return false;
-    if(typeof value==='bigint')return true;
+    const type=typeof value;
+    if(type==='bigint'||type==='function'||type==='symbol')return true;
+    if(type==='number'&&!Number.isFinite(value))return true;
     if(typeof Blob!=='undefined'&&value instanceof Blob)return true;
     if(typeof File!=='undefined'&&value instanceof File)return true;
     if(typeof ArrayBuffer!=='undefined'&&value instanceof ArrayBuffer)return true;
     if(typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView?.(value))return true;
     if(typeof Map!=='undefined'&&value instanceof Map)return true;
     if(typeof Set!=='undefined'&&value instanceof Set)return true;
-    if(typeof value!=='object'||seen.has(value))return false;
+    if(typeof Date!=='undefined'&&value instanceof Date)return true;
+    if(typeof RegExp!=='undefined'&&value instanceof RegExp)return true;
+    if(type!=='object'||seen.has(value))return false;
     seen.add(value);
     if(Array.isArray(value))return value.some(item=>this.hasStructuredValue(item,seen));
-    return Object.values(value).some(item=>this.hasStructuredValue(item,seen));
+    const proto=Object.getPrototypeOf(value);
+    if(proto!==Object.prototype&&proto!==null)return true;
+    return Reflect.ownKeys(value).some(key=>typeof key==='symbol'||this.hasStructuredValue(value[key],seen));
   }
   hasBinary(value,seen=new Set()){return this.hasStructuredValue(value,seen)}
   open(){
@@ -37,7 +44,7 @@ class ProfitMenteRenderQueueStorageEngine{
     });
   }
   saveFallback(state){
-    // localStorage is JSON-only. Never silently corrupt structured-clone-only metadata.
+    // localStorage is JSON-only. Reject anything JSON would drop, coerce or corrupt.
     if(this.hasStructuredValue(state))return false;
     try{this.localStorageRef?.setItem?.(this.key,JSON.stringify(state));return true}catch{return false}
   }
