@@ -15,6 +15,7 @@ def project(clips, states=None):
         'assets': [
             {'id': 'v', 'type': 'image', 'name': 'video.png'},
             {'id': 'o', 'type': 'image', 'name': 'overlay.png'},
+            {'id': 'vid', 'type': 'video', 'name': 'video.mp4', 'duration': 10},
             # Timed media fixtures must carry the same duration metadata required
             # from real Studio imports. Keeping the fixture export-valid ensures
             # failures below exercise the condition under test instead of being
@@ -65,6 +66,18 @@ def expect_bad_track(value):
         raise AssertionError(f'invalid timeline track {value!r} must block final export')
 
 
+def expect_incompatible(cid, track, asset, expected_text):
+    try:
+        build_export(project([clip(cid, track, asset)]), final=True)
+    except ValueError as exc:
+        message = str(exc)
+        assert 'Medios incompatibles con el timeline' in message
+        assert cid in message
+        assert expected_text in message
+    else:
+        raise AssertionError(f'incompatible media {asset!r} on track {track!r} must block final export')
+
+
 def run():
     p = project(
         [clip('video', 0, 'v'), clip('overlay', 1, 'o'), clip('voice', 6, 'a'), clip('music', 5, 'm')],
@@ -106,6 +119,18 @@ def run():
     string_track = build_export(project([clip('video', 0, 'v'), clip('string-track', '6', 'a')]), final=True)
     assert string_track['ok'] is True
     assert [item['id'] for item in string_track['plan']['tracks']['voice']] == ['string-track']
+
+    # The final bridge must fail closed when media is placed on an incompatible
+    # track. This protects manual edits and old/corrupt projects that bypass UI
+    # drag/drop guards. Disabled tracks are filtered before this validation.
+    expect_incompatible('audio-on-visual', 0, 'a', 'audio')
+    expect_incompatible('image-on-audio', 6, 'v', 'image')
+    expect_incompatible('video-on-audio', 5, 'vid', 'video')
+    expect_incompatible('media-on-caption', 3, 'v', 'captions')
+    hidden_bad = project([clip('base', 0, 'v'), clip('hidden-audio-on-visual', 1, 'a')], {'1': {'hidden': True}})
+    assert build_export(hidden_bad, final=True)['ok'] is True
+    muted_bad = project([clip('base', 0, 'v'), clip('muted-image-on-audio', 5, 'v')], {'5': {'muted': True}})
+    assert build_export(muted_bad, final=True)['ok'] is True
 
     expect_broken_reference(project([clip('missing', 0, 'does-not-exist')]), 'does-not-exist')
     expect_broken_reference(project([clip('empty', 0, '   ')]), 'vacía o inválida')
