@@ -1,0 +1,35 @@
+name: Render queue structured storage QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-queue-storage-engine.js'
+      - 'tools/render_queue_storage_structured_regression.js'
+      - '.github/workflows/render-queue-structured-storage-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render-queue-storage-engine.js'
+      - 'tools/render_queue_storage_structured_regression.js'
+      - '.github/workflows/render-queue-structured-storage-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-queue-structured-storage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check storage engine syntax
+        run: node --check studio/render-queue-storage-engine.js
+      - name: Protect JSON fallback from structured data corruption
+        run: node tools/render_queue_storage_structured_regression.js
