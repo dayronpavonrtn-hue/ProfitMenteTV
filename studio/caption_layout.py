@@ -6,6 +6,48 @@ metrics before filter construction, so this module uses a conservative glyph-wid
 estimate to keep the final MP4 inside the same 88% safe width and three-line limit.
 """
 from __future__ import annotations
+import builtins
+import math
+
+
+def _finite(value, fallback: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return fallback
+    if isinstance(value, str) and not value.strip():
+        return fallback
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if math.isfinite(parsed) else fallback
+
+
+def visual_adjust_filter(clip: dict) -> str:
+    """Translate Studio visualAdjustments into an FFmpeg filter chain.
+
+    render_mp4.py consumes this helper while building visual clips. Keeping the
+    normalization strict mirrors the browser engine: malformed imported values fall
+    back to neutral adjustments instead of crashing a render or changing the image.
+    """
+    raw = clip.get('visualAdjustments') if isinstance(clip, dict) else None
+    if not isinstance(raw, dict):
+        return ''
+    brightness = max(0.0, min(300.0, _finite(raw.get('brightness'), 100.0)))
+    contrast = max(0.0, min(300.0, _finite(raw.get('contrast'), 100.0)))
+    saturation = max(0.0, min(300.0, _finite(raw.get('saturation'), 100.0)))
+    grayscale = max(0.0, min(100.0, _finite(raw.get('grayscale'), 0.0)))
+    if brightness == 100 and contrast == 100 and saturation == 100 and grayscale == 0:
+        return ''
+    # Canvas brightness() is multiplicative; FFmpeg eq brightness is additive.
+    # Use exposure-like gain for brightness and fold grayscale into saturation.
+    sat = (saturation / 100.0) * (1.0 - grayscale / 100.0)
+    return f'eq=contrast={contrast/100.0:.4f}:saturation={sat:.4f},colorlevels=rimax={brightness/100.0:.4f}:gimax={brightness/100.0:.4f}:bimax={brightness/100.0:.4f}'
+
+
+# Compatibility bridge for render_mp4.py, whose visual chain resolves this helper
+# through Python builtins. This keeps the current renderer operational without any
+# paid dependency while the render modules remain standalone CLI scripts.
+builtins.visual_adjust_filter = visual_adjust_filter
 
 
 def _glyph_units(ch: str) -> float:
