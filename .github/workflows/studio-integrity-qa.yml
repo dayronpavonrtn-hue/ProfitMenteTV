@@ -133,7 +133,9 @@ jobs:
           node studio/test_render_queue_engine.mjs
           node studio/test_render_queue_storage.mjs
       - name: Critical Python syntax
-        run: python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/caption_render_timing.py studio/studio_server.py studio/output_qc.py studio/validate_project.py studio/media_identity.py studio/export_pipeline.py studio/test_export_pipeline.py studio/test_strict_render_media_identity.py studio/test_caption_render_timing.py
+        run: python -m py_compile studio/render_mp4.py studio/render_motion_text.py studio/caption_render_timing.py studio/studio_server.py studio/output_qc.py studio/validate_project.py studio/media_identity.py studio/export_pipeline.py studio/project_preflight.py studio/test_project_preflight.py studio/test_export_pipeline.py studio/test_strict_render_media_identity.py studio/test_caption_render_timing.py
+      - name: Project preflight automation regression
+        run: python studio/test_project_preflight.py
       - name: Studio export pipeline regression
         run: python studio/test_export_pipeline.py
       - name: Strict render media identity regression
