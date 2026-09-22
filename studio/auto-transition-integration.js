@@ -11,6 +11,19 @@
     if($('#autoTransitionBtn'))return;const anchor=$('#autoFinishBtn')||$('#generateBtn')||$('#qaBtn');if(!anchor)return;
     const btn=document.createElement('button');btn.id='autoTransitionBtn';btn.type='button';btn.textContent='✨ Transiciones auto';btn.title='Aplica transiciones locales a escenas generadas contiguas sin sobrescribir ajustes manuales ni clips/pistas bloqueados.';btn.onclick=()=>run(false);anchor.insertAdjacentElement('afterend',btn);
   }
+  function installGeneratorHook(){
+    const generate=$('#generateBtn');
+    if(!generate||generate.dataset.pmAutoTransitionHook==='1')return;
+    generate.dataset.pmAutoTransitionHook='1';
+    generate.addEventListener('click',()=>queueMicrotask(()=>{
+      try{
+        const result=Engine.apply(project,{force:true});
+        if(!result.changed)return;
+        persist?.();drawTimeline?.();renderAt?.(+($('#playhead')?.value||0));
+        setStatus?.(`Video automático listo · ${result.changed} transición(es) renderizable(s) sincronizada(s)`);
+      }catch(error){console.error('No se pudieron sincronizar las transiciones automáticas',error)}
+    }));
+  }
   function load(src,guard){
     if(guard&&window[guard])return Promise.resolve();
     if(loads.has(src))return loads.get(src);
@@ -34,6 +47,6 @@
   async function installPreviewRenderer(){
     try{await load('transition-preview-engine.js','ProfitMenteTransitionPreviewEngine');await load('transition-preview-integration.js','ProfitMenteTransitionPreview')}catch(error){console.error(error);setStatus?.('Transiciones configuradas · preview visual no disponible')}
   }
-  install();installPreviewRenderer();new MutationObserver(install).observe(document.body,{childList:true,subtree:true});
+  install();installGeneratorHook();installPreviewRenderer();new MutationObserver(()=>{install();installGeneratorHook()}).observe(document.body,{childList:true,subtree:true});
   window.ProfitMenteAutoTransitions={inspect:()=>Engine.inspect(project),run,force:()=>run(true)};
 })();
