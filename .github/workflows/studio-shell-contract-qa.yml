@@ -4,12 +4,18 @@ on:
   push:
     paths:
       - 'studio/index.html'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/**/*.js'
       - 'studio/tests/studio-shell-contract-regression.py'
+      - 'studio/tests/feature-bootstrap-contract-regression.py'
       - '.github/workflows/studio-shell-contract-qa.yml'
   pull_request:
     paths:
       - 'studio/index.html'
+      - 'studio/feature-bootstrap.js'
+      - 'studio/**/*.js'
       - 'studio/tests/studio-shell-contract-regression.py'
+      - 'studio/tests/feature-bootstrap-contract-regression.py'
       - '.github/workflows/studio-shell-contract-qa.yml'
 
 permissions:
@@ -26,3 +32,5 @@ jobs:
           python-version: '3.12'
       - name: Verify zero-cost Studio shell contract
         run: python studio/tests/studio-shell-contract-regression.py
+      - name: Verify advanced feature bootstrap contract
+        run: python studio/tests/feature-bootstrap-contract-regression.py
