@@ -12,10 +12,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-try:
-    from studio.export_pipeline import build_export
-except ModuleNotFoundError:  # direct: python studio/project_preflight.py project.json
-    from export_pipeline import build_export
+# Running a file inside ``studio/`` directly puts that directory, not the repo
+# root, on sys.path. Add the root explicitly so the exact same imports work for
+# both ``python -m studio.project_preflight`` and the convenient direct command.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from studio.export_pipeline import build_export
 
 
 def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str, Any]:
@@ -34,9 +38,10 @@ def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str,
     qa = qa if isinstance(qa, dict) else {}
     blockers = qa.get("blockers") if isinstance(qa.get("blockers"), list) else []
     warnings = qa.get("warnings") if isinstance(qa.get("warnings"), list) else []
+    ready = bool(result.get("ok")) and not blockers
     return {
-        "ok": bool(result.get("ok")) and not blockers,
-        "stage": "ready" if bool(result.get("ok")) and not blockers else "qa",
+        "ok": ready,
+        "stage": "ready" if ready else "qa",
         "blockers": [str(item) for item in blockers],
         "warnings": [str(item) for item in warnings],
         "summary": {
