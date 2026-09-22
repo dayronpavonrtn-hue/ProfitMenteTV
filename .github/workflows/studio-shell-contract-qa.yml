@@ -1,0 +1,28 @@
+name: Studio shell contract QA
+
+on:
+  push:
+    paths:
+      - 'studio/index.html'
+      - 'studio/tests/studio-shell-contract-regression.py'
+      - '.github/workflows/studio-shell-contract-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/index.html'
+      - 'studio/tests/studio-shell-contract-regression.py'
+      - '.github/workflows/studio-shell-contract-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  studio-shell-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify zero-cost Studio shell contract
+        run: python studio/tests/studio-shell-contract-regression.py
