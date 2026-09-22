@@ -1,0 +1,32 @@
+name: ProfitMente Studio Batch Automation Preflight QA
+
+on:
+  push:
+    paths:
+      - 'studio/automation_preflight_batch.py'
+      - 'studio/project_preflight.py'
+      - 'studio/export_pipeline.py'
+      - 'studio/test_automation_preflight_batch.py'
+      - '.github/workflows/automation-preflight-batch-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/automation_preflight_batch.py'
+      - 'studio/project_preflight.py'
+      - 'studio/export_pipeline.py'
+      - 'studio/test_automation_preflight_batch.py'
+      - '.github/workflows/automation-preflight-batch-qa.yml'
+
+jobs:
+  batch-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/automation_preflight_batch.py studio/test_automation_preflight_batch.py
+      - name: Batch automation preflight regression
+        working-directory: studio
+        run: python -m unittest -v test_automation_preflight_batch.py
