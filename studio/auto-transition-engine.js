@@ -87,7 +87,7 @@
           skipped++;continue
         }
         if(c.transition&&!automatic&&!force){preserved++;continue}
-        const type=this.preferred(c,i),duration=this.durationFor(project,c,prev),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&automatic;
+        const type=TYPES.includes(c.transition)?c.transition:this.preferred(c,i),duration=this.durationFor(project,c,prev),existingDuration=finiteNumber(c.transitionDuration),same=c.transition===type&&existingDuration!=null&&Math.abs(existingDuration-duration)<1e-6&&automatic;
         c.transition=type;c.transitionDuration=duration;c.autoTransition=true;if(!same)changed++;
       }
       return {changed,preserved,skipped,cleared,locked,invalidGeometry,generated:clips.length};
