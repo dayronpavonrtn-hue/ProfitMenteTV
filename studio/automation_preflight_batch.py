@@ -1,12 +1,13 @@
 """Batch preflight gate for zero-cost ProfitMente Studio automation.
 
-Validates one or more project JSON files with the same project preflight used by
-manual export. It can emit a render manifest containing only projects that are
-safe to hand to the local renderer. No network or paid service is used.
+Validates projects with the same preflight used by manual export. Render
+manifests contain only approved projects and seal their bytes with SHA-256 so a
+renderer can reject projects changed after preflight. No network is used.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ from typing import Any, Iterable
 
 try:
     from .project_preflight import inspect_file
-except ImportError:  # direct script execution
+except ImportError:
     from project_preflight import inspect_file
 
 
@@ -43,14 +44,36 @@ def inspect_many(paths: Iterable[Path], *, final: bool = True) -> dict[str, Any]
         item = {"path": str(path), **report}
         projects.append(item)
         (ready if report.get("ok") is True else blocked).append(str(path))
-    return {
-        "ok": bool(projects) and not blocked,
-        "total": len(projects),
-        "ready": len(ready),
-        "blocked": len(blocked),
-        "projects": projects,
-        "render_manifest": ready,
-    }
+    return {"ok": bool(projects) and not blocked, "total": len(projects), "ready": len(ready),
+            "blocked": len(blocked), "projects": projects, "render_manifest": ready}
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_manifest(paths: Iterable[str | Path]) -> dict[str, Any]:
+    projects = []
+    for raw in paths:
+        path = Path(raw).resolve()
+        projects.append({"path": str(path), "sha256": _sha256(path)})
+    return {"version": 2, "algorithm": "sha256", "projects": projects}
+
+
+def verify_manifest_entry(entry: dict[str, Any]) -> bool:
+    if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+        return False
+    expected = entry.get("sha256")
+    if not isinstance(expected, str) or len(expected) != 64:
+        return False
+    try:
+        return _sha256(Path(entry["path"])) == expected.lower()
+    except OSError:
+        return False
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -65,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("inputs", nargs="+", help="Proyecto(s) JSON o carpetas")
     parser.add_argument("--recursive", action="store_true", help="Buscar JSON también en subcarpetas")
     parser.add_argument("--draft", action="store_true", help="Usar QA de borrador")
-    parser.add_argument("--manifest", help="Guardar manifiesto JSON con proyectos listos para render")
+    parser.add_argument("--manifest", help="Guardar manifiesto sellado con proyectos listos para render")
     parser.add_argument("--report", help="Guardar el reporte completo en JSON")
     parser.add_argument("--pretty", action="store_true", help="Formatear salida JSON")
     args = parser.parse_args(argv)
@@ -74,12 +97,14 @@ def main(argv: list[str] | None = None) -> int:
     result = inspect_many(paths, final=not args.draft)
     if not paths:
         result["reason"] = "No se encontraron proyectos JSON."
-
     if args.manifest:
-        _write_json(Path(args.manifest), {"version": 1, "projects": result["render_manifest"]})
+        try:
+            _write_json(Path(args.manifest), build_manifest(result["render_manifest"]))
+        except OSError as exc:
+            result["ok"] = False
+            result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
     if args.report:
         _write_json(Path(args.report), result)
-
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
     sys.stdout.write("\n")
     return 0 if result["ok"] else 2
