@@ -38,6 +38,18 @@ def run():
             'warnings': ['preview warning'],
             'summary': {'assets': 1, 'clips': 1, 'duration': 8},
         }
+
+        # Unexpected bridge/render-plan failures also fail closed. This keeps
+        # automation callers machine-readable and prevents FFmpeg from starting.
+        def fail_internal(project, final=True):
+            raise RuntimeError('render bridge unavailable')
+
+        preflight.build_export = fail_internal
+        failed = preflight.inspect_project({'duration': 1, 'assets': [], 'clips': []})
+        assert failed['ok'] is False
+        assert failed['stage'] == 'internal'
+        assert failed['warnings'] == []
+        assert 'render bridge unavailable' in failed['blockers'][0]
     finally:
         preflight.build_export = original
 
