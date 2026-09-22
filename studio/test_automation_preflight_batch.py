@@ -30,11 +30,29 @@ class BatchPreflightTests(unittest.TestCase):
         self.assertEqual(result["blocked"], 1)
         self.assertEqual(result["render_manifest"], ["ready.json"])
 
+    def test_manifest_hash_detects_project_changed_after_preflight(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "ready.json"
+            project.write_text('{"version":1}', encoding="utf-8")
+            manifest = batch.build_manifest([project])
+            self.assertEqual(manifest["version"], 2)
+            self.assertEqual(manifest["algorithm"], "sha256")
+            entry = manifest["projects"][0]
+            self.assertEqual(len(entry["sha256"]), 64)
+            self.assertTrue(batch.verify_manifest_entry(entry))
+            project.write_text('{"version":2}', encoding="utf-8")
+            self.assertFalse(batch.verify_manifest_entry(entry))
+
+    def test_manifest_verification_rejects_missing_or_malformed_entry(self):
+        self.assertFalse(batch.verify_manifest_entry({"path": "missing.json", "sha256": "0" * 64}))
+        self.assertFalse(batch.verify_manifest_entry({"path": "x", "sha256": "short"}))
+        self.assertFalse(batch.verify_manifest_entry({}))
+
     def test_atomic_json_writer_leaves_valid_payload(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "out" / "manifest.json"
-            batch._write_json(target, {"version": 1, "projects": ["a.json"]})
-            self.assertEqual(json.loads(target.read_text(encoding="utf-8"))["projects"], ["a.json"])
+            batch._write_json(target, {"version": 2, "projects": [{"path": "a.json", "sha256": "0" * 64}]})
+            self.assertEqual(json.loads(target.read_text(encoding="utf-8"))["version"], 2)
             self.assertFalse(target.with_name(target.name + ".tmp").exists())
 
 
