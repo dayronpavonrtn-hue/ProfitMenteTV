@@ -33,6 +33,16 @@ def inspect_project(project: dict[str, Any], *, final: bool = True) -> dict[str,
             "blockers": [str(exc)],
             "warnings": [],
         }
+    except Exception as exc:
+        # Preflight is an automation boundary: malformed/unexpected render state
+        # must fail closed instead of crashing the caller or starting FFmpeg.
+        detail = str(exc).strip() or exc.__class__.__name__
+        return {
+            "ok": False,
+            "stage": "internal",
+            "blockers": [f"Preflight interno bloqueó el render: {detail}"],
+            "warnings": [],
+        }
 
     qa = result.get("qa") if isinstance(result, dict) else None
     qa = qa if isinstance(qa, dict) else {}
