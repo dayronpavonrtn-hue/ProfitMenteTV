@@ -76,6 +76,48 @@ def verify_manifest_entry(entry: dict[str, Any]) -> bool:
         return False
 
 
+def verify_manifest(payload: Any) -> dict[str, Any]:
+    """Fail-closed verification for a sealed render manifest."""
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return {"ok": False, "total": 0, "verified": 0, "errors": ["El manifiesto no es un objeto JSON."]}
+    if payload.get("version") != 2:
+        errors.append("Versión de manifiesto no compatible.")
+    if payload.get("algorithm") != "sha256":
+        errors.append("Algoritmo de integridad no compatible.")
+    projects = payload.get("projects")
+    if not isinstance(projects, list) or not projects:
+        errors.append("El manifiesto no contiene proyectos para render.")
+        projects = []
+
+    verified = 0
+    seen: set[str] = set()
+    for index, entry in enumerate(projects):
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            errors.append(f"Entrada {index + 1}: formato inválido.")
+            continue
+        path = str(Path(entry["path"]).resolve())
+        if path in seen:
+            errors.append(f"Entrada {index + 1}: proyecto duplicado.")
+            continue
+        seen.add(path)
+        if verify_manifest_entry(entry):
+            verified += 1
+        else:
+            errors.append(f"Entrada {index + 1}: archivo ausente, modificado o hash inválido.")
+    return {"ok": not errors and verified == len(projects), "total": len(projects),
+            "verified": verified, "errors": errors}
+
+
+def verify_manifest_file(path: str | Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return {"ok": False, "total": 0, "verified": 0,
+                "errors": [f"No se pudo leer el manifiesto: {exc}"]}
+    return verify_manifest(payload)
+
+
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + ".tmp")
@@ -85,24 +127,32 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ProfitMente Studio batch automation preflight")
-    parser.add_argument("inputs", nargs="+", help="Proyecto(s) JSON o carpetas")
+    parser.add_argument("inputs", nargs="*", help="Proyecto(s) JSON o carpetas")
     parser.add_argument("--recursive", action="store_true", help="Buscar JSON también en subcarpetas")
     parser.add_argument("--draft", action="store_true", help="Usar QA de borrador")
     parser.add_argument("--manifest", help="Guardar manifiesto sellado con proyectos listos para render")
+    parser.add_argument("--verify-manifest", help="Verificar un manifiesto sellado antes del render")
     parser.add_argument("--report", help="Guardar el reporte completo en JSON")
     parser.add_argument("--pretty", action="store_true", help="Formatear salida JSON")
     args = parser.parse_args(argv)
 
-    paths = discover(args.inputs, recursive=args.recursive)
-    result = inspect_many(paths, final=not args.draft)
-    if not paths:
-        result["reason"] = "No se encontraron proyectos JSON."
-    if args.manifest:
-        try:
-            _write_json(Path(args.manifest), build_manifest(result["render_manifest"]))
-        except OSError as exc:
-            result["ok"] = False
-            result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
+    if args.verify_manifest:
+        if args.inputs or args.manifest or args.recursive or args.draft:
+            parser.error("--verify-manifest no se combina con entradas ni opciones de preflight")
+        result = verify_manifest_file(args.verify_manifest)
+    else:
+        if not args.inputs:
+            parser.error("se requiere al menos un proyecto/carpeta o --verify-manifest")
+        paths = discover(args.inputs, recursive=args.recursive)
+        result = inspect_many(paths, final=not args.draft)
+        if not paths:
+            result["reason"] = "No se encontraron proyectos JSON."
+        if args.manifest:
+            try:
+                _write_json(Path(args.manifest), build_manifest(result["render_manifest"]))
+            except OSError as exc:
+                result["ok"] = False
+                result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
     if args.report:
         _write_json(Path(args.report), result)
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
