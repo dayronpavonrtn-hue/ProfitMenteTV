@@ -51,7 +51,7 @@
       return 0;
     }
   }
-  const addBtn=document.createElement('button');addBtn.type='button';addBtn.id='renderQueueAddBtn';addBtn.textContent='+ Cola MP4';addBtn.title='Añade una instantánea del proyecto actual a la cola de render local, incluso mientras otra salida se está procesando';
+  const addBtn=document.createElement('button');addBtn.type='button';addBtn.id='renderQueueAddBtn';addBtn.textContent='+ Cola MP4';addBtn.title='Valida y añade una instantánea del proyecto actual a la cola de render local, incluso mientras otra salida se está procesando';
   const runBtn=document.createElement('button');runBtn.type='button';runBtn.id='renderQueueRunBtn';runBtn.textContent='▶ Procesar cola';runBtn.title='Renderiza en serie las instantáneas pendientes usando el motor local gratuito';
   const cancelBtn=document.createElement('button');cancelBtn.type='button';cancelBtn.id='renderQueueCancelBtn';cancelBtn.textContent='■ Detener cola';cancelBtn.title='Cancela el render activo y las salidas pendientes';cancelBtn.hidden=true;
   const badge=document.createElement('span');badge.id='renderQueueBadge';badge.style.cssText='font-size:11px;opacity:.8;margin-left:6px';
@@ -80,7 +80,7 @@
       const remove=button('✕','Quitar de la cola',()=>{if(changed(()=>queue.remove(item.id)))setStatus?.(`Quitado de cola MP4: ${item.name}`)});remove.disabled=item.status==='running';actions.appendChild(remove);row.append(meta,order,actions);panelBody.appendChild(row);
     }
   }
-  function label(){const s=queue.summary();const parts=[];if(s.pending)parts.push(`${s.pending} pendiente(s)`);if(s.running)parts.push('1 renderizando');if(s.done)parts.push(`${s.done} listo(s)`);if(s.error)parts.push(`${s.error} error(es)`);if(s.cancelled)parts.push(`${s.cancelled} cancelado(s)`);badge.textContent=parts.length?`Cola: ${parts.join(' · ')}`:'Cola vacía';panelSummary.textContent=`Gestionar cola MP4 (${s.total})`;runBtn.disabled=queue.running||s.pending===0;addBtn.disabled=false;cancelBtn.hidden=!queue.running;renderBtn.disabled=queue.running;renderPanel()}
+  function label(){const s=queue.summary();const parts=[];if(s.pending)parts.push(`${s.pending} pendiente(s)`);if(s.running)parts.push('1 renderizando');if(s.done)parts.push(`${s.done} listo(s)`);if(s.error)parts.push(`${s.error} error(es)`);if(s.cancelled)parts.push(`${s.cancelled} cancelado(s)`);badge.textContent=parts.length?`Cola: ${parts.join(' · ')}`:'Cola vacía';panelSummary.textContent=`Gestionar cola MP4 (${s.total})`;runBtn.disabled=queue.running||s.pending===0;addBtn.disabled=addBtn.dataset.validating==='1';cancelBtn.hidden=!queue.running;renderBtn.disabled=queue.running;renderPanel()}
   function capture(){if(typeof save==='function')save();const prepared=typeof ProfitMenteAudioDuckingEngine!=='undefined'?ProfitMenteAudioDuckingEngine.prepareForRender(project):project;const renderProject=typeof ProfitMenteRenderSnapshotEngine!=='undefined'&&typeof ProfitMenteRenderSnapshotEngine.clone==='function'?ProfitMenteRenderSnapshotEngine.clone(prepared):prepared;const renderAssets=typeof validation.snapshotAssetsForRender==='function'?validation.snapshotAssetsForRender(assets):assets;return {renderProject,renderAssets}}
   function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${safeName(name)}.mp4`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);return Number(blob.size)||0}
   async function preflight(item){if(typeof validation.renderPreflight==='function')return validation.renderPreflight(item.project,item.assets);if(typeof window.ProfitMenteExportPreflightRun==='function'){const result=await window.ProfitMenteExportPreflightRun({project:item.project,assets:item.assets});return {ok:!!result?.canRender,preflight:result}}return {ok:true,preflight:null}}
@@ -90,10 +90,26 @@
     try{progress({phase:'uploading',progress:0,bytes:bundle.size});await client.start(bundle);if(cancelRequested||signal.aborted){await client.cancel().catch(()=>{});throw Object.assign(new Error('Render cancelado'),{name:'AbortError'})}const finalState=await client.wait(state=>progress(state));if(typeof validation.validatePostRender==='function')validation.validatePostRender(finalState);progress({phase:'downloading',progress:100});const blob=await client.result({onRetry:event=>progress({status:'retrying-download',...event})});if(signal.aborted)throw Object.assign(new Error('Render cancelado'),{name:'AbortError'});const bytes=download(blob,item.name);return {bytes,qc:finalState?.qc||null}}finally{signal.removeEventListener('abort',onAbort);client.reset()}
   }
   function updateStatus(item,summary){void persistQueue();label();if(!item)return;if(item.status==='running'){const p=Number.isFinite(Number(item.progress?.progress))?` ${Math.round(Number(item.progress.progress))}%`:'';const phase=String(item.progress?.phase||item.progress?.status||'renderizando');setStatus?.(`Cola MP4 · ${item.name} · ${phase}${p}`)}else if(item.status==='done')setStatus?.(`Cola MP4 · ${item.name} terminado · quedan ${summary.pending} pendiente(s)`);else if(item.status==='error')setStatus?.(`Cola MP4 · ${item.name} falló: ${item.error}`);else if(item.status==='cancelled')setStatus?.('Cola MP4 detenida')}
-  function enqueueCurrent(){const {renderProject,renderAssets}=capture();const item=queue.enqueue(renderProject,renderAssets,{name:renderProject?.name||project?.name||'profitmente'});void persistQueue();label();setStatus?.(`Añadido a cola MP4: ${item.name} · snapshot independiente${queue.running?' · se procesará al terminar la salida actual':''}`);return item}
+  function enqueueSnapshot(renderProject,renderAssets){const item=queue.enqueue(renderProject,renderAssets,{name:renderProject?.name||project?.name||'profitmente'});void persistQueue();label();setStatus?.(`Añadido a cola MP4: ${item.name} · snapshot independiente${queue.running?' · se procesará al terminar la salida actual':''}`);return item}
+  function enqueueCurrent(){const {renderProject,renderAssets}=capture();return enqueueSnapshot(renderProject,renderAssets)}
+  async function enqueueCurrentValidated(){
+    if(addBtn.dataset.validating==='1')return null;
+    addBtn.dataset.validating='1';label();setStatus?.('Validando snapshot antes de añadirlo a la cola MP4…');
+    try{
+      const {renderProject,renderAssets}=capture();
+      const gate=await preflight({project:renderProject,assets:renderAssets});
+      if(!gate?.ok){
+        const issue=gate?.preflight?.issues?.[0];
+        setStatus?.(`No se añadió a la cola MP4 · ${issue||'el preflight detectó un bloqueo de render'}`);
+        window.dispatchEvent?.(new CustomEvent('profitmente:render-queue-rejected',{detail:{preflight:gate?.preflight||null}}));
+        return null;
+      }
+      return enqueueSnapshot(renderProject,renderAssets);
+    }finally{delete addBtn.dataset.validating;label()}
+  }
   async function run(){if(queue.running)return queue.summary();if(!queue.pending().length){setStatus?.('La cola MP4 está vacía');return queue.summary()}label();try{return await queue.run(renderItem,{continueOnError:true,onUpdate:updateStatus})}finally{await persistQueue();label()}}
-  addBtn.onclick=()=>{try{enqueueCurrent()}catch(err){console.error(err);setStatus?.(err?.message||String(err))}};runBtn.onclick=()=>{run().catch(err=>{console.error(err);setStatus?.(`No se pudo procesar la cola MP4: ${err?.message||err}`)})};cancelBtn.onclick=()=>{queue.cancel({cancelPending:true});void persistQueue();label();setStatus?.('Deteniendo cola MP4…')};
+  addBtn.onclick=()=>{enqueueCurrentValidated().catch(err=>{console.error(err);setStatus?.(`No se pudo validar el trabajo MP4: ${err?.message||err}`)})};runBtn.onclick=()=>{run().catch(err=>{console.error(err);setStatus?.(`No se pudo procesar la cola MP4: ${err?.message||err}`)})};cancelBtn.onclick=()=>{queue.cancel({cancelPending:true});void persistQueue();label();setStatus?.('Deteniendo cola MP4…')};
   window.addEventListener?.('pagehide',()=>{void persistQueue()});label();
   const ready=restoreQueue().then(restoredCount=>{label();if(restoredCount)setStatus?.(`Cola MP4 recuperada: ${restoredCount} trabajo(s) con sus medios locales. Los renders interrumpidos requieren reintento.`);return restoredCount});
-  window.ProfitMenteRenderQueue={queue,enqueueCurrent,run,cancel:()=>{const n=queue.cancel({cancelPending:true});void persistQueue();return n},renderItem,preflight,refresh:label,persist:persistQueue,storageKey:LEGACY_QUEUE_STORAGE_KEY,storage,ready};
+  window.ProfitMenteRenderQueue={queue,enqueueCurrent,enqueueCurrentValidated,run,cancel:()=>{const n=queue.cancel({cancelPending:true});void persistQueue();return n},renderItem,preflight,refresh:label,persist:persistQueue,storageKey:LEGACY_QUEUE_STORAGE_KEY,storage,ready};
 })();
