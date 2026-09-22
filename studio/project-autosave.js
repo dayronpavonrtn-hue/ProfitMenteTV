@@ -1,28 +1,9 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;root.ProfitMenteProjectAutosaveEngine=api.ProfitMenteProjectAutosaveEngine})(typeof globalThis!=='undefined'?globalThis:this,function(){
 class ProfitMenteProjectAutosaveEngine{
-  static numeric(value,fallback){
-    if(value===null||value===undefined||typeof value==='boolean')return fallback;
-    if(typeof value!=='number'&&typeof value!=='string')return fallback;
-    if(typeof value==='string'&&!value.trim())return fallback;
-    const parsed=Number(value);
-    return Number.isFinite(parsed)?parsed:fallback;
-  }
-  static name(value,fallback='Nuevo video'){
-    if(typeof value!=='string')return fallback;
-    const normalized=value.trim();
-    return normalized||fallback;
-  }
+  static numeric(value,fallback){if(value===null||value===undefined||typeof value==='boolean')return fallback;if(typeof value!=='number'&&typeof value!=='string')return fallback;if(typeof value==='string'&&!value.trim())return fallback;const parsed=Number(value);return Number.isFinite(parsed)?parsed:fallback}
+  static name(value,fallback='Nuevo video'){if(typeof value!=='string')return fallback;const normalized=value.trim();return normalized||fallback}
   static fields(project={}){const duration=this.numeric(project.duration,45);return {name:this.name(project.name),duration:Math.max(1,duration),format:['9:16','16:9','1:1'].includes(project.format)?project.format:'9:16',mode:project.mode==='Automático'?'Automático':'Manual'}}
-  static merge(project={},values={}){
-    const current=this.fields(project),rawDuration=values.duration;
-    const parsedDuration=rawDuration===''||rawDuration==null?current.duration:this.numeric(rawDuration,current.duration);
-    return {
-      name:this.name(values.name,current.name),
-      duration:Math.max(1,parsedDuration),
-      format:['9:16','16:9','1:1'].includes(values.format)?values.format:current.format,
-      mode:values.mode==='Automático'||values.mode==='Manual'?values.mode:current.mode
-    };
-  }
+  static merge(project={},values={}){const current=this.fields(project),rawDuration=values.duration;const parsedDuration=rawDuration===''||rawDuration==null?current.duration:this.numeric(rawDuration,current.duration);return {name:this.name(values.name,current.name),duration:Math.max(1,parsedDuration),format:['9:16','16:9','1:1'].includes(values.format)?values.format:current.format,mode:values.mode==='Automático'||values.mode==='Manual'?values.mode:current.mode}}
   static fingerprint(project={}){return JSON.stringify(this.fields(project))}
   static changed(project={},next={}){return this.fingerprint(project)!==JSON.stringify(this.fields(next))}
   static identity(value){if(value===null||value===undefined||typeof value==='boolean')return null;const key=String(value).trim();return key||null}
@@ -33,95 +14,25 @@ return {ProfitMenteProjectAutosaveEngine};
 
 if(typeof document!=='undefined')(()=>{
   if(typeof project==='undefined'||!window.ProfitMenteProjectAutosaveEngine||window.ProfitMenteProjectAutosave)return;
-  const engine=window.ProfitMenteProjectAutosaveEngine,$=s=>document.querySelector(s),name=$('#projectName'),duration=$('#duration'),format=$('#format'),modeInput=$('#mode');
-  if(!name||!duration||!format||!modeInput)return;
-  let timer=null,flushing=false,last=engine.fingerprint(project),retryCount=0,unsaved=false,lastError=null;
-  const basePersist=typeof persist==='function'?persist:null;
+  const engine=window.ProfitMenteProjectAutosaveEngine,$=s=>document.querySelector(s),name=$('#projectName'),duration=$('#duration'),format=$('#format'),modeInput=$('#mode');if(!name||!duration||!format||!modeInput)return;
+  let timer=null,flushing=false,last=engine.fingerprint(project),retryCount=0,unsaved=false,lastError=null;const basePersist=typeof persist==='function'?persist:null;
   function read(){return {name:name.value,duration:duration.value,format:format.value,mode:modeInput.value}}
   function cancel(){if(timer){clearTimeout(timer);timer=null}}
-  function markSaved(){
-    unsaved=false;lastError=null;
-    try{delete document.documentElement.dataset.projectSaveError}catch{}
-  }
-  function markUnsaved(err){
-    unsaved=true;lastError=err||lastError;
-    try{document.documentElement.dataset.projectSaveError='true'}catch{}
-    if(typeof setStatus==='function')setStatus('⚠ Cambios del proyecto sin guardar · Studio seguirá reintentando');
-  }
-  function verifyPersistedLibraryProject(){
-    const lib=window.profitMenteProjectLibrary,id=engine.identity(project?.libraryId);
-    if(!lib||id===null)return true;
-    if(lib.storageAvailable===false)throw new Error('La copia de Mis proyectos no llegó al almacenamiento persistente');
-    let raw;
-    try{raw=localStorage.getItem(lib.key)}catch(err){throw err}
-    let rows;
-    try{rows=raw==null?null:JSON.parse(raw)}catch{rows=null}
-    if(!Array.isArray(rows))throw new Error('La biblioteca persistente de proyectos no está disponible');
-    const row=rows.find(item=>item&&engine.sameIdentity(item.id,id));
-    if(!row||!row.project)throw new Error('El proyecto activo no existe en la biblioteca persistente');
-    if(JSON.stringify(row.project)!==JSON.stringify(project))throw new Error('La copia de Mis proyectos quedó desactualizada');
-    return true;
-  }
-  if(basePersist&&!window.__profitMenteLibraryDurabilityPersistGuard){
-    persist=function(){basePersist();verifyPersistedLibraryProject()};
-    window.__profitMenteLibraryDurabilityPersistGuard=true;
-  }
-  function verifyPersistedProject(){
-    const guard=window.ProfitMenteStartupProjectGuard;
-    if(!guard?.serializeProject||!guard?.PRIMARY_KEY)return true;
-    const expected=guard.serializeProject(project).raw;
-    let actual;
-    try{actual=localStorage.getItem(guard.PRIMARY_KEY)}catch(err){throw err}
-    if(actual!==expected)throw new Error('La escritura del proyecto no llegó al almacenamiento persistente');
-    return true;
-  }
-  function persistAndVerify(){
-    if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));
-    verifyPersistedProject();
-  }
-  function flush(reason='autoguardado'){
-    cancel();if(flushing)return false;
-    const next=engine.merge(project,read()),nextFingerprint=JSON.stringify(engine.fields(next));
-    if(last===nextFingerprint&&!unsaved)return false;
-    const previous=engine.fields(project);Object.assign(project,next);flushing=true;
-    try{
-      persistAndVerify();
-      last=nextFingerprint;retryCount=0;markSaved();
-      const layoutChanged=previous.duration!==next.duration||previous.format!==next.format;
-      if(layoutChanged&&typeof drawTimeline==='function')drawTimeline();
-      if(reason!=='cierre'&&typeof renderAt==='function')void renderAt(+($('#playhead')?.value||0));
-      window.dispatchEvent(new CustomEvent('profitmente:project-autosaved',{detail:{reason,libraryId:project.libraryId||null,name:project.name||'Sin título'}}));
-      return true;
-    }catch(err){
-      console.error('ProfitMente property autosave failed',err);markUnsaved(err);
-      window.dispatchEvent(new CustomEvent('profitmente:project-autosave-error',{detail:{reason,error:err?.message||String(err),retry:retryCount}}));
-      if(reason!=='cierre'&&retryCount<3){retryCount+=1;timer=setTimeout(()=>flush('reintento'),1500*retryCount)}
-      if(reason==='cambio de proyecto')throw err;
-      return false;
-    }
-    finally{flushing=false}
-  }
+  function markSaved(){unsaved=false;lastError=null;try{delete document.documentElement.dataset.projectSaveError}catch{}}
+  function markUnsaved(err){unsaved=true;lastError=err||lastError;try{document.documentElement.dataset.projectSaveError='true'}catch{}if(typeof setStatus==='function')setStatus('⚠ Cambios del proyecto sin guardar · Studio seguirá reintentando')}
+  function verifyPersistedLibraryProject(){const lib=window.profitMenteProjectLibrary,id=engine.identity(project?.libraryId);if(!lib||id===null)return true;if(lib.storageAvailable===false)throw new Error('La copia de Mis proyectos no llegó al almacenamiento persistente');let raw;try{raw=localStorage.getItem(lib.key)}catch(err){throw err}let rows;try{rows=raw==null?null:JSON.parse(raw)}catch{rows=null}if(!Array.isArray(rows))throw new Error('La biblioteca persistente de proyectos no está disponible');const row=rows.find(item=>item&&engine.sameIdentity(item.id,id));if(!row||!row.project)throw new Error('El proyecto activo no existe en la biblioteca persistente');if(JSON.stringify(row.project)!==JSON.stringify(project))throw new Error('La copia de Mis proyectos quedó desactualizada');return true}
+  if(basePersist&&!window.__profitMenteLibraryDurabilityPersistGuard){persist=function(){basePersist();verifyPersistedLibraryProject()};window.__profitMenteLibraryDurabilityPersistGuard=true}
+  function verifyPersistedProject(){const guard=window.ProfitMenteStartupProjectGuard;if(!guard?.serializeProject||!guard?.PRIMARY_KEY)return true;const expected=guard.serializeProject(project).raw;let actual;try{actual=localStorage.getItem(guard.PRIMARY_KEY)}catch(err){throw err}if(actual!==expected)throw new Error('La escritura del proyecto no llegó al almacenamiento persistente');return true}
+  function persistAndVerify(){if(typeof persist==='function')persist();else localStorage.setItem('profitmente-project',JSON.stringify(project));verifyPersistedProject()}
+  function flush(reason='autoguardado'){cancel();if(flushing)return false;const next=engine.merge(project,read()),nextFingerprint=JSON.stringify(engine.fields(next));if(last===nextFingerprint&&!unsaved)return false;const previous=engine.fields(project);Object.assign(project,next);flushing=true;try{persistAndVerify();last=nextFingerprint;retryCount=0;markSaved();const layoutChanged=previous.duration!==next.duration||previous.format!==next.format;if(layoutChanged&&typeof drawTimeline==='function')drawTimeline();if(!['cierre','oculto','congelado'].includes(reason)&&typeof renderAt==='function')void renderAt(+($('#playhead')?.value||0));window.dispatchEvent(new CustomEvent('profitmente:project-autosaved',{detail:{reason,libraryId:project.libraryId||null,name:project.name||'Sin título'}}));return true}catch(err){console.error('ProfitMente property autosave failed',err);markUnsaved(err);window.dispatchEvent(new CustomEvent('profitmente:project-autosave-error',{detail:{reason,error:err?.message||String(err),retry:retryCount}}));if(!['cierre','oculto','congelado'].includes(reason)&&retryCount<3){retryCount+=1;timer=setTimeout(()=>flush('reintento'),1500*retryCount)}if(reason==='cambio de proyecto')throw err;return false}finally{flushing=false}}
   function schedule(){cancel();timer=setTimeout(()=>flush('propiedades'),450)}
-  name.addEventListener('input',schedule);duration.addEventListener('input',schedule);
-  format.addEventListener('change',()=>flush('formato'));modeInput.addEventListener('change',()=>flush('modo'));
+  name.addEventListener('input',schedule);duration.addEventListener('input',schedule);format.addEventListener('change',()=>flush('formato'));modeInput.addEventListener('change',()=>flush('modo'));
   window.addEventListener('profitmente:project-opened',()=>{cancel();retryCount=0;last=engine.fingerprint(project);markSaved()});
-  const projectLibrary=$('.projectLibrary');
-  if(projectLibrary)projectLibrary.addEventListener('click',event=>{
-    const del=event.target.closest?.('[data-delete]'),currentId=project?.libraryId,deleteId=del?.dataset?.delete;
-    if(!del||!engine.sameIdentity(currentId,deleteId))return;
-    queueMicrotask(()=>{
-      if(project?.libraryId!==undefined&&project?.libraryId!==null)return;
-      try{
-        persistAndVerify();
-        last=engine.fingerprint(project);retryCount=0;markSaved();
-        window.dispatchEvent(new CustomEvent('profitmente:project-detached',{detail:{deletedLibraryId:deleteId,name:project?.name||'Sin título'}}));
-      }catch(err){console.error('ProfitMente deleted-project draft persistence failed',err);markUnsaved(err)}
-    });
-  },true);
-  window.addEventListener('beforeunload',event=>{
-    try{flush('cierre')}catch(err){markUnsaved(err)}
-    if(unsaved){event.preventDefault();event.returnValue=''}
-  });
-  window.addEventListener('pagehide',()=>{try{flush('cierre')}catch(err){markUnsaved(err)}});
+  const projectLibrary=$('.projectLibrary');if(projectLibrary)projectLibrary.addEventListener('click',event=>{const del=event.target.closest?.('[data-delete]'),currentId=project?.libraryId,deleteId=del?.dataset?.delete;if(!del||!engine.sameIdentity(currentId,deleteId))return;queueMicrotask(()=>{if(project?.libraryId!==undefined&&project?.libraryId!==null)return;try{persistAndVerify();last=engine.fingerprint(project);retryCount=0;markSaved();window.dispatchEvent(new CustomEvent('profitmente:project-detached',{detail:{deletedLibraryId:deleteId,name:project?.name||'Sin título'}}))}catch(err){console.error('ProfitMente deleted-project draft persistence failed',err);markUnsaved(err)}})},true);
+  function lifecycleFlush(reason){try{flush(reason)}catch(err){markUnsaved(err)}}
+  window.addEventListener('beforeunload',event=>{lifecycleFlush('cierre');if(unsaved){event.preventDefault();event.returnValue=''}});
+  window.addEventListener('pagehide',()=>lifecycleFlush('cierre'));
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')lifecycleFlush('oculto')});
+  document.addEventListener('freeze',()=>lifecycleFlush('congelado'));
   window.ProfitMenteProjectAutosave={engine,flush,schedule,get lastFingerprint(){return last},get unsaved(){return unsaved},get lastError(){return lastError}};
 })();
