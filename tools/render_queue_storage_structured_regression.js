@@ -42,6 +42,15 @@ assert.equal(engine.saveFallback(symbolKeyed),false,'symbol-keyed metadata must 
 class QueueMetadata{constructor(){this.status='pending'}}
 assert.equal(engine.saveFallback({queue:[{metadata:new QueueMetadata()}]}),false,'custom prototype metadata must stay in structured storage');
 
+const sparse=[]; sparse.length=2; sparse[1]='queued';
+assert.equal(engine.saveFallback({queue:sparse}),false,'sparse arrays must not be converted to null-filled arrays');
+const arrayWithMetadata=['queued']; arrayWithMetadata.note='keep-me';
+assert.equal(engine.saveFallback({queue:arrayWithMetadata}),false,'extra array properties must not be silently dropped');
+const hidden={status:'pending'}; Object.defineProperty(hidden,'token',{value:'preserve',enumerable:false});
+assert.equal(engine.saveFallback({queue:[hidden]}),false,'non-enumerable state must remain in structured storage');
+const accessor={status:'pending'}; Object.defineProperty(accessor,'progress',{enumerable:true,get(){return 0.5}});
+assert.equal(engine.saveFallback({queue:[accessor]}),false,'accessor-backed state must remain in structured storage');
+
 const cyclic={queue:[]}; cyclic.self=cyclic;
 assert.equal(engine.hasStructuredValue(cyclic),false,'cycles without lossy leaf values must terminate safely');
 assert.equal(engine.saveFallback(cyclic),false,'cyclic JSON state must fail closed without throwing');
