@@ -15,6 +15,7 @@ on:
       - 'studio/test_transition_preview_engine.mjs'
       - 'studio/test_auto_finish_engine.mjs'
       - 'studio/test_auto_finish_wiring.mjs'
+      - 'studio/tests/auto-transition-generator-sync-regression.cjs'
       - '.github/workflows/auto-transition-qa.yml'
   workflow_dispatch:
 
@@ -35,10 +36,13 @@ jobs:
           node --check studio/auto-finish-engine.js
           node --check studio/auto-finish-integration.js
           node --check studio/test_auto_transition_geometry_strict.mjs
+          node --check studio/tests/auto-transition-generator-sync-regression.cjs
       - name: Auto transition regression
         run: node studio/test_auto_transition_engine.mjs
       - name: Strict auto transition geometry regression
         run: node studio/test_auto_transition_geometry_strict.mjs
+      - name: Generator transition synchronization regression
+        run: node studio/tests/auto-transition-generator-sync-regression.cjs
       - name: Transition preview regression
         run: node studio/test_transition_preview_engine.mjs
       - name: Auto Finish regression
