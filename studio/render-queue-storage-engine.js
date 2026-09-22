@@ -9,15 +9,21 @@ class ProfitMenteRenderQueueStorageEngine{
     this.storeName=storeName;
     this.key=key;
   }
-  hasBinary(value,seen=new Set()){
+  hasStructuredValue(value,seen=new Set()){
     if(value==null)return false;
+    if(typeof value==='bigint')return true;
     if(typeof Blob!=='undefined'&&value instanceof Blob)return true;
     if(typeof File!=='undefined'&&value instanceof File)return true;
+    if(typeof ArrayBuffer!=='undefined'&&value instanceof ArrayBuffer)return true;
+    if(typeof ArrayBuffer!=='undefined'&&ArrayBuffer.isView?.(value))return true;
+    if(typeof Map!=='undefined'&&value instanceof Map)return true;
+    if(typeof Set!=='undefined'&&value instanceof Set)return true;
     if(typeof value!=='object'||seen.has(value))return false;
     seen.add(value);
-    if(Array.isArray(value))return value.some(item=>this.hasBinary(item,seen));
-    return Object.values(value).some(item=>this.hasBinary(item,seen));
+    if(Array.isArray(value))return value.some(item=>this.hasStructuredValue(item,seen));
+    return Object.values(value).some(item=>this.hasStructuredValue(item,seen));
   }
+  hasBinary(value,seen=new Set()){return this.hasStructuredValue(value,seen)}
   open(){
     if(!this.indexedDBFactory?.open)return Promise.resolve(null);
     return new Promise((resolve,reject)=>{
@@ -31,7 +37,8 @@ class ProfitMenteRenderQueueStorageEngine{
     });
   }
   saveFallback(state){
-    if(this.hasBinary(state))return false;
+    // localStorage is JSON-only. Never silently corrupt structured-clone-only metadata.
+    if(this.hasStructuredValue(state))return false;
     try{this.localStorageRef?.setItem?.(this.key,JSON.stringify(state));return true}catch{return false}
   }
   loadFallback(){
