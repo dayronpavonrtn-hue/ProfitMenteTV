@@ -45,6 +45,14 @@ def _pid_is_alive(pid: int) -> bool:
     return True
 
 
+def _read_lock(lock: Path) -> dict[str, Any] | None:
+    try:
+        raw = json.loads(lock.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
 def _stale_lock(lock: Path) -> bool:
     """Return True only when an existing lock can be proven stale.
 
@@ -52,13 +60,11 @@ def _stale_lock(lock: Path) -> bool:
     or malformed locks are reclaimed only after a full day, preventing a parse
     problem from interrupting a legitimate long render.
     """
-    try:
-        raw = json.loads(lock.read_text(encoding="utf-8"))
+    raw = _read_lock(lock)
+    if raw is not None:
         pid = raw.get("pid")
         if isinstance(pid, int) and pid > 0:
             return not _pid_is_alive(pid)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        pass
     try:
         return time.time() - lock.stat().st_mtime > _MALFORMED_LOCK_MAX_AGE
     except OSError:
@@ -100,6 +106,15 @@ def _acquire_workspace_lock(work: Path) -> Path:
 
 
 def _release_workspace_lock(lock: Path) -> None:
+    """Release only a lock still owned by this process.
+
+    A lock can be replaced externally while a long render is running (for
+    example by recovery tooling). Never unlink that replacement: doing so could
+    let a second pipeline clean or overwrite an active workspace.
+    """
+    raw = _read_lock(lock)
+    if raw is None or raw.get("pid") != os.getpid():
+        return
     try:
         lock.unlink()
     except FileNotFoundError:
