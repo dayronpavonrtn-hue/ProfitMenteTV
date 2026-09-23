@@ -15,19 +15,30 @@ const normalized = engine.normalize(valid);
 assert.equal(normalized.name, 'Import test');
 assert.equal(normalized.clips.length, 2);
 assert.equal(normalized.clips[0].asset, 'media-1');
+assert.equal(normalized.fps, 30);
+assert.equal(normalized.renderQuality, 'high');
 
 const rejects = [
   [{ ...valid, clips: 'not-an-array' }, /Timeline de proyecto inválida/],
   [{ ...valid, duration: 0 }, /Duración de proyecto inválida/],
   [{ ...valid, format: '4:3' }, /Formato de proyecto no compatible/],
   [{ ...valid, fps: 25 }, /FPS de proyecto no compatible/],
+  [{ ...valid, fps: 29.97 }, /FPS de proyecto no compatible/],
+  [{ ...valid, renderQuality: 'ultra' }, /Calidad de render no compatible/],
   [{ ...valid, clips: [{ id: 'x', track: 9, start: 0, duration: 1 }] }, /Pista de clip inválida/],
   [{ ...valid, clips: [{ id: 'x', track: 0, start: 11, duration: 2 }] }, /Clip excede la duración del proyecto/],
   [{ ...valid, clips: [
     { id: '1', track: 0, start: 0, duration: 1 },
     { id: 1, track: 0, start: 1, duration: 1 }
   ] }, /ID de clip duplicado o ambiguo/],
-  [{ ...valid, clips: [{ id: 'x', track: 0, start: 0, duration: 1, asset: {} }] }, /Referencia de medio inválida/]
+  [{ ...valid, clips: [
+    { id: '1', track: 0, start: 0, duration: 1 },
+    { id: '01', track: 0, start: 1, duration: 1 }
+  ] }, /ID de clip duplicado o ambiguo/],
+  [{ ...valid, clips: [{ id: 'x', track: 0, start: 0, duration: 1, asset: {} }] }, /Referencia de medio inválida/],
+  [{ ...valid, clips: [{ id: 'x', track: 0, start: 0, duration: 1, asset: '   ' }] }, /Referencia de medio inválida/],
+  [{ ...valid, clips: [{ id: 'x', track: 0, start: 0, duration: 1, speed: 8 }] }, /Velocidad de clip inválido/],
+  [{ ...valid, clips: [{ id: 'x', track: 0, start: 0, duration: 1, fadeIn: .75, fadeOut: .75 }] }, /Fades de audio solapados/]
 ];
 
 for (const [project, pattern] of rejects) {
