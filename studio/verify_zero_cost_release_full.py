@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Unified local ProfitMente Studio $0 release gate.
 
-Runs the existing integrated release verifier first, then the CI-only regression
+Runs the existing integrated release verifier first, then focused regression
 checks that protect interactive editing, persistence, bundle safety and final
 export signal quality. Everything is deterministic and local: no API keys, paid
 services, or social publishing.
-
-Usage:
-    python studio/verify_zero_cost_release_full.py
 """
 from __future__ import annotations
 
@@ -46,6 +43,7 @@ def main() -> None:
     run("Gate integral ProfitMente Studio $0", [py, "verify_zero_cost_release.py"])
 
     parity_checks = [
+        ("Orden runtime mantiene activas integraciones críticas", [py, "tests/runtime-script-order-regression.py"]),
         ("Fallback B-roll offline mantiene costo $0", [py, "tests/test_zero_cost_broll.py"]),
         ("Inspector respeta locks e identidad de clips", [node, "test_clip_lock_track_inspector.mjs"]),
         ("Edición avanzada rechaza identidades de pista inválidas", [node, "test_advanced_edit_lock_guard.mjs"]),
