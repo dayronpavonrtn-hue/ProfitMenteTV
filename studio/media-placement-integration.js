@@ -22,7 +22,7 @@
     return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
-  function redraw(){if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
+  function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
   function place(asset,track,at,duration,sourceOffset=0){
     track=Number(track);if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const chosen=mode.value,r=chosen==='add'?addRange(at,duration):engine.range(project,at,duration);
