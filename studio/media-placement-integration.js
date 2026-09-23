@@ -7,94 +7,51 @@
   const status=t=>typeof setStatus==='function'&&setStatus(t);
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
-  const mediaKey=value=>{
-    const helper=window.ProfitMenteMediaLibraryTools;
-    if(helper?.mediaKey)return helper.mediaKey(value);
-    if(value===undefined||value===null||typeof value==='boolean')return null;
-    const raw=String(value).trim();return raw||null;
-  };
+  const mediaKey=value=>{const helper=window.ProfitMenteMediaLibraryTools;if(helper?.mediaKey)return helper.mediaKey(value);if(value===undefined||value===null||typeof value==='boolean')return null;const raw=String(value).trim();return raw||null};
   const sameMedia=(a,b)=>{const helper=window.ProfitMenteMediaLibraryTools;if(helper?.sameMediaId)return helper.sameMediaId(a,b);const left=mediaKey(a),right=mediaKey(b);return left!==null&&left===right};
   const findAsset=id=>{const key=mediaKey(id);return key===null?null:(assets||[]).find(asset=>sameMedia(asset?.id,key))||null};
   const cardAssetId=card=>card?.dataset?.assetId||card?.closest?.('.mediaRow[data-asset-id]')?.dataset?.assetId||null;
-  const assetUsable=asset=>{
-    const dnd=window.ProfitMenteMediaTimelineDnD;
-    if(dnd?.assetUsable)return dnd.assetUsable(asset);
-    if(!asset||asset.mediaReadable===false)return false;
-    const blob=asset.blob;
-    return !!blob&&(!('size'in blob)||Number(blob.size)>0);
-  };
+  const assetUsable=asset=>{const dnd=window.ProfitMenteMediaTimelineDnD;if(dnd?.assetUsable)return dnd.assetUsable(asset);if(!asset||asset.mediaReadable===false)return false;const blob=asset.blob;return !!blob&&(!('size'in blob)||Number(blob.size)>0)};
   const sourceWindow=(asset,duration,sourceOffset=0)=>{
-    const requested=Math.max(.25,Number(duration)||.25);
+    const rawDuration=engine.strictFinite(duration),rawOffset=engine.strictFinite(sourceOffset);
+    if(rawDuration===null||rawDuration<.25||rawOffset===null||rawOffset<0)return {ok:false,reason:'invalid-source-window'};
+    const requested=rawDuration;
     if(asset?.type==='image')return {ok:true,duration:requested,sourceOffset:0};
-    const mediaDuration=Number(asset?.duration),offset=Math.max(0,Number(sourceOffset)||0);
+    const mediaDuration=Number(asset?.duration),offset=rawOffset;
     if(!Number.isFinite(mediaDuration)||mediaDuration<=0)return {ok:true,duration:requested,sourceOffset:offset};
     if(offset>=mediaDuration-.001)return {ok:false,reason:'source-out-of-range'};
-    const available=mediaDuration-offset;
-    if(available<.25)return {ok:false,reason:'source-too-short'};
+    const available=mediaDuration-offset;if(available<.25)return {ok:false,reason:'source-too-short'};
     return {ok:true,duration:Math.min(requested,available),sourceOffset:offset};
   };
   const unavailableMessage=asset=>asset?.mediaReadable===false?`${asset.name||'El medio'} no se puede decodificar. Reconéctalo o reemplázalo antes de añadirlo al timeline.`:`${asset?.name||'El medio'} no está disponible localmente. Reconéctalo antes de añadirlo al timeline.`;
   const placementFailure=(result,fallback)=>result?.reason==='locked-track'?'La pista destino está bloqueada':result?.reason==='locked-clip'?'Hay un clip bloqueado en el intervalo y no se modificó la timeline':result?.reason==='out-of-range'?'No hay espacio al final del proyecto para completar la operación':result?.reason==='add-clip-failed'?'No se pudo crear el nuevo clip y la timeline fue restaurada':result?.reason==='operation-failed'?'La colocación falló y la timeline fue restaurada':fallback;
   function addRange(at,duration){
-    const total=Math.max(.25,Number(project?.duration)||.25),start=Math.max(0,Math.min(total,Number(at)||0)),requested=Math.max(.25,Number(duration)||.25);
-    return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
+    const rawTotal=engine.strictFinite(project?.duration),rawAt=engine.strictFinite(at),rawDuration=engine.strictFinite(duration);
+    if(rawTotal===null||rawTotal<.25||rawAt===null||rawAt<0||rawDuration===null||rawDuration<.25)return {valid:false};
+    const total=rawTotal,start=Math.min(total,rawAt),requested=rawDuration;return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
   function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
-  function createPlacedClip(asset,track,start,duration,sourceOffset){
-    if(!Array.isArray(project.clips))project.clips=[];
-    const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const clip={id,track,name:asset.name,asset:asset.id,start,duration,sourceOffset:asset.type==='image'?0:Math.max(0,Number(sourceOffset)||0)};
-    project.clips.push(clip);return clip;
-  }
+  function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:asset.id,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
   function place(asset,track,at,duration,sourceOffset=0){
     if(!assetUsable(asset)){status(unavailableMessage(asset));return false}
-    track=Number(track);
-    const dnd=window.ProfitMenteMediaTimelineDnD;
-    if(dnd?.canDrop&&!dnd.canDrop(asset?.type,track)){status('Ese tipo de medio no es compatible con esta pista');return false}
+    const trackKey=engine.trackKey(track);if(trackKey===null){status('La pista destino no es válida');return false}track=Number(trackKey);
+    const rawAt=engine.strictFinite(at);if(rawAt===null||rawAt<0){status('La posición de timeline no es válida');return false}
+    const dnd=window.ProfitMenteMediaTimelineDnD;if(dnd?.canDrop&&!dnd.canDrop(asset?.type,track)){status('Ese tipo de medio no es compatible con esta pista');return false}
     if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
-    const source=sourceWindow(asset,duration,sourceOffset);
-    if(!source.ok){status(`${asset.name||'El medio'} no tiene suficiente contenido desde el punto de entrada seleccionado`);return false}
+    const source=sourceWindow(asset,duration,sourceOffset);if(!source.ok){status(source.reason==='invalid-source-window'?'La duración o el punto de entrada del medio no son válidos':`${asset.name||'El medio'} no tiene suficiente contenido desde el punto de entrada seleccionado`);return false}
     duration=source.duration;sourceOffset=source.sourceOffset;
-    const chosen=mode.value,r=chosen==='add'?addRange(at,duration):engine.range(project,at,duration);
-    if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
+    const chosen=mode.value,r=chosen==='add'?addRange(rawAt,duration):engine.range(project,rawAt,duration);if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
     const previousDuration=Math.max(.25,Number(project.duration)||.25),extended=chosen==='add'&&r.end>previousDuration+.001,beforeCount=project.clips?.length||0;
     const tx=engine.transaction(project,()=>{
-      if(chosen==='insert'){
-        const result=engine.insertSpace(project,track,r.start,r.duration,ops);
-        if(!result.ok)return result;
-      }else if(chosen==='overwrite'){
-        const result=engine.overwriteRange(project,track,r.start,r.duration,ops);
-        if(!result.ok)return result;
-      }
-      if(extended)project.duration=r.end;
-      const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);
-      if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};
-      return {ok:true,inserted};
+      if(chosen==='insert'){const result=engine.insertSpace(project,track,r.start,r.duration,ops);if(!result.ok)return result}else if(chosen==='overwrite'){const result=engine.overwriteRange(project,track,r.start,r.duration,ops);if(!result.ok)return result}
+      if(extended)project.duration=r.end;const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};return {ok:true,inserted};
     });
-    if(!tx.ok){
-      if(tx.error)console.error(tx.error);persistState();redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false;
-    }
-    persistState();redraw();
-    const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
+    if(!tx.ok){if(tx.error)console.error(tx.error);persistState();redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false}
+    persistState();redraw();const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
   }
-  library.addEventListener('click',e=>{
-    const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=findAsset(cardAssetId(card));if(!asset)return;
-    e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset));
-  },true);
-  tracksHost.addEventListener('dragover',e=>{
-    const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);
-    if(!engine.trackLocked(project,track))return;
-    e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(e.dataTransfer)e.dataTransfer.dropEffect='none';
-  },true);
-  tracksHost.addEventListener('drop',e=>{
-    const lane=e.target.closest?.('.lane');if(!lane)return;
-    const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=findAsset(id),track=Number(lane.dataset.track);if(!asset)return;
-    e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');
-    if(!assetUsable(asset)){status(unavailableMessage(asset));return}
-    if(!window.ProfitMenteMediaTimelineDnD?.canDrop(asset.type,track)){status('Ese tipo de medio no es compatible con esta pista');return}
-    if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}
-    const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration);
-  },true);
+  library.addEventListener('click',e=>{const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=findAsset(cardAssetId(card));if(!asset)return;e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset))},true);
+  tracksHost.addEventListener('dragover',e=>{const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);if(!engine.trackLocked(project,track))return;e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(e.dataTransfer)e.dataTransfer.dropEffect='none'},true);
+  tracksHost.addEventListener('drop',e=>{const lane=e.target.closest?.('.lane');if(!lane)return;const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=findAsset(id),track=Number(lane.dataset.track);if(!asset)return;e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(!assetUsable(asset)){status(unavailableMessage(asset));return}if(!window.ProfitMenteMediaTimelineDnD?.canDrop(asset.type,track)){status('Ese tipo de medio no es compatible con esta pista');return}if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration)},true);
   window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure,findAsset,cardAssetId,assetUsable,sourceWindow};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
 })();
