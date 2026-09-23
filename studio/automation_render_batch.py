@@ -2,8 +2,9 @@
 
 The executor refuses stale/non-final manifests before starting FFmpeg, renders
 sequentially to temporary files, and only publishes completed MP4s atomically.
-Existing MP4 exports are never overwritten. It never uploads or publishes to
-social networks.
+Existing MP4 exports are never overwritten. Render jobs have a bounded runtime
+so a stalled FFmpeg process cannot freeze an automatic batch indefinitely. It
+never uploads or publishes to social networks.
 """
 from __future__ import annotations
 
@@ -19,6 +20,8 @@ try:
     from .automation_preflight_batch import verify_manifest_file
 except ImportError:
     from automation_preflight_batch import verify_manifest_file
+
+DEFAULT_RENDER_TIMEOUT_SECONDS = 3600
 
 
 def _load_manifest(path: str | Path) -> dict[str, Any]:
@@ -52,7 +55,10 @@ def render_manifest(
     *,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     renderer: str | Path | None = None,
+    timeout_seconds: int = DEFAULT_RENDER_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
+    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, int) or timeout_seconds < 1:
+        raise ValueError("timeout_seconds debe ser un entero mayor que 0")
     payload = _load_manifest(manifest_path)
     assets = Path(assets_dir).resolve()
     if not assets.is_dir():
@@ -78,6 +84,7 @@ def render_manifest(
                 [sys.executable, str(renderer_path), str(project), str(assets), str(temp)],
                 capture_output=True,
                 text=True,
+                timeout=timeout_seconds,
             )
             if completed.returncode != 0:
                 temp.unlink(missing_ok=True)
@@ -90,6 +97,14 @@ def render_manifest(
                 continue
             os.replace(temp, final)
             results.append({"project": str(project), "ok": True, "output": str(final), "error": None})
+        except subprocess.TimeoutExpired:
+            temp.unlink(missing_ok=True)
+            results.append({
+                "project": str(project),
+                "ok": False,
+                "output": None,
+                "error": f"Render cancelado al superar {timeout_seconds} segundos.",
+            })
         except OSError as exc:
             temp.unlink(missing_ok=True)
             results.append({"project": str(project), "ok": False, "output": None, "error": str(exc)})
@@ -109,10 +124,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("manifest", help="Manifiesto FINAL-QA sellado")
     parser.add_argument("assets_dir", help="Carpeta local de medios")
     parser.add_argument("output_dir", help="Carpeta de salida MP4")
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=DEFAULT_RENDER_TIMEOUT_SECONDS,
+        help=f"Límite por video antes de cancelar FFmpeg (default: {DEFAULT_RENDER_TIMEOUT_SECONDS}s)",
+    )
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = render_manifest(args.manifest, args.assets_dir, args.output_dir)
+        result = render_manifest(
+            args.manifest,
+            args.assets_dir,
+            args.output_dir,
+            timeout_seconds=args.timeout_seconds,
+        )
     except (ValueError, OSError) as exc:
         result = {"ok": False, "total": 0, "completed": 0, "failed": 0, "results": [], "error": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
