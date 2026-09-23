@@ -7,6 +7,15 @@
   const status=t=>typeof setStatus==='function'&&setStatus(t);
   const nativeDuration=asset=>asset?.type==='image'?5:Math.max(.25,Number(asset?.duration)||8);
   const defaultTrack=asset=>asset?.type==='audio'?5:0;
+  const mediaKey=value=>{
+    const helper=window.ProfitMenteMediaLibraryTools;
+    if(helper?.mediaKey)return helper.mediaKey(value);
+    if(value===undefined||value===null||typeof value==='boolean')return null;
+    const raw=String(value).trim();return raw||null;
+  };
+  const sameMedia=(a,b)=>{const helper=window.ProfitMenteMediaLibraryTools;if(helper?.sameMediaId)return helper.sameMediaId(a,b);const left=mediaKey(a),right=mediaKey(b);return left!==null&&left===right};
+  const findAsset=id=>{const key=mediaKey(id);return key===null?null:(assets||[]).find(asset=>sameMedia(asset?.id,key))||null};
+  const cardAssetId=card=>card?.dataset?.assetId||card?.closest?.('.mediaRow[data-asset-id]')?.dataset?.assetId||null;
   const placementFailure=(result,fallback)=>result?.reason==='locked-track'?'La pista destino está bloqueada':result?.reason==='locked-clip'?'Hay un clip bloqueado en el intervalo y no se modificó la timeline':result?.reason==='out-of-range'?'No hay espacio al final del proyecto para completar la operación':result?.reason==='add-clip-failed'?'No se pudo crear el nuevo clip y la timeline fue restaurada':result?.reason==='operation-failed'?'La colocación falló y la timeline fue restaurada':fallback;
   function addRange(at,duration){
     const total=Math.max(.25,Number(project?.duration)||.25),start=Math.max(0,Math.min(total,Number(at)||0)),requested=Math.max(.25,Number(duration)||.25);
@@ -42,7 +51,7 @@
     const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
   }
   library.addEventListener('click',e=>{
-    const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=assets.find(a=>a.id===card.dataset.assetId);if(!asset)return;
+    const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=findAsset(cardAssetId(card));if(!asset)return;
     e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset));
   },true);
   tracksHost.addEventListener('dragover',e=>{
@@ -52,11 +61,11 @@
   },true);
   tracksHost.addEventListener('drop',e=>{
     const lane=e.target.closest?.('.lane');if(!lane)return;
-    const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=assets.find(a=>a.id===id),track=Number(lane.dataset.track);if(!asset)return;
+    const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=findAsset(id),track=Number(lane.dataset.track);if(!asset)return;
     e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');
     if(!window.ProfitMenteMediaTimelineDnD?.canDrop(asset.type,track)){status('Ese tipo de medio no es compatible con esta pista');return}
     if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}
     const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration);
   },true);
-  window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
+  window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure,findAsset,cardAssetId};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
 })();
