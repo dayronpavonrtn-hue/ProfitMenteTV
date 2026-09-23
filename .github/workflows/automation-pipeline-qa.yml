@@ -1,0 +1,37 @@
+name: Automation pipeline QA
+
+on:
+  push:
+    paths:
+      - 'studio/automation_pipeline.py'
+      - 'studio/automation_batch_gate.py'
+      - 'studio/automation_render_batch.py'
+      - 'studio/automation_release_gate.py'
+      - 'studio/test_automation_pipeline.py'
+      - '.github/workflows/automation-pipeline-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/automation_pipeline.py'
+      - 'studio/automation_batch_gate.py'
+      - 'studio/automation_render_batch.py'
+      - 'studio/automation_release_gate.py'
+      - 'studio/test_automation_pipeline.py'
+      - '.github/workflows/automation-pipeline-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile pipeline
+        run: python -m py_compile studio/automation_pipeline.py studio/test_automation_pipeline.py
+      - name: Run pipeline regression tests
+        working-directory: studio
+        run: python -m unittest -v test_automation_pipeline.py
