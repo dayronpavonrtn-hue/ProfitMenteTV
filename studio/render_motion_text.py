@@ -18,6 +18,11 @@ if len(sys.argv)!=4:
     raise SystemExit('Usage: render_motion_text.py project.json assets_dir output.mp4')
 root=pathlib.Path(__file__).resolve().parent
 project_path=pathlib.Path(sys.argv[1])
+# This entrypoint is also used directly by tests/tools. Validate persisted
+# composition settings here as well as in render_bundle.py so direct renders
+# cannot silently coerce fractional/unsupported FPS, format or render quality.
+write_progress(29,'Verificando formato, FPS y calidad')
+subprocess.run([sys.executable,str(root/'composition_settings_preflight.py'),str(project_path)],check=True)
 # This entrypoint is also used directly by tests/tools, so normalize media IDs
 # here rather than relying only on render_bundle.py. Numeric/string legacy IDs
 # (including id 0) then reach video and audio renderers with one canonical key.
