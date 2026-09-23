@@ -18,5 +18,18 @@ class ProfitMenteRenderErrorEngine{
   }
   static format(error){const d=this.diagnose(error);return `${d.title}: ${d.action}`}
 }
-if(typeof window!=='undefined')window.ProfitMenteRenderErrorEngine=ProfitMenteRenderErrorEngine;
+if(typeof window!=='undefined'){
+  window.ProfitMenteRenderErrorEngine=ProfitMenteRenderErrorEngine;
+  if(!window.__profitmenteRenderErrorDiagnosticsInstalled){
+    window.__profitmenteRenderErrorDiagnosticsInstalled=true;
+    document.addEventListener('profitmente:render-progress',event=>{
+      const detail=event?.detail||{};
+      if(detail.stage!=='error')return;
+      const diagnosis=ProfitMenteRenderErrorEngine.diagnose(detail.error||detail.message);
+      const message=`${diagnosis.title} · ${diagnosis.action}`;
+      try{if(typeof setStatus==='function')setStatus(message)}catch{}
+      window.dispatchEvent(new CustomEvent('profitmente:render-diagnosis',{detail:diagnosis}));
+    });
+  }
+}
 if(typeof module!=='undefined'&&module.exports)module.exports=ProfitMenteRenderErrorEngine;
