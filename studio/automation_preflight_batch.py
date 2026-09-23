@@ -1,8 +1,9 @@
 """Batch preflight gate for zero-cost ProfitMente Studio automation.
 
 Validates projects with the same preflight used by manual export. Render
-manifests contain only approved projects and seal their bytes with SHA-256 so a
-renderer can reject projects changed after preflight. No network is used.
+manifests contain only projects that passed FINAL QA and seal their bytes with
+SHA-256 so a renderer can reject projects changed after preflight. No network
+is used.
 """
 from __future__ import annotations
 
@@ -56,12 +57,20 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_manifest(paths: Iterable[str | Path]) -> dict[str, Any]:
+def build_manifest(paths: Iterable[str | Path], *, qa_mode: str = "final") -> dict[str, Any]:
+    """Build a sealed render manifest.
+
+    A render manifest is deliberately restricted to FINAL QA. Draft QA is
+    useful while editing but must never be promotable to the renderer simply
+    because the project bytes did not change.
+    """
+    if qa_mode != "final":
+        raise ValueError("Los manifiestos de render requieren QA final.")
     projects = []
     for raw in paths:
         path = Path(raw).resolve()
         projects.append({"path": str(path), "sha256": _sha256(path)})
-    return {"version": 2, "algorithm": "sha256", "projects": projects}
+    return {"version": 2, "algorithm": "sha256", "qa_mode": "final", "projects": projects}
 
 
 def verify_manifest_entry(entry: dict[str, Any]) -> bool:
@@ -77,7 +86,7 @@ def verify_manifest_entry(entry: dict[str, Any]) -> bool:
 
 
 def verify_manifest(payload: Any) -> dict[str, Any]:
-    """Fail-closed verification for a sealed render manifest."""
+    """Fail-closed verification for a sealed FINAL-QA render manifest."""
     errors: list[str] = []
     if not isinstance(payload, dict):
         return {"ok": False, "total": 0, "verified": 0, "errors": ["El manifiesto no es un objeto JSON."]}
@@ -85,6 +94,8 @@ def verify_manifest(payload: Any) -> dict[str, Any]:
         errors.append("Versión de manifiesto no compatible.")
     if payload.get("algorithm") != "sha256":
         errors.append("Algoritmo de integridad no compatible.")
+    if payload.get("qa_mode") != "final":
+        errors.append("El manifiesto no acredita QA final; render bloqueado.")
     projects = payload.get("projects")
     if not isinstance(projects, list) or not projects:
         errors.append("El manifiesto no contiene proyectos para render.")
@@ -143,14 +154,16 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if not args.inputs:
             parser.error("se requiere al menos un proyecto/carpeta o --verify-manifest")
+        if args.draft and args.manifest:
+            parser.error("--manifest requiere QA final; no se puede combinar con --draft")
         paths = discover(args.inputs, recursive=args.recursive)
         result = inspect_many(paths, final=not args.draft)
         if not paths:
             result["reason"] = "No se encontraron proyectos JSON."
         if args.manifest:
             try:
-                _write_json(Path(args.manifest), build_manifest(result["render_manifest"]))
-            except OSError as exc:
+                _write_json(Path(args.manifest), build_manifest(result["render_manifest"], qa_mode="final"))
+            except (OSError, ValueError) as exc:
                 result["ok"] = False
                 result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
     if args.report:
