@@ -14,11 +14,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 try:
-    from . import automation_batch_gate as batch_gate
+    from . import automation_preflight_batch as batch_gate
     from . import automation_render_batch as batch_render
     from . import automation_release_gate as release_gate
 except ImportError:
-    import automation_batch_gate as batch_gate
+    import automation_preflight_batch as batch_gate
     import automation_render_batch as batch_render
     import automation_release_gate as release_gate
 
@@ -28,7 +28,6 @@ def _reset_run_workspace(work: Path) -> tuple[Path, Path, Path]:
     manifest_path = work / "render-manifest.json"
     output_dir = work / "renders"
     quarantine_dir = work / "quarantine"
-
     if manifest_path.exists():
         manifest_path.unlink()
     for directory in (output_dir, quarantine_dir):
@@ -41,14 +40,7 @@ def _reset_run_workspace(work: Path) -> tuple[Path, Path, Path]:
     return manifest_path, output_dir, quarantine_dir
 
 
-def run_pipeline(
-    inputs: list[str | Path],
-    work_dir: str | Path,
-    *,
-    gate_runner: Callable[..., dict[str, Any]] | None = None,
-    render_runner: Callable[..., dict[str, Any]] | None = None,
-    release_runner: Callable[..., dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+def run_pipeline(inputs: list[str | Path], work_dir: str | Path, *, gate_runner: Callable[..., dict[str, Any]] | None = None, render_runner: Callable[..., dict[str, Any]] | None = None, release_runner: Callable[..., dict[str, Any]] | None = None) -> dict[str, Any]:
     """Validate, render and QC projects without publishing anything."""
     work = Path(work_dir).resolve()
     work.mkdir(parents=True, exist_ok=True)
@@ -56,39 +48,26 @@ def run_pipeline(
         manifest_path, output_dir, quarantine_dir = _reset_run_workspace(work)
     except Exception as exc:
         return {"ok": False, "stage": "workspace", "error": str(exc), "release_files": [], "published": False}
-
     gate_runner = gate_runner or batch_gate.gate_projects
     render_runner = render_runner or batch_render.render_manifest
     release_runner = release_runner or release_gate.gate_batch_result
-
     try:
         gated = gate_runner(inputs, manifest_path=manifest_path)
     except Exception as exc:
         return {"ok": False, "stage": "preflight", "error": str(exc), "release_files": [], "published": False}
     if gated.get("ok") is not True:
         return {"ok": False, "stage": "preflight", "preflight": gated, "release_files": [], "published": False}
-
     try:
         rendered = render_runner(manifest_path, output_dir)
     except Exception as exc:
         return {"ok": False, "stage": "render", "preflight": gated, "error": str(exc), "release_files": [], "published": False}
     if rendered.get("ok") is not True:
         return {"ok": False, "stage": "render", "preflight": gated, "render": rendered, "release_files": [], "published": False}
-
     try:
         released = release_runner(rendered, quarantine_dir)
     except Exception as exc:
         return {"ok": False, "stage": "quality_control", "preflight": gated, "render": rendered, "error": str(exc), "release_files": [], "published": False}
-
-    return {
-        "ok": released.get("ok") is True,
-        "stage": "complete" if released.get("ok") is True else "quality_control",
-        "preflight": gated,
-        "render": rendered,
-        "release": released,
-        "release_files": released.get("release_files", []),
-        "published": False,
-    }
+    return {"ok": released.get("ok") is True, "stage": "complete" if released.get("ok") is True else "quality_control", "preflight": gated, "render": rendered, "release": released, "release_files": released.get("release_files", []), "published": False}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -98,7 +77,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", help="Optional JSON report path")
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
-
     report = run_pipeline(args.inputs, args.work_dir)
     if args.report:
         release_gate._atomic_json(Path(args.report), report)
