@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -21,6 +23,37 @@ except ImportError:
     import automation_preflight_batch as batch_gate
     import automation_render_batch as batch_render
     import automation_release_gate as release_gate
+
+_LOCK_NAME = ".profitmente-pipeline.lock"
+
+
+def _acquire_workspace_lock(work: Path) -> Path:
+    """Fail closed if another pipeline process already owns this workspace."""
+    lock = work / _LOCK_NAME
+    payload = json.dumps({"pid": os.getpid(), "created_at": time.time()}, separators=(",", ":"))
+    try:
+        fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise RuntimeError(f"pipeline workspace is already in use: {work}") from exc
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+        raise
+    return lock
+
+
+def _release_workspace_lock(lock: Path) -> None:
+    try:
+        lock.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def _reset_run_workspace(work: Path) -> tuple[Path, Path, Path]:
@@ -45,29 +78,36 @@ def run_pipeline(inputs: list[str | Path], work_dir: str | Path, *, gate_runner:
     work = Path(work_dir).resolve()
     work.mkdir(parents=True, exist_ok=True)
     try:
-        manifest_path, output_dir, quarantine_dir = _reset_run_workspace(work)
+        lock = _acquire_workspace_lock(work)
     except Exception as exc:
         return {"ok": False, "stage": "workspace", "error": str(exc), "release_files": [], "published": False}
-    gate_runner = gate_runner or batch_gate.gate_projects
-    render_runner = render_runner or batch_render.render_manifest
-    release_runner = release_runner or release_gate.gate_batch_result
     try:
-        gated = gate_runner(inputs, manifest_path=manifest_path)
-    except Exception as exc:
-        return {"ok": False, "stage": "preflight", "error": str(exc), "release_files": [], "published": False}
-    if gated.get("ok") is not True:
-        return {"ok": False, "stage": "preflight", "preflight": gated, "release_files": [], "published": False}
-    try:
-        rendered = render_runner(manifest_path, output_dir)
-    except Exception as exc:
-        return {"ok": False, "stage": "render", "preflight": gated, "error": str(exc), "release_files": [], "published": False}
-    if rendered.get("ok") is not True:
-        return {"ok": False, "stage": "render", "preflight": gated, "render": rendered, "release_files": [], "published": False}
-    try:
-        released = release_runner(rendered, quarantine_dir)
-    except Exception as exc:
-        return {"ok": False, "stage": "quality_control", "preflight": gated, "render": rendered, "error": str(exc), "release_files": [], "published": False}
-    return {"ok": released.get("ok") is True, "stage": "complete" if released.get("ok") is True else "quality_control", "preflight": gated, "render": rendered, "release": released, "release_files": released.get("release_files", []), "published": False}
+        try:
+            manifest_path, output_dir, quarantine_dir = _reset_run_workspace(work)
+        except Exception as exc:
+            return {"ok": False, "stage": "workspace", "error": str(exc), "release_files": [], "published": False}
+        gate_runner = gate_runner or batch_gate.gate_projects
+        render_runner = render_runner or batch_render.render_manifest
+        release_runner = release_runner or release_gate.gate_batch_result
+        try:
+            gated = gate_runner(inputs, manifest_path=manifest_path)
+        except Exception as exc:
+            return {"ok": False, "stage": "preflight", "error": str(exc), "release_files": [], "published": False}
+        if gated.get("ok") is not True:
+            return {"ok": False, "stage": "preflight", "preflight": gated, "release_files": [], "published": False}
+        try:
+            rendered = render_runner(manifest_path, output_dir)
+        except Exception as exc:
+            return {"ok": False, "stage": "render", "preflight": gated, "error": str(exc), "release_files": [], "published": False}
+        if rendered.get("ok") is not True:
+            return {"ok": False, "stage": "render", "preflight": gated, "render": rendered, "release_files": [], "published": False}
+        try:
+            released = release_runner(rendered, quarantine_dir)
+        except Exception as exc:
+            return {"ok": False, "stage": "quality_control", "preflight": gated, "render": rendered, "error": str(exc), "release_files": [], "published": False}
+        return {"ok": released.get("ok") is True, "stage": "complete" if released.get("ok") is True else "quality_control", "preflight": gated, "render": rendered, "release": released, "release_files": released.get("release_files", []), "published": False}
+    finally:
+        _release_workspace_lock(lock)
 
 
 def main(argv: list[str] | None = None) -> int:
