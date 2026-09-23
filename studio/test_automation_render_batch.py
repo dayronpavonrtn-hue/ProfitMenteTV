@@ -4,7 +4,6 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import automation_render_batch as batch
 import automation_preflight_batch as preflight
@@ -87,6 +86,26 @@ class BatchRenderTests(unittest.TestCase):
             result = batch.render_manifest(manifest, assets, root / "out", runner=runner, renderer=renderer)
             names = [Path(item["output"]).name for item in result["results"]]
             self.assertEqual(names, ["same.mp4", "same-2.mp4"])
+
+    def test_existing_export_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project, manifest, assets, renderer = self._fixture(root)
+            output_dir = root / "out"
+            output_dir.mkdir()
+            existing = output_dir / "ready.mp4"
+            existing.write_bytes(b"keep-me")
+            def runner(command, **kwargs):
+                Path(command[-1]).write_bytes(b"new-mp4")
+                class Done:
+                    returncode = 0; stdout = ""; stderr = ""
+                return Done()
+            result = batch.render_manifest(manifest, assets, output_dir, runner=runner, renderer=renderer)
+            self.assertTrue(result["ok"])
+            self.assertEqual(existing.read_bytes(), b"keep-me")
+            new_output = Path(result["results"][0]["output"])
+            self.assertEqual(new_output.name, "ready-2.mp4")
+            self.assertEqual(new_output.read_bytes(), b"new-mp4")
 
 
 if __name__ == "__main__":
