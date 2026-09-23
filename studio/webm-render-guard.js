@@ -2,6 +2,10 @@
   'use strict';
   const button=document.querySelector('#renderBtn');
   if(!button)return;
+  // feature-bootstrap may already have installed the full WebM integration.
+  // Do not replace it with this legacy fallback, otherwise post-render QC,
+  // project-state locking, export dimensions and persistence checks are lost.
+  if(globalThis.ProfitMenteWebMRender?.run)return;
 
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const safeStop=stream=>{try{stream?.getTracks?.().forEach(track=>track.stop())}catch{}};
