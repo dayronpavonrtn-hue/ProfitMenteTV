@@ -1,15 +1,16 @@
 """Execute sealed ProfitMente Studio render manifests locally at $0.
 
 The executor refuses stale/non-final manifests before starting FFmpeg, renders
-sequentially to temporary files, and only publishes completed MP4s atomically.
-Existing MP4 exports are never overwritten. Render jobs have a bounded runtime
-so a stalled FFmpeg process cannot freeze an automatic batch indefinitely. It
-never uploads or publishes to social networks.
+sequentially to temporary files, verifies completed media with ffprobe, and only
+publishes valid MP4s atomically. Existing exports are never overwritten. Render
+jobs have a bounded runtime so a stalled FFmpeg process cannot freeze an
+automatic batch indefinitely. It never uploads or publishes to social networks.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -48,12 +49,39 @@ def _safe_output_name(project_path: Path, used: set[str]) -> str:
     return candidate
 
 
+def _verify_rendered_mp4(path: Path, *, probe_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> tuple[bool, str | None]:
+    """Fail closed unless ffprobe confirms a readable video stream and duration."""
+    try:
+        probe = probe_runner(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type:format=duration", "-of", "json", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"No se pudo verificar el MP4 con ffprobe: {exc}"
+    if probe.returncode != 0:
+        detail = (probe.stderr or probe.stdout or "ffprobe rechazó el archivo").strip()
+        return False, f"MP4 no verificable: {detail[-1000:]}"
+    try:
+        data = json.loads(probe.stdout or "{}")
+        streams = data.get("streams") if isinstance(data, dict) else None
+        duration = float((data.get("format") or {}).get("duration"))
+        valid_video = isinstance(streams, list) and any(isinstance(item, dict) and item.get("codec_type") == "video" for item in streams)
+        if not valid_video or not math.isfinite(duration) or duration <= 0:
+            raise ValueError("sin video o duración positiva")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False, "MP4 inválido: ffprobe no confirmó video reproducible con duración positiva."
+    return True, None
+
+
 def render_manifest(
     manifest_path: str | Path,
     assets_dir: str | Path,
     output_dir: str | Path,
     *,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    probe_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     renderer: str | Path | None = None,
     timeout_seconds: int = DEFAULT_RENDER_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
@@ -70,8 +98,6 @@ def render_manifest(
         raise ValueError(f"Renderer no encontrado: {renderer_path}")
 
     results: list[dict[str, Any]] = []
-    # Reserve names already present on disk so a new batch can never destroy a
-    # previously successful export. This also handles case-insensitive filesystems.
     used: set[str] = {item.name.lower() for item in destination.iterdir() if item.is_file()}
     for entry in payload["projects"]:
         project = Path(entry["path"]).resolve()
@@ -95,28 +121,22 @@ def render_manifest(
                 temp.unlink(missing_ok=True)
                 results.append({"project": str(project), "ok": False, "output": None, "error": "El renderer no produjo un MP4 válido."})
                 continue
+            verified, verification_error = _verify_rendered_mp4(temp, probe_runner=probe_runner)
+            if not verified:
+                temp.unlink(missing_ok=True)
+                results.append({"project": str(project), "ok": False, "output": None, "error": verification_error})
+                continue
             os.replace(temp, final)
             results.append({"project": str(project), "ok": True, "output": str(final), "error": None})
         except subprocess.TimeoutExpired:
             temp.unlink(missing_ok=True)
-            results.append({
-                "project": str(project),
-                "ok": False,
-                "output": None,
-                "error": f"Render cancelado al superar {timeout_seconds} segundos.",
-            })
+            results.append({"project": str(project), "ok": False, "output": None, "error": f"Render cancelado al superar {timeout_seconds} segundos."})
         except OSError as exc:
             temp.unlink(missing_ok=True)
             results.append({"project": str(project), "ok": False, "output": None, "error": str(exc)})
 
     completed_count = sum(1 for item in results if item["ok"])
-    return {
-        "ok": bool(results) and completed_count == len(results),
-        "total": len(results),
-        "completed": completed_count,
-        "failed": len(results) - completed_count,
-        "results": results,
-    }
+    return {"ok": bool(results) and completed_count == len(results), "total": len(results), "completed": completed_count, "failed": len(results) - completed_count, "results": results}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -124,21 +144,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("manifest", help="Manifiesto FINAL-QA sellado")
     parser.add_argument("assets_dir", help="Carpeta local de medios")
     parser.add_argument("output_dir", help="Carpeta de salida MP4")
-    parser.add_argument(
-        "--timeout-seconds",
-        type=int,
-        default=DEFAULT_RENDER_TIMEOUT_SECONDS,
-        help=f"Límite por video antes de cancelar FFmpeg (default: {DEFAULT_RENDER_TIMEOUT_SECONDS}s)",
-    )
+    parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_RENDER_TIMEOUT_SECONDS, help=f"Límite por video antes de cancelar FFmpeg (default: {DEFAULT_RENDER_TIMEOUT_SECONDS}s)")
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = render_manifest(
-            args.manifest,
-            args.assets_dir,
-            args.output_dir,
-            timeout_seconds=args.timeout_seconds,
-        )
+        result = render_manifest(args.manifest, args.assets_dir, args.output_dir, timeout_seconds=args.timeout_seconds)
     except (ValueError, OSError) as exc:
         result = {"ok": False, "total": 0, "completed": 0, "failed": 0, "results": [], "error": str(exc)}
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
