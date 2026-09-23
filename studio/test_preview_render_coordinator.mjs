@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const {createCoordinator,finitePreviewTime}=require('./preview-render-coordinator.js');
+const {createCoordinator,createSafePreviewRequest,finitePreviewTime}=require('./preview-render-coordinator.js');
 
 const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{resolve=res;reject=rej});return {promise,resolve,reject}};
 
@@ -69,6 +69,26 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((res,rej)=>{res
   const result=await coordinator.request(2);
   assert.equal(result.status,'rendered','coordinator must recover after render error');
   assert.equal(coordinator.snapshot().failed,1);
+}
+
+{
+  let invalidations=0,timeouts=0,calls=0;
+  const never=deferred();
+  const coordinator=createCoordinator(async()=>{calls++;if(calls===1)await never.promise},{timeoutMs:50,invalidate:()=>{invalidations++}});
+  const safe=createSafePreviewRequest(coordinator,{onTimeout:()=>{timeouts++}});
+  const first=await safe(7);
+  assert.equal(first.status,'timed-out','a stuck decoder must not leave preview callers waiting forever');
+  assert.equal(timeouts,1,'UI timeout hook must run exactly once');
+  assert.equal(invalidations,1,'timeout must invalidate stale preview work');
+  const recovered=await safe(8);
+  assert.equal(recovered.status,'rendered','preview must accept the next frame after a timeout');
+  const stats=coordinator.snapshot();
+  assert.equal(stats.timedOut,1);
+  assert.equal(stats.failed,1);
+  assert.equal(stats.rendered,1);
+  assert.equal(stats.active,false);
+  assert.equal(stats.hasPending,false);
+  never.resolve();
 }
 
 {
