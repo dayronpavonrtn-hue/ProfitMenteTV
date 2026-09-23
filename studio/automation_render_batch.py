@@ -2,7 +2,8 @@
 
 The executor refuses stale/non-final manifests before starting FFmpeg, renders
 sequentially to temporary files, and only publishes completed MP4s atomically.
-It never uploads or publishes to social networks.
+Existing MP4 exports are never overwritten. It never uploads or publishes to
+social networks.
 """
 from __future__ import annotations
 
@@ -63,7 +64,9 @@ def render_manifest(
         raise ValueError(f"Renderer no encontrado: {renderer_path}")
 
     results: list[dict[str, Any]] = []
-    used: set[str] = set()
+    # Reserve names already present on disk so a new batch can never destroy a
+    # previously successful export. This also handles case-insensitive filesystems.
+    used: set[str] = {item.name.lower() for item in destination.iterdir() if item.is_file()}
     for entry in payload["projects"]:
         project = Path(entry["path"]).resolve()
         name = _safe_output_name(project, used)
