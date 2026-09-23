@@ -25,16 +25,66 @@ except ImportError:
     import automation_release_gate as release_gate
 
 _LOCK_NAME = ".profitmente-pipeline.lock"
+_MALFORMED_LOCK_MAX_AGE = 86400
+
+
+def _pid_is_alive(pid: int) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    if pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        # On platforms where signal 0 is not fully supported, fail closed.
+        return True
+    return True
+
+
+def _stale_lock(lock: Path) -> bool:
+    """Return True only when an existing lock can be proven stale.
+
+    Normal locks contain the owner PID. A dead PID is safe to reclaim. Legacy
+    or malformed locks are reclaimed only after a full day, preventing a parse
+    problem from interrupting a legitimate long render.
+    """
+    try:
+        raw = json.loads(lock.read_text(encoding="utf-8"))
+        pid = raw.get("pid")
+        if isinstance(pid, int) and pid > 0:
+            return not _pid_is_alive(pid)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+    try:
+        return time.time() - lock.stat().st_mtime > _MALFORMED_LOCK_MAX_AGE
+    except OSError:
+        return False
 
 
 def _acquire_workspace_lock(work: Path) -> Path:
-    """Fail closed if another pipeline process already owns this workspace."""
+    """Fail closed for active owners, but recover locks left by crashed runs."""
     lock = work / _LOCK_NAME
     payload = json.dumps({"pid": os.getpid(), "created_at": time.time()}, separators=(",", ":"))
-    try:
-        fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError as exc:
-        raise RuntimeError(f"pipeline workspace is already in use: {work}") from exc
+    for attempt in range(2):
+        try:
+            fd = os.open(str(lock), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            break
+        except FileExistsError as exc:
+            if attempt == 0 and _stale_lock(lock):
+                try:
+                    lock.unlink()
+                except FileNotFoundError:
+                    pass
+                except OSError as unlink_exc:
+                    raise RuntimeError(f"pipeline workspace lock cannot be recovered: {work}") from unlink_exc
+                continue
+            raise RuntimeError(f"pipeline workspace is already in use: {work}") from exc
+    else:  # pragma: no cover - defensive; loop always breaks or raises.
+        raise RuntimeError(f"pipeline workspace is already in use: {work}")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(payload)
