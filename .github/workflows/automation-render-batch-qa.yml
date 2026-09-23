@@ -1,0 +1,34 @@
+name: Automation Render Batch QA
+
+on:
+  push:
+    paths:
+      - 'studio/automation_render_batch.py'
+      - 'studio/automation_preflight_batch.py'
+      - 'studio/test_automation_render_batch.py'
+      - 'studio/test_automation_preflight_batch.py'
+      - '.github/workflows/automation-render-batch-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/automation_render_batch.py'
+      - 'studio/automation_preflight_batch.py'
+      - 'studio/test_automation_render_batch.py'
+      - 'studio/test_automation_preflight_batch.py'
+      - '.github/workflows/automation-render-batch-qa.yml'
+
+jobs:
+  batch-render-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax
+        run: python -m py_compile studio/automation_preflight_batch.py studio/automation_render_batch.py
+      - name: Preflight manifest regression
+        working-directory: studio
+        run: python -m unittest -v test_automation_preflight_batch.py
+      - name: Batch render executor regression
+        working-directory: studio
+        run: python -m unittest -v test_automation_render_batch.py
