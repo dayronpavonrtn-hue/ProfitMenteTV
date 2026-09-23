@@ -23,6 +23,13 @@
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
   function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
+  function createPlacedClip(asset,track,start,duration,sourceOffset){
+    if(!Array.isArray(project.clips))project.clips=[];
+    const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const maxOffset=asset.type==='image'?0:Math.max(0,(Number(asset.duration)||0)-duration),requested=asset.type==='image'?0:Number(sourceOffset)||0;
+    const clip={id,track,name:asset.name,asset:asset.id,start,duration,sourceOffset:Math.max(0,Math.min(maxOffset,requested))};
+    project.clips.push(clip);return clip;
+  }
   function place(asset,track,at,duration,sourceOffset=0){
     track=Number(track);if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const chosen=mode.value,r=chosen==='add'?addRange(at,duration):engine.range(project,at,duration);
@@ -37,11 +44,8 @@
         if(!result.ok)return result;
       }
       if(extended)project.duration=r.end;
-      addClip(track,asset.name,asset.id,r.start,r.duration);
-      const inserted=project.clips?.[project.clips.length-1];
+      const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);
       if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};
-      const maxOffset=asset.type==='image'?0:Math.max(0,(Number(asset.duration)||0)-r.duration),requested=asset.type==='image'?0:Number(sourceOffset)||0;
-      inserted.sourceOffset=Math.max(0,Math.min(maxOffset,requested));
       return {ok:true,inserted};
     });
     if(!tx.ok){
