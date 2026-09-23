@@ -1,6 +1,8 @@
 """Regression tests for the local-only ProfitMente Studio automation pipeline."""
 from __future__ import annotations
 
+import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -73,6 +75,24 @@ class AutomationPipelineTests(unittest.TestCase):
         self.assertIn("already in use", report["error"])
         self.assertEqual(report["release_files"], [])
         self.assertIs(report["published"], False)
+
+    def test_release_does_not_delete_lock_replaced_by_another_owner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            lock = pipeline._acquire_workspace_lock(work)
+            replacement = {"pid": os.getpid() + 1000000, "created_at": 1.0}
+            lock.write_text(json.dumps(replacement), encoding="utf-8")
+            pipeline._release_workspace_lock(lock)
+            self.assertTrue(lock.exists())
+            self.assertEqual(json.loads(lock.read_text(encoding="utf-8")), replacement)
+
+    def test_release_fails_closed_for_malformed_replacement_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            lock = pipeline._acquire_workspace_lock(work)
+            lock.write_text("not-json", encoding="utf-8")
+            pipeline._release_workspace_lock(lock)
+            self.assertTrue(lock.exists())
 
     def test_workspace_lock_is_released_after_pipeline_exception(self):
         def exploding_gate(inputs, *, manifest_path):
