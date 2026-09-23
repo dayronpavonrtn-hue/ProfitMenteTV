@@ -172,11 +172,18 @@ def main(argv: list[str] | None = None) -> int:
         if not paths:
             result["reason"] = "No se encontraron proyectos JSON."
         if args.manifest:
-            try:
-                _write_json(Path(args.manifest), build_manifest(result["render_manifest"], qa_mode="final"))
-            except (OSError, ValueError) as exc:
-                result["ok"] = False
-                result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
+            target = Path(args.manifest)
+            if result.get("ok") is not True:
+                result.setdefault("manifest_errors", []).append(
+                    "Manifiesto no creado: todos los proyectos deben superar QA final."
+                )
+            else:
+                try:
+                    _write_json(target, build_manifest(result["render_manifest"], qa_mode="final"))
+                    result["manifest_path"] = str(target.resolve())
+                except (OSError, ValueError) as exc:
+                    result["ok"] = False
+                    result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
     if args.report:
         _write_json(Path(args.report), result)
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None, allow_nan=False)
