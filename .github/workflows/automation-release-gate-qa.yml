@@ -1,0 +1,28 @@
+name: Automation Release Gate QA
+
+on:
+  push:
+    paths:
+      - 'studio/automation_release_gate.py'
+      - 'studio/output_qc.py'
+      - 'studio/test_automation_release_gate.py'
+      - '.github/workflows/automation-release-gate-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/automation_release_gate.py'
+      - 'studio/output_qc.py'
+      - 'studio/test_automation_release_gate.py'
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile studio/automation_release_gate.py studio/output_qc.py
+      - name: Release gate regressions
+        working-directory: studio
+        run: python -m unittest -v test_automation_release_gate.py
