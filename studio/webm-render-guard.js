@@ -5,6 +5,13 @@
 
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const safeStop=stream=>{try{stream?.getTracks?.().forEach(track=>track.stop())}catch{}};
+  const withTimeout=(promise,ms,message)=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error(message)),ms);
+    Promise.resolve(promise).then(
+      value=>{clearTimeout(timer);resolve(value)},
+      error=>{clearTimeout(timer);reject(error)}
+    );
+  });
 
   button.onclick=async()=>{
     if(!globalThis.MediaRecorder){setStatus('MediaRecorder no soportado');return}
@@ -22,7 +29,7 @@
       setStatus('Renderizando WebM + audio…');
       document.querySelector('#playhead').value=0;
       videoStream=canvas.captureStream(30);
-      await audio.schedule(project,assets,0,false);
+      await withTimeout(audio.schedule(project,assets,0,false),10000,'El audio no pudo prepararse a tiempo');
       mixed=new MediaStream([...videoStream.getVideoTracks(),...audio.stream().getAudioTracks()]);
       const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm';
       const chunks=[];
@@ -34,15 +41,17 @@
       });
       recorder.start(1000);
       const frameMs=1000/30;
+      const maxFrameMs=5000;
       for(let t=0;t<project.duration;t+=1/30){
         const started=performance.now();
-        const rendered=await renderAt(t);
+        const rendered=await withTimeout(renderAt(t),maxFrameMs,`Frame bloqueado en ${t.toFixed(2)} s`);
         if(rendered===false)throw new Error('El preview cambió durante el render');
         const wait=frameMs-(performance.now()-started);
         if(wait>0)await sleep(wait);
       }
+      if(recorder.state!=='recording')throw new Error('MediaRecorder se detuvo antes de completar el proyecto');
       recorder.stop();
-      await finished;
+      await withTimeout(finished,10000,'MediaRecorder no finalizó el archivo a tiempo');
       const blob=new Blob(chunks,{type:recorder.mimeType||'video/webm'});
       if(!blob.size)throw new Error('El render produjo un archivo vacío');
       objectUrl=URL.createObjectURL(blob);
