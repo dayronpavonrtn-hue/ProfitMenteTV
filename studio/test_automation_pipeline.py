@@ -25,18 +25,34 @@ class AutomationPipelineTests(unittest.TestCase):
             return {"ok": True, "release_files": ["video.mp4"]}
 
         with tempfile.TemporaryDirectory() as tmp:
-            report = pipeline.run_pipeline(
-                ["project.json"], tmp,
-                gate_runner=gate,
-                render_runner=render,
-                release_runner=release,
-            )
+            report = pipeline.run_pipeline(["project.json"], tmp, gate_runner=gate, render_runner=render, release_runner=release)
 
         self.assertTrue(report["ok"])
         self.assertEqual(report["stage"], "complete")
         self.assertEqual(report["release_files"], ["video.mp4"])
         self.assertIs(report["published"], False)
         self.assertEqual([entry[0] for entry in calls], ["gate", "render", "release"])
+
+    def test_workspace_is_cleaned_before_new_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            (work / "render-manifest.json").write_text("stale", encoding="utf-8")
+            (work / "renders").mkdir()
+            (work / "renders" / "old.mp4").write_bytes(b"old")
+            (work / "quarantine").mkdir()
+            (work / "quarantine" / "old.mp4").write_bytes(b"old")
+
+            def gate(inputs, *, manifest_path):
+                self.assertFalse(Path(manifest_path).exists())
+                self.assertEqual(list((work / "renders").iterdir()), [])
+                self.assertEqual(list((work / "quarantine").iterdir()), [])
+                return {"ok": False, "blocked": ["expected stop"]}
+
+            report = pipeline.run_pipeline(["project.json"], work, gate_runner=gate)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["stage"], "preflight")
+        self.assertIs(report["published"], False)
 
     def test_preflight_failure_stops_before_render(self):
         def gate(inputs, *, manifest_path):
@@ -46,16 +62,12 @@ class AutomationPipelineTests(unittest.TestCase):
             self.fail("render/release must not run after failed preflight")
 
         with tempfile.TemporaryDirectory() as tmp:
-            report = pipeline.run_pipeline(
-                ["bad.json"], tmp,
-                gate_runner=gate,
-                render_runner=forbidden,
-                release_runner=forbidden,
-            )
+            report = pipeline.run_pipeline(["bad.json"], tmp, gate_runner=gate, render_runner=forbidden, release_runner=forbidden)
 
         self.assertFalse(report["ok"])
         self.assertEqual(report["stage"], "preflight")
         self.assertEqual(report["release_files"], [])
+        self.assertIs(report["published"], False)
 
     def test_render_failure_stops_before_release(self):
         def gate(inputs, *, manifest_path):
@@ -68,16 +80,12 @@ class AutomationPipelineTests(unittest.TestCase):
             self.fail("release must not run after failed render")
 
         with tempfile.TemporaryDirectory() as tmp:
-            report = pipeline.run_pipeline(
-                ["project.json"], tmp,
-                gate_runner=gate,
-                render_runner=render,
-                release_runner=forbidden,
-            )
+            report = pipeline.run_pipeline(["project.json"], tmp, gate_runner=gate, render_runner=render, release_runner=forbidden)
 
         self.assertFalse(report["ok"])
         self.assertEqual(report["stage"], "render")
         self.assertEqual(report["release_files"], [])
+        self.assertIs(report["published"], False)
 
     def test_failed_post_render_qc_never_marks_output_releasable(self):
         def gate(inputs, *, manifest_path):
@@ -90,12 +98,7 @@ class AutomationPipelineTests(unittest.TestCase):
             return {"ok": False, "release_files": [], "quarantined": ["candidate.mp4"]}
 
         with tempfile.TemporaryDirectory() as tmp:
-            report = pipeline.run_pipeline(
-                ["project.json"], tmp,
-                gate_runner=gate,
-                render_runner=render,
-                release_runner=release,
-            )
+            report = pipeline.run_pipeline(["project.json"], tmp, gate_runner=gate, render_runner=render, release_runner=release)
 
         self.assertFalse(report["ok"])
         self.assertEqual(report["stage"], "quality_control")
