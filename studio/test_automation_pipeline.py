@@ -26,6 +26,7 @@ class AutomationPipelineTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             report = pipeline.run_pipeline(["project.json"], tmp, gate_runner=gate, render_runner=render, release_runner=release)
+            self.assertFalse((Path(tmp) / pipeline._LOCK_NAME).exists())
 
         self.assertTrue(report["ok"])
         self.assertEqual(report["stage"], "complete")
@@ -53,6 +54,39 @@ class AutomationPipelineTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertEqual(report["stage"], "preflight")
         self.assertIs(report["published"], False)
+
+    def test_workspace_lock_blocks_concurrent_run_before_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            (work / "renders").mkdir()
+            sentinel = work / "renders" / "active.mp4"
+            sentinel.write_bytes(b"active")
+            lock = pipeline._acquire_workspace_lock(work)
+            try:
+                report = pipeline.run_pipeline(["project.json"], work)
+                self.assertTrue(sentinel.exists())
+            finally:
+                pipeline._release_workspace_lock(lock)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["stage"], "workspace")
+        self.assertIn("already in use", report["error"])
+        self.assertEqual(report["release_files"], [])
+        self.assertIs(report["published"], False)
+
+    def test_workspace_lock_is_released_after_pipeline_exception(self):
+        def exploding_gate(inputs, *, manifest_path):
+            raise RuntimeError("gate exploded")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            report = pipeline.run_pipeline(["project.json"], work, gate_runner=exploding_gate)
+            self.assertFalse((work / pipeline._LOCK_NAME).exists())
+            lock = pipeline._acquire_workspace_lock(work)
+            pipeline._release_workspace_lock(lock)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["stage"], "preflight")
 
     def test_preflight_failure_stops_before_render(self):
         def gate(inputs, *, manifest_path):
