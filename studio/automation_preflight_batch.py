@@ -20,7 +20,7 @@ except ImportError:
     from project_preflight import inspect_file
 
 
-def discover(inputs: Iterable[str], *, recursive: bool = False) -> list[Path]:
+def discover(inputs: Iterable[str | Path], *, recursive: bool = False) -> list[Path]:
     found: dict[str, Path] = {}
     for raw in inputs:
         path = Path(raw).expanduser()
@@ -58,12 +58,6 @@ def _sha256(path: Path) -> str:
 
 
 def build_manifest(paths: Iterable[str | Path], *, qa_mode: str = "final") -> dict[str, Any]:
-    """Build a sealed render manifest.
-
-    A render manifest is deliberately restricted to FINAL QA. Draft QA is
-    useful while editing but must never be promotable to the renderer simply
-    because the project bytes did not change.
-    """
     if qa_mode != "final":
         raise ValueError("Los manifiestos de render requieren QA final.")
     projects = []
@@ -86,7 +80,6 @@ def verify_manifest_entry(entry: dict[str, Any]) -> bool:
 
 
 def verify_manifest(payload: Any) -> dict[str, Any]:
-    """Fail-closed verification for a sealed FINAL-QA render manifest."""
     errors: list[str] = []
     if not isinstance(payload, dict):
         return {"ok": False, "total": 0, "verified": 0, "errors": ["El manifiesto no es un objeto JSON."]}
@@ -100,7 +93,6 @@ def verify_manifest(payload: Any) -> dict[str, Any]:
     if not isinstance(projects, list) or not projects:
         errors.append("El manifiesto no contiene proyectos para render.")
         projects = []
-
     verified = 0
     seen: set[str] = set()
     for index, entry in enumerate(projects):
@@ -136,6 +128,26 @@ def _write_json(path: Path, payload: Any) -> None:
     temp.replace(path)
 
 
+def gate_projects(inputs: Iterable[str | Path], *, manifest_path: str | Path, recursive: bool = True) -> dict[str, Any]:
+    """Run FINAL QA and atomically publish a sealed manifest only on success."""
+    paths = discover(inputs, recursive=recursive)
+    result = inspect_many(paths, final=True)
+    target = Path(manifest_path)
+    if not paths:
+        result["reason"] = "No se encontraron proyectos JSON."
+        return result
+    if result.get("ok") is not True:
+        return result
+    try:
+        _write_json(target, build_manifest(result["render_manifest"], qa_mode="final"))
+    except (OSError, ValueError) as exc:
+        result["ok"] = False
+        result.setdefault("manifest_errors", []).append(f"No se pudo sellar el manifiesto: {exc}")
+        return result
+    result["manifest_path"] = str(target.resolve())
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ProfitMente Studio batch automation preflight")
     parser.add_argument("inputs", nargs="*", help="Proyecto(s) JSON o carpetas")
@@ -146,7 +158,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", help="Guardar el reporte completo en JSON")
     parser.add_argument("--pretty", action="store_true", help="Formatear salida JSON")
     args = parser.parse_args(argv)
-
     if args.verify_manifest:
         if args.inputs or args.manifest or args.recursive or args.draft:
             parser.error("--verify-manifest no se combina con entradas ni opciones de preflight")
