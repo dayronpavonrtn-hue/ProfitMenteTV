@@ -37,6 +37,7 @@ class BatchPreflightTests(unittest.TestCase):
             manifest = batch.build_manifest([project])
             self.assertEqual(manifest["version"], 2)
             self.assertEqual(manifest["algorithm"], "sha256")
+            self.assertEqual(manifest["qa_mode"], "final")
             entry = manifest["projects"][0]
             self.assertEqual(len(entry["sha256"]), 64)
             self.assertTrue(batch.verify_manifest_entry(entry))
@@ -47,12 +48,30 @@ class BatchPreflightTests(unittest.TestCase):
             self.assertFalse(report["ok"])
             self.assertEqual(report["verified"], 0)
 
+    def test_render_manifest_requires_final_qa(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "ready.json"
+            project.write_text("{}", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                batch.build_manifest([project], qa_mode="draft")
+            final_manifest = batch.build_manifest([project])
+            draft_manifest = dict(final_manifest, qa_mode="draft")
+            legacy_manifest = {key: value for key, value in final_manifest.items() if key != "qa_mode"}
+            self.assertFalse(batch.verify_manifest(draft_manifest)["ok"])
+            self.assertFalse(batch.verify_manifest(legacy_manifest)["ok"])
+            self.assertTrue(any("QA final" in error for error in batch.verify_manifest(draft_manifest)["errors"]))
+
+    def test_cli_rejects_draft_render_manifest(self):
+        with self.assertRaises(SystemExit) as raised:
+            batch.main(["project.json", "--draft", "--manifest", "render.json"])
+        self.assertEqual(raised.exception.code, 2)
+
     def test_manifest_verification_rejects_missing_malformed_or_unsupported(self):
         self.assertFalse(batch.verify_manifest_entry({"path": "missing.json", "sha256": "0" * 64}))
         self.assertFalse(batch.verify_manifest_entry({"path": "x", "sha256": "short"}))
         self.assertFalse(batch.verify_manifest_entry({}))
-        self.assertFalse(batch.verify_manifest({"version": 1, "algorithm": "sha256", "projects": []})["ok"])
-        self.assertFalse(batch.verify_manifest({"version": 2, "algorithm": "md5", "projects": []})["ok"])
+        self.assertFalse(batch.verify_manifest({"version": 1, "algorithm": "sha256", "qa_mode": "final", "projects": []})["ok"])
+        self.assertFalse(batch.verify_manifest({"version": 2, "algorithm": "md5", "qa_mode": "final", "projects": []})["ok"])
         self.assertFalse(batch.verify_manifest([])["ok"])
 
     def test_manifest_verification_rejects_duplicate_projects(self):
@@ -60,7 +79,7 @@ class BatchPreflightTests(unittest.TestCase):
             project = Path(tmp) / "ready.json"
             project.write_text("{}", encoding="utf-8")
             entry = batch.build_manifest([project])["projects"][0]
-            report = batch.verify_manifest({"version": 2, "algorithm": "sha256", "projects": [entry, dict(entry)]})
+            report = batch.verify_manifest({"version": 2, "algorithm": "sha256", "qa_mode": "final", "projects": [entry, dict(entry)]})
             self.assertFalse(report["ok"])
             self.assertEqual(report["verified"], 1)
             self.assertTrue(any("duplicado" in error for error in report["errors"]))
@@ -76,7 +95,7 @@ class BatchPreflightTests(unittest.TestCase):
     def test_atomic_json_writer_leaves_valid_payload(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "out" / "manifest.json"
-            batch._write_json(target, {"version": 2, "projects": [{"path": "a.json", "sha256": "0" * 64}]})
+            batch._write_json(target, {"version": 2, "qa_mode": "final", "projects": [{"path": "a.json", "sha256": "0" * 64}]})
             self.assertEqual(json.loads(target.read_text(encoding="utf-8"))["version"], 2)
             self.assertFalse(target.with_name(target.name + ".tmp").exists())
 
