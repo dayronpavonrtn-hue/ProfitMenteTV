@@ -29,6 +29,14 @@
       const score=Math.max(0,100-issues.length*35-warnings.length*8);
       return {ok:issues.length===0,score,issues,warnings,metrics:{size,duration:Number.isFinite(duration)?duration:null,width:Number.isFinite(width)?width:null,height:Number.isFinite(height)?height:null,durationDelta:Number.isFinite(durationDelta)?+durationDelta.toFixed(3):null,expectedDuration:exp.duration,expectedWidth:exp.width,expectedHeight:exp.height,fps:exp.fps}};
     }
+    static async inspectSignature(blob){
+      if(!blob||typeof blob.slice!=='function')return {ok:false,issue:'No se pudo leer la cabecera del WebM'};
+      try{
+        const head=new Uint8Array(await blob.slice(0,4).arrayBuffer());
+        const ok=head.length===4&&head[0]===0x1a&&head[1]===0x45&&head[2]===0xdf&&head[3]===0xa3;
+        return ok?{ok:true}:{ok:false,issue:'El archivo renderizado no contiene una cabecera WebM/EBML válida'};
+      }catch(error){return {ok:false,issue:`No se pudo verificar la cabecera WebM: ${error?.message||error}`}}
+    }
     static async recoverDuration(video,timeoutMs=2500){
       if(Number.isFinite(video?.duration)&&video.duration>0)return video.duration;
       if(!video||typeof video.currentTime!=='number')return NaN;
@@ -43,6 +51,8 @@
     }
     static async inspectBlob(blob,expected={},options={}){
       if(!blob||!Number.isFinite(Number(blob.size)))return this.inspectMetadata({size:0},expected);
+      const signature=await this.inspectSignature(blob);
+      if(!signature.ok){const failed=this.inspectMetadata({size:blob.size},expected);failed.ok=false;failed.score=0;failed.issues.unshift(signature.issue);return failed}
       if(typeof document==='undefined'||typeof URL==='undefined'||typeof URL.createObjectURL!=='function')return this.inspectMetadata({size:blob.size,duration:expected.duration,width:expected.width,height:expected.height},expected);
       const timeoutMs=Math.max(500,Number(options.timeoutMs)||12000),video=document.createElement('video'),url=URL.createObjectURL(blob);
       video.preload='metadata';video.muted=true;video.playsInline=true;
