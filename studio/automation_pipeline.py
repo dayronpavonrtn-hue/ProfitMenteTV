@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -22,6 +23,24 @@ except ImportError:
     import automation_release_gate as release_gate
 
 
+def _reset_run_workspace(work: Path) -> tuple[Path, Path, Path]:
+    """Create a clean per-run workspace so stale outputs can never be released."""
+    manifest_path = work / "render-manifest.json"
+    output_dir = work / "renders"
+    quarantine_dir = work / "quarantine"
+
+    if manifest_path.exists():
+        manifest_path.unlink()
+    for directory in (output_dir, quarantine_dir):
+        if directory.exists():
+            if directory.is_dir():
+                shutil.rmtree(directory)
+            else:
+                directory.unlink()
+        directory.mkdir(parents=True, exist_ok=True)
+    return manifest_path, output_dir, quarantine_dir
+
+
 def run_pipeline(
     inputs: list[str | Path],
     work_dir: str | Path,
@@ -33,9 +52,10 @@ def run_pipeline(
     """Validate, render and QC projects without publishing anything."""
     work = Path(work_dir).resolve()
     work.mkdir(parents=True, exist_ok=True)
-    manifest_path = work / "render-manifest.json"
-    output_dir = work / "renders"
-    quarantine_dir = work / "quarantine"
+    try:
+        manifest_path, output_dir, quarantine_dir = _reset_run_workspace(work)
+    except Exception as exc:
+        return {"ok": False, "stage": "workspace", "error": str(exc), "release_files": [], "published": False}
 
     gate_runner = gate_runner or batch_gate.gate_projects
     render_runner = render_runner or batch_render.render_manifest
@@ -44,21 +64,21 @@ def run_pipeline(
     try:
         gated = gate_runner(inputs, manifest_path=manifest_path)
     except Exception as exc:
-        return {"ok": False, "stage": "preflight", "error": str(exc), "release_files": []}
+        return {"ok": False, "stage": "preflight", "error": str(exc), "release_files": [], "published": False}
     if gated.get("ok") is not True:
-        return {"ok": False, "stage": "preflight", "preflight": gated, "release_files": []}
+        return {"ok": False, "stage": "preflight", "preflight": gated, "release_files": [], "published": False}
 
     try:
         rendered = render_runner(manifest_path, output_dir)
     except Exception as exc:
-        return {"ok": False, "stage": "render", "preflight": gated, "error": str(exc), "release_files": []}
+        return {"ok": False, "stage": "render", "preflight": gated, "error": str(exc), "release_files": [], "published": False}
     if rendered.get("ok") is not True:
-        return {"ok": False, "stage": "render", "preflight": gated, "render": rendered, "release_files": []}
+        return {"ok": False, "stage": "render", "preflight": gated, "render": rendered, "release_files": [], "published": False}
 
     try:
         released = release_runner(rendered, quarantine_dir)
     except Exception as exc:
-        return {"ok": False, "stage": "quality_control", "preflight": gated, "render": rendered, "error": str(exc), "release_files": []}
+        return {"ok": False, "stage": "quality_control", "preflight": gated, "render": rendered, "error": str(exc), "release_files": [], "published": False}
 
     return {
         "ok": released.get("ok") is True,
