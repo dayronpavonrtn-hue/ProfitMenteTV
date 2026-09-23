@@ -1,0 +1,28 @@
+name: Studio WebM render guard
+
+on:
+  push:
+    paths:
+      - 'studio/webm-render-guard.js'
+      - 'studio/webm-render-guard.test.mjs'
+      - '.github/workflows/studio-webm-render-guard.yml'
+  pull_request:
+    paths:
+      - 'studio/webm-render-guard.js'
+      - 'studio/webm-render-guard.test.mjs'
+      - '.github/workflows/studio-webm-render-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify cancellable WebM render lifecycle
+        run: node studio/webm-render-guard.test.mjs
