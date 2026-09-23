@@ -1,0 +1,27 @@
+name: Render job cancel confirmation QA
+
+on:
+  push:
+    paths:
+      - 'studio/render-job-client.js'
+      - 'studio/bundle-render-job-integration.js'
+      - 'studio/test_render_job_cancel_confirmation.js'
+      - '.github/workflows/render-job-cancel-confirmation-qa.yml'
+  pull_request:
+    paths:
+      - 'studio/render-job-client.js'
+      - 'studio/bundle-render-job-integration.js'
+      - 'studio/test_render_job_cancel_confirmation.js'
+      - '.github/workflows/render-job-cancel-confirmation-qa.yml'
+
+jobs:
+  cancel-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify cancellation confirmation semantics
+        run: node studio/test_render_job_cancel_confirmation.js
