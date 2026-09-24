@@ -32,7 +32,15 @@
     if(rawTotal===null||rawTotal<.25||rawAt===null||rawAt<0||rawAt>rawTotal+.001||rawDuration===null||rawDuration<.25)return {valid:false};
     const total=rawTotal,start=Math.min(total,rawAt),requested=rawDuration;return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
   }
-  function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
+  function persistState(){
+    // Use the canonical runtime persist wrapper first. Project History replaces
+    // window.persist so successful placement becomes one undoable edit; calling
+    // originalPersist directly here used to save storage while silently bypassing
+    // the advanced undo/redo stack.
+    if(typeof window.persist==='function')return window.persist();
+    if(typeof persist==='function')return persist();
+    if(typeof originalPersist==='function')return originalPersist();
+  }
   function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
   function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const assetId=mediaKey(asset?.id);if(assetId===null||!assetIdentityUnique(asset))return null;const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:assetId,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
   function place(asset,track,at,duration,sourceOffset=0){
@@ -54,11 +62,11 @@
       if(chosen==='insert'){const result=engine.insertSpace(project,track,r.start,r.duration,ops);if(!result.ok)return result}else if(chosen==='overwrite'){const result=engine.overwriteRange(project,track,r.start,r.duration,ops);if(!result.ok)return result}
       const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};return {ok:true,inserted};
     });
-    if(!tx.ok){if(tx.error)console.error(tx.error);persistState();redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false}
+    if(!tx.ok){if(tx.error)console.error(tx.error);redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false}
     persistState();redraw();const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
   }
   library.addEventListener('click',e=>{const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=findAsset(cardAssetId(card));if(!asset){status('No se pudo resolver un medio único para esta tarjeta de biblioteca');return}e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset))},true);
   tracksHost.addEventListener('dragover',e=>{const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);if(!engine.trackLocked(project,track))return;e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(e.dataTransfer)e.dataTransfer.dropEffect='none'},true);
   tracksHost.addEventListener('drop',e=>{const lane=e.target.closest?.('.lane');if(!lane)return;const id=e.dataTransfer?.getData('application/x-profitmente-asset')||e.dataTransfer?.getData('text/plain'),asset=findAsset(id),track=Number(lane.dataset.track);if(!asset){status('No se pudo resolver un medio único para esta operación');return}e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(!assetUsable(asset)){status(unavailableMessage(asset));return}if(!window.ProfitMenteMediaTimelineDnD?.canDrop(asset.type,track)){status('Ese tipo de medio no es compatible con esta pista');return}if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return}const rect=lane.getBoundingClientRect(),p=window.ProfitMenteMediaTimelineDnD.placement(asset,e.clientX,rect.left,rect.width,project.duration);place(asset,track,p.start,p.duration)},true);
-  window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure,findAsset,cardAssetId,assetUsable,sourceWindow,assetIdentityUnique};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
+  window.ProfitMenteMediaPlacement={engine,mode,place,placementFailure,findAsset,cardAssetId,assetUsable,sourceWindow,assetIdentityUnique,persistState};status('Biblioteca lista · modos Añadir / Insertar / Sobrescribir activos');
 })();
