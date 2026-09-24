@@ -58,16 +58,28 @@ def inspect(project):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
                 continue
 
+            # Legacy/generated clip shapes may omit timeline timing entirely. Once
+            # either timing field is persisted, however, both are required. A lone
+            # start or duration forces preview/render code to invent a different
+            # default and can make the exported composition disagree with the editor.
+            has_start = 'start' in clip
+            has_duration = 'duration' in clip
+            if has_start != has_duration:
+                missing = 'duration' if has_start else 'start'
+                issues.append(
+                    f'Clip #{index + 1} tiene timing incompleto; falta {missing} para definir su ventana en la timeline.'
+                )
+
             # Timing is optional for legacy/generated clip shapes, but when persisted
             # it must be unambiguous. Do not let NaN/Infinity/booleans/negative starts
             # or non-positive durations reach preview and FFmpeg with different coercion.
             start = None
             clip_duration = None
-            if 'start' in clip:
+            if has_start:
                 start = _number(clip.get('start'))
                 if start is None or start < 0:
                     issues.append(f'Clip #{index + 1} tiene inicio inválido {clip.get("start")!r}; usa 0 o más segundos.')
-            if 'duration' in clip:
+            if has_duration:
                 clip_duration = _number(clip.get('duration'))
                 if clip_duration is None or clip_duration <= 0:
                     issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
