@@ -29,7 +29,17 @@ class ProfitMenteMediaPlacementEngine{
     const key=this.trackKey(track);if(key===null)return [];
     return (Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.trackKey(c?.track)===key);
   }
-  static invalidClipsOnTrack(project,track){return this.onTrack(project,track).filter(c=>this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null||this.strictFinite(c?.start)<0||this.strictFinite(c?.duration)<.25)}
+  static invalidClipsOnTrack(project,track){
+    const clips=this.onTrack(project,track),ids=new Map();
+    for(const c of clips){
+      const id=typeof c?.id==='string'?c.id.trim():'';
+      if(id)ids.set(id,(ids.get(id)||0)+1);
+    }
+    return clips.filter(c=>{
+      const id=typeof c?.id==='string'?c.id.trim():'';
+      return !id||(ids.get(id)||0)>1||this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null||this.strictFinite(c?.start)<0||this.strictFinite(c?.duration)<.25;
+    });
+  }
   static snapshot(project){return structuredClone(project.clips)}
   static rollback(project,snapshot){project.clips=snapshot;return false}
   static projectSnapshot(project){
