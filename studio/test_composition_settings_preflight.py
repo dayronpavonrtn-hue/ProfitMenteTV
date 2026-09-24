@@ -62,6 +62,12 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
                 self.assertTrue(any('duración inválida' in issue for issue in issues))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'duration': '1.5'}])))
 
+    def test_persisted_clip_must_fit_inside_project_render_window(self):
+        self.assertEqual([], inspect(self.project(duration=10, clips=[{'id': 'clip-1', 'start': 8, 'duration': 2}])))
+        self.assertEqual([], inspect(self.project(duration='10', clips=[{'id': 'clip-1', 'start': '8.5', 'duration': '1.5'}])))
+        issues = inspect(self.project(duration=10, clips=[{'id': 'clip-1', 'start': 8, 'duration': 2.01}]))
+        self.assertTrue(any('fuera de la duración del proyecto' in issue for issue in issues))
+
     def test_invalid_quality_fails_instead_of_renderer_coercion(self):
         for value in ('ultra', '', None, 1):
             with self.subTest(value=value):
