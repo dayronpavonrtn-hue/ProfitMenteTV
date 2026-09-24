@@ -24,7 +24,7 @@
   class ProfitMenteQASourceWindowGuard{
     static inspect(project,assets){
       project=project||{};assets=Array.isArray(assets)?assets:[];
-      const issues=[];const assetIndex=uniqueIndex(assets);const trackIndex=uniqueIndex(project.tracks);
+      const issues=[];const assetIndex=uniqueIndex(assets);const trackIndex=uniqueIndex(project.tracks);const referencedAssetKeys=new Set((project.clips||[]).map(clip=>idKey(clip?.asset)).filter(key=>key!=null));for(const asset of assets){const key=idKey(asset?.id);if(key==null){issues.push(`Medio de biblioteca con identificador inválido: ${asset?.name||'sin nombre'}`);continue}if(assetIndex.ambiguous.has(key)&&!referencedAssetKeys.has(key))issues.push(`Identificador de medio duplicado en biblioteca: ${key}`)}
       const trackState=track=>{
         const key=idKey(track);if(key==null)return {};
         const read=states=>{
