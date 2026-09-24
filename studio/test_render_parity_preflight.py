@@ -88,4 +88,22 @@ for alias in ('03', '3.0'):
 assert_ok({**base, 'clips': [{**base['clips'][0], 'track': '1.5', 'transition': 'wipe'}]})
 assert_ok({**base, 'clips': [{**base['clips'][1], 'track': 'two', 'textAnimation': 'bounce'}]})
 assert_ok({**base, 'clips': [{**caption, 'track': 'three', 'style': 'lower-third'}]})
+# Visual transforms are clamped by the browser preview. Reject persisted values
+# outside those exact bounds so MP4 export cannot silently render a different frame.
+visual = base['clips'][0]
+for field, bad in (
+    ('positionX', 101), ('positionY', -101), ('scale', .24),
+    ('scale', 3.01), ('rotation', 181), ('opacity', -0.01), ('opacity', 1.01),
+):
+    assert_bad({**base, 'clips': [{**visual, field: bad}]}, field)
+for field, good in (
+    ('positionX', -100), ('positionX', 100), ('positionY', -100), ('positionY', 100),
+    ('scale', .25), ('scale', 3), ('rotation', -180), ('rotation', 180),
+    ('opacity', 0), ('opacity', 1),
+):
+    assert_ok({**base, 'clips': [{**visual, field: good}]})
+for field in ('positionX', 'positionY', 'scale', 'rotation', 'opacity'):
+    assert_bad({**base, 'clips': [{**visual, field: True}]}, field)
+    assert_bad({**base, 'clips': [{**visual, field: 'not-a-number'}]}, field)
+
 print('Render parity preflight regression OK')
