@@ -11,7 +11,7 @@
   const sameMedia=(a,b)=>{const helper=window.ProfitMenteMediaLibraryTools;if(helper?.sameMediaId)return helper.sameMediaId(a,b);const left=mediaKey(a),right=mediaKey(b);return left!==null&&left===right};
   const matchingAssets=id=>{const key=mediaKey(id);return key===null?[]:(assets||[]).filter(asset=>sameMedia(asset?.id,key))};
   const findAsset=id=>{const matches=matchingAssets(id);return matches.length===1?matches[0]:null};
-  const assetIdentityUnique=asset=>{const key=mediaKey(asset?.id);if(key===null)return false;const matches=matchingAssets(key);return matches.length===0||matches.length===1&&matches[0]===asset};
+  const assetIdentityUnique=asset=>{const key=mediaKey(asset?.id);if(key===null)return false;const matches=matchingAssets(key);return matches.length===1&&matches[0]===asset};
   const cardAssetId=card=>card?.dataset?.assetId||card?.closest?.('.mediaRow[data-asset-id]')?.dataset?.assetId||null;
   const assetUsable=asset=>{const dnd=window.ProfitMenteMediaTimelineDnD;if(dnd?.assetUsable)return dnd.assetUsable(asset);if(!asset||asset.mediaReadable===false)return false;const blob=asset.blob;return !!blob&&(!('size'in blob)||Number(blob.size)>0)};
   const sourceWindow=(asset,duration,sourceOffset=0)=>{
@@ -34,10 +34,10 @@
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
   function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
-  function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const assetId=mediaKey(asset?.id);if(assetId===null)return null;const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:assetId,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
+  function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const assetId=mediaKey(asset?.id);if(assetId===null||!assetIdentityUnique(asset))return null;const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:assetId,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
   function place(asset,track,at,duration,sourceOffset=0){
     const assetId=mediaKey(asset?.id);if(assetId===null){status('El medio no tiene un identificador válido y no puede añadirse al timeline');return false}
-    if(!assetIdentityUnique(asset)){status('El identificador del medio está duplicado en la biblioteca. Corrige o vuelve a importar ese medio antes de añadirlo al timeline.');return false}
+    if(!assetIdentityUnique(asset)){status(matchingAssets(assetId).length===0?'El medio no está registrado en la biblioteca activa. Impórtalo antes de añadirlo al timeline.':'El identificador del medio está duplicado en la biblioteca. Corrige o vuelve a importar ese medio antes de añadirlo al timeline.');return false}
     if(!assetUsable(asset)){status(unavailableMessage(asset));return false}
     const trackKey=engine.trackKey(track);if(trackKey===null){status('La pista destino no es válida');return false}track=Number(trackKey);
     const rawAt=engine.strictFinite(at);if(rawAt===null||rawAt<0){status('La posición de timeline no es válida');return false}
