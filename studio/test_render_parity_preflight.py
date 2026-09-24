@@ -106,4 +106,46 @@ for field in ('positionX', 'positionY', 'scale', 'rotation', 'opacity'):
     assert_bad({**base, 'clips': [{**visual, field: True}]}, field)
     assert_bad({**base, 'clips': [{**visual, field: 'not-a-number'}]}, field)
 
+
+# Visual adjustment/crop state is normalized by the local FFmpeg helpers. Imported
+# projects must fail before export when persisted values would otherwise be clamped,
+# defaulted or proportionally rescaled and therefore diverge from Studio preview.
+for field, bad in (
+    ('brightness', -1), ('brightness', 301),
+    ('contrast', -1), ('contrast', 301),
+    ('saturation', -1), ('saturation', 301),
+    ('grayscale', -1), ('grayscale', 101),
+):
+    assert_bad(
+        {**base, 'clips': [{**visual, 'visualAdjustments': {field: bad}}]},
+        f'visualAdjustments.{field}',
+    )
+for field, good in (
+    ('brightness', 0), ('brightness', 300),
+    ('contrast', 0), ('contrast', 300),
+    ('saturation', 0), ('saturation', 300),
+    ('grayscale', 0), ('grayscale', 100),
+):
+    assert_ok({**base, 'clips': [{**visual, 'visualAdjustments': {field: good}}]})
+assert_bad({**base, 'clips': [{**visual, 'visualAdjustments': []}]}, 'visualAdjustments')
+assert_bad({**base, 'clips': [{**visual, 'visualAdjustments': {'brightness': True}}]}, 'visualAdjustments.brightness')
+
+for field in ('left', 'right', 'top', 'bottom'):
+    assert_bad({**base, 'clips': [{**visual, 'visualCrop': {field: -1}}]}, f'visualCrop.{field}')
+    assert_bad({**base, 'clips': [{**visual, 'visualCrop': {field: 96}}]}, f'visualCrop.{field}')
+    assert_bad({**base, 'clips': [{**visual, 'visualCrop': {field: True}}]}, f'visualCrop.{field}')
+    assert_ok({**base, 'clips': [{**visual, 'visualCrop': {field: 95}}]})
+assert_bad({**base, 'clips': [{**visual, 'visualCrop': []}]}, 'visualCrop')
+assert_bad(
+    {**base, 'clips': [{**visual, 'visualCrop': {'left': 50, 'right': 46}}]},
+    'recorte horizontal total',
+)
+assert_bad(
+    {**base, 'clips': [{**visual, 'visualCrop': {'top': 50, 'bottom': 46}}]},
+    'recorte vertical total',
+)
+assert_ok(
+    {**base, 'clips': [{**visual, 'visualCrop': {'left': 47.5, 'right': 47.5, 'top': 20, 'bottom': 20}}]}
+)
+
 print('Render parity preflight regression OK')
