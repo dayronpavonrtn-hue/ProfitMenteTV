@@ -48,19 +48,27 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
                 self.assertTrue(any('Clip #' in issue for issue in inspect(self.project(clips=value))))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'ok'}])))
 
+    def test_persisted_clip_timing_must_be_complete(self):
+        for clip in ({'id': 'clip-1', 'start': 1}, {'id': 'clip-1', 'duration': 2}):
+            with self.subTest(clip=clip):
+                issues = inspect(self.project(clips=[clip]))
+                self.assertTrue(any('timing incompleto' in issue for issue in issues))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1'}])))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': 1, 'duration': 2}])))
+
     def test_persisted_clip_start_must_be_finite_and_non_negative(self):
         for value in (-1, True, '', 'oops', None, float('inf'), float('nan')):
             with self.subTest(value=value):
-                issues = inspect(self.project(clips=[{'id': 'clip-1', 'start': value}]))
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'start': value, 'duration': 1}]))
                 self.assertTrue(any('inicio inválido' in issue for issue in issues))
-        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': '0.25'}])))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': '0.25', 'duration': 1}])))
 
     def test_persisted_clip_duration_must_be_finite_and_positive(self):
         for value in (0, -1, True, '', 'oops', None, float('inf'), float('nan')):
             with self.subTest(value=value):
-                issues = inspect(self.project(clips=[{'id': 'clip-1', 'duration': value}]))
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'start': 0, 'duration': value}]))
                 self.assertTrue(any('duración inválida' in issue for issue in issues))
-        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'duration': '1.5'}])))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': 0, 'duration': '1.5'}])))
 
     def test_persisted_clip_must_fit_inside_project_render_window(self):
         self.assertEqual([], inspect(self.project(duration=10, clips=[{'id': 'clip-1', 'start': 8, 'duration': 2}])))
