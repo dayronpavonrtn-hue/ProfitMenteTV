@@ -12,6 +12,8 @@ MIN_TRACK = 0
 MAX_TRACK = 6
 MIN_SPEED = 0.25
 MAX_SPEED = 4.0
+MIN_VOLUME = 0.0
+MAX_VOLUME = 2.0
 
 
 def _number(value):
@@ -66,9 +68,6 @@ def inspect(project):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
                 continue
 
-            # IDs remain optional for legacy/generated clips. Once persisted, however,
-            # an ID must be a usable scalar and unique after canonical normalization;
-            # otherwise editor selection/replacement and render bookkeeping diverge.
             if 'id' in clip:
                 clip_id = _clip_id(clip.get('id'))
                 if clip_id is None:
@@ -82,9 +81,7 @@ def inspect(project):
             has_duration = 'duration' in clip
             if has_start != has_duration:
                 missing = 'duration' if has_start else 'start'
-                issues.append(
-                    f'Clip #{index + 1} tiene timing incompleto; falta {missing} para definir su ventana en la timeline.'
-                )
+                issues.append(f'Clip #{index + 1} tiene timing incompleto; falta {missing} para definir su ventana en la timeline.')
 
             start = None
             clip_duration = None
@@ -100,21 +97,28 @@ def inspect(project):
             if 'track' in clip:
                 track = _number(clip.get('track'))
                 if track is None or not track.is_integer() or not MIN_TRACK <= int(track) <= MAX_TRACK:
-                    issues.append(
-                        f'Clip #{index + 1} tiene pista inválida {clip.get("track")!r}; usa un entero entre {MIN_TRACK} y {MAX_TRACK}.'
-                    )
+                    issues.append(f'Clip #{index + 1} tiene pista inválida {clip.get("track")!r}; usa un entero entre {MIN_TRACK} y {MAX_TRACK}.')
             if 'sourceOffset' in clip:
                 source_offset = _number(clip.get('sourceOffset'))
                 if source_offset is None or source_offset < 0:
-                    issues.append(
-                        f'Clip #{index + 1} tiene sourceOffset inválido {clip.get("sourceOffset")!r}; usa 0 o más segundos.'
-                    )
+                    issues.append(f'Clip #{index + 1} tiene sourceOffset inválido {clip.get("sourceOffset")!r}; usa 0 o más segundos.')
             if 'speed' in clip:
                 speed = _number(clip.get('speed'))
                 if speed is None or not MIN_SPEED <= speed <= MAX_SPEED:
-                    issues.append(
-                        f'Clip #{index + 1} tiene velocidad inválida {clip.get("speed")!r}; usa un valor entre {MIN_SPEED:g}x y {MAX_SPEED:g}x.'
-                    )
+                    issues.append(f'Clip #{index + 1} tiene velocidad inválida {clip.get("speed")!r}; usa un valor entre {MIN_SPEED:g}x y {MAX_SPEED:g}x.')
+
+            # Keep persisted audio gain inside the same contract used by the
+            # export bridge. Rejecting it here prevents preview/project state
+            # from reaching render with a gain that FFmpeg would interpret
+            # differently or that an older project may have corrupted.
+            for field in ('volume', 'sourceVolume'):
+                if field in clip:
+                    level = _number(clip.get(field))
+                    if level is None or not MIN_VOLUME <= level <= MAX_VOLUME:
+                        issues.append(
+                            f'Clip #{index + 1} tiene {field} inválido {clip.get(field)!r}; '
+                            f'usa un valor entre {MIN_VOLUME:g} y {MAX_VOLUME:g}.'
+                        )
 
             if (
                 duration is not None and duration > 0
@@ -122,9 +126,7 @@ def inspect(project):
                 and clip_duration is not None and clip_duration > 0
                 and start + clip_duration > duration + 1e-9
             ):
-                issues.append(
-                    f'Clip #{index + 1} termina en {start + clip_duration:g}s, fuera de la duración del proyecto ({duration:g}s).'
-                )
+                issues.append(f'Clip #{index + 1} termina en {start + clip_duration:g}s, fuera de la duración del proyecto ({duration:g}s).')
     return issues
 
 
