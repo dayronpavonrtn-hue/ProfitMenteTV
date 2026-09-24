@@ -32,8 +32,9 @@
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
   function redraw(){if(typeof syncForm==='function')syncForm();if(typeof drawTimeline==='function')drawTimeline();if(typeof renderAt==='function')renderAt(+$('#playhead')?.value||0)}
-  function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:asset.id,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
+  function createPlacedClip(asset,track,start,duration,sourceOffset){if(!Array.isArray(project.clips))project.clips=[];const assetId=mediaKey(asset?.id);if(assetId===null)return null;const id=globalThis.crypto?.randomUUID?.()||`clip-${Date.now()}-${Math.random().toString(36).slice(2)}`;const clip={id,track,name:asset.name,asset:assetId,start,duration,sourceOffset:asset.type==='image'?0:sourceOffset};project.clips.push(clip);return clip}
   function place(asset,track,at,duration,sourceOffset=0){
+    const assetId=mediaKey(asset?.id);if(assetId===null){status('El medio no tiene un identificador válido y no puede añadirse al timeline');return false}
     if(!assetUsable(asset)){status(unavailableMessage(asset));return false}
     const trackKey=engine.trackKey(track);if(trackKey===null){status('La pista destino no es válida');return false}track=Number(trackKey);
     const rawAt=engine.strictFinite(at);if(rawAt===null||rawAt<0){status('La posición de timeline no es válida');return false}
