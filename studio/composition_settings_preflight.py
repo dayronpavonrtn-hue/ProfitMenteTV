@@ -8,6 +8,8 @@ import sys
 VALID_FORMATS = {'9:16', '16:9', '1:1'}
 VALID_FPS = {24, 30, 60}
 VALID_QUALITY = {'draft', 'standard', 'high'}
+MIN_TRACK = 0
+MAX_TRACK = 6
 
 
 def _number(value):
@@ -34,10 +36,6 @@ def inspect(project):
     if fps is None or not fps.is_integer() or int(fps) not in VALID_FPS:
         issues.append(f'FPS inválido {project.get("fps")!r}; usa 24, 30 o 60.')
 
-    # Duration drives preview bounds, timeline percentages and the FFmpeg render
-    # window. Imported/recovered projects must not reach render with NaN, infinity,
-    # booleans, zero or negative values: those can create empty output, invalid
-    # filter arguments or a render that disagrees with the editor.
     duration = _number(project.get('duration', 45))
     if duration is None or duration <= 0:
         issues.append(f'Duración de proyecto inválida {project.get("duration")!r}; usa un valor mayor que 0 segundos.')
@@ -46,9 +44,6 @@ def inspect(project):
     if not isinstance(quality, str) or quality not in VALID_QUALITY:
         issues.append(f'Calidad de render inválida {quality!r}; usa draft, standard o high.')
 
-    # Every downstream editor/render stage treats clips as an ordered timeline.
-    # Reject malformed imported/recovered values here instead of allowing a dict,
-    # string or scalar to be iterated/coerced differently by later components.
     clips = project.get('clips', [])
     if not isinstance(clips, list):
         issues.append('La colección clips debe ser una lista válida.')
@@ -58,10 +53,6 @@ def inspect(project):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
                 continue
 
-            # Legacy/generated clip shapes may omit timeline timing entirely. Once
-            # either timing field is persisted, however, both are required. A lone
-            # start or duration forces preview/render code to invent a different
-            # default and can make the exported composition disagree with the editor.
             has_start = 'start' in clip
             has_duration = 'duration' in clip
             if has_start != has_duration:
@@ -70,9 +61,6 @@ def inspect(project):
                     f'Clip #{index + 1} tiene timing incompleto; falta {missing} para definir su ventana en la timeline.'
                 )
 
-            # Timing is optional for legacy/generated clip shapes, but when persisted
-            # it must be unambiguous. Do not let NaN/Infinity/booleans/negative starts
-            # or non-positive durations reach preview and FFmpeg with different coercion.
             start = None
             clip_duration = None
             if has_start:
@@ -84,9 +72,22 @@ def inspect(project):
                 if clip_duration is None or clip_duration <= 0:
                     issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
 
-            # A persisted clip that extends beyond the project render window is
-            # ambiguous: the editor may display it while FFmpeg truncates it. Reject
-            # that state instead of silently exporting a different composition.
+            # Persisted editor clips may specify a track and source in-point. Validate
+            # both here so imported/recovered projects cannot render on a different
+            # layer or seek to a different frame than the manual preview.
+            if 'track' in clip:
+                track = _number(clip.get('track'))
+                if track is None or not track.is_integer() or not MIN_TRACK <= int(track) <= MAX_TRACK:
+                    issues.append(
+                        f'Clip #{index + 1} tiene pista inválida {clip.get("track")!r}; usa un entero entre {MIN_TRACK} y {MAX_TRACK}.'
+                    )
+            if 'sourceOffset' in clip:
+                source_offset = _number(clip.get('sourceOffset'))
+                if source_offset is None or source_offset < 0:
+                    issues.append(
+                        f'Clip #{index + 1} tiene sourceOffset inválido {clip.get("sourceOffset")!r}; usa 0 o más segundos.'
+                    )
+
             if (
                 duration is not None and duration > 0
                 and start is not None and start >= 0
