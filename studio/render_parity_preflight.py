@@ -33,6 +33,13 @@ VISUAL_ADJUSTMENT_RANGES = {
 }
 VISUAL_CROP_FIELDS = ('left', 'right', 'top', 'bottom')
 MAX_VISUAL_CROP = 95.0
+VISUAL_TRANSFORM_RANGES = {
+    'positionX': (-100.0, 100.0),
+    'positionY': (-100.0, 100.0),
+    'scale': (0.25, 3.0),
+    'rotation': (-180.0, 180.0),
+    'opacity': (0.0, 1.0),
+}
 
 
 def _finite(value):
@@ -60,6 +67,13 @@ def _number(value):
 def _validate_visual_state(clip, clip_id, name):
     """Reject visual values the render helpers would otherwise silently repair."""
     issues = []
+    for field, (low, high) in VISUAL_TRANSFORM_RANGES.items():
+        if field in clip and clip.get(field) is not None:
+            value = clip.get(field)
+            if not _finite(value):
+                issues.append(f'Clip "{name}" ({clip_id}): {field} no es un número válido.')
+            elif float(value) < low or float(value) > high:
+                issues.append(f'Clip "{name}" ({clip_id}): {field}={float(value):g} fuera de rango; usa {low:g}–{high:g}.')
     adjustments = clip.get('visualAdjustments')
     if adjustments is not None:
         if not isinstance(adjustments, dict):
