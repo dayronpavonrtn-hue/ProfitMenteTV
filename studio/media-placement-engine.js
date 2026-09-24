@@ -40,6 +40,14 @@ class ProfitMenteMediaPlacementEngine{
       return !id||(ids.get(id)||0)>1||this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null||this.strictFinite(c?.start)<0||this.strictFinite(c?.duration)<.25;
     });
   }
+  static requiredDurationForInsert(project,track,at,duration){
+    const total=this.strictFinite(project?.duration),start=this.strictFinite(at),length=this.strictFinite(duration),key=this.trackKey(track);
+    if(total===null||total<.25||start===null||start<0||start>total+.001||length===null||length<.25||key===null)return null;
+    const invalid=this.invalidClipsOnTrack(project,track);if(invalid.length)return null;
+    const clips=this.onTrack(project,track),movable=clips.filter(c=>{const s=this.strictFinite(c.start),d=this.strictFinite(c.duration);return s>=start-.001||(s<start-.001&&s+d>start+.001)});
+    const maxEnd=movable.reduce((m,c)=>Math.max(m,this.strictFinite(c.start)+this.strictFinite(c.duration)),start);
+    return Math.max(total,start+length,maxEnd+length);
+  }
   static snapshot(project){return structuredClone(project.clips)}
   static rollback(project,snapshot){project.clips=snapshot;return false}
   static projectSnapshot(project){
