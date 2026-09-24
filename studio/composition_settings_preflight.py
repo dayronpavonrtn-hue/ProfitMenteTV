@@ -56,6 +56,19 @@ def inspect(project):
         for index, clip in enumerate(clips):
             if not isinstance(clip, dict):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
+                continue
+
+            # Timing is optional for legacy/generated clip shapes, but when persisted
+            # it must be unambiguous. Do not let NaN/Infinity/booleans/negative starts
+            # or non-positive durations reach preview and FFmpeg with different coercion.
+            if 'start' in clip:
+                start = _number(clip.get('start'))
+                if start is None or start < 0:
+                    issues.append(f'Clip #{index + 1} tiene inicio inválido {clip.get("start")!r}; usa 0 o más segundos.')
+            if 'duration' in clip:
+                clip_duration = _number(clip.get('duration'))
+                if clip_duration is None or clip_duration <= 0:
+                    issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
     return issues
 
 
