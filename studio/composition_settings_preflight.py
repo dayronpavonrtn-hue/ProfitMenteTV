@@ -26,6 +26,16 @@ def _number(value):
     return number if math.isfinite(number) else None
 
 
+def _clip_id(value):
+    """Return the canonical persisted clip id, or None when it is unusable."""
+    if isinstance(value, bool) or value is None or not isinstance(value, (str, int, float)):
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    clip_id = str(value).strip()
+    return clip_id or None
+
+
 def inspect(project):
     if not isinstance(project, dict):
         return ['El proyecto debe ser un objeto JSON.']
@@ -56,16 +66,17 @@ def inspect(project):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
                 continue
 
-            # IDs are optional for legacy/generated clips, but a persisted ID must be
-            # unique. Duplicate identities make editor selection, replacement and
-            # render bookkeeping ambiguous even when the timing itself is valid.
-            if 'id' in clip and clip.get('id') is not None:
-                clip_id = str(clip.get('id')).strip()
-                if clip_id:
-                    if clip_id in seen_clip_ids:
-                        issues.append(f'Clip #{index + 1} tiene ID duplicado {clip_id!r}; cada clip debe tener una identidad única.')
-                    else:
-                        seen_clip_ids.add(clip_id)
+            # IDs remain optional for legacy/generated clips. Once persisted, however,
+            # an ID must be a usable scalar and unique after canonical normalization;
+            # otherwise editor selection/replacement and render bookkeeping diverge.
+            if 'id' in clip:
+                clip_id = _clip_id(clip.get('id'))
+                if clip_id is None:
+                    issues.append(f'Clip #{index + 1} tiene ID inválido {clip.get("id")!r}; elimina el campo o usa una identidad no vacía.')
+                elif clip_id in seen_clip_ids:
+                    issues.append(f'Clip #{index + 1} tiene ID duplicado {clip_id!r}; cada clip debe tener una identidad única.')
+                else:
+                    seen_clip_ids.add(clip_id)
 
             has_start = 'start' in clip
             has_duration = 'duration' in clip
