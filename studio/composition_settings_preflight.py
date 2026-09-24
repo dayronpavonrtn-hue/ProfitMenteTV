@@ -14,6 +14,7 @@ MIN_SPEED = 0.25
 MAX_SPEED = 4.0
 MIN_VOLUME = 0.0
 MAX_VOLUME = 2.0
+TRACK_FLAGS = ('hidden', 'muted', 'solo', 'locked')
 
 
 def _number(value):
@@ -38,6 +39,47 @@ def _clip_id(value):
     return clip_id or None
 
 
+def _track_number(value):
+    track = _number(value)
+    if track is None or not track.is_integer() or not MIN_TRACK <= int(track) <= MAX_TRACK:
+        return None
+    return int(track)
+
+
+def _inspect_track_states(project, issues):
+    """Validate persisted mixer/visibility state shared by preview and render."""
+    for field in ('trackState', 'trackStates'):
+        if field not in project:
+            continue
+        states = project.get(field)
+        if not isinstance(states, dict):
+            issues.append(f'{field} debe ser un objeto de estados por pista.')
+            continue
+        seen_tracks = set()
+        for raw_track, state in states.items():
+            track = _track_number(raw_track)
+            if track is None:
+                issues.append(f'{field} contiene pista inválida {raw_track!r}; usa claves entre {MIN_TRACK} y {MAX_TRACK}.')
+                continue
+            if track in seen_tracks:
+                issues.append(f'{field} contiene aliases duplicados para la pista {track}; conserva una sola clave canónica.')
+            else:
+                seen_tracks.add(track)
+            if not isinstance(state, dict):
+                issues.append(f'{field}[{raw_track!r}] debe ser un objeto de estado válido.')
+                continue
+            if 'gain' in state:
+                gain = _number(state.get('gain'))
+                if gain is None or not MIN_VOLUME <= gain <= MAX_VOLUME:
+                    issues.append(
+                        f'{field}[{raw_track!r}] tiene gain inválido {state.get("gain")!r}; '
+                        f'usa un valor entre {MIN_VOLUME:g} y {MAX_VOLUME:g}.'
+                    )
+            for flag in TRACK_FLAGS:
+                if flag in state and not isinstance(state.get(flag), bool):
+                    issues.append(f'{field}[{raw_track!r}] tiene {flag} inválido {state.get(flag)!r}; usa true o false.')
+
+
 def inspect(project):
     if not isinstance(project, dict):
         return ['El proyecto debe ser un objeto JSON.']
@@ -57,6 +99,8 @@ def inspect(project):
     quality = project.get('renderQuality', 'high')
     if not isinstance(quality, str) or quality not in VALID_QUALITY:
         issues.append(f'Calidad de render inválida {quality!r}; usa draft, standard o high.')
+
+    _inspect_track_states(project, issues)
 
     clips = project.get('clips', [])
     if not isinstance(clips, list):
@@ -95,8 +139,8 @@ def inspect(project):
                     issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
 
             if 'track' in clip:
-                track = _number(clip.get('track'))
-                if track is None or not track.is_integer() or not MIN_TRACK <= int(track) <= MAX_TRACK:
+                track = _track_number(clip.get('track'))
+                if track is None:
                     issues.append(f'Clip #{index + 1} tiene pista inválida {clip.get("track")!r}; usa un entero entre {MIN_TRACK} y {MAX_TRACK}.')
             if 'sourceOffset' in clip:
                 source_offset = _number(clip.get('sourceOffset'))
@@ -116,8 +160,6 @@ def inspect(project):
                             f'usa un valor entre {MIN_VOLUME:g} y {MAX_VOLUME:g}.'
                         )
 
-            # Audio envelopes are persisted editor state and must remain valid
-            # without relying on the preview engine to silently normalize them.
             fade_values = {}
             for field in ('fadeIn', 'fadeOut'):
                 if field in clip:
@@ -126,9 +168,7 @@ def inspect(project):
                     if fade is None or fade < 0:
                         issues.append(f'Clip #{index + 1} tiene {field} inválido {clip.get(field)!r}; usa 0 o más segundos.')
                     elif clip_duration is not None and clip_duration > 0 and fade > clip_duration:
-                        issues.append(
-                            f'Clip #{index + 1} tiene {field} de {fade:g}s mayor que su duración ({clip_duration:g}s).'
-                        )
+                        issues.append(f'Clip #{index + 1} tiene {field} de {fade:g}s mayor que su duración ({clip_duration:g}s).')
             if (
                 clip_duration is not None and clip_duration > 0
                 and fade_values.get('fadeIn') is not None and fade_values.get('fadeIn') >= 0
