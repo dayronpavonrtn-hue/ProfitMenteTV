@@ -37,6 +37,17 @@ def inspect(project):
     quality = project.get('renderQuality', 'high')
     if not isinstance(quality, str) or quality not in VALID_QUALITY:
         issues.append(f'Calidad de render inválida {quality!r}; usa draft, standard o high.')
+
+    # Every downstream editor/render stage treats clips as an ordered timeline.
+    # Reject malformed imported/recovered values here instead of allowing a dict,
+    # string or scalar to be iterated/coerced differently by later components.
+    clips = project.get('clips', [])
+    if not isinstance(clips, list):
+        issues.append('La colección clips debe ser una lista válida.')
+    else:
+        for index, clip in enumerate(clips):
+            if not isinstance(clip, dict):
+                issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
     return issues
 
 
