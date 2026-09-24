@@ -30,7 +30,12 @@ assert.strictEqual(api.place({name:'missing-id.mp4',type:'video',blob:{size:10}}
 assert.strictEqual(JSON.stringify(project),before,'rejected asset must not mutate project');
 assert.strictEqual(api.place({id:'   ',name:'blank-id.mp4',type:'video',blob:{size:10}},0,0,2),false,'blank identity must be rejected');
 assert.strictEqual(JSON.stringify(project),before,'blank identity must not mutate project');
-assert.strictEqual(api.place({id:42,name:'numeric.mp4',type:'video',blob:{size:10}},0,0,2),true,'numeric identity should canonicalize and remain valid');
+const orphan={id:'orphan',name:'orphan.mp4',type:'video',blob:{size:10}};
+assert.strictEqual(api.assetIdentityUnique(orphan),false,'asset absent from active library must not be considered safe');
+assert.strictEqual(api.place(orphan,0,0,2),false,'unregistered asset must not create an unresolved timeline reference');
+assert.strictEqual(JSON.stringify(project),before,'unregistered asset rejection must not mutate project');
+const numeric={id:42,name:'numeric.mp4',type:'video',blob:{size:10}};context.assets.push(numeric);
+assert.strictEqual(api.place(numeric,0,0,2),true,'registered numeric identity should canonicalize and remain valid');
 assert.strictEqual(project.clips.length,1);assert.strictEqual(project.clips[0].asset,'42');
 const duplicateA={id:'duplicate',name:'first.mp4',type:'video',blob:{size:10}},duplicateB={id:'duplicate',name:'second.mp4',type:'video',blob:{size:10}};
 context.assets.push(duplicateA,duplicateB);const beforeDuplicate=JSON.stringify(project);
