@@ -34,6 +34,14 @@ def inspect(project):
     if fps is None or not fps.is_integer() or int(fps) not in VALID_FPS:
         issues.append(f'FPS inválido {project.get("fps")!r}; usa 24, 30 o 60.')
 
+    # Duration drives preview bounds, timeline percentages and the FFmpeg render
+    # window. Imported/recovered projects must not reach render with NaN, infinity,
+    # booleans, zero or negative values: those can create empty output, invalid
+    # filter arguments or a render that disagrees with the editor.
+    duration = _number(project.get('duration', 45))
+    if duration is None or duration <= 0:
+        issues.append(f'Duración de proyecto inválida {project.get("duration")!r}; usa un valor mayor que 0 segundos.')
+
     quality = project.get('renderQuality', 'high')
     if not isinstance(quality, str) or quality not in VALID_QUALITY:
         issues.append(f'Calidad de render inválida {quality!r}; usa draft, standard o high.')
