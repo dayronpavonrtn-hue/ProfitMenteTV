@@ -29,6 +29,7 @@ class ProfitMenteMediaPlacementEngine{
     const key=this.trackKey(track);if(key===null)return [];
     return (Array.isArray(project?.clips)?project.clips:[]).filter(c=>this.trackKey(c?.track)===key);
   }
+  static invalidClipsOnTrack(project,track){return this.onTrack(project,track).filter(c=>this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null||this.strictFinite(c?.start)<0||this.strictFinite(c?.duration)<.25)}
   static snapshot(project){return structuredClone(project.clips)}
   static rollback(project,snapshot){project.clips=snapshot;return false}
   static projectSnapshot(project){
@@ -52,19 +53,18 @@ class ProfitMenteMediaPlacementEngine{
     if(!project||!Array.isArray(project.clips)||!ops?.split)return {ok:false,reason:'missing-engine',shifted:0};
     if(this.trackKey(track)===null)return {ok:false,reason:'invalid-track',shifted:0};
     if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',shifted:0};
+    const invalid=this.invalidClipsOnTrack(project,track);if(invalid.length)return {ok:false,reason:'invalid-clip',shifted:0,invalidIds:invalid.map(c=>c.id)};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',shifted:0,required:.25,total:r.total,available:r.available};
-    const clips=this.onTrack(project,track),after=clips.filter(c=>(this.strictFinite(c?.start)??0)>=r.start-.001),crossing=clips.find(c=>{const s=this.strictFinite(c?.start),d=this.strictFinite(c?.duration);return s!==null&&d!==null&&s<r.start-.001&&s+d>r.start+.001});
+    const clips=this.onTrack(project,track),after=clips.filter(c=>this.strictFinite(c.start)>=r.start-.001),crossing=clips.find(c=>{const s=this.strictFinite(c.start),d=this.strictFinite(c.duration);return s<r.start-.001&&s+d>r.start+.001});
     const movable=[...after];if(crossing)movable.push(crossing);
     if(movable.some(c=>this.clipLocked(c)))return {ok:false,reason:'locked-clip',shifted:0,lockedIds:movable.filter(c=>this.clipLocked(c)).map(c=>c.id)};
-    if(movable.some(c=>this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null))return {ok:false,reason:'invalid-clip',shifted:0};
-    const maxEnd=movable.reduce((m,c)=>Math.max(m,this.strictFinite(c.start)+Math.max(0,this.strictFinite(c.duration))),0);
+    const maxEnd=movable.reduce((m,c)=>Math.max(m,this.strictFinite(c.start)+this.strictFinite(c.duration)),0);
     if(maxEnd+r.duration>r.total+.001)return {ok:false,reason:'out-of-range',shifted:0,required:maxEnd+r.duration,total:r.total};
     const before=this.snapshot(project);
     try{
       let split=null;
       if(crossing){split=ops.split(project,crossing.id,r.start,.001);if(!split){this.rollback(project,before);return {ok:false,reason:'split-failed',shifted:0}}}
-      const targets=this.onTrack(project,track).filter(c=>(this.strictFinite(c?.start)??-Infinity)>=r.start-.001&&(!split||c.id!==split.left.id));
-      if(targets.some(c=>this.strictFinite(c?.start)===null)){this.rollback(project,before);return {ok:false,reason:'invalid-clip',shifted:0}}
+      const targets=this.onTrack(project,track).filter(c=>this.strictFinite(c.start)>=r.start-.001&&(!split||c.id!==split.left.id));
       for(const c of targets)c.start=this.strictFinite(c.start)+r.duration;
       return {ok:true,reason:null,shifted:targets.length,split:!!split,start:r.start,duration:r.duration};
     }catch(error){this.rollback(project,before);return {ok:false,reason:'operation-failed',shifted:0,error}}
@@ -73,9 +73,9 @@ class ProfitMenteMediaPlacementEngine{
     if(!project||!Array.isArray(project.clips)||!ops?.split||!ops?.trimLeft||!ops?.trimRight)return {ok:false,reason:'missing-engine',removed:0,trimmed:0};
     if(this.trackKey(track)===null)return {ok:false,reason:'invalid-track',removed:0,trimmed:0};
     if(this.trackLocked(project,track))return {ok:false,reason:'locked-track',removed:0,trimmed:0};
+    const invalid=this.invalidClipsOnTrack(project,track);if(invalid.length)return {ok:false,reason:'invalid-clip',removed:0,trimmed:0,invalidIds:invalid.map(c=>c.id)};
     const r=this.range(project,at,duration);if(!r.valid)return {ok:false,reason:'out-of-range',removed:0,trimmed:0,total:r.total,available:r.available};
-    const affected=this.onTrack(project,track).filter(c=>{const s=this.strictFinite(c?.start),d=this.strictFinite(c?.duration);return s!==null&&d!==null&&s<r.end-.001&&s+d>r.start+.001});
-    if(affected.some(c=>this.strictFinite(c?.start)===null||this.strictFinite(c?.duration)===null))return {ok:false,reason:'invalid-clip',removed:0,trimmed:0};
+    const affected=this.onTrack(project,track).filter(c=>{const s=this.strictFinite(c.start),d=this.strictFinite(c.duration);return s<r.end-.001&&s+d>r.start+.001});
     const locked=affected.filter(c=>this.clipLocked(c));if(locked.length)return {ok:false,reason:'locked-clip',removed:0,trimmed:0,lockedIds:locked.map(c=>c.id)};
     const ids=affected.map(c=>c.id),before=this.snapshot(project);
     let removed=0,trimmed=0,splitCount=0;
@@ -83,7 +83,7 @@ class ProfitMenteMediaPlacementEngine{
     const fail=reason=>{this.rollback(project,before);return {ok:false,reason,removed:0,trimmed:0,split:0}};
     try{
       for(const id of ids){
-        const c=project.clips.find(x=>x.id===id);if(!c)continue;const s=this.strictFinite(c.start),d=this.strictFinite(c.duration);if(s===null||d===null)return fail('invalid-clip');const e=s+d;
+        const c=project.clips.find(x=>x.id===id);if(!c)continue;const s=this.strictFinite(c.start),d=this.strictFinite(c.duration),e=s+d;
         const left=s<r.start-.001,right=e>r.end+.001;
         if(left&&right){
           const endSplit=ops.split(project,id,r.end,.001);if(!endSplit)return fail('split-failed');splitCount++;
