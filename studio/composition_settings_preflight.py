@@ -15,6 +15,7 @@ MAX_SPEED = 4.0
 MIN_VOLUME = 0.0
 MAX_VOLUME = 2.0
 TRACK_FLAGS = ('hidden', 'muted', 'solo', 'locked')
+CLIP_BOOLEAN_FLAGS = ('muted', 'flipX', 'flipY', 'locked')
 
 
 def _number(value):
@@ -120,6 +121,13 @@ def inspect(project):
                     issues.append(f'Clip #{index + 1} tiene ID duplicado {clip_id!r}; cada clip debe tener una identidad única.')
                 else:
                     seen_clip_ids.add(clip_id)
+
+            for flag in CLIP_BOOLEAN_FLAGS:
+                if flag in clip and not isinstance(clip.get(flag), bool):
+                    issues.append(
+                        f'Clip #{index + 1} tiene {flag} inválido {clip.get(flag)!r}; '
+                        'usa true o false para evitar diferencias entre preview y render.'
+                    )
 
             has_start = 'start' in clip
             has_duration = 'duration' in clip
