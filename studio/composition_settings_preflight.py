@@ -61,6 +61,8 @@ def inspect(project):
             # Timing is optional for legacy/generated clip shapes, but when persisted
             # it must be unambiguous. Do not let NaN/Infinity/booleans/negative starts
             # or non-positive durations reach preview and FFmpeg with different coercion.
+            start = None
+            clip_duration = None
             if 'start' in clip:
                 start = _number(clip.get('start'))
                 if start is None or start < 0:
@@ -69,6 +71,19 @@ def inspect(project):
                 clip_duration = _number(clip.get('duration'))
                 if clip_duration is None or clip_duration <= 0:
                     issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
+
+            # A persisted clip that extends beyond the project render window is
+            # ambiguous: the editor may display it while FFmpeg truncates it. Reject
+            # that state instead of silently exporting a different composition.
+            if (
+                duration is not None and duration > 0
+                and start is not None and start >= 0
+                and clip_duration is not None and clip_duration > 0
+                and start + clip_duration > duration + 1e-9
+            ):
+                issues.append(
+                    f'Clip #{index + 1} termina en {start + clip_duration:g}s, fuera de la duración del proyecto ({duration:g}s).'
+                )
     return issues
 
 
