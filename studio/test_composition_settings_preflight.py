@@ -48,10 +48,22 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
                 self.assertTrue(any('Clip #' in issue for issue in inspect(self.project(clips=value))))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'ok'}])))
 
+    def test_persisted_clip_id_must_be_usable_when_present(self):
+        for value in ('', '   ', None, True, False, [], {}, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': value}]))
+                self.assertTrue(any('ID inválido' in issue for issue in issues))
+        for value in ('clip-1', '  clip-1  ', 0, 7, 1.5):
+            with self.subTest(value=value):
+                self.assertEqual([], inspect(self.project(clips=[{'id': value}])))
+        self.assertEqual([], inspect(self.project(clips=[{}])))
+
     def test_duplicate_persisted_clip_ids_are_rejected(self):
         issues = inspect(self.project(clips=[{'id': 'clip-1'}, {'id': 'clip-1'}]))
         self.assertTrue(any('ID duplicado' in issue for issue in issues))
         issues = inspect(self.project(clips=[{'id': 7}, {'id': '7'}]))
+        self.assertTrue(any('ID duplicado' in issue for issue in issues))
+        issues = inspect(self.project(clips=[{'id': ' clip-1 '}, {'id': 'clip-1'}]))
         self.assertTrue(any('ID duplicado' in issue for issue in issues))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1'}, {'id': 'clip-2'}])))
         self.assertEqual([], inspect(self.project(clips=[{}, {}])))
