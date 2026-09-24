@@ -48,6 +48,20 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
                 self.assertTrue(any('Clip #' in issue for issue in inspect(self.project(clips=value))))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'ok'}])))
 
+    def test_persisted_clip_start_must_be_finite_and_non_negative(self):
+        for value in (-1, True, '', 'oops', None, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'start': value}]))
+                self.assertTrue(any('inicio inválido' in issue for issue in issues))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': '0.25'}])))
+
+    def test_persisted_clip_duration_must_be_finite_and_positive(self):
+        for value in (0, -1, True, '', 'oops', None, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'duration': value}]))
+                self.assertTrue(any('duración inválida' in issue for issue in issues))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'duration': '1.5'}])))
+
     def test_invalid_quality_fails_instead_of_renderer_coercion(self):
         for value in ('ultra', '', None, 1):
             with self.subTest(value=value):
