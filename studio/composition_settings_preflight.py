@@ -10,6 +10,8 @@ VALID_FPS = {24, 30, 60}
 VALID_QUALITY = {'draft', 'standard', 'high'}
 MIN_TRACK = 0
 MAX_TRACK = 6
+MIN_SPEED = 0.25
+MAX_SPEED = 4.0
 
 
 def _number(value):
@@ -95,6 +97,12 @@ def inspect(project):
                 if source_offset is None or source_offset < 0:
                     issues.append(
                         f'Clip #{index + 1} tiene sourceOffset inválido {clip.get("sourceOffset")!r}; usa 0 o más segundos.'
+                    )
+            if 'speed' in clip:
+                speed = _number(clip.get('speed'))
+                if speed is None or not MIN_SPEED <= speed <= MAX_SPEED:
+                    issues.append(
+                        f'Clip #{index + 1} tiene velocidad inválida {clip.get("speed")!r}; usa un valor entre {MIN_SPEED:g}x y {MAX_SPEED:g}x.'
                     )
 
             if (
