@@ -33,10 +33,6 @@
     const total=rawTotal,start=Math.min(total,rawAt),requested=rawDuration;return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
   }
   function persistState(){
-    // Use the canonical runtime persist wrapper first. Project History replaces
-    // window.persist so successful placement becomes one undoable edit; calling
-    // originalPersist directly here used to save storage while silently bypassing
-    // the advanced undo/redo stack.
     if(typeof window.persist==='function')return window.persist();
     if(typeof persist==='function')return persist();
     if(typeof originalPersist==='function')return originalPersist();
@@ -53,17 +49,19 @@
     if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const source=sourceWindow(asset,duration,sourceOffset);if(!source.ok){status(source.reason==='invalid-source-window'?'La duración o el punto de entrada del medio no son válidos':`${asset.name||'El medio'} no tiene suficiente contenido desde el punto de entrada seleccionado`);return false}
     duration=source.duration;sourceOffset=source.sourceOffset;
-    const chosen=mode.value,freeRange=chosen==='add'||chosen==='insert',r=freeRange?addRange(rawAt,duration):engine.range(project,rawAt,duration);if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
+    const chosen=mode.value;if(!['add','insert','overwrite'].includes(chosen)){status('El modo de colocación no es válido');return false}
+    const freeRange=chosen==='add'||chosen==='insert',r=freeRange?addRange(rawAt,duration):engine.range(project,rawAt,duration);if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
     const previousDuration=Math.max(.25,Number(project.duration)||.25),insertDuration=chosen==='insert'?engine.requiredDurationForInsert(project,track,r.start,r.duration):null;
     if(chosen==='insert'&&insertDuration===null){status('No se puede calcular una inserción segura en esta pista');return false}
-    const targetDuration=chosen==='insert'?insertDuration:r.end,extended=freeRange&&targetDuration>previousDuration+.001,beforeCount=project.clips?.length||0;
+    const targetDuration=chosen==='insert'?insertDuration:r.end,extended=freeRange&&targetDuration>previousDuration+.001,beforeCount=project.clips?.length||0,beforePlacement=engine.projectSnapshot(project);
     const tx=engine.transaction(project,()=>{
       if(extended)project.duration=targetDuration;
       if(chosen==='insert'){const result=engine.insertSpace(project,track,r.start,r.duration,ops);if(!result.ok)return result}else if(chosen==='overwrite'){const result=engine.overwriteRange(project,track,r.start,r.duration,ops);if(!result.ok)return result}
       const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};return {ok:true,inserted};
     });
     if(!tx.ok){if(tx.error)console.error(tx.error);redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false}
-    persistState();redraw();const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
+    try{persistState()}catch(error){console.error(error);engine.restoreProject(project,beforePlacement);redraw();status('No se pudo guardar la colocación; la timeline fue restaurada para evitar cambios parciales');return false}
+    redraw();const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
   }
   library.addEventListener('click',e=>{const card=e.target.closest?.('.mediaCard');if(!card)return;const asset=findAsset(cardAssetId(card));if(!asset){status('No se pudo resolver un medio único para esta tarjeta de biblioteca');return}e.preventDefault();e.stopImmediatePropagation();const at=+$('#playhead')?.value||0;place(asset,defaultTrack(asset),at,nativeDuration(asset))},true);
   tracksHost.addEventListener('dragover',e=>{const lane=e.target.closest?.('.lane');if(!lane)return;const track=Number(lane.dataset.track);if(!engine.trackLocked(project,track))return;e.preventDefault();e.stopImmediatePropagation();lane.classList.remove('mediaAssetDrop');if(e.dataTransfer)e.dataTransfer.dropEffect='none'},true);
