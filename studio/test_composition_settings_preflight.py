@@ -70,6 +70,24 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
                 self.assertTrue(any('duración inválida' in issue for issue in issues))
         self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'start': 0, 'duration': '1.5'}])))
 
+    def test_persisted_clip_track_must_match_editor_tracks(self):
+        for value in (-1, 7, 1.5, True, '', 'oops', None, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'track': value}]))
+                self.assertTrue(any('pista inválida' in issue for issue in issues))
+        for value in (0, 6, '3'):
+            with self.subTest(value=value):
+                self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'track': value}])))
+
+    def test_persisted_source_offset_must_be_finite_and_non_negative(self):
+        for value in (-1, True, '', 'oops', None, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'sourceOffset': value}]))
+                self.assertTrue(any('sourceOffset inválido' in issue for issue in issues))
+        for value in (0, 1.25, '2.5'):
+            with self.subTest(value=value):
+                self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'sourceOffset': value}])))
+
     def test_persisted_clip_must_fit_inside_project_render_window(self):
         self.assertEqual([], inspect(self.project(duration=10, clips=[{'id': 'clip-1', 'start': 8, 'duration': 2}])))
         self.assertEqual([], inspect(self.project(duration='10', clips=[{'id': 'clip-1', 'start': '8.5', 'duration': '1.5'}])))
