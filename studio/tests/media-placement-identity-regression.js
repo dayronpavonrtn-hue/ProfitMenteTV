@@ -32,4 +32,10 @@ assert.strictEqual(api.place({id:'   ',name:'blank-id.mp4',type:'video',blob:{si
 assert.strictEqual(JSON.stringify(project),before,'blank identity must not mutate project');
 assert.strictEqual(api.place({id:42,name:'numeric.mp4',type:'video',blob:{size:10}},0,0,2),true,'numeric identity should canonicalize and remain valid');
 assert.strictEqual(project.clips.length,1);assert.strictEqual(project.clips[0].asset,'42');
+const duplicateA={id:'duplicate',name:'first.mp4',type:'video',blob:{size:10}},duplicateB={id:'duplicate',name:'second.mp4',type:'video',blob:{size:10}};
+context.assets.push(duplicateA,duplicateB);const beforeDuplicate=JSON.stringify(project);
+assert.strictEqual(api.findAsset('duplicate'),null,'ambiguous library identity must not resolve to an arbitrary asset');
+assert.strictEqual(api.assetIdentityUnique(duplicateA),false,'duplicate identity must be reported as unsafe');
+assert.strictEqual(api.place(duplicateA,0,2,2),false,'duplicate identity must not be placed directly');
+assert.strictEqual(JSON.stringify(project),beforeDuplicate,'duplicate identity rejection must not mutate project');
 console.log('media placement identity regression: ok');
