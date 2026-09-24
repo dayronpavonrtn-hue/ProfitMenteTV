@@ -48,10 +48,22 @@ def inspect(project):
     if not isinstance(clips, list):
         issues.append('La colección clips debe ser una lista válida.')
     else:
+        seen_clip_ids = set()
         for index, clip in enumerate(clips):
             if not isinstance(clip, dict):
                 issues.append(f'Clip #{index + 1} debe ser un objeto válido.')
                 continue
+
+            # IDs are optional for legacy/generated clips, but a persisted ID must be
+            # unique. Duplicate identities make editor selection, replacement and
+            # render bookkeeping ambiguous even when the timing itself is valid.
+            if 'id' in clip and clip.get('id') is not None:
+                clip_id = str(clip.get('id')).strip()
+                if clip_id:
+                    if clip_id in seen_clip_ids:
+                        issues.append(f'Clip #{index + 1} tiene ID duplicado {clip_id!r}; cada clip debe tener una identidad única.')
+                    else:
+                        seen_clip_ids.add(clip_id)
 
             has_start = 'start' in clip
             has_duration = 'duration' in clip
@@ -72,9 +84,6 @@ def inspect(project):
                 if clip_duration is None or clip_duration <= 0:
                     issues.append(f'Clip #{index + 1} tiene duración inválida {clip.get("duration")!r}; usa un valor mayor que 0 segundos.')
 
-            # Persisted editor clips may specify a track and source in-point. Validate
-            # both here so imported/recovered projects cannot render on a different
-            # layer or seek to a different frame than the manual preview.
             if 'track' in clip:
                 track = _number(clip.get('track'))
                 if track is None or not track.is_integer() or not MIN_TRACK <= int(track) <= MAX_TRACK:
