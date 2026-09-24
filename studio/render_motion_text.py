@@ -29,6 +29,18 @@ subprocess.run([sys.executable,str(root/'composition_settings_preflight.py'),str
 # here rather than relying only on render_bundle.py. Numeric/string legacy IDs
 # (including id 0) then reach video and audio renderers with one canonical key.
 project=normalize_project_media_ids(normalize_track_solo(json.loads(project_path.read_text(encoding='utf-8'))))
+
+# Validate Preview -> MP4 semantics BEFORE render-only caption cleanup. Running
+# this gate only after normalize_project_caption_timings() could hide malformed
+# imported word timings by dropping them first, allowing a direct render to
+# silently differ from what the editor persisted. Use a temporary canonical-ID
+# copy so legacy media IDs remain supported without mutating the saved project.
+with tempfile.TemporaryDirectory(prefix='profitmente-parity-preflight-') as preflight_td:
+    preflight_project=pathlib.Path(preflight_td)/'project.preflight.json'
+    preflight_project.write_text(json.dumps(project,ensure_ascii=False),encoding='utf-8')
+    write_progress(30,'Verificando paridad preview → MP4')
+    subprocess.run([sys.executable,str(root/'render_parity_preflight.py'),str(preflight_project)],check=True)
+
 # Caption timing normalization is render-only. It accepts Studio-native absolute
 # timings plus imported/legacy clip-relative timings and start+duration entries,
 # then emits the absolute start/end shape consumed by render_mp4.py. Corrupt or
@@ -69,11 +81,9 @@ try:
         prepared=td/'project.render.json'
         video_only=td/'video-only.mp4'
         normalized.write_text(json.dumps(project,ensure_ascii=False),encoding='utf-8')
-        # render_bundle.py already performs this inexpensive gate, but this entrypoint
-        # is also used directly by tests/tools. Keep it self-contained so imported or
-        # recovered projects cannot bypass Preview → MP4 compatibility checks and be
-        # silently coerced by the low-level FFmpeg compositor.
-        write_progress(31,'Verificando paridad preview → MP4')
+        # Re-run parity after timing normalization as a defense-in-depth check on
+        # the exact normalized representation consumed by the compositor.
+        write_progress(31,'Verificando proyecto normalizado')
         subprocess.run([sys.executable,str(root/'render_parity_preflight.py'),str(normalized)],check=True)
         prepared.write_text(json.dumps(video_project,ensure_ascii=False),encoding='utf-8')
         write_progress(35,'Componiendo video y gráficos')
