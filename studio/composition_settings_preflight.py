@@ -107,10 +107,6 @@ def inspect(project):
                 if speed is None or not MIN_SPEED <= speed <= MAX_SPEED:
                     issues.append(f'Clip #{index + 1} tiene velocidad inválida {clip.get("speed")!r}; usa un valor entre {MIN_SPEED:g}x y {MAX_SPEED:g}x.')
 
-            # Keep persisted audio gain inside the same contract used by the
-            # export bridge. Rejecting it here prevents preview/project state
-            # from reaching render with a gain that FFmpeg would interpret
-            # differently or that an older project may have corrupted.
             for field in ('volume', 'sourceVolume'):
                 if field in clip:
                     level = _number(clip.get(field))
@@ -119,6 +115,30 @@ def inspect(project):
                             f'Clip #{index + 1} tiene {field} inválido {clip.get(field)!r}; '
                             f'usa un valor entre {MIN_VOLUME:g} y {MAX_VOLUME:g}.'
                         )
+
+            # Audio envelopes are persisted editor state and must remain valid
+            # without relying on the preview engine to silently normalize them.
+            fade_values = {}
+            for field in ('fadeIn', 'fadeOut'):
+                if field in clip:
+                    fade = _number(clip.get(field))
+                    fade_values[field] = fade
+                    if fade is None or fade < 0:
+                        issues.append(f'Clip #{index + 1} tiene {field} inválido {clip.get(field)!r}; usa 0 o más segundos.')
+                    elif clip_duration is not None and clip_duration > 0 and fade > clip_duration:
+                        issues.append(
+                            f'Clip #{index + 1} tiene {field} de {fade:g}s mayor que su duración ({clip_duration:g}s).'
+                        )
+            if (
+                clip_duration is not None and clip_duration > 0
+                and fade_values.get('fadeIn') is not None and fade_values.get('fadeIn') >= 0
+                and fade_values.get('fadeOut') is not None and fade_values.get('fadeOut') >= 0
+                and fade_values['fadeIn'] + fade_values['fadeOut'] > clip_duration + 1e-9
+            ):
+                issues.append(
+                    f'Clip #{index + 1} tiene fades combinados de '
+                    f'{fade_values["fadeIn"] + fade_values["fadeOut"]:g}s, mayores que su duración ({clip_duration:g}s).'
+                )
 
             if (
                 duration is not None and duration > 0
