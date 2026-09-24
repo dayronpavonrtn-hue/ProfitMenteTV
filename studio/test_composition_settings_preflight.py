@@ -96,6 +96,16 @@ class CompositionSettingsPreflightTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'sourceOffset': value}])))
 
+    def test_persisted_playback_speed_matches_preview_contract(self):
+        for value in (0, 0.249, 4.001, -1, True, '', 'oops', None, float('inf'), float('nan')):
+            with self.subTest(value=value):
+                issues = inspect(self.project(clips=[{'id': 'clip-1', 'speed': value}]))
+                self.assertTrue(any('velocidad inválida' in issue for issue in issues))
+        for value in (0.25, 1, 4, '1.5'):
+            with self.subTest(value=value):
+                self.assertEqual([], inspect(self.project(clips=[{'id': 'clip-1', 'speed': value}])))
+        self.assertEqual([], inspect(self.project(clips=[{'id': 'legacy-without-speed'}])))
+
     def test_persisted_clip_must_fit_inside_project_render_window(self):
         self.assertEqual([], inspect(self.project(duration=10, clips=[{'id': 'clip-1', 'start': 8, 'duration': 2}])))
         self.assertEqual([], inspect(self.project(duration='10', clips=[{'id': 'clip-1', 'start': '8.5', 'duration': '1.5'}])))
