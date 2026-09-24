@@ -27,7 +27,7 @@
   const placementFailure=(result,fallback)=>result?.reason==='locked-track'?'La pista destino está bloqueada':result?.reason==='locked-clip'?'Hay un clip bloqueado en el intervalo y no se modificó la timeline':result?.reason==='out-of-range'?'No hay espacio al final del proyecto para completar la operación':result?.reason==='add-clip-failed'?'No se pudo crear el nuevo clip y la timeline fue restaurada':result?.reason==='operation-failed'?'La colocación falló y la timeline fue restaurada':fallback;
   function addRange(at,duration){
     const rawTotal=engine.strictFinite(project?.duration),rawAt=engine.strictFinite(at),rawDuration=engine.strictFinite(duration);
-    if(rawTotal===null||rawTotal<.25||rawAt===null||rawAt<0||rawDuration===null||rawDuration<.25)return {valid:false};
+    if(rawTotal===null||rawTotal<.25||rawAt===null||rawAt<0||rawAt>rawTotal+.001||rawDuration===null||rawDuration<.25)return {valid:false};
     const total=rawTotal,start=Math.min(total,rawAt),requested=rawDuration;return {start,end:start+requested,duration:requested,total,available:Math.max(0,total-start),valid:true};
   }
   function persistState(){if(typeof originalPersist==='function')originalPersist();else if(typeof persist==='function')persist()}
@@ -41,11 +41,14 @@
     if(engine.trackLocked(project,track)){status('La pista destino está bloqueada');return false}
     const source=sourceWindow(asset,duration,sourceOffset);if(!source.ok){status(source.reason==='invalid-source-window'?'La duración o el punto de entrada del medio no son válidos':`${asset.name||'El medio'} no tiene suficiente contenido desde el punto de entrada seleccionado`);return false}
     duration=source.duration;sourceOffset=source.sourceOffset;
-    const chosen=mode.value,r=chosen==='add'?addRange(rawAt,duration):engine.range(project,rawAt,duration);if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
-    const previousDuration=Math.max(.25,Number(project.duration)||.25),extended=chosen==='add'&&r.end>previousDuration+.001,beforeCount=project.clips?.length||0;
+    const chosen=mode.value,freeRange=chosen==='add'||chosen==='insert',r=freeRange?addRange(rawAt,duration):engine.range(project,rawAt,duration);if(!r.valid){status('No hay espacio suficiente en la posición elegida');return false}
+    const previousDuration=Math.max(.25,Number(project.duration)||.25),insertDuration=chosen==='insert'?engine.requiredDurationForInsert(project,track,r.start,r.duration):null;
+    if(chosen==='insert'&&insertDuration===null){status('No se puede calcular una inserción segura en esta pista');return false}
+    const targetDuration=chosen==='insert'?insertDuration:r.end,extended=freeRange&&targetDuration>previousDuration+.001,beforeCount=project.clips?.length||0;
     const tx=engine.transaction(project,()=>{
+      if(extended)project.duration=targetDuration;
       if(chosen==='insert'){const result=engine.insertSpace(project,track,r.start,r.duration,ops);if(!result.ok)return result}else if(chosen==='overwrite'){const result=engine.overwriteRange(project,track,r.start,r.duration,ops);if(!result.ok)return result}
-      if(extended)project.duration=r.end;const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};return {ok:true,inserted};
+      const inserted=createPlacedClip(asset,track,r.start,r.duration,sourceOffset);if(!inserted||project.clips.length<=beforeCount)return {ok:false,reason:'add-clip-failed'};return {ok:true,inserted};
     });
     if(!tx.ok){if(tx.error)console.error(tx.error);persistState();redraw();status(placementFailure(tx,'No se pudo colocar el medio; la timeline fue restaurada'));return false}
     persistState();redraw();const label=chosen==='insert'?'insertado':chosen==='overwrite'?'sobrescrito':'añadido',growth=extended?` · proyecto ampliado a ${project.duration.toFixed(2)}s`:'';status(`${asset.name} ${label} en pista ${track} · ${r.start.toFixed(2)}s${growth}`);return true;
