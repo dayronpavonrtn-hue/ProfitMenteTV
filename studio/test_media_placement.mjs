@@ -18,6 +18,24 @@ assert.equal(right.sourceOffset,6.5,'split continuation must preserve source pos
 assert.equal(insertProject.clips.find(c=>c.id==='b').start,10,'later clips on target track must shift');
 assert.equal(insertProject.clips.find(c=>c.id==='music').start,1,'other tracks must remain untouched');
 
+// Insert placement may grow the project before applying insertSpace. The growth
+// calculation must include the furthest clip that will move, not only the new
+// media end, otherwise a valid insert near the tail is rejected after mutation.
+const growProject={duration:10,clips:[
+  {id:'head',track:0,start:0,duration:2,asset:'head.mp4'},
+  {id:'tail',track:0,start:7,duration:3,asset:'tail.mp4'},
+  {id:'music-grow',track:5,start:0,duration:10,asset:'music.mp3'}
+]};
+const required=Placement.requiredDurationForInsert(growProject,0,5,2);
+assert.equal(required,12,'insert growth must reserve room for the shifted tail clip');
+growProject.duration=required;
+const grownInsert=Placement.insertSpace(growProject,0,5,2,ops);
+assert.equal(grownInsert.ok,true,'insert must succeed after applying calculated project growth');
+assert.equal(growProject.clips.find(c=>c.id==='tail').start,9);
+assert.equal(growProject.clips.find(c=>c.id==='music-grow').start,0,'project growth must not shift unrelated tracks');
+assert.equal(Placement.requiredDurationForInsert({duration:10,clips:[{id:'bad',track:0,start:8,duration:'oops'}]},0,5,2),null,'unsafe timeline data must refuse automatic growth');
+assert.equal(Placement.requiredDurationForInsert({duration:10,clips:[]},0,10.5,2),null,'insert growth must reject playheads beyond project end');
+
 const locked={duration:20,trackState:{0:{locked:true}},clips:[{id:'locked',track:0,start:2,duration:5,asset:'locked.mp4'}]};
 const lockedBefore=structuredClone(locked);
 assert.equal(Placement.trackLocked(locked,0),true,'numeric track lock must be detected');
